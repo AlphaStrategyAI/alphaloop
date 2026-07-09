@@ -12,12 +12,12 @@ from .backtest import BacktestConfig, BacktestEngine
 from .core import Asset, Portfolio, Position
 from .data import AKShareSource, YahooFinanceSource
 from .diagnostic import (
-    deflated_sharpe,
-    walk_forward_cv,
     data_source_consistency,
-    vs_random,
+    deflated_sharpe,
     vs_buy_hold,
+    vs_random,
     vs_spy_buyhold,
+    walk_forward_cv,
 )
 from .strategies import BuyHoldStrategy, RebalanceStrategy, StrategyFactory
 
@@ -38,4 +38,15 @@ __all__ = [
     "vs_random",
     "vs_buy_hold",
     "vs_spy_buyhold",
+    # engineer (alpha factors)
+    "rsi",
+    "macd",
+    "roc",
+    "momentum_12_1",
+    "bollinger_zscore",
+    "ohlr_4_pct",
+    "pairs_spread",
+    "atr_breakout",
+    "parkinson_hist_vol",
+    "obv_slope",
 ]
