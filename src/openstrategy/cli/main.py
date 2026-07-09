@@ -6,6 +6,7 @@ import argparse
 import sys
 
 from .commands import fetch_data, optimize_strategy, run_backtest
+from .report import register as register_report
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -55,6 +56,9 @@ def create_parser() -> argparse.ArgumentParser:
         "--output", "-o", help="输出文件路径 (.csv 或 .json，按后缀决定)"
     )
 
+    # report 命令 (v1.0 acceptance report)
+    register_report(subparsers)
+
     return parser
 
 
@@ -74,6 +78,8 @@ def main(args=None):
             return optimize_strategy(args)
         elif args.command == "fetch":
             return fetch_data(args)
+        elif args.command == "report":
+            return args.func(args)
     except KeyboardInterrupt:
         print("\n操作已取消")
         return 130

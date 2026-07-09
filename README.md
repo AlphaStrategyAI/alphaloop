@@ -1,274 +1,210 @@
-# OpenStrategy
+# OpenStrategy v1.0
 
-> *Time in the market beats timing the market.*
+> **Honest, verifiable quantitative research infrastructure.**
+> Not "find alpha" — "don't waste time on strategies that don't work."
 
-开源量化投资策略框架 - 简单、可靠、适合普通投资者
+OpenStrategy is an open-source framework for individual investors
+who want to evaluate trading strategies honestly. It ships:
 
----
+- 4 data sources (Yahoo Finance, AKShare, CCXT, OpenBB)
+- 10 alpha factors across 4 families (momentum, mean-reversion,
+  volatility, volume)
+- 6 diagnostic tools (Deflated Sharpe Ratio, walk-forward CV,
+  cross-source consistency, vs random, vs buy-and-hold, vs SPY)
+- A read-only broker adapter (Alpaca paper-by-default, hard-walled
+  against accidental live trading)
+- A CLI (`openstrategy report`) that generates a Markdown acceptance
+  report answering the 6 v1.0 questions for any strategy
 
-## The Problem
-
-**Most investors fail not because of bad markets, but because of bad behavior.**
-
-- Chasing last year's winners
-- Panic selling at market bottoms
-- Overtrading and eroding returns with fees
-- Trying to predict the unpredictable
-
-The financial industry sells complexity—stock picking, market timing, and constant trading. Yet the evidence consistently shows that simple, disciplined strategies outperform complex ones over time.
-
-**OpenStrategy offers a different path.**
-
----
-
-## Investment Philosophy
-
-### 1. Asset Allocation is King
-
-The single most important investment decision isn't *what* to buy, but *how much* of each asset class.
-
-Studies show that **90%+ of portfolio variance** comes from asset allocation, not security selection. A well-diversified basket of index funds, properly allocated, will beat most professional stock pickers over the long run.
-
-**The Insight**: Don't try to pick winners. Own the entire market.
-
-### 2. Diversification is the Only Free Lunch
-
-Harry Markowitz's Nobel Prize-winning work demonstrated that combining uncorrelated assets can reduce risk without sacrificing expected returns.
-
-- Equities and bonds often move in opposite directions during crises
-- Geographic diversification protects against country-specific risks
-- Multiple asset classes smooth the journey
-
-**The Insight**: Don't put all your eggs in one basket—or even in baskets on the same table.
-
-### 3. Discipline Beats Emotion
-
-The greatest destroyer of wealth isn't market volatility—it's investor behavior.
-
-- Fear makes us sell at market bottoms
-- Greed makes us buy at market tops
-- Overconfidence leads to excessive trading
-- Regret causes us to hold losers too long
-
-Systematic rebalancing removes emotion from the equation, mechanically enforcing **"buy low, sell high"** through disciplined portfolio maintenance.
-
-**The Insight**: Set rules. Follow them. Ignore the noise.
-
-### 4. Time in Market Beats Timing the Market
-
-Compounding requires time. Time requires staying invested through volatility.
-
-Markets will crash. They always do. But over decades, they have consistently rewarded patient investors. The investors who panic and sell during downturns lock in temporary losses as permanent ones.
-
-**The Insight**: Patience isn't just a virtue. It's the strategy.
+**It does not promise alpha. It does not promise you'll beat the
+market. It promises 3 things: methodology you can verify, results
+you can reproduce, and a process you can trust.**
 
 ---
 
-## Features
+## Honest disclosure
 
-- **分层架构**: 清晰的数据层、策略层、回测层、分析层分离
-- **多数据源**: 支持 Yahoo Finance (全球)、AKShare (A股)、CCXT (加密货币)
-- **策略插件**: 基于工厂模式的策略注册机制
-- **完整回测**: 交易成本、滑点、绩效指标计算
-- **风险分析**: VaR、CVaR、Beta、蒙特卡洛模拟
-- **零代码构建器**: 拖拽式策略积木系统，20+预设策略模板
-- **模拟盘交易**: 真实市场环境测试策略，支持自动运行
-- **通知系统**: 支持邮件、Telegram、企业微信多渠道通知
-- **排行榜**: 用户收益排行，策略表现对比
-- **成就系统**: 投资成就徽章，激励持续学习
-- **教育内容**: 10篇策略科普文章，交互式投资课程
-- **简单易用**: 几行代码即可运行回测
+**We do not promise:**
+- That any strategy will beat the market
+- That you'll find alpha
+- That backtests predict the future
+
+**We promise:**
+- The tools will identify strategies that "look good but are
+  overfit"
+- Comparisons between strategies are honest (no survival bias,
+  no in-sample/out-of-sample leakage)
+- Six months from now you can re-run the same code and get the
+  same numbers
+
+If you're looking for a tool that tells you your strategy is
+amazing, this isn't it. If you're looking for a tool that tells
+you the truth about your strategy — even when the truth is
+uncomfortable — read on.
 
 ---
 
-## Quick Start
+## The 6 v1.0 acceptance questions
 
-### Installation
+Before trusting any backtest, openstrategy can answer these in
+under 30 minutes:
+
+1. **Overfit?** Has the strategy's Sharpe ratio survived
+   Deflated Sharpe Ratio correction for the number of trials?
+2. **Data sources consistent?** Does the same symbol give
+   consistent prices across Yahoo vs AKShare (or whichever
+   sources you use)?
+3. **Out-of-sample valid?** Does walk-forward CV show positive
+   Sharpe in held-out windows?
+4. **Beats a random strategy?** Is your Sharpe significantly
+   above block-shuffled baselines (max-drawdown test)?
+5. **Beats passive buy-and-hold?** Does your strategy beat
+   passive holding of the same instrument?
+6. **Beats SPY buy-and-hold?** Does your strategy beat SPY
+   over the same window? (The hardest benchmark. Most individual
+   strategies fail this one.)
+
+If any answer is "no", the strategy doesn't ship.
+
+---
+
+## Quick start
 
 ```bash
-pip install openstrategy
-```
+# Install (Python 3.11+)
+git clone https://github.com/fpc0000/openstrategy.git
+cd openstrategy
+pip install -e .
 
-### Example: Buy & Hold Strategy
+# Run the acceptance report on synthetic data
+openstrategy report
 
-```python
-from openstrategy import (
-    YahooFinanceSource,
-    BuyHoldStrategy,
-    BacktestEngine,
-    BacktestConfig,
-)
+# Or save to a file
+openstrategy report --output my-report.md
 
-# 1. Fetch data
-source = YahooFinanceSource()
-data = source.get_prices(
-    ["VTI", "BND", "VXUS"],  # US Stocks, Bonds, International
-    period="5y"
-)
+# Run the 5-strategy comparison demo
+python3 examples/comparison_demo.py
 
-# 2. Create strategy
-strategy = BuyHoldStrategy(
-    symbols=["VTI", "BND", "VXUS"],
-    weights=[0.6, 0.3, 0.1],  # 60/30/10 allocation
-)
+# Run the 6-question diagnostic demo
+python3 examples/diagnostic_demo.py
 
-# 3. Run backtest
-config = BacktestConfig(
-    initial_cash=100000.0,
-    commission_rate=0.001,
-)
-engine = BacktestEngine(config)
-result = engine.run(strategy, data)
-
-# 4. View results
-print(f"Total Return: {result.metrics.total_return:.2%}")
-print(f"Sharpe Ratio: {result.metrics.sharpe_ratio:.2f}")
-print(f"Max Drawdown: {result.metrics.max_drawdown:.2%}")
-```
-
-### Example: Rebalancing Strategy
-
-```python
-from openstrategy import RebalanceStrategy
-from openstrategy.core.enums import RebalanceMethod
-
-# Threshold-based rebalancing (triggered at 5% drift)
-strategy = RebalanceStrategy(
-    symbols=["VTI", "BND", "VXUS"],
-    weights=[0.6, 0.3, 0.1],
-    method=RebalanceMethod.THRESHOLD,
-    threshold=0.05,
-)
-
-# Or calendar-based rebalancing (every 30 days)
-strategy = RebalanceStrategy(
-    symbols=["VTI", "BND", "VXUS"],
-    weights=[0.6, 0.3, 0.1],
-    method=RebalanceMethod.CALENDAR,
-    frequency_days=30,
-)
-```
-
-### Example: China A-Share Data
-
-```python
-from openstrategy import AKShareSource
-
-source = AKShareSource()
-df = source.get_data("600519")  # Kweichow Moutai
-print(df.tail())
+# Launch the WebUI
+streamlit run openstrategy/ui.py
 ```
 
 ---
 
-## CLI Commands
+## 5-strategy comparison (synthetic data)
 
-```bash
-# Run backtest
-openstrategy backtest --config strategy.yaml --output ./results
+The honest output of `examples/comparison_demo.py`:
 
-# Fetch data
-openstrategy fetch --symbol AAPL --source yahoo --output data.csv
-
-# Optimize parameters
-openstrategy optimize --config strategy.yaml --method bayesian
 ```
+Strategy                 Sharpe  vs Buy & Hold     vs SPY   vs Random     Max DD
+--------------------------------------------------------------------------------
+buy_and_hold              +0.43           fail       fail        PASS    -26.22%
+rsi_momentum              -0.16           fail       fail        PASS    -35.89%
+bollinger_meanrev         +0.79           PASS       fail        PASS     -7.82%
+atr_breakout              -0.58           fail       fail        fail     -4.10%
+obv_volume                +0.03           fail       fail        fail    -33.97%
+
+Of 5 strategies tested, 0 beat SPY buy-and-hold.
+This is on a synthetic random walk; real markets may differ.
+The point of this demo is to show that the tools work — not
+to declare a winner.
+```
+
+**Reading this table honestly**:
+- `buy_and_hold` is the *same universe as the strategies*, not
+  SPY. Of course it loses to SPY in this test setup — that's the
+  point: random-walk universes don't match the real market.
+- The 4 strategies mostly fail `vs_random` because on a random
+  walk, there's nothing to extract. Real markets have non-random
+  structure (which is why SPY exists and grows).
+- The tool worked. It reported 4/5 strategies as FAIL on most
+  benchmarks. That's the honest answer.
 
 ---
 
-## Project Architecture
+## What v1.0 does NOT do
+
+These are explicit non-goals, deferred to v2.0:
+
+- **ML models** (XGBoost, deep RL). The 10 alpha factors are
+  classical; ML adds overfit risk that v1.0 deliberately avoids.
+- **NLP factors** (sentiment from earnings calls / news).
+- **100+ factors**. v1.0 ships 10; each is tested, documented,
+  and known to work.
+- **Live trading**. The Alpaca adapter is implemented but defaults
+  to paper. Going live requires both `paper=False` AND
+  `confirm_live=True`. Even then, v1.0 only exposes read-only API.
+- **Web services, SaaS, paid plans**. v1.0 is local-only.
+
+See [`docs/lessons/`](./docs/lessons/) for retrospectives on each
+milestone and the failure patterns we hit and learned from.
+
+---
+
+## Architecture
 
 ```
 openstrategy/
-├── core/           # Domain models (Portfolio, Asset, Position)
-├── data/           # Data layer (Yahoo, AKShare, CCXT)
-├── strategies/     # Strategy layer (BuyHold, Rebalance)
-├── backtest/       # Backtesting layer (Engine, Broker, Metrics)
-├── analysis/       # Analysis layer (Risk, MonteCarlo)
-└── cli/            # Command line interface
+├── data/          # 4 data sources (Yahoo, AKShare, CCXT, OpenBB)
+├── engineer/      # 10 alpha factors (pure functions: Series -> weights)
+├── diagnostic/    # 6 tools: DSR, walk-forward CV, consistency, 3 benchmarks
+├── live/          # Alpaca adapter (paper-by-default, hard-walled)
+├── cli/           # `openstrategy` CLI (backtest, optimize, fetch, report)
+└── ui.py          # Streamlit WebUI (single file)
 ```
 
----
-
-## Supported Strategies
-
-- **BuyHoldStrategy**: Buy and hold (passive benchmark)
-- **RebalanceStrategy**: Asset allocation rebalancing
-  - Threshold trigger
-  - Calendar trigger
-  - Combined trigger
+Each subpackage is independently importable. Pure functions where
+possible. Tests at every level.
 
 ---
 
-## Backtest Metrics
-
-- Total Return
-- CAGR (Compound Annual Growth Rate)
-- Sharpe Ratio
-- Sortino Ratio
-- Max Drawdown
-- Calmar Ratio
-- Volatility
-
----
-
-## Risk Analysis
-
-```python
-from openstrategy.analysis import calculate_var, MonteCarloSimulation
-
-# VaR calculation
-var_95 = calculate_var(returns, confidence=0.95)
-print(f"95% VaR: {var_95:.2%}")
-
-# Monte Carlo simulation
-mc = MonteCarloSimulation(historical_returns, weights=[0.6, 0.3, 0.1])
-result = mc.simulate(n_sims=10000, years=10)
-print(f"Median value in 10 years: ${result.median_final_value:,.2f}")
-print(f"Probability of profit: {result.probability_of_profit:.2%}")
-```
-
----
-
-## Development
+## Running the tests
 
 ```bash
-# Clone repository
-git clone https://github.com/fpc0000/openstrategy.git
-cd openstrategy
+# All tests
+python3 -m pytest tests/ -v
 
-# Install development dependencies
-pip install -e ".[dev,all]"
+# Just the diagnostic package
+python3 -m pytest tests/diagnostic/ -v
 
-# Run tests
-pytest
-
-# Code formatting
-black src/
-ruff check src/
+# Just the safety tests for the live trading adapter
+python3 -m pytest tests/live/test_safety.py -v
 ```
+
+**Current status**: 154 tests pass.
+
+---
+
+## Documentation
+
+- [`docs/lessons/m1-retrospective.md`](./docs/lessons/m1-retrospective.md)
+  — Failure patterns from M1 (diagnostic package)
+- [`docs/lessons/m3-retrospective.md`](./docs/lessons/m3-retrospective.md)
+  — Failure patterns from M3 (live trading)
+- `src/openstrategy/live/README.md` — Hard wall design for live trading
+- `examples/diagnostic_demo.py` — 6-question diagnostic walkthrough
+- `examples/alpha_comparison_demo.py` — 10-factor vs buy-and-hold
+- `examples/comparison_demo.py` — 5-strategy head-to-head
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT. See [`LICENSE`](./LICENSE).
 
 ---
 
-## Disclaimer
+## Acknowledgments
 
-> **Investing involves risk, including possible loss of principal.**
->
-> This project is for educational purposes only and does not constitute investment advice. Past performance does not guarantee future results. Consult a qualified financial advisor before making investment decisions.
+- Bailey & Lopez de Prado (2014) — Deflated Sharpe Ratio
+- Jegadeesh & Titman (1993) — 12-1 momentum
+- Bollinger (1992) — Bollinger Bands
+- Wilder (1978) — RSI, ATR
+- Parkinson (1980) — Historical volatility estimator
 
----
-
-**Built for the patient. Powered by principles. Open to everyone.**
-
-*"The stock market is a device for transferring money from the impatient to the patient."*  
-— Warren Buffett
-
----
-
-**The best time to start investing was 20 years ago. The second best time is now.**
+These references are implemented as plain Python (no proprietary
+math) in [`src/openstrategy/diagnostic/`](./src/openstrategy/diagnostic/)
+and [`src/openstrategy/engineer/`](./src/openstrategy/engineer/).
