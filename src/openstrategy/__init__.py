@@ -5,7 +5,7 @@ A simple, reliable framework for individual investors that prioritizes
 honest evaluation over alpha promises.
 """
 
-__version__ = "2.0.0"
+__version__ = "1.0.0"
 __author__ = "OpenStrategy Team"
 
 from .backtest import BacktestConfig, BacktestEngine
