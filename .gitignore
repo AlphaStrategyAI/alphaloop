@@ -50,3 +50,6 @@ coverage.xml
 # Output dirs
 reports/
 *.log
+
+# Ad-hoc verification scripts (not part of source)
+.tmp-verification/
