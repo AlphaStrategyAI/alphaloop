@@ -19,6 +19,13 @@ from .diagnostic import (
     vs_spy_buyhold,
     walk_forward_cv,
 )
+from .live import (
+    AlpacaAdapter,
+    Broker,
+    BrokerConfig,
+    CONFIRM_LIVE_FLAG,
+    LiveTradingRefused,
+)
 from .strategies import BuyHoldStrategy, RebalanceStrategy, StrategyFactory
 
 __all__ = [
@@ -49,4 +56,10 @@ __all__ = [
     "atr_breakout",
     "parkinson_hist_vol",
     "obv_slope",
+    # live (broker connectivity, hard-walled)
+    "AlpacaAdapter",
+    "Broker",
+    "BrokerConfig",
+    "CONFIRM_LIVE_FLAG",
+    "LiveTradingRefused",
 ]
