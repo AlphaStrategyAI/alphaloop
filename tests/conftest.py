@@ -21,6 +21,7 @@ def _integration_enabled() -> bool:
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line("markers", "integration: tests that hit real APIs/network")
+    config.addinivalue_line("markers", "no_lookahead: factor look-ahead audit tests (v1.1.1)")
 
 
 def pytest_runtest_setup(item):
