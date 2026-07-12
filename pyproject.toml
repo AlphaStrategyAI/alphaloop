@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openstrategy"
-version = "2.0.0"
-description = "开源量化投资策略框架 - 简单、可靠、适合普通投资者"
+version = "1.1.3"
+description = "Honest, verifiable quantitative research infrastructure — not 'find alpha', 'don't waste time on strategies that don't work'."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
