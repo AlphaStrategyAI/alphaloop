@@ -1,9 +1,9 @@
 """
-openstrategy WebUI — Streamlit single-file interface.
+alphaloop WebUI — Streamlit single-file interface.
 
 Run:
-    cd /Users/assistant/hermes-lab/openstrategy
-    streamlit run openstrategy/ui.py
+    cd /Users/assistant/hermes-lab/alphaloop
+    streamlit run alphaloop/ui.py
 
 The UI is intentionally simple: 4 pages, all offline (synthetic data).
 No login, no remote calls, no database. Just the v1.0 diagnostic
@@ -109,8 +109,8 @@ except ImportError:  # pragma: no cover - exercised only when streamlit is missi
 
     st = _StreamlitModule()  # type: ignore
 
-import openstrategy.diagnostic as diagnostic
-import openstrategy.engineer as engineer
+import alphaloop.diagnostic as diagnostic
+import alphaloop.engineer as engineer
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ def make_universe(
 
 
 def page_home(prices: pd.Series, ohlcv: pd.DataFrame, spy: pd.Series) -> None:
-    st.title("openstrategy v1.0")
+    st.title("alphaloop v1.0")
     st.markdown(
         """
         **Honest, verifiable quantitative research infrastructure.**
@@ -359,7 +359,7 @@ def page_vs_spy(prices: pd.Series, spy: pd.Series) -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="openstrategy v1.0",
+        page_title="alphaloop v1.0",
         page_icon="📊",
         layout="wide",
     )

@@ -8,8 +8,8 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from openstrategy.data.akshare import AKShareSource
-from openstrategy.data.base import DataSourceError
+from alphaloop.data.akshare import AKShareSource
+from alphaloop.data.base import DataSourceError
 
 
 def test_normalize_a_stock():

@@ -9,7 +9,7 @@ The WebUI is a single-file Streamlit app. We test:
 
 We deliberately do NOT start a real Streamlit server in tests — that
 would block pytest on a long-running process. The user verifies the
-UI by running `streamlit run openstrategy/ui.py` interactively.
+UI by running `streamlit run alphaloop/ui.py` interactively.
 """
 from __future__ import annotations
 
@@ -22,22 +22,22 @@ import pandas as pd
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-UI_PATH = REPO_ROOT / "src" / "openstrategy" / "ui.py"
+UI_PATH = REPO_ROOT / "src" / "alphaloop" / "ui.py"
 
 # Sanity: confirm we are pointing at the right path
 assert (REPO_ROOT / "pyproject.toml").exists(), (
-    f"REPO_ROOT does not look like the openstrategy repo: {REPO_ROOT}"
+    f"REPO_ROOT does not look like the alphaloop repo: {REPO_ROOT}"
 )
 
 
 @pytest.fixture
 def ui_module():
-    """Load openstrategy.ui as a module without registering it in sys.modules
-    under the 'openstrategy' namespace (Streamlit does not allow that)."""
-    if "openstrategy.ui" in sys.modules:
-        del sys.modules["openstrategy.ui"]
+    """Load alphaloop.ui as a module without registering it in sys.modules
+    under the 'alphaloop' namespace (Streamlit does not allow that)."""
+    if "alphaloop.ui" in sys.modules:
+        del sys.modules["alphaloop.ui"]
     spec = importlib.util.spec_from_file_location(
-        "openstrategy_ui_test_load", str(UI_PATH)
+        "alphaloop_ui_test_load", str(UI_PATH)
     )
     if spec is None or spec.loader is None:
         pytest.fail(f"Could not load spec for {UI_PATH}")
@@ -96,7 +96,7 @@ def test_make_universe_is_deterministic(ui_module):
 def test_factor_dispatcher_covers_documented_factors(ui_module):
     """The factor dropdown options in `page_vs_buyhold` should match
     the factors actually implemented."""
-    from openstrategy import engineer
+    from alphaloop import engineer
     # Each factor in the dropdown must produce a valid weight series
     prices = pd.Series(
         100.0 + np.cumsum(np.random.default_rng(0).normal(0, 0.01, 500)),

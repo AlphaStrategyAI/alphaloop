@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from openstrategy.diagnostic import (  # noqa: E402
+from alphaloop.diagnostic import (  # noqa: E402
     vs_buy_hold,
     vs_random,
     vs_spy_buyhold,

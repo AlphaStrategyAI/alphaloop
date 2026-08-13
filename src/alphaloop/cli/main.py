@@ -12,7 +12,7 @@ from .report import register as register_report
 def create_parser() -> argparse.ArgumentParser:
     """创建命令行解析器"""
     parser = argparse.ArgumentParser(
-        prog="openstrategy",
+        prog="alphaloop",
         description="OpenStrategy - 开源量化投资策略框架",
     )
 

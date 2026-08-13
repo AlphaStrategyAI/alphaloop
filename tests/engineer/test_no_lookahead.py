@@ -9,7 +9,7 @@ operators can run the look-ahead audit in isolation via:
     pytest -m "not no_lookahead"     # skip the audit, run everything else
     pytest -m "not integration and no_lookahead"
 
-Each factor in ``openstrategy.engineer`` becomes one parametrized case
+Each factor in ``alphaloop.engineer`` becomes one parametrized case
 of ``test_<factor>_no_lookahead_audit``. A regression in any factor
 (its weights in the first half change after shocking the second half of
 its input) fails the suite as ``LookAheadDetectedError`` is raised.
@@ -27,7 +27,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from openstrategy.engineer import (  # noqa: E402
+from alphaloop.engineer import (  # noqa: E402
     atr_breakout,
     bollinger_zscore,
     macd,
@@ -39,12 +39,12 @@ from openstrategy.engineer import (  # noqa: E402
     roc,
     rsi,
 )
-from openstrategy.engineer.audit import (  # noqa: E402
+from alphaloop.engineer.audit import (  # noqa: E402
     DEFAULT_FACTORS,
     _make_ohlcv,
     _make_synthetic_input,
 )
-from openstrategy.engineer.base import (  # noqa: E402
+from alphaloop.engineer.base import (  # noqa: E402
     LookAheadDetected,
     LookAheadDetectedError,
     no_lookahead,
@@ -241,7 +241,7 @@ def test_decorated_factor_raises_on_real_leak():
 def test_all_ten_factors_are_audited():
     """Belt-and-braces: the audit tests must cover every factor.
 
-    If a new factor is added to openstrategy.engineer without a
+    If a new factor is added to alphaloop.engineer without a
     matching parametrize case, this test fails so the v1.1.1 audit
     stays comprehensive.
     """
@@ -260,7 +260,7 @@ def test_all_ten_factors_are_audited():
     }
     engineered_names = {fn.__name__ for fn in engineered}
     assert set(ALL_FACTOR_NAMES) == engineered_names, (
-        f"DEFAULT_FACTORS drifted from openstrategy.engineer.__all__. "
+        f"DEFAULT_FACTORS drifted from alphaloop.engineer.__all__. "
         f"Missing: {engineered_names - set(ALL_FACTOR_NAMES)}; "
         f"Extra: {set(ALL_FACTOR_NAMES) - engineered_names}."
     )

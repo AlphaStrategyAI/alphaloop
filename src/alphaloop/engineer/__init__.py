@@ -1,5 +1,5 @@
 """
-openstrategy.engineer - Alpha factor library.
+alphaloop.engineer - Alpha factor library.
 
 Ten canonical factors across four families:
 

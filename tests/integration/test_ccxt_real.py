@@ -25,8 +25,8 @@ pytestmark = pytest.mark.integration
 
 import pandas as pd  # noqa: E402
 
-from openstrategy.data import CCXTSource  # noqa: E402
-from openstrategy.data.base import DataSourceError  # noqa: E402
+from alphaloop.data import CCXTSource  # noqa: E402
+from alphaloop.data.base import DataSourceError  # noqa: E402
 
 
 @pytest.fixture

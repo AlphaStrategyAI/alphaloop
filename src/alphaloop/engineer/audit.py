@@ -1,7 +1,7 @@
 """
 Look-ahead audit driver for the v1.1.1 release gate.
 
-Runs every alpha factor exported from ``openstrategy.engineer``
+Runs every alpha factor exported from ``alphaloop.engineer``
 through the look-ahead audit and prints a table:
 
     factor_name       status   shock_bar_count  audit_time_ms
@@ -19,9 +19,9 @@ Status:
 
 Usage:
 
-    python3 -m openstrategy.engineer.audit
-    python3 -m openstrategy.engineer.audit --factor rsi
-    python3 -m openstrategy.engineer.audit --strict
+    python3 -m alphaloop.engineer.audit
+    python3 -m alphaloop.engineer.audit --factor rsi
+    python3 -m alphaloop.engineer.audit --strict
     # pytest --no-lookahead  (see tests/conftest.py)
 """
 from __future__ import annotations
@@ -35,7 +35,7 @@ from typing import Callable, Dict, List, Sequence
 import numpy as np
 import pandas as pd
 
-from openstrategy.engineer import (
+from alphaloop.engineer import (
     atr_breakout,
     bollinger_zscore,
     macd,
@@ -47,12 +47,12 @@ from openstrategy.engineer import (
     roc,
     rsi,
 )
-from openstrategy.engineer.base import LookAheadDetectedError
+from alphaloop.engineer.base import LookAheadDetectedError
 
 
 # Default factor inventory. Each entry maps a factor name to
 # ``(callable, default_args)``. Keep in sync with
-# ``openstrategy.engineer.__all__``.
+# ``alphaloop.engineer.__all__``.
 DEFAULT_FACTORS: Dict[str, Callable] = {
     # Momentum
     "rsi": rsi,
@@ -265,11 +265,11 @@ def _print_table(results: List[FactorAuditResult], strict: bool) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entry point: ``python3 -m openstrategy.engineer.audit``."""
+    """CLI entry point: ``python3 -m alphaloop.engineer.audit``."""
     parser = argparse.ArgumentParser(
-        prog="python3 -m openstrategy.engineer.audit",
+        prog="python3 -m alphaloop.engineer.audit",
         description=(
-            "Look-ahead audit for openstrategy alpha factors "
+            "Look-ahead audit for alphaloop alpha factors "
             "(v1.1.1 release gate)."
         ),
     )
@@ -279,7 +279,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help=(
             "Audit only the named factor (repeat to select multiple). "
-            "Default: audit every factor in openstrategy.engineer."
+            "Default: audit every factor in alphaloop.engineer."
         ),
     )
     parser.add_argument(

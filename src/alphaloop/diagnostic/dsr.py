@@ -21,7 +21,7 @@ Newton-iteration fallback for the inverse CDF. This keeps the
 diagnostic package light (no transitive build deps).
 
 Usage:
-    from openstrategy.diagnostic import deflated_sharpe
+    from alphaloop.diagnostic import deflated_sharpe
 
     result = deflated_sharpe(
         observed_sharpe=1.8,

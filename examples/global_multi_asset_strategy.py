@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from openstrategy import BacktestEngine, BacktestConfig
-from openstrategy.data.yahoo import YahooFinanceSource
-from openstrategy.strategies import (
+from alphaloop import BacktestEngine, BacktestConfig
+from alphaloop.data.yahoo import YahooFinanceSource
+from alphaloop.strategies import (
     GlobalMultiAssetStrategy,
     RebalanceTrigger,
     TacticalMethod,

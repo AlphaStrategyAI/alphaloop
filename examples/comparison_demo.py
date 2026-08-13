@@ -10,7 +10,7 @@ random walk with mild drift. The honest result: most strategies
 lose to SPY on random-walk data, which is the whole point.
 
 Run:
-    cd /Users/assistant/hermes-lab/openstrategy
+    cd /Users/assistant/hermes-lab/alphaloop
     python3 examples/comparison_demo.py
 """
 from __future__ import annotations
@@ -24,9 +24,9 @@ import pandas as pd
 # Allow running without pip install
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import openstrategy
-import openstrategy.diagnostic as diagnostic
-import openstrategy.engineer as engineer
+import alphaloop
+import alphaloop.diagnostic as diagnostic
+import alphaloop.engineer as engineer
 
 
 def _make_universe(n_bars: int = 1500, seed: int = 42) -> tuple[

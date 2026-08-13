@@ -18,14 +18,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import pandas as pd
 import numpy as np
 
-from openstrategy.data import YahooFinanceSource, DataCache
-from openstrategy.strategies.global_multi_asset import (
+from alphaloop.data import YahooFinanceSource, DataCache
+from alphaloop.strategies.global_multi_asset import (
     GlobalMultiAssetStrategy,
     RebalanceTrigger,
     TacticalMethod,
 )
-from openstrategy.strategies import BuyHoldStrategy
-from openstrategy.backtest import BacktestEngine, BacktestConfig
+from alphaloop.strategies import BuyHoldStrategy
+from alphaloop.backtest import BacktestEngine, BacktestConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 def fetch_data_with_long_retry(symbols, start, end, max_retries=5):
     """使用长间隔重试获取数据"""
-    cache = DataCache(cache_dir="~/.cache/openstrategy", ttl_hours=168)
+    cache = DataCache(cache_dir="~/.cache/alphaloop", ttl_hours=168)
     
     all_data = {}
     source = YahooFinanceSource(cache=cache)

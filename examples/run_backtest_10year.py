@@ -15,16 +15,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import pandas as pd
 import numpy as np
 
-from openstrategy.data import YahooFinanceSource, DataCache
-from openstrategy.strategies import (
+from alphaloop.data import YahooFinanceSource, DataCache
+from alphaloop.strategies import (
     GlobalMultiAssetStrategy,
     BuyHoldStrategy,
     RebalanceStrategy,
 )
-from openstrategy.strategies.global_multi_asset import RebalanceTrigger, TacticalMethod
-from openstrategy.core.enums import RebalanceMethod
-from openstrategy.backtest import BacktestEngine, BacktestConfig
-from openstrategy.backtest.report import BacktestReport
+from alphaloop.strategies.global_multi_asset import RebalanceTrigger, TacticalMethod
+from alphaloop.core.enums import RebalanceMethod
+from alphaloop.backtest import BacktestEngine, BacktestConfig
+from alphaloop.backtest.report import BacktestReport
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ ASSETS = {
 
 def fetch_data_with_retry(symbols, start, end, max_retries=3):
     """带重试的数据获取"""
-    cache = DataCache(cache_dir="~/.cache/openstrategy", ttl_hours=168)  # 7天缓存
+    cache = DataCache(cache_dir="~/.cache/alphaloop", ttl_hours=168)  # 7天缓存
     
     all_data = {}
     source = YahooFinanceSource(cache=cache)

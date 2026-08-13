@@ -1,5 +1,5 @@
 """
-CLI tests for openstrategy.
+CLI tests for alphaloop.
 
 These tests exercise the argument parser and command dispatch without
 hitting the network. End-to-end real-data smoke tests live in
@@ -14,24 +14,24 @@ import pytest
 
 import importlib
 
-from openstrategy.cli.commands import (
+from alphaloop.cli.commands import (
     fetch_data,
     optimize_strategy,
     run_backtest,
 )
 
 # Import the cli.main submodule directly. We can't use
-# `from openstrategy.cli import main` here because the package's
+# `from alphaloop.cli import main` here because the package's
 # __init__.py re-exports a `main` *function* under the same name, and
 # `from package import name` resolves to attributes first — so the
 # function would shadow the submodule. Using importlib ensures we get
 # the module object, then we pull `.main` (the callable) off it.
-_cli_main_module = importlib.import_module("openstrategy.cli.main")
+_cli_main_module = importlib.import_module("alphaloop.cli.main")
 cli_main = _cli_main_module.main
 
 
 def test_cli_help_exits_cleanly(capsys):
-    """`openstrategy` with no args should print help and return 1."""
+    """`alphaloop` with no args should print help and return 1."""
     rc = cli_main([])
     assert rc == 1
     out = capsys.readouterr().out
@@ -41,7 +41,7 @@ def test_cli_help_exits_cleanly(capsys):
 
 
 def test_cli_fetch_calls_yahoo(tmp_path):
-    """`openstrategy fetch --symbol AAPL --source yahoo --period 5d` should
+    """`alphaloop fetch --symbol AAPL --source yahoo --period 5d` should
     call YahooFinanceSource.get_data and return 0."""
     fake_df = pd.DataFrame(
         {"open": [1.0], "high": [2.0], "low": [0.5], "close": [1.5], "volume": [100]},
@@ -49,7 +49,7 @@ def test_cli_fetch_calls_yahoo(tmp_path):
     )
 
     with mock.patch(
-        "openstrategy.cli.commands.YahooFinanceSource"
+        "alphaloop.cli.commands.YahooFinanceSource"
     ) as MockYahoo:
         instance = MockYahoo.return_value
         instance.get_data.return_value = fake_df
@@ -101,7 +101,7 @@ def test_cli_fetch_json_output(tmp_path):
         index=pd.date_range("2024-01-01", periods=1),
     )
     with mock.patch(
-        "openstrategy.cli.commands.YahooFinanceSource"
+        "alphaloop.cli.commands.YahooFinanceSource"
     ) as MockYahoo:
         MockYahoo.return_value.get_data.return_value = fake_df
 
@@ -137,7 +137,7 @@ def test_cli_fetch_ccxt_uses_exchange_arg(tmp_path):
         index=pd.date_range("2024-01-01", periods=1),
     )
 
-    with mock.patch("openstrategy.data.ccxt.CCXTSource") as MockCCXT:
+    with mock.patch("alphaloop.data.ccxt.CCXTSource") as MockCCXT:
         MockCCXT.return_value.get_data.return_value = fake_df
 
         rc = cli_main(

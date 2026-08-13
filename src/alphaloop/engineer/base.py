@@ -1,5 +1,5 @@
 """
-Base types for openstrategy.engineer.
+Base types for alphaloop.engineer.
 
 Each alpha factor is a pure function from a price series to a series
 of weights (0..1) with the same DatetimeIndex. Pure functions are
@@ -53,7 +53,7 @@ def _empty_weights_like(prices: pd.Series) -> pd.Series:
 #
 # Usage:
 #
-#     from openstrategy.engineer.base import no_lookahead
+#     from alphaloop.engineer.base import no_lookahead
 #
 #     @no_lookahead
 #     def my_factor(prices: pd.Series, **kwargs) -> pd.Series:
@@ -95,7 +95,7 @@ LookAheadDetected = LookAheadDetectedError
 
 
 # Names commonly used for the first time-indexed input across the
-# openstrategy.factor library. ``inspect.signature`` is the primary
+# alphaloop.factor library. ``inspect.signature`` is the primary
 # path; this is a fallback for builtins / pre-decorated functions
 # whose signature we cannot resolve.
 _TIME_INDEXED_INPUT_NAMES = (

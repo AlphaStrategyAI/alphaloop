@@ -10,13 +10,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from openstrategy.live import (  # noqa: E402
+from alphaloop.live import (  # noqa: E402
     Broker,
     BrokerConfig,
     CONFIRM_LIVE_FLAG,
     LiveTradingRefused,
 )
-from openstrategy.live.broker import _enforce_safety  # noqa: E402
+from alphaloop.live.broker import _enforce_safety  # noqa: E402
 
 
 # --- BrokerConfig dataclass ---
@@ -77,7 +77,7 @@ def test_enforce_safety_error_message_includes_flag_name():
 
 def test_alpaca_adapter_is_broker():
     """AlpacaAdapter should satisfy the Broker protocol."""
-    from openstrategy.live import AlpacaAdapter
+    from alphaloop.live import AlpacaAdapter
     b = AlpacaAdapter()
     assert isinstance(b, Broker)
 

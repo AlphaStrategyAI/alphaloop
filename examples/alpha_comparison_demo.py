@@ -6,7 +6,7 @@ Generates a single synthetic price series, runs every factor, prints
 each factor's Sharpe and a pass/fail verdict vs buy & hold.
 
 Run:
-    cd /Users/assistant/hermes-lab/openstrategy
+    cd /Users/assistant/hermes-lab/alphaloop
     python3 examples/alpha_comparison_demo.py
 """
 from __future__ import annotations
@@ -20,8 +20,8 @@ import pandas as pd
 # Allow running without pip install
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import openstrategy.diagnostic as diagnostic
-import openstrategy.engineer as engineer
+import alphaloop.diagnostic as diagnostic
+import alphaloop.engineer as engineer
 
 
 def _make_synthetic_universe(

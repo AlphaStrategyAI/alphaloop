@@ -9,11 +9,11 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from openstrategy.data import YahooFinanceSource
-from openstrategy.strategies import BuyHoldStrategy, RebalanceStrategy
-from openstrategy.core.enums import RebalanceMethod
-from openstrategy.backtest import BacktestEngine, BacktestConfig
-from openstrategy.backtest.report import BacktestReport
+from alphaloop.data import YahooFinanceSource
+from alphaloop.strategies import BuyHoldStrategy, RebalanceStrategy
+from alphaloop.core.enums import RebalanceMethod
+from alphaloop.backtest import BacktestEngine, BacktestConfig
+from alphaloop.backtest.report import BacktestReport
 
 
 def main():

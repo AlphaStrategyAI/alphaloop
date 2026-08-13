@@ -1,15 +1,15 @@
 ---
-tags: [changelog, v1.1, openstrategy]
+tags: [changelog, v1.1, alphaloop]
 ---
 
 # Changelog
 
-All notable changes to openstrategy are documented in this file.
+All notable changes to alphaloop are documented in this file.
 
 ## [1.1.3] - 2026-07-12
 
 ### Added (M1 — diagnostic package)
-- `openstrategy.diagnostic` package with 4 modules:
+- `alphaloop.diagnostic` package with 4 modules:
   - `deflated_sharpe()` / `expected_max_sharpe()` — DSR for multiple-testing correction
   - `walk_forward_cv()` — rolling-window out-of-sample CV
   - `data_source_consistency()` — multi-source disagreement check
@@ -17,7 +17,7 @@ All notable changes to openstrategy are documented in this file.
 - 49 unit tests
 
 ### Added (M2 — engineer package)
-- `openstrategy.engineer` package with 10 alpha factors:
+- `alphaloop.engineer` package with 10 alpha factors:
   - Momentum: `rsi`, `macd`, `roc`, `momentum_12_1`
   - Mean Reversion: `bollinger_zscore`, `ohlr_4_pct`, `pairs_spread`
   - Volatility: `atr_breakout`, `parkinson_hist_vol`
@@ -26,7 +26,7 @@ All notable changes to openstrategy are documented in this file.
 - `examples/alpha_comparison_demo.py`
 
 ### Added (M3 — live trading)
-- `openstrategy.live` package with hard-walled `AlpacaAdapter`:
+- `alphaloop.live` package with hard-walled `AlpacaAdapter`:
   - Default: paper trading (`https://paper-api.alpaca.markets`)
   - Live: requires both `paper=False` AND `confirm_live=True` (double opt-in)
   - Zero live-account network calls in tests
@@ -35,8 +35,8 @@ All notable changes to openstrategy are documented in this file.
 ### Added (v1.1.1 — no_lookahead)
 - `@no_lookahead` decorator: validates factor has no look-ahead bias
   via two-shock test (second half + first half)
-- `openstrategy.engineer.audit` module: `audit_factors()` driver
-  and `python3 -m openstrategy.engineer.audit` CLI
+- `alphaloop.engineer.audit` module: `audit_factors()` driver
+  and `python3 -m alphaloop.engineer.audit` CLI
 - pytest `no_lookahead` marker registered
 - 20 new tests; 10/10 factors PASS audit
 
@@ -46,9 +46,9 @@ All notable changes to openstrategy are documented in this file.
 - OpenBBSource wired-in gap documented via `pytest.xfail`.
 
 ### Added (finalize)
-- `openstrategy report` CLI: answers the 6 v1.0 acceptance questions
+- `alphaloop report` CLI: answers the 6 v1.0 acceptance questions
   on synthetic data; writes Markdown report via `--output`.
-- Streamlit WebUI (`src/openstrategy/ui.py`): 4 pages
+- Streamlit WebUI (`src/alphaloop/ui.py`): 4 pages
   (Home / Overfit Check / vs Buy & Hold / vs SPY), offline-only.
 - `examples/comparison_demo.py`: 5-strategy head-to-head.
 
@@ -83,5 +83,5 @@ All notable changes to openstrategy are documented in this file.
 - CLI: `backtest`, `optimize`, `fetch`
 - 33 unit tests
 
-[1.0.0]: https://github.com/fpc0000/openstrategy/releases/tag/v1.0.0
-[1.1.3]: https://github.com/fpc0000/openstrategy/releases/tag/v1.1.3
+[1.0.0]: https://github.com/fpc0000/alphaloop/releases/tag/v1.0.0
+[1.1.3]: https://github.com/fpc0000/alphaloop/releases/tag/v1.1.3

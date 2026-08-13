@@ -19,7 +19,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from openstrategy.engineer import (  # noqa: E402
+from alphaloop.engineer import (  # noqa: E402
     macd,
     momentum_12_1,
     rsi,

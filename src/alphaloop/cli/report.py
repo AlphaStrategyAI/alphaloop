@@ -1,5 +1,5 @@
 """
-`openstrategy report` — generate the v1.0 acceptance report.
+`alphaloop report` — generate the v1.0 acceptance report.
 
 This is the "30 minutes to answer 6 questions" tool: it runs every
 diagnostic from M1 and every alpha factor from M2 on synthetic data
@@ -7,7 +7,7 @@ and writes a single Markdown file summarizing pass/fail for each of
 the 6 v1.0 acceptance questions.
 
 Honest by design: a strategy that fails 4/6 questions is reported
-as such, not glossed over. The whole point of openstrategy is to
+as such, not glossed over. The whole point of alphaloop is to
 surface uncomfortable truths, not to make your backtest look good.
 """
 from __future__ import annotations
@@ -65,12 +65,12 @@ def _verdict(passes: bool) -> str:
 
 def _acceptance_q1(prices: pd.Series) -> tuple[bool, str]:
     """Q1: Is the strategy overfit? (Deflated Sharpe Ratio)"""
-    import openstrategy
+    import alphaloop
     returns = prices.pct_change().dropna()
     annualized_sharpe = (
         returns.mean() / returns.std() * np.sqrt(252)
     )
-    dsr = openstrategy.deflated_sharpe(
+    dsr = alphaloop.deflated_sharpe(
         observed_sharpe=float(annualized_sharpe),
         n_trials=20,
         returns=returns,
@@ -81,7 +81,7 @@ def _acceptance_q1(prices: pd.Series) -> tuple[bool, str]:
 
 def _acceptance_q2(prices: pd.Series, ohlcv: pd.DataFrame) -> tuple[bool, str]:
     """Q2: Are data sources consistent?"""
-    import openstrategy
+    import alphaloop
     # Simulate a second source with mild noise
     rng = np.random.default_rng(2)
     secondary = ohlcv.copy()
@@ -89,7 +89,7 @@ def _acceptance_q2(prices: pd.Series, ohlcv: pd.DataFrame) -> tuple[bool, str]:
     secondary["close"] = secondary["close"] * (
         1.0 + rng.normal(0.0, 0.0005, n)
     )
-    result = openstrategy.data_source_consistency(
+    result = alphaloop.data_source_consistency(
         ohlcv, secondary, symbol="AAPL"
     )
     return result.passes, result.summary()
@@ -97,8 +97,8 @@ def _acceptance_q2(prices: pd.Series, ohlcv: pd.DataFrame) -> tuple[bool, str]:
 
 def _acceptance_q3(prices: pd.Series) -> tuple[bool, str]:
     """Q3: Out-of-sample valid? (Walk-Forward CV)"""
-    import openstrategy
-    cv = openstrategy.walk_forward_cv(
+    import alphaloop
+    cv = alphaloop.walk_forward_cv(
         prices,
         lambda p: pd.Series(1.0, index=p.index),
         train_size=252,
@@ -110,32 +110,32 @@ def _acceptance_q3(prices: pd.Series) -> tuple[bool, str]:
 
 def _acceptance_q4(prices: pd.Series) -> tuple[bool, str]:
     """Q4: Beats a random strategy?"""
-    import openstrategy
+    import alphaloop
     returns = prices.pct_change().dropna()
-    rand = openstrategy.vs_random(returns, n_simulations=500, block_size=21)
+    rand = alphaloop.vs_random(returns, n_simulations=500, block_size=21)
     return rand.passes, rand.summary()
 
 
 def _acceptance_q5(prices: pd.Series) -> tuple[bool, str]:
     """Q5: Beats passive buy-and-hold?"""
-    import openstrategy
+    import alphaloop
     returns = prices.pct_change().dropna()
-    bh = openstrategy.vs_buy_hold(returns, prices)
+    bh = alphaloop.vs_buy_hold(returns, prices)
     return bh.passes, bh.summary()
 
 
 def _acceptance_q6(prices: pd.Series, spy: pd.Series) -> tuple[bool, str]:
     """Q6: Beats SPY buy-and-hold?"""
-    import openstrategy
+    import alphaloop
     returns = prices.pct_change().dropna()
-    spy_bh = openstrategy.vs_spy_buyhold(returns, spy)
+    spy_bh = alphaloop.vs_spy_buyhold(returns, spy)
     return spy_bh.passes, spy_bh.summary()
 
 
 def _alpha_comparison(prices: pd.Series, ohlcv: pd.DataFrame) -> str:
     """Run all 10 alpha factors and report pass/fail vs buy & hold."""
-    import openstrategy.diagnostic as diagnostic
-    import openstrategy.engineer as engineer
+    import alphaloop.diagnostic as diagnostic
+    import alphaloop.engineer as engineer
 
     rng = np.random.default_rng(99)
     pairs_b = prices * (1.0 + rng.normal(0, 0.001, len(prices)))
@@ -186,7 +186,7 @@ def run_report(args: argparse.Namespace) -> int:
     prices, ohlcv, spy = _make_universe(seed=args.seed)
 
     sections: list[str] = []
-    sections.append("# openstrategy v1.0 Acceptance Report\n\n")
+    sections.append("# alphaloop v1.0 Acceptance Report\n\n")
     sections.append(
         f"_Generated: {datetime.now(timezone.utc).isoformat(timespec='seconds')}_\n\n"
     )
@@ -267,8 +267,8 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
 
 if __name__ == "__main__":
-    # Allow standalone execution: `python -m openstrategy.cli.report`
-    parser = argparse.ArgumentParser(description="openstrategy report")
+    # Allow standalone execution: `python -m alphaloop.cli.report`
+    parser = argparse.ArgumentParser(description="alphaloop report")
     register(parser.add_subparsers())
     args = parser.parse_args()
     if hasattr(args, "func"):

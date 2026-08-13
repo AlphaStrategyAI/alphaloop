@@ -15,7 +15,7 @@ Acceptance threshold (v1.0): mean relative error < 5% on daily close
 for the same symbol across two sources.
 
 Usage:
-    from openstrategy.diagnostic import data_source_consistency
+    from alphaloop.diagnostic import data_source_consistency
 
     result = data_source_consistency(yahoo_df, akshare_df, symbol="AAPL")
     print(result.summary())

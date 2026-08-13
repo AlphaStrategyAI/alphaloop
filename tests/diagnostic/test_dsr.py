@@ -19,7 +19,7 @@ import pytest
 # Allow running pytest from repo root without installing the package
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from openstrategy.diagnostic import (  # noqa: E402
+from alphaloop.diagnostic import (  # noqa: E402
     DeflatedSharpeResult,
     deflated_sharpe,
     expected_max_sharpe,

@@ -1,5 +1,5 @@
 """
-openstrategy.live - Broker connectivity for paper and live trading.
+alphaloop.live - Broker connectivity for paper and live trading.
 
 This subpackage contains the Broker interface and concrete broker
 adapters (currently Alpaca only).
@@ -22,7 +22,7 @@ v1.0 scope
 
 Example
 -------
-    from openstrategy.live import AlpacaAdapter
+    from alphaloop.live import AlpacaAdapter
 
     # Paper trading (default, no opt-in required)
     broker = AlpacaAdapter(api_key="PK...", secret="...")

@@ -6,8 +6,8 @@ These tests would hit the real OpenBB API. Run with:
     OPENSTRATEGY_INTEGRATION=1 pytest tests/integration/ -v
 
 **Status (v1.1.2): OpenBBSource is not yet importable from
-`openstrategy.data`. The source file exists at
-`src/openstrategy/data/openbb_source.py` but is not exported in
+`alphaloop.data`. The source file exists at
+`src/alphaloop/data/openbb_source.py` but is not exported in
 `__init__.py`. These tests are placeholders for v1.1.3 / v2.0
 when OpenBBSource is wired in.
 
@@ -30,16 +30,16 @@ pytestmark = pytest.mark.integration
 
 
 def test_openbb_source_is_importable():
-    """OpenBBSource should be importable from openstrategy.data.
+    """OpenBBSource should be importable from alphaloop.data.
 
     At v1.1.2, this import is expected to fail. The test is
     marked xfail so the run shows the expected state.
     """
     try:
-        from openstrategy.data import OpenBBSource  # noqa: F401
+        from alphaloop.data import OpenBBSource  # noqa: F401
     except ImportError:
         pytest.xfail(
-            "OpenBBSource not yet wired in `openstrategy.data.__init__` "
+            "OpenBBSource not yet wired in `alphaloop.data.__init__` "
             "(v1.1.2 known gap, see v1.1 路线图)"
         )
 

@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "openstrategy"
-version = "1.1.3"
-description = "Honest, verifiable quantitative research infrastructure — not 'find alpha', 'don't waste time on strategies that don't work'."
+name = "alphaloop"
+version = "0.5.0"
+description = "AI-automated quant research loop — Jeff Dean style 'design loops that prompt your agents'. Honest, verifiable, agent-friendly."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [

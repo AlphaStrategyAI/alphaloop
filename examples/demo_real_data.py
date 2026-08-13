@@ -1,5 +1,5 @@
 """
-Real-data smoke test for openstrategy data sources.
+Real-data smoke test for alphaloop data sources.
 
 Runs against live APIs (yahoo / akshare / ccxt) and prints a summary.
 Useful as a sanity check that the optional integrations still work after
@@ -54,7 +54,7 @@ def try_fetch(name: str, fn, output_dir: Path | None) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Real-data demo for openstrategy")
+    parser = argparse.ArgumentParser(description="Real-data demo for alphaloop")
     parser.add_argument(
         "--output", help="Optional directory to dump CSV files for each source"
     )
@@ -72,7 +72,7 @@ def main() -> int:
     # --- Yahoo Finance ---
     print("Yahoo Finance — AAPL")
     try:
-        from openstrategy.data import YahooFinanceSource
+        from alphaloop.data import YahooFinanceSource
 
         summaries.append(
             try_fetch(
@@ -87,7 +87,7 @@ def main() -> int:
     # --- AKShare (A-share) ---
     print("\nAKShare — 600519 (贵州茅台)")
     try:
-        from openstrategy.data import AKShareSource
+        from alphaloop.data import AKShareSource
 
         summaries.append(
             try_fetch(
@@ -102,7 +102,7 @@ def main() -> int:
     # --- CCXT (crypto) ---
     print("\nCCXT — BTC/USDT (okx)")
     try:
-        from openstrategy.data.ccxt import CCXTSource
+        from alphaloop.data.ccxt import CCXTSource
 
         summaries.append(
             try_fetch(

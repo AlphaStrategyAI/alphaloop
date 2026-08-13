@@ -35,7 +35,7 @@ class OpenBBDataSource(DataSource):
     当 OpenBB 不可用时，自动降级到 Yahoo Finance
 
     Examples:
-        >>> from openstrategy.data import OpenBBDataSource
+        >>> from alphaloop.data import OpenBBDataSource
         >>> source = OpenBBDataSource()
         >>> df = source.get_data("VTI", start="2020-01-01", end="2024-01-01")
         >>> print(df.tail())

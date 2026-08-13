@@ -15,15 +15,15 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-from openstrategy.strategies.global_multi_asset import (
+from alphaloop.strategies.global_multi_asset import (
     GlobalMultiAssetStrategy,
     RebalanceTrigger,
     TacticalMethod,
 )
-from openstrategy.strategies import BuyHoldStrategy, RebalanceStrategy
-from openstrategy.core.enums import RebalanceMethod
-from openstrategy.backtest import BacktestEngine, BacktestConfig
-from openstrategy.backtest.report import BacktestReport
+from alphaloop.strategies import BuyHoldStrategy, RebalanceStrategy
+from alphaloop.core.enums import RebalanceMethod
+from alphaloop.backtest import BacktestEngine, BacktestConfig
+from alphaloop.backtest.report import BacktestReport
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)

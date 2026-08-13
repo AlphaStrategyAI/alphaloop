@@ -6,11 +6,11 @@ shaped like the kind of returns a momentum strategy might produce,
 then asks each of the diagnostic questions and prints a verdict.
 
 Run:
-    cd /Users/assistant/hermes-lab/openstrategy
+    cd /Users/assistant/hermes-lab/alphaloop
     python3 examples/diagnostic_demo.py
 
-Or via the openstrategy package:
-    python3 -c "import openstrategy; openstrategy.diagnostic_demo()"
+Or via the alphaloop package:
+    python3 -c "import alphaloop; alphaloop.diagnostic_demo()"
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import pandas as pd
 # Allow running without pip install
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from openstrategy.diagnostic import (  # noqa: E402
+from alphaloop.diagnostic import (  # noqa: E402
     data_source_consistency,
     deflated_sharpe,
     vs_buy_hold,

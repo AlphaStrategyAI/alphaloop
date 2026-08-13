@@ -1,5 +1,5 @@
 """
-openstrategy.diagnostic - Honest evaluation tools for trading strategies.
+alphaloop.diagnostic - Honest evaluation tools for trading strategies.
 
 This package answers 6 questions the v1.0 goal considers mandatory
 before trusting any backtest:

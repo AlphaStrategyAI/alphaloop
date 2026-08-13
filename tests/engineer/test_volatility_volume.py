@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from openstrategy.engineer import atr_breakout, obv_slope, parkinson_hist_vol  # noqa: E402
+from alphaloop.engineer import atr_breakout, obv_slope, parkinson_hist_vol  # noqa: E402
 
 
 def _make_prices(n: int = 500, seed: int = 0, drift: float = 0.0005) -> pd.Series:

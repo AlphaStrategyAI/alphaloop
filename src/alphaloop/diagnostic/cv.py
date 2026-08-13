@@ -12,7 +12,7 @@ and gives a distribution of out-of-sample Sharpe ratios, not just one
 point estimate.
 
 Usage:
-    from openstrategy.diagnostic import walk_forward_cv, WalkForwardResult
+    from alphaloop.diagnostic import walk_forward_cv, WalkForwardResult
 
     # df must have a 'close' column and a DatetimeIndex
     result = walk_forward_cv(
@@ -104,7 +104,7 @@ def walk_forward_cv(
         prices: Price series with a DatetimeIndex.
         strategy_fn: Function that takes a price series and returns
             a series of position weights or signals (same length).
-            For convenience, see `openstrategy.diagnostic.helpers`.
+            For convenience, see `alphaloop.diagnostic.helpers`.
         train_size: Number of bars in the training window.
         test_size: Number of bars in the test (out-of-sample) window.
         step_size: How many bars to roll forward each fold. Defaults

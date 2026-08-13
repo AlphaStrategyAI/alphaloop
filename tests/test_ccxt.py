@@ -8,8 +8,8 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from openstrategy.data.base import DataSourceError
-from openstrategy.data.ccxt import CCXTSource
+from alphaloop.data.base import DataSourceError
+from alphaloop.data.ccxt import CCXTSource
 
 
 def _make_mock_exchange(symbols, ohlcv):

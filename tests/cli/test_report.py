@@ -1,5 +1,5 @@
 """
-Tests for the `openstrategy report` CLI.
+Tests for the `alphaloop report` CLI.
 
 The CLI is the user-facing entry point for the v1.0 acceptance
 report. We test:
@@ -22,13 +22,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _openstrategy_python() -> str:
-    """Return the python interpreter that has openstrategy installed.
+def _alphaloop_python() -> str:
+    """Return the python interpreter that has alphaloop installed.
 
-    `openstrategy` is a pip-installed console script whose target is
-    `openstrategy.cli:main`. When pytest is run from a different
-    environment than the one where openstrategy was installed, the
-    `openstrategy` binary may not be on PATH. To be robust we use
+    `alphaloop` is a pip-installed console script whose target is
+    `alphaloop.cli:main`. When pytest is run from a different
+    environment than the one where alphaloop was installed, the
+    `alphaloop` binary may not be on PATH. To be robust we use
     `sys.executable` (the same interpreter running pytest) and
     invoke the CLI as a module.
     """
@@ -36,11 +36,11 @@ def _openstrategy_python() -> str:
 
 
 def _run_report(*args: str) -> subprocess.CompletedProcess:
-    """Invoke `openstrategy report ...` via the installed entry point."""
-    py = _openstrategy_python()
+    """Invoke `alphaloop report ...` via the installed entry point."""
+    py = _alphaloop_python()
     return subprocess.run(
         [py, "-c",
-         "import sys; from openstrategy.cli import main; sys.exit(main(sys.argv[1:]))",
+         "import sys; from alphaloop.cli import main; sys.exit(main(sys.argv[1:]))",
          "report", *args],
         capture_output=True,
         text=True,
@@ -49,13 +49,13 @@ def _run_report(*args: str) -> subprocess.CompletedProcess:
     )
 
 
-def test_openstrategy_cli_exists():
-    """The `openstrategy` CLI's `main` function should be importable."""
-    py = _openstrategy_python()
+def test_alphaloop_cli_exists():
+    """The `alphaloop` CLI's `main` function should be importable."""
+    py = _alphaloop_python()
     r = subprocess.run(
         [py, "-c",
-         "import sys; from openstrategy.cli import main; "
-         "sys.argv = ['openstrategy', '--help']; "
+         "import sys; from alphaloop.cli import main; "
+         "sys.argv = ['alphaloop', '--help']; "
          "main()"],
         capture_output=True,
         text=True,
@@ -79,7 +79,7 @@ def test_report_runs_and_prints_to_stdout():
     r = _run_report("--seed", "0")
     assert r.returncode == 0
     out = r.stdout
-    assert "# openstrategy v1.0 Acceptance Report" in out
+    assert "# alphaloop v1.0 Acceptance Report" in out
     # All 6 questions should appear
     for q in ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6"]:
         assert q in out, f"Missing question {q} in report output"
@@ -93,7 +93,7 @@ def test_report_writes_to_output_file(tmp_path):
     assert r.returncode == 0
     assert out_file.exists()
     content = out_file.read_text(encoding="utf-8")
-    assert "openstrategy v1.0 Acceptance Report" in content
+    assert "alphaloop v1.0 Acceptance Report" in content
     assert "Q1" in content and "Q6" in content
     assert "Alpha factor library" in content
 

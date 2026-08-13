@@ -141,7 +141,7 @@ class CCXTSource(DataSource):
                     break
                 # Keep candles whose open time is within the requested window.
                 # End is inclusive — matches yfinance semantics used elsewhere
-                # in openstrategy. ccxt sometimes returns the next bucket
+                # in alphaloop. ccxt sometimes returns the next bucket
                 # after `end`, so we drop anything strictly past the end.
                 ohlcv = [row for row in ohlcv if row[0] <= end_ms]
                 if not ohlcv:
@@ -170,11 +170,11 @@ class CCXTSource(DataSource):
             # Re-project the user-supplied naive datetimes into the same UTC
             # timeline the data lives in. We deliberately drop tz-awareness
             # afterwards so the returned index stays plain (matches the rest
-            # of openstrategy).
+            # of alphaloop).
             # Re-project the user-supplied naive datetimes into the same UTC
             # timeline the data lives in. We deliberately drop tz-awareness
             # afterwards so the returned index stays plain (matches the rest
-            # of openstrategy).
+            # of alphaloop).
             local_tz = datetime.now().astimezone().tzinfo
             start_cmp = pd.Timestamp(start)
             end_cmp = pd.Timestamp(end)
@@ -189,7 +189,7 @@ class CCXTSource(DataSource):
 
             df = df[(df.index >= start_cmp) & (df.index <= end_cmp)]
             # Strip tz so the returned DatetimeIndex stays plain (matches the
-            # rest of openstrategy). Use tz_convert(None) because the index
+            # rest of alphaloop). Use tz_convert(None) because the index
             # is already tz-aware — tz_localize(None) raises on aware data.
             df.index = df.index.tz_convert(None)
 

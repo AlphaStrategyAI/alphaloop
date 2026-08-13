@@ -1,5 +1,5 @@
 """
-Shared pytest configuration and fixtures for openstrategy data-source tests.
+Shared pytest configuration and fixtures for alphaloop data-source tests.
 
 Unit tests mock all external network calls.
 Integration tests are gated by the `integration` marker and only run when

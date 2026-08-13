@@ -22,7 +22,7 @@ class DataCache:
     支持内存缓存和磁盘缓存，避免重复请求API
 
     Examples:
-        >>> cache = DataCache(cache_dir="~/.cache/openstrategy")
+        >>> cache = DataCache(cache_dir="~/.cache/alphaloop")
         >>> df = cache.get("AAPL_1y") or fetch_and_cache()
     """
 

@@ -1,10 +1,14 @@
-# OpenStrategy v1.0
+# alphaloop v0.5
 
-> **Honest, verifiable quantitative research infrastructure.**
-> Not "find alpha" — "don't waste time on strategies that don't work."
+> **AI-automated quant research loop.**
+> Jeff Dean style: "design loops that prompt your agents" — but for quant.
+> Honest, verifiable, agent-friendly. **alpha → loop → report → iterate**.
 
-OpenStrategy is an open-source framework for individual investors
-who want to evaluate trading strategies honestly. It ships:
+alphaloop is an open-source framework for individual investors and small
+research teams who want to evaluate trading strategies honestly AND run them
+inside an AI-driven research loop.
+
+It ships:
 
 - 4 data sources (Yahoo Finance, AKShare, CCXT, OpenBB)
 - 10 alpha factors across 4 families (momentum, mean-reversion,
@@ -13,8 +17,10 @@ who want to evaluate trading strategies honestly. It ships:
   cross-source consistency, vs random, vs buy-and-hold, vs SPY)
 - A read-only broker adapter (Alpaca paper-by-default, hard-walled
   against accidental live trading)
-- A CLI (`openstrategy report`) that generates a Markdown acceptance
+- A CLI (`alphaloop report`) that generates a Markdown acceptance
   report answering the 6 v1.0 questions for any strategy
+- **Coming in v0.6+**: `alphaloop loop` — autonomous research loop
+  driven by LLM agents. See [ROADMAP.md](ROADMAP.md) for details.
 
 **It does not promise alpha. It does not promise you'll beat the
 market. It promises 3 things: methodology you can verify, results
@@ -46,7 +52,7 @@ uncomfortable — read on.
 
 ## The 6 v1.0 acceptance questions
 
-Before trusting any backtest, openstrategy can answer these in
+Before trusting any backtest, alphaloop can answer these in
 under 30 minutes:
 
 1. **Overfit?** Has the strategy's Sharpe ratio survived
@@ -72,15 +78,15 @@ If any answer is "no", the strategy doesn't ship.
 
 ```bash
 # Install (Python 3.11+)
-git clone https://github.com/fpc0000/openstrategy.git
-cd openstrategy
+git clone https://github.com/fpc0000/alphaloop.git
+cd alphaloop
 pip install -e .
 
 # Run the acceptance report on synthetic data
-openstrategy report
+alphaloop report
 
 # Or save to a file
-openstrategy report --output my-report.md
+alphaloop report --output my-report.md
 
 # Run the 5-strategy comparison demo
 python3 examples/comparison_demo.py
@@ -89,7 +95,7 @@ python3 examples/comparison_demo.py
 python3 examples/diagnostic_demo.py
 
 # Launch the WebUI
-streamlit run openstrategy/ui.py
+streamlit run alphaloop/ui.py
 ```
 
 ---
@@ -147,12 +153,12 @@ milestone and the failure patterns we hit and learned from.
 ## Architecture
 
 ```
-openstrategy/
+alphaloop/
 ├── data/          # 4 data sources (Yahoo, AKShare, CCXT, OpenBB)
 ├── engineer/      # 10 alpha factors (pure functions: Series -> weights)
 ├── diagnostic/    # 6 tools: DSR, walk-forward CV, consistency, 3 benchmarks
 ├── live/          # Alpaca adapter (paper-by-default, hard-walled)
-├── cli/           # `openstrategy` CLI (backtest, optimize, fetch, report)
+├── cli/           # `alphaloop` CLI (backtest, optimize, fetch, report)
 └── ui.py          # Streamlit WebUI (single file)
 ```
 
@@ -184,7 +190,7 @@ python3 -m pytest tests/live/test_safety.py -v
   — Failure patterns from M1 (diagnostic package)
 - [`docs/lessons/m3-retrospective.md`](./docs/lessons/m3-retrospective.md)
   — Failure patterns from M3 (live trading)
-- `src/openstrategy/live/README.md` — Hard wall design for live trading
+- `src/alphaloop/live/README.md` — Hard wall design for live trading
 - `examples/diagnostic_demo.py` — 6-question diagnostic walkthrough
 - `examples/alpha_comparison_demo.py` — 10-factor vs buy-and-hold
 - `examples/comparison_demo.py` — 5-strategy head-to-head
@@ -206,5 +212,5 @@ MIT. See [`LICENSE`](./LICENSE).
 - Parkinson (1980) — Historical volatility estimator
 
 These references are implemented as plain Python (no proprietary
-math) in [`src/openstrategy/diagnostic/`](./src/openstrategy/diagnostic/)
-and [`src/openstrategy/engineer/`](./src/openstrategy/engineer/).
+math) in [`src/alphaloop/diagnostic/`](./src/alphaloop/diagnostic/)
+and [`src/alphaloop/engineer/`](./src/alphaloop/engineer/).

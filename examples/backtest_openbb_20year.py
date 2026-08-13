@@ -46,9 +46,9 @@ logger = logging.getLogger(__name__)
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from openstrategy import BacktestEngine, BacktestConfig
-from openstrategy.data.cache import DataCache
-from openstrategy.strategies import (
+from alphaloop import BacktestEngine, BacktestConfig
+from alphaloop.data.cache import DataCache
+from alphaloop.strategies import (
     BuyHoldStrategy,
     GlobalMultiAssetStrategy,
     RebalanceTrigger,
@@ -57,7 +57,7 @@ from openstrategy.strategies import (
 
 # 尝试导入 OpenBB 数据源
 try:
-    from openstrategy.data.openbb_source import OpenBBDataSource
+    from alphaloop.data.openbb_source import OpenBBDataSource
     OPENBB_AVAILABLE = True
 except ImportError:
     OPENBB_AVAILABLE = False
@@ -140,7 +140,7 @@ class OpenBB20YearBacktest:
             logger.info(f"Data source initialized: {status}")
         else:
             # 使用 Yahoo Finance
-            from openstrategy.data.yahoo import YahooFinanceSource
+            from alphaloop.data.yahoo import YahooFinanceSource
             self.data_source = YahooFinanceSource(cache=self.cache)
             logger.info("Using Yahoo Finance data source")
     
@@ -735,7 +735,7 @@ def main():
     )
     parser.add_argument(
         "--cache-dir",
-        default="~/.cache/openstrategy/openbb",
+        default="~/.cache/alphaloop/openbb",
         help="Cache directory"
     )
     parser.add_argument(

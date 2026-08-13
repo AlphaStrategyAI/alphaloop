@@ -7,8 +7,8 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from openstrategy.data.base import DataSourceError
-from openstrategy.data.openbb_source import OpenBBDataSource
+from alphaloop.data.base import DataSourceError
+from alphaloop.data.openbb_source import OpenBBDataSource
 
 
 def _sample_openbb_df():

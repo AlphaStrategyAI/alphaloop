@@ -27,7 +27,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from openstrategy.live import (  # noqa: E402
+from alphaloop.live import (  # noqa: E402
     AlpacaAdapter,
     LIVE_BASE_URL,
     PAPER_BASE_URL,

@@ -11,8 +11,8 @@ Each comparison returns a simple, actionable result: p-value, win
 probability, or Sharpe ratio gap.
 
 Usage:
-    from openstrategy.diagnostic import vs_random, vs_buy_hold, vs_spy_buyhold
-    from openstrategy.data import YahooFinanceSource
+    from alphaloop.diagnostic import vs_random, vs_buy_hold, vs_spy_buyhold
+    from alphaloop.data import YahooFinanceSource
     import pandas as pd
 
     source = YahooFinanceSource()
