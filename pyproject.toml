@@ -60,10 +60,10 @@ dev = [
 openstrategy = "openstrategy.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/fpc0000/openstrategy"
-Documentation = "https://github.com/fpc0000/openstrategy#readme"
-Repository = "https://github.com/fpc0000/openstrategy"
-Issues = "https://github.com/fpc0000/openstrategy/issues"
+Homepage = "https://github.com/AlphaStrategyAI/alphaloop"
+Documentation = "https://github.com/AlphaStrategyAI/alphaloop#readme"
+Repository = "https://github.com/AlphaStrategyAI/alphaloop"
+Issues = "https://github.com/AlphaStrategyAI/alphaloop/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openstrategy"]

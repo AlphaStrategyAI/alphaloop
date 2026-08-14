@@ -111,7 +111,7 @@ The full Jeff Dean #8 vision:
 
 - The `openstrategy` PyPI name remains owned (we don't transfer it)
 - The `fpc0000/openstrategy` GitHub repo will be **renamed** to
-  `fpc0000/alphaloop` in a separate step (requires user OK)
+  `AlphaStrategyAI/alphaloop` in a separate step (requires user OK)
 - The 191 existing tests are unchanged; alphaloop is a drop-in rename
 
 ---

@@ -78,7 +78,7 @@ If any answer is "no", the strategy doesn't ship.
 
 ```bash
 # Install (Python 3.11+)
-git clone https://github.com/fpc0000/alphaloop.git
+git clone https://github.com/AlphaStrategyAI/alphaloop.git
 cd alphaloop
 pip install -e .
 

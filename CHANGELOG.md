@@ -83,5 +83,5 @@ All notable changes to alphaloop are documented in this file.
 - CLI: `backtest`, `optimize`, `fetch`
 - 33 unit tests
 
-[1.0.0]: https://github.com/fpc0000/alphaloop/releases/tag/v1.0.0
-[1.1.3]: https://github.com/fpc0000/alphaloop/releases/tag/v1.1.3
+[1.0.0]: https://github.com/AlphaStrategyAI/alphaloop/releases/tag/v1.0.0
+[1.1.3]: https://github.com/AlphaStrategyAI/alphaloop/releases/tag/v1.1.3
