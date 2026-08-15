@@ -25,6 +25,7 @@ from .benchmarks import (
 from .consistency import ConsistencyResult, data_source_consistency
 from .cv import WalkForwardFold, WalkForwardResult, walk_forward_cv
 from .dsr import DeflatedSharpeResult, deflated_sharpe, expected_max_sharpe
+from .judge import DimensionScore, LLMJudgeResult, llm_judge
 
 __all__ = [
     # DSR
@@ -45,4 +46,8 @@ __all__ = [
     "VsRandomResult",
     "VsBuyHoldResult",
     "VsSpyBuyHoldResult",
+    # Q7: LLM-as-judge (v0.6)
+    "llm_judge",
+    "LLMJudgeResult",
+    "DimensionScore",
 ]

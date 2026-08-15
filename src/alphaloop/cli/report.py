@@ -21,6 +21,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from ..diagnostic.judge import llm_judge as _llm_judge
+
 
 def _make_universe(
     n_bars: int = 1500,
@@ -238,6 +240,16 @@ def run_report(args: argparse.Namespace) -> int:
 
     report = "".join(sections)
 
+    # ------------------------------------------------------------------
+    # Q7: LLM judge (v0.6) — appended AFTER the report is composed so
+    # the judge sees only Q1–Q6 + alpha table, not its own verdict.
+    # When --no-judge is set (or the judge returns an empty body for
+    # any reason), no Q7 section is emitted at all.
+    # ------------------------------------------------------------------
+    q7_body = _run_q7_judge(report, args)
+    if q7_body:
+        report = report + _section("Q7: LLM Judge (narrative quality)") + q7_body
+
     if args.output:
         out_path = Path(args.output)
         out_path.write_text(report, encoding="utf-8")
@@ -245,6 +257,88 @@ def run_report(args: argparse.Namespace) -> int:
     else:
         print(report)
     return 0
+
+
+def _run_q7_judge(report_markdown: str, args: argparse.Namespace) -> str:
+    """Run the Q7 LLM judge and return its Markdown section.
+
+    Returns an empty string (no Q7 section at all) when --no-judge is
+    set or when no LLM model can be resolved. When a model IS resolved
+    but the call fails or is skipped, returns the SKIP body so the
+    user sees Q7 was attempted.
+
+    Failure containment per design doc § 2.4:
+    - Missing config → SKIP body (visible), exit 0.
+    - HTTP error / invalid JSON → SKIP body (visible), exit 0.
+    - --no-judge explicit → nothing appended.
+    - The 6 quantitative sections are never blocked by Q7.
+    """
+    skip, model, threshold = _resolve_judge_settings(args)
+
+    # Case A: --no-judge was passed explicitly → emit nothing.
+    if bool(getattr(args, "no_judge", False)):
+        return ""
+
+    if not skip:
+        # Render the full report (before Q7 is appended) and judge it.
+        try:
+            result = _llm_judge(
+                report_markdown,
+                threshold=threshold,
+                model=model,
+                api_key=getattr(args, "judge_api_key", None),
+                base_url=getattr(args, "judge_base_url", None),
+            )
+        except Exception as e:  # pragma: no cover — defensive guard
+            print(f"warning: LLM judge unexpected failure: {e}", file=sys.stderr)
+            return "_LLM judge skipped due to unexpected error._\n"
+        if result.error is not None:
+            print(
+                f"warning: LLM judge skipped — {result.error}",
+                file=sys.stderr,
+            )
+            return (
+                f"_LLM judge SKIPPED — {result.error}_\n\n"
+                "The 6 quantitative sections above are unaffected.\n"
+            )
+        return f"```\n{result.summary()}\n```\n"
+
+    # Case B: skipped because no model was resolved.
+    return (
+        "_LLM judge skipped (no LLM configured — set LLM_MODEL + "
+        "LLM_API_KEY + LLM_BASE_URL)._\n\n"
+        "The 6 quantitative sections above are unaffected.\n"
+    )
+
+
+def _resolve_judge_settings(args: argparse.Namespace) -> tuple[bool, str, int]:
+    """Decide whether to run Q7 and with which model + threshold.
+
+    Returns: (skip: bool, model: str, threshold: int)
+
+    Skip if:
+    - --no-judge flag is set
+    - --judge-model=skip
+    - No model resolved from CLI flag, LLM_MODEL env var, or
+      LLM_JUDGE_CONFIG YAML fallback.
+    """
+    no_judge = bool(getattr(args, "no_judge", False))
+    judge_model_arg = getattr(args, "judge_model", None)
+    threshold = int(getattr(args, "judge_threshold", 7) or 7)
+
+    if no_judge:
+        return True, "", threshold
+    if judge_model_arg is None:
+        # Look at env var.
+        import os
+
+        env_model = os.environ.get("LLM_MODEL", "")
+        if not env_model:
+            return True, "", threshold
+        return False, env_model, threshold
+    if judge_model_arg == "skip":
+        return True, "", threshold
+    return False, judge_model_arg, threshold
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:
@@ -262,6 +356,36 @@ def register(subparsers: argparse._SubParsersAction) -> None:
         type=int,
         default=0,
         help="Random seed for synthetic universe (default 0).",
+    )
+    # v0.6: Q7 LLM judge flags
+    parser.add_argument(
+        "--no-judge",
+        action="store_true",
+        help="Skip Q7 (LLM judge) entirely. Equivalent to --judge-model=skip.",
+    )
+    parser.add_argument(
+        "--judge-model",
+        default=None,
+        help=(
+            "LLM model name for Q7. Overrides LLM_MODEL env var. "
+            "Use --judge-model=skip to disable Q7."
+        ),
+    )
+    parser.add_argument(
+        "--judge-api-key",
+        default=None,
+        help="LLM API key for Q7. Overrides LLM_API_KEY env var.",
+    )
+    parser.add_argument(
+        "--judge-base-url",
+        default=None,
+        help="OpenAI-compatible base URL for Q7. Overrides LLM_BASE_URL env var.",
+    )
+    parser.add_argument(
+        "--judge-threshold",
+        type=int,
+        default=7,
+        help="Minimum per-dimension score (1-10) for Q7 to pass. Default: 7.",
     )
     parser.set_defaults(func=run_report)
 

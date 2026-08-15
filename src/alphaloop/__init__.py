@@ -12,8 +12,11 @@ from .backtest import BacktestConfig, BacktestEngine
 from .core import Asset, Portfolio, Position
 from .data import AKShareSource, YahooFinanceSource
 from .diagnostic import (
+    DimensionScore,
+    LLMJudgeResult,
     data_source_consistency,
     deflated_sharpe,
+    llm_judge,
     vs_buy_hold,
     vs_random,
     vs_spy_buyhold,
@@ -27,6 +30,31 @@ from .live import (
     LiveTradingRefused,
 )
 from .strategies import BuyHoldStrategy, RebalanceStrategy, StrategyFactory
+
+# v0.7 hybrid loop — imported lazily so an environment without the
+# loop deps can still import the core package.
+try:
+    from .loop import (  # noqa: F401
+        LoopRunner,
+        LoopReplay,
+        RunSummary,
+        TaskSpec,
+        BacktestResult as LoopBacktestResult,
+        ScoredResult,
+        RunManifest,
+        TopPick,
+        HybridDAG,
+        Node,
+        Planner,
+        BacktestRunner,
+        RunState,
+        should_terminate,
+        make_run_id,
+        hash_dataframe,
+    )
+    _LOOP_AVAILABLE = True
+except ImportError:  # pragma: no cover — defensive
+    _LOOP_AVAILABLE = False
 
 __all__ = [
     "Portfolio",
@@ -45,6 +73,10 @@ __all__ = [
     "vs_random",
     "vs_buy_hold",
     "vs_spy_buyhold",
+    # v0.6: LLM-as-judge evaluator
+    "llm_judge",
+    "LLMJudgeResult",
+    "DimensionScore",
     # engineer (alpha factors)
     "rsi",
     "macd",
@@ -62,4 +94,21 @@ __all__ = [
     "BrokerConfig",
     "CONFIRM_LIVE_FLAG",
     "LiveTradingRefused",
+    # v0.7: hybrid loop
+    "LoopRunner",
+    "LoopReplay",
+    "RunSummary",
+    "TaskSpec",
+    "LoopBacktestResult",
+    "ScoredResult",
+    "RunManifest",
+    "TopPick",
+    "HybridDAG",
+    "Node",
+    "Planner",
+    "BacktestRunner",
+    "RunState",
+    "should_terminate",
+    "make_run_id",
+    "hash_dataframe",
 ]

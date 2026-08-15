@@ -50,6 +50,8 @@ coverage.xml
 # Output dirs
 reports/
 *.log
+# v0.7 hybrid loop — per-run artifact output (runtime, not source)
+runs/
 
 # Ad-hoc verification scripts (not part of source)
 .tmp-verification/
