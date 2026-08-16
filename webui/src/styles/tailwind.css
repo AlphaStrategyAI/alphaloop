@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--s-4) var(--s-5);
+  }
+  .metric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .btn {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    padding: var(--s-2) var(--s-4);
+    border-radius: var(--r-sm);
+    background: var(--bg-2);
+    color: var(--fg-0);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all var(--t-fast) var(--ease-out);
+  }
+  .btn:hover {
+    background: var(--bg-1);
+    border-color: var(--color-math);
+  }
+  .btn-primary {
+    background: var(--color-math);
+    color: var(--fg-0);
+    border-color: var(--color-math);
+  }
+  .btn-primary:hover {
+    background: #4a5be8;
+  }
+}

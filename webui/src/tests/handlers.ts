@@ -1,0 +1,168 @@
+// Mock fetch / axios responses for Vitest tests
+import type { TopFiveResponse, StrategyDetailResponse, DiagnosticsResponse, ReplayResponse } from "../types";
+
+export const mockTop5Response: TopFiveResponse = {
+  rid: "2026-08-16T00-00-00Z_aabbccdd",
+  top5: [
+    {
+      rank: 1,
+      task_id: "task-0001",
+      strategy: "MomentumStrategy",
+      factor: "Momentum12M",
+      params: { lookback: 12 },
+      dsr: 0.873,
+      sharpe: 1.42,
+      cagr: 0.18,
+      max_dd: 0.07,
+      passes_all: true,
+      one_line_thesis: "Top 1",
+    },
+    {
+      rank: 2,
+      task_id: "task-0002",
+      strategy: "MeanReversionStrategy",
+      factor: "Volatility",
+      params: { window: 20 },
+      dsr: 0.812,
+      sharpe: 1.31,
+      cagr: 0.15,
+      max_dd: 0.08,
+      passes_all: true,
+      one_line_thesis: "Top 2",
+    },
+    {
+      rank: 3,
+      task_id: "task-0003",
+      strategy: "TrendFollow",
+      factor: "Momentum6M",
+      params: {},
+      dsr: 0.751,
+      sharpe: 1.20,
+      cagr: 0.13,
+      max_dd: 0.09,
+      passes_all: true,
+      one_line_thesis: "",
+    },
+    {
+      rank: 4,
+      task_id: "task-0004",
+      strategy: "VolatilityBreakout",
+      factor: "",
+      params: {},
+      dsr: 0.700,
+      sharpe: 1.10,
+      cagr: 0.12,
+      max_dd: 0.10,
+      passes_all: false,
+      one_line_thesis: "",
+    },
+    {
+      rank: 5,
+      task_id: "task-0005",
+      strategy: "QualityValue",
+      factor: "Value",
+      params: {},
+      dsr: 0.650,
+      sharpe: 1.00,
+      cagr: 0.10,
+      max_dd: 0.11,
+      passes_all: true,
+      one_line_thesis: "",
+    },
+  ],
+  goals: [],
+  metrics: { n_picks: 5, best_dsr: 0.873, best_sharpe: 1.42 },
+};
+
+export const mockStrategyDetail: StrategyDetailResponse = {
+  rid: "2026-08-16T00-00-00Z_aabbccdd",
+  sid: "task-0001",
+  pick: mockTop5Response.top5[0],
+  diagnostics: {
+    q1: { label: "Q1 DSR", value: 0.873, pass: true },
+    q2: { label: "Q2 CV", value: 0.92, pass: true },
+    q3: { label: "Q3 Consistency", value: 0.85, pass: true },
+    q4: { label: "Q4 vs Random", value: 0.78, pass: true },
+    q5: { label: "Q5 vs Buy-Hold", value: 0.65, pass: true },
+    q6: { label: "Q6 vs SPY", value: 0.72, pass: true },
+    q7: { label: "Q7 LLM Judge", value: 0.80, pass: true },
+  },
+  equity: Array.from({ length: 60 }, (_, i) => 100 + i * 0.5),
+  judge_summary: "Strong momentum signal",
+};
+
+export const mockDiagnostics: DiagnosticsResponse = {
+  rid: "2026-08-16T00-00-00Z_aabbccdd",
+  manifest: {
+    run_id: "2026-08-16T00-00-00Z_aabbccdd",
+    goal: "test goal",
+    seed: 42,
+    git_commit: "abc1234567890",
+    llm_model: "gpt-4o-mini",
+    target_dsr: 1.0,
+    budget_usd: 5.0,
+    timeout_s: 21600,
+    started_at: "2026-08-16T00:00:00Z",
+    finished_at: "2026-08-16T00:10:00Z",
+    termination_reason: "B",
+    estimated_cost_usd: 0.05,
+    task_count: 5,
+  },
+  radar: [
+    { axis: "Q1 DSR", value: 0.8, category: "math" },
+    { axis: "Q2 CV", value: 0.9, category: "math" },
+    { axis: "Q3 Consistency", value: 0.7, category: "math" },
+    { axis: "Q4 vs Random", value: 0.6, category: "math" },
+    { axis: "Q5 vs Buy-Hold", value: 0.5, category: "stats" },
+    { axis: "Q6 vs SPY", value: 0.4, category: "stats" },
+    { axis: "Q7 LLM Judge", value: 0.3, category: "ai" },
+  ],
+  bar: [
+    { label: "Q1 DSR", pass_rate: 0.8, pass_count: 4, total: 5, category: "math" },
+    { label: "Q2 CV", pass_rate: 0.9, pass_count: 5, total: 5, category: "math" },
+    { label: "Q3 Consistency", pass_rate: 0.7, pass_count: 4, total: 5, category: "math" },
+    { label: "Q4 vs Random", pass_rate: 0.6, pass_count: 3, total: 5, category: "math" },
+    { label: "Q5 vs Buy-Hold", pass_rate: 0.5, pass_count: 3, total: 5, category: "stats" },
+    { label: "Q6 vs SPY", pass_rate: 0.4, pass_count: 2, total: 5, category: "stats" },
+    { label: "Q7 LLM Judge", pass_rate: 0.3, pass_count: 2, total: 5, category: "ai" },
+  ],
+  compare_with: null,
+};
+
+export const mockReplay: ReplayResponse = {
+  rid: "2026-08-16T00-00-00Z_aabbccdd",
+  dag: {
+    nodes: [
+      { id: "n1_load_data", label: "N1 Load", description: "Load data", status: "done", elapsed_s: 12 },
+      { id: "n2_plan", label: "N2 Plan", description: "Plan", status: "done", elapsed_s: 8 },
+      { id: "n3_execute", label: "N3 Execute", description: "Run", status: "done", elapsed_s: 540 },
+      { id: "n4_diagnose", label: "N4 Diagnose", description: "Diag", status: "done", elapsed_s: 90 },
+      { id: "n5_aggregate", label: "N5 Aggregate", description: "Agg", status: "done", elapsed_s: 30 },
+      { id: "n6_commit", label: "N6 Commit", description: "Commit", status: "done", elapsed_s: 20 },
+    ],
+    edges: [
+      { from: "n1_load_data", to: "n2_plan" },
+      { from: "n2_plan", to: "n3_execute" },
+      { from: "n3_execute", to: "n4_diagnose" },
+      { from: "n4_diagnose", to: "n5_aggregate" },
+      { from: "n5_aggregate", to: "n6_commit" },
+    ],
+  },
+  timing: {
+    n1_load_data: 12,
+    n2_plan: 8,
+    n3_execute: 540,
+    n4_diagnose: 90,
+    n5_aggregate: 30,
+    n6_commit: 20,
+  },
+};
+
+export const mockRunsList = [
+  {
+    rid: "2026-08-16T00-00-00Z_aabbccdd",
+    started_at: "2026-08-16T00:00:00Z",
+    elapsed_s: 600,
+    goal: "test goal",
+  },
+];
