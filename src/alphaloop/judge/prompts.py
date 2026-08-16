@@ -21,6 +21,12 @@ import os
 from pathlib import Path
 from typing import Optional
 
+# v0.8 calibration integration (PRD § 2 Story 11): the bundled
+# default PROMPT_TEMPLATE is still the v0.6 prompt, but the registry
+# (alphaloop.calibration.prompt_registry) ships v0.8.0-prompt-2 as
+# the default. The lazy import here avoids a circular import at
+# module load time.
+
 # Bundled default prompt template. This is the YAML the design doc
 # describes; loaded at import time and re-parsed on every call (so the
 # default can be patched by tests via `LLM_JUDGE_CONFIG`).
@@ -200,8 +206,20 @@ def _resolve_template(
     inline: Optional[str],
     yaml_path: Optional[str],
     env_path_var: str = "LLM_JUDGE_CONFIG",
+    *,
+    prompt_version: Optional[str] = None,
 ) -> str:
-    """Pick the prompt template per resolution order."""
+    """Pick the prompt template per resolution order.
+
+    Order (highest priority first):
+
+    1. ``inline`` parameter (explicit template — used by tests).
+    2. ``yaml_path`` / ``LLM_JUDGE_CONFIG`` env var (file on disk).
+    3. v0.8 registry (alphaloop.calibration.prompt_registry), using
+       ``prompt_version`` (default ``"latest"``) or
+       ``ALPHALOOP_JUDGE_PROMPT_VERSION``.
+    4. Bundled ``PROMPT_TEMPLATE`` (the v0.6 default).
+    """
     if inline is not None:
         return inline
     path_str = yaml_path or os.environ.get(env_path_var)
@@ -213,7 +231,30 @@ def _resolve_template(
             raise IOError(
                 f"could not read LLM judge prompt YAML at {path}: {e}"
             ) from e
-    return PROMPT_TEMPLATE
+    # v0.8: registry lookup.
+    try:
+        from alphaloop.calibration.prompt_registry import get_prompt
+        return get_prompt(version=prompt_version)
+    except (KeyError, ImportError):
+        return PROMPT_TEMPLATE
+
+
+def load_prompt(version: str = "latest") -> str:
+    """Return a registered prompt template by version (v0.8, Story 11).
+
+    Resolution: ``"latest"`` → lex-last registered version
+    (today ``v0.8.0-prompt-2``); explicit version name → that
+    version. Raises KeyError if the version is unknown.
+
+    Backward compatible with v0.6 — falls back to the bundled
+    ``PROMPT_TEMPLATE`` (``v0.6.0-prompt-1``) if the registry is
+    empty.
+    """
+    from alphaloop.calibration.prompt_registry import get_prompt
+    try:
+        return get_prompt(version=version)
+    except (KeyError, ImportError):
+        return PROMPT_TEMPLATE
 
 
 def render_prompt(
@@ -221,6 +262,7 @@ def render_prompt(
     *,
     inline_template: Optional[str] = None,
     yaml_path: Optional[str] = None,
+    prompt_version: Optional[str] = None,
 ) -> list[dict]:
     """Render the judge prompt as a chat-messages list.
 
@@ -244,7 +286,7 @@ def render_prompt(
             (`system`, `user`) or is malformed.
         IOError: if `yaml_path` is set but cannot be read.
     """
-    template = _resolve_template(inline_template, yaml_path)
+    template = _resolve_template(inline_template, yaml_path, prompt_version=prompt_version)
     parsed = _yaml_load(template)
 
     system = parsed.get("system")

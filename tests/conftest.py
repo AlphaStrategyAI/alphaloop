@@ -36,6 +36,7 @@ def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line("markers", "integration: tests that hit real APIs/network")
     config.addinivalue_line("markers", "no_lookahead: factor look-ahead audit tests (v1.1.1)")
+    config.addinivalue_line("markers", "llm: tests that require a live LLM endpoint (skipped without LLM_API_KEY)")
 
 
 def pytest_runtest_setup(item):

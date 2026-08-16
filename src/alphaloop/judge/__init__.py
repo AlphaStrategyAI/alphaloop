@@ -26,7 +26,7 @@ The package is not re-exported from the top-level `alphaloop` package;
 callers should use `alphaloop.diagnostic.llm_judge`.
 """
 from .client import LLMClient, LLMJudgeClient, LLMConfig
-from .prompts import render_prompt, PROMPT_TEMPLATE, DEFAULT_PROMPT_PATH
+from .prompts import load_prompt, render_prompt, PROMPT_TEMPLATE, DEFAULT_PROMPT_PATH
 from .types import DimensionScore, LLMJudgeResult, RawCompletion
 
 __all__ = [
@@ -37,6 +37,7 @@ __all__ = [
     "LLMConfig",
     # prompts
     "render_prompt",
+    "load_prompt",  # v0.8: registry lookup
     "PROMPT_TEMPLATE",
     "DEFAULT_PROMPT_PATH",
     # client

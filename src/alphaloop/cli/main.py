@@ -8,6 +8,7 @@ import sys
 
 from .commands import fetch_data, optimize_strategy, run_backtest
 from .report import register as register_report
+from alphaloop.calibration.cli import register_judge_subcommand
 
 
 def _register_loop(subparsers: argparse._SubParsersAction) -> None:
@@ -298,6 +299,9 @@ def create_parser() -> argparse.ArgumentParser:
     # loop 命令 (v0.7 hybrid loop)
     _register_loop(subparsers)
 
+    # judge 命令 (v0.8 calibration: --calibration / --calibrate-prompt)
+    register_judge_subcommand(subparsers)
+
     return parser
 
 
@@ -321,6 +325,8 @@ def main(args=None):
             return parsed.func(parsed)
         elif parsed.command == "loop":
             return _handle_loop(parsed)
+        elif parsed.command == "judge":
+            return parsed.func(parsed)
     except KeyboardInterrupt:
         print("\n操作已取消")
         return 130

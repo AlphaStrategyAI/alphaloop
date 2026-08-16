@@ -1,0 +1,49 @@
+{
+  "asset_classes": {
+    "EU_equity": 29,
+    "US_equity": 38,
+    "crypto": 33
+  },
+  "dataset_sha256": "19b0155d2fbeaddc90b761a58f5b2359fcd7ec4b6b3fdb46ea4591fa712bd894",
+  "degraded_cases": [
+    "calib_081",
+    "calib_082",
+    "calib_083",
+    "calib_084",
+    "calib_085",
+    "calib_086",
+    "calib_087",
+    "calib_088",
+    "calib_089",
+    "calib_090",
+    "calib_091",
+    "calib_092",
+    "calib_093",
+    "calib_094",
+    "calib_095",
+    "calib_096",
+    "calib_097",
+    "calib_098",
+    "calib_099",
+    "calib_100"
+  ],
+  "inter_rater_alpha": 0.7027160493827129,
+  "languages": {
+    "en": 81,
+    "zh": 19
+  },
+  "n_cases": 100,
+  "strategies": {
+    "breakout_v1": 18,
+    "factor_combo_v2": 20,
+    "mean_reversion_v2": 20,
+    "momentum_v3": 22,
+    "vol_premium_v1": 20
+  },
+  "time_periods": {
+    "2015-2019": 39,
+    "2020-2022": 29,
+    "2023-2025": 32
+  },
+  "version": "v1"
+}
