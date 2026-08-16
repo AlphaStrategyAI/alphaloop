@@ -32,11 +32,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
-      - name: Install MkDocs + Material
+      - name: Install MkDocs + Material (with retry)
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs mkdocs-material
+          ok=0
+          for i in 1 2 3 4 5; do
+            if pip install mkdocs mkdocs-material; then
+              ok=1
+              break
+            fi
+            echo "Retry $i failed, waiting $((i*5))s..."
+            sleep $((i*5))
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "pip install failed after 5 attempts (PyPI unreachable)"
+            exit 1
+          fi
 
       - name: Build site (strict)
         run: mkdocs build --strict
