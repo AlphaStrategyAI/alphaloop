@@ -6,7 +6,7 @@ site_url: https://alphaloop.github.io/alphaloop/
 repo_url: https://github.com/AlphaStrategyAI/alphaloop
 repo_name: AlphaStrategyAI/alphaloop
 
-docs_dir: docs-site
+docs_dir: docs
 site_dir: site
 
 theme:
@@ -44,9 +44,15 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting started: getting-started.md
-  - CLI reference: reference.md
+  - CLI reference: cli.md
   - WebUI: webui.md
+  - Design docs:
+    - Hybrid DAG loop: design/v07-hybrid-loop.md
+    - LLM judge: design/v06-llm-judge.md
+    - WebUI: design/v071-webui.md
+  - Requirements:
+    - v0.7.2: requirements/v072-requirements.md
+    - v0.8: requirements/v08-requirements.md
 
 extra:
   generator: false
