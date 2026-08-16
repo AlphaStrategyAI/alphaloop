@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { apiClient } from "../api/client";
 import type { TopFiveResponse, RunListItem } from "../types";
 import TopFiveCard from "../components/TopFiveCard";
+import ShareButton from "../components/ShareButton";
+import ScreenshotButton from "../components/ScreenshotButton";
 import { cardContainerVariants } from "../animations/cardStagger";
 
 export default function TopFiveView() {
@@ -97,7 +99,7 @@ export default function TopFiveView() {
 
         {/* Quick links */}
         {data && (
-          <div className="flex gap-2 mb-4 text-sm">
+          <div className="flex gap-2 mb-4 text-sm items-center">
             <a href={`/run/${data.rid}`} className="btn">
               Run diagnostics →
             </a>
@@ -107,6 +109,8 @@ export default function TopFiveView() {
             <a href={apiClient.exportHtmlUrl(data.rid)} className="btn">
               Export HTML
             </a>
+            <ShareButton rid={data.rid} />
+            <ScreenshotButton rid={data.rid} view="top5" />
           </div>
         )}
 

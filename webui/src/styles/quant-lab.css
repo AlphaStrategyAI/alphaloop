@@ -90,3 +90,23 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* v0.7.2: light theme override (R-Polish Story 8).
+   Applied via document.documentElement.dataset.theme = "light". */
+:root[data-theme="light"] {
+  --color-math: #4a5be8;
+  --color-stats: #059669;
+  --color-ai: #d97706;
+
+  --bg-0: #f8fafc;
+  --bg-1: #ffffff;
+  --bg-2: #f1f5f9;
+  --fg-0: #0f172a;
+  --fg-1: #475569;
+  --fg-2: #94a3b8;
+  --border: #e2e8f0;
+}
+:root[data-theme="light"] body {
+  background: var(--bg-0);
+  color: var(--fg-0);
+}

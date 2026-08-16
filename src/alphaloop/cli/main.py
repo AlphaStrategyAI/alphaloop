@@ -15,17 +15,23 @@ def _register_loop(subparsers: argparse._SubParsersAction) -> None:
 
     Mirrors design doc section 3.4:
 
-        alphaloop loop "<goal>" [--seed N] [--budget USD] [--timeout S]
+        alphaloop loop "run" "<goal>" [--seed N] [--budget USD] [--timeout S]
                               [--target-dsr F] [--model NAME]
-                              [--data-dir DIR] [--dry-run]
+                              [--data-dir DIR] [--dry-run] [--no-launch]
 
-        alphaloop loop replay --run-id ID [--data-dir DIR]
-        alphaloop loop inspect --run-id ID [--data-dir DIR]
-        alphaloop loop list [--data-dir DIR]
+        alphaloop loop "replay" --run-id ID [--data-dir DIR]
+        alphaloop loop "inspect" --run-id ID [--data-dir DIR]
+        alphaloop loop "list" [--data-dir DIR]
+        alphaloop loop "<goal>" [--no-launch]    (short form, defaults to run)
     """
     loop_p = subparsers.add_parser(
         "loop",
         help="v0.7 hybrid loop: end-to-end autonomous research",
+    )
+    loop_p.add_argument(
+        "--no-launch",
+        action="store_true",
+        help="loop 完成后不自动启动 WebUI + 浏览器 (v0.7.2)",
     )
     loop_sub = loop_p.add_subparsers(dest="loop_command", help="loop 子命令")
 
@@ -49,6 +55,11 @@ def _register_loop(subparsers: argparse._SubParsersAction) -> None:
         "--git-repo-dir",
         default=".",
         help="git rev-parse HEAD 捕获目录 (N6)",
+    )
+    run_p.add_argument(
+        "--no-launch",
+        action="store_true",
+        help="loop 完成后不自动启动 WebUI + 浏览器 (v0.7.2)",
     )
     run_p.set_defaults(loop_command="run")
 
@@ -82,6 +93,11 @@ def _register_loop(subparsers: argparse._SubParsersAction) -> None:
     default_p.add_argument("--max-tasks", type=int)
     default_p.add_argument("--dry-run", action="store_true")
     default_p.add_argument("--git-repo-dir", default=".")
+    default_p.add_argument(
+        "--no-launch",
+        action="store_true",
+        help="loop 完成后不自动启动 WebUI + 浏览器 (v0.7.2)",
+    )
     default_p.set_defaults(loop_command="run")
 
     loop_p.set_defaults(loop_command=None, func=None)
@@ -167,6 +183,36 @@ def _handle_loop(args: argparse.Namespace) -> int:
     print(f"  elapsed (s):        {summary.elapsed_s:.2f}")
     print(f"  top5 picks:         {len(summary.top5)}")
     print(f"  artifacts dir:      {summary.artifacts_dir}")
+
+    # --- v0.7.2: auto-launch the WebUI (R-AutoLaunch stories 1-3) ---
+    no_launch = bool(getattr(args, "no_launch", False))
+    if not no_launch:
+        try:
+            from alphaloop.webui.auto_launch import (
+                auto_launch,
+                is_headless,
+            )
+            if is_headless():
+                print(
+                    "warning: no display detected, falling back to --no-launch",
+                    file=sys.stderr,
+                )
+            else:
+                ok, url, port = auto_launch(
+                    run_id=summary.run_id,
+                    artifacts_dir=summary.artifacts_dir,
+                )
+                if ok and url:
+                    print(f"alphaloop webui serving on {url}")
+                    print(f"  (open in browser; Ctrl-C to stop)")
+                elif port:
+                    print(
+                        f"warning: webui server started on port {port} "
+                        f"but health check did not respond in 15s",
+                        file=sys.stderr,
+                    )
+        except Exception as e:
+            print(f"warning: auto-launch failed: {e}", file=sys.stderr)
     return 0
 
 
@@ -176,6 +222,37 @@ def create_parser() -> argparse.ArgumentParser:
         prog="alphaloop",
         description="OpenStrategy - 开源量化投资策略框架",
     )
+
+    # Patch parse_args to handle the short form:
+    # `alphaloop loop <goal> [--no-launch] ...` → routes to `loop run`,
+    # where <goal> is the first positional after `loop`. Without this,
+    # argparse rejects the unknown positional with "invalid choice".
+    orig_parse_args = parser.parse_args
+
+    def _parse_args(args=None, namespace=None):  # type: ignore[override]
+        import shlex
+
+        # Tokenize if a string was passed.
+        if isinstance(args, str):
+            args = shlex.split(args)
+        raw = list(args) if args is not None else sys.argv[1:]
+
+        # Find the index of the `loop` subcommand.
+        if "loop" in raw:
+            i = raw.index("loop")
+            after = raw[i + 1 :]
+            # If the first token after `loop` is not a registered
+            # subcommand and does not start with `-`, treat it as the
+            # `goal` positional of the short form.
+            known = {"run", "replay", "inspect", "list", "-h", "--help"}
+            if after and not after[0].startswith("-") and after[0] not in known:
+                # Insert a sentinel: route to the `run` subparser.
+                new_raw = raw[: i + 1] + ["run"] + after
+                return orig_parse_args(new_raw, namespace)
+
+        return orig_parse_args(args, namespace)
+
+    parser.parse_args = _parse_args  # type: ignore[assignment]
 
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
 

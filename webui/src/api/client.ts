@@ -22,6 +22,23 @@ export const apiClient = {
     const r = await api.get<TopFiveResponse>(`/runs/${rid}/top5`);
     return r.data;
   },
+  mintShareLink: async (
+    rid: string,
+    ttlDays = 90,
+  ): Promise<{
+    token: string;
+    url: string;
+    created_at: string;
+    expires_at: string;
+    ttl_days: number;
+    run_id: string;
+  }> => {
+    const r = await api.post(`/runs/${rid}/share`, null, {
+      params: { ttl_days: ttlDays },
+    });
+    return r.data;
+  },
+  shareUrl: (token: string): string => `/s/${token}`,
   getStrategy: async (rid: string, sid: string): Promise<StrategyDetailResponse> => {
     const r = await api.get<StrategyDetailResponse>(
       `/runs/${rid}/strategies/${sid}`,

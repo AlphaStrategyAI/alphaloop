@@ -1,0 +1,55 @@
+site_name: alphaloop
+site_description: >-
+  Open-source quantitative investment framework — a hybrid DAG loop that
+  plans, executes, diagnoses, and reports alpha strategies autonomously.
+site_url: https://alphaloop.github.io/alphaloop/
+repo_url: https://github.com/AlphaStrategyAI/alphaloop
+repo_name: AlphaStrategyAI/alphaloop
+
+docs_dir: docs-site
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: emerald
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: emerald
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - CLI reference: reference.md
+  - WebUI: webui.md
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AlphaStrategyAI/alphaloop
