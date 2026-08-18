@@ -221,7 +221,7 @@ def create_parser() -> argparse.ArgumentParser:
     """创建命令行解析器"""
     parser = argparse.ArgumentParser(
         prog="alphaloop",
-        description="OpenStrategy - 开源量化投资策略框架",
+        description="alphaloop — local-first overnight research lab",
     )
 
     # Patch parse_args to handle the short form:

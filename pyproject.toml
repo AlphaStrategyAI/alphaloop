@@ -57,16 +57,13 @@ dev = [
 ]
 
 [project.scripts]
-openstrategy = "openstrategy.cli:main"
+alphaloop = "alphaloop.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/AlphaStrategyAI/alphaloop"
 Documentation = "https://github.com/AlphaStrategyAI/alphaloop#readme"
 Repository = "https://github.com/AlphaStrategyAI/alphaloop"
 Issues = "https://github.com/AlphaStrategyAI/alphaloop/issues"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/openstrategy"]
 
 [tool.black]
 line-length = 100
