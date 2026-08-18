@@ -635,3 +635,9 @@ Implementation must proceed through separate specifications and plans:
 
 The next implementation-design cycle should begin with item 1. Later
 items depend on its versioned contracts.
+
+Refactor mapping and file boundaries:
+[`docs/design/overnight-research-lab-refactor.md`](../design/overnight-research-lab-refactor.md).
+
+Phase 1 implementation plan:
+[`docs/superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md`](../superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md).
