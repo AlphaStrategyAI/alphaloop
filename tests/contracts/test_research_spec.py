@@ -46,3 +46,19 @@ def test_new_spec_ids_are_stable_for_same_payload_and_seed():
     a = _spec()
     b = _spec()
     assert a.spec_id == b.spec_id
+
+
+def test_hard_gates_reject_llm_judge():
+    with pytest.raises(ValueError, match="llm_judge"):
+        new_research_spec(
+            statement="test",
+            economic_logic="test",
+            signal_mechanism="test",
+            market_scope="test",
+            market_profile="us-equity-daily",
+            benchmark="SPY",
+            hard_gates=("llm_judge",),
+            seed=1,
+            time_budget_s=60,
+            cost_budget_usd=1.0,
+        )

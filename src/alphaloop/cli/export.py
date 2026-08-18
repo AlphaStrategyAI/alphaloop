@@ -12,7 +12,7 @@ from alphaloop.contracts.status import ResearchOutcome
 def register(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "export",
-        help="export a FOUND candidate as an immutable .asb bundle",
+        help="export a FOUND candidate (Phase-1 placeholder, not an immutable .asb bundle)",
     )
     parser.add_argument("candidate_id")
     parser.add_argument("--outcome", required=True, help="sealed research outcome")
@@ -41,6 +41,7 @@ def run_export(args: argparse.Namespace) -> int:
     destination.write_text(
         json.dumps(
             {
+                "placeholder": True,
                 "schema_version": "1",
                 "candidate_id": args.candidate_id,
                 "outcome": outcome.value,

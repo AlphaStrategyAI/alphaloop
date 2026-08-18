@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 
 
 class JobStatus(str, Enum):
@@ -20,12 +20,16 @@ class ResearchOutcome(str, Enum):
 
 
 def derive_research_outcome(
-    job_status: JobStatus,
+    job_status: Union[JobStatus, str],
     evidence_complete: bool,
     all_gates_passed: bool,
     sealed: Optional[ResearchOutcome] = None,
 ) -> ResearchOutcome:
+    if not isinstance(job_status, JobStatus):
+        job_status = JobStatus(job_status)
     if sealed is ResearchOutcome.FOUND:
+        if not evidence_complete:
+            return ResearchOutcome.INCONCLUSIVE
         return ResearchOutcome.FOUND
     if job_status in (JobStatus.QUEUED, JobStatus.RUNNING):
         return ResearchOutcome.NONE

@@ -24,6 +24,18 @@ from .diagnostic import (
     walk_forward_cv,
 )
 from .strategies import BuyHoldStrategy, RebalanceStrategy, StrategyFactory
+from .engineer import (
+    atr_breakout,
+    bollinger_zscore,
+    macd,
+    momentum_12_1,
+    obv_slope,
+    ohlr_4_pct,
+    pairs_spread,
+    parkinson_hist_vol,
+    roc,
+    rsi,
+)
 
 # v0.7 hybrid loop — imported lazily so an environment without the
 # loop deps can still import the core package.

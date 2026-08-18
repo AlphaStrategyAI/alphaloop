@@ -12,6 +12,43 @@ class ExportNotAllowed(ValueError):
     """Raised when a candidate cannot be exported as a bundle."""
 
 
+_BUNDLE_HASH_FIELDS = (
+    "schema_version",
+    "strategy_dsl",
+    "market_profile",
+    "parameters",
+    "risk_envelope",
+    "lineage",
+    "conformance",
+    "registry_uri",
+)
+
+
+def _normalize_registry_uri(registry: Any) -> Optional[str]:
+    if registry in (None, ""):
+        return None
+    return str(registry)
+
+
+def bundle_hash_projection(payload: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": str(payload["schema_version"]),
+        "strategy_dsl": dict(payload["strategy_dsl"]),
+        "market_profile": str(payload["market_profile"]),
+        "parameters": dict(payload["parameters"]),
+        "risk_envelope": dict(payload["risk_envelope"]),
+        "lineage": dict(payload["lineage"]),
+        "conformance": dict(payload["conformance"]),
+        "registry_uri": _normalize_registry_uri(payload.get("registry_uri")),
+    }
+
+
+def canonical_hash(payload: Mapping[str, Any]) -> str:
+    projection = bundle_hash_projection(payload)
+    encoded = json.dumps(projection, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 @dataclass(frozen=True)
 class StrategyCandidateBundle:
     schema_version: str
@@ -25,26 +62,33 @@ class StrategyCandidateBundle:
     conformance: dict
     registry_uri: Optional[str]
 
-
-def canonical_hash(payload: Mapping[str, Any]) -> str:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "strategy_dsl": dict(self.strategy_dsl),
+            "market_profile": self.market_profile,
+            "parameters": dict(self.parameters),
+            "risk_envelope": dict(self.risk_envelope),
+            "lineage": dict(self.lineage),
+            "conformance": dict(self.conformance),
+            "registry_uri": self.registry_uri,
+        }
 
 
 def bundle_from_payload(payload: Mapping[str, Any]) -> StrategyCandidateBundle:
-    digest = canonical_hash(payload)
-    registry = payload.get("registry_uri")
+    projection = bundle_hash_projection(payload)
+    digest = canonical_hash(projection)
     return StrategyCandidateBundle(
-        schema_version=str(payload["schema_version"]),
+        schema_version=projection["schema_version"],
         bundle_id="b_" + digest[:32],
         content_hash=digest,
-        strategy_dsl=dict(payload["strategy_dsl"]),
-        market_profile=str(payload["market_profile"]),
-        parameters=dict(payload["parameters"]),
-        risk_envelope=dict(payload["risk_envelope"]),
-        lineage=dict(payload["lineage"]),
-        conformance=dict(payload["conformance"]),
-        registry_uri=None if registry in (None, "") else str(registry),
+        strategy_dsl=projection["strategy_dsl"],
+        market_profile=projection["market_profile"],
+        parameters=projection["parameters"],
+        risk_envelope=projection["risk_envelope"],
+        lineage=projection["lineage"],
+        conformance=projection["conformance"],
+        registry_uri=projection["registry_uri"],
     )
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from alphaloop.contracts.gates import (
+    GateEvidence,
     GateResult,
     HardGateName,
     IncompleteEvidenceError,
@@ -56,3 +57,23 @@ def test_one_failure_is_no_evidence():
         outcome_from_evidence(JobStatus.COMPLETED, evidence)
         is ResearchOutcome.NO_EVIDENCE
     )
+
+
+def test_empty_required_cannot_produce_found():
+    with pytest.raises((IncompleteEvidenceError, ValueError)):
+        evaluate_hard_gates((), ())
+    evidence = GateEvidence(results=(), required=())
+    assert evidence.all_passed is False
+    assert (
+        outcome_from_evidence(JobStatus.COMPLETED, evidence)
+        is not ResearchOutcome.FOUND
+    )
+
+
+def test_duplicate_gate_results_do_not_last_write_win():
+    rows = (
+        GateResult(name=HardGateName.DSR, passed=False, detail={}),
+        GateResult(name=HardGateName.DSR, passed=True, detail={}),
+    )
+    with pytest.raises((IncompleteEvidenceError, ValueError)):
+        evaluate_hard_gates((HardGateName.DSR,), rows)

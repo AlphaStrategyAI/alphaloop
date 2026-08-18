@@ -39,6 +39,8 @@ class GateEvidence:
 
     @property
     def all_passed(self) -> bool:
+        if not self.required:
+            return False
         if not self.complete:
             return False
         by_name = {row.name: row.passed for row in self.results}
@@ -49,7 +51,14 @@ def evaluate_hard_gates(
     required: Sequence[HardGateName],
     results: Iterable[GateResult],
 ) -> GateEvidence:
+    if not required:
+        raise IncompleteEvidenceError("required hard gates must not be empty")
     rows = tuple(results)
+    seen: set[HardGateName] = set()
+    for row in rows:
+        if row.name in seen:
+            raise ValueError(f"duplicate hard gate result: {row.name.value}")
+        seen.add(row.name)
     present = {row.name for row in rows}
     missing = [name for name in required if name not in present]
     if missing:

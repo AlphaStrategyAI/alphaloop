@@ -47,3 +47,19 @@ def test_export_requires_found_and_known_candidate():
         assert_exportable(ResearchOutcome.NO_EVIDENCE, ("c1",), "c1")
     with pytest.raises(ExportNotAllowed):
         assert_exportable(ResearchOutcome.FOUND, ("c1",), "c2")
+
+
+def test_registry_uri_normalization_produces_same_hash():
+    base = _payload()
+    omitted = {k: v for k, v in base.items() if k != "registry_uri"}
+    empty = {**base, "registry_uri": ""}
+    a = canonical_hash(base)
+    b = canonical_hash(omitted)
+    c = canonical_hash(empty)
+    assert a == b == c
+    assert bundle_from_payload(base).bundle_id == bundle_from_payload(omitted).bundle_id
+
+
+def test_to_payload_recomputes_hash():
+    bundle = bundle_from_payload(_payload())
+    assert canonical_hash(bundle.to_payload()) == bundle.content_hash

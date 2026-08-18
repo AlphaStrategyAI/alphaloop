@@ -77,6 +77,29 @@ def test_sealed_found_survives_cancel():
     )
 
 
+def test_sealed_found_requires_complete_evidence():
+    assert (
+        derive_research_outcome(
+            JobStatus.CANCELLED,
+            evidence_complete=False,
+            all_gates_passed=True,
+            sealed=ResearchOutcome.FOUND,
+        )
+        is ResearchOutcome.INCONCLUSIVE
+    )
+
+
+def test_job_status_string_coercion():
+    assert (
+        derive_research_outcome(
+            "completed",
+            evidence_complete=True,
+            all_gates_passed=True,
+        )
+        is ResearchOutcome.FOUND
+    )
+
+
 def test_incomplete_evidence_cannot_use_all_gates_passed_shortcut():
     outcome = derive_research_outcome(
         JobStatus.COMPLETED,

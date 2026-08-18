@@ -57,6 +57,11 @@ def test_cli_parser_prog_is_alphaloop():
     assert parser.prog == "alphaloop"
 
 
+def test_all_exports_exist_on_package():
+    missing = [name for name in alphaloop.__all__ if not hasattr(alphaloop, name)]
+    assert missing == []
+
+
 def test_contracts_do_not_import_live():
     root = ROOT / "src" / "alphaloop" / "contracts"
     for path in root.glob("*.py"):

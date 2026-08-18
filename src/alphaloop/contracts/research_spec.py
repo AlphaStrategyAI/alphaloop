@@ -5,8 +5,21 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping, Sequence
 
+from .gates import HardGateName
+
 
 ALLOWED_PROFILES = ("us-equity-daily", "crypto-daily")
+
+
+def _validate_hard_gate_names(names: Sequence[str]) -> tuple[str, ...]:
+    validated: list[str] = []
+    for name in names:
+        try:
+            HardGateName(name)
+        except ValueError as exc:
+            raise ValueError(f"unsupported hard gate: {name}") from exc
+        validated.append(name)
+    return tuple(validated)
 
 
 @dataclass(frozen=True)
@@ -26,6 +39,9 @@ class Hypothesis:
 @dataclass(frozen=True)
 class SuccessCriteria:
     hard_gates: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "hard_gates", _validate_hard_gate_names(self.hard_gates))
 
 
 @dataclass(frozen=True)
