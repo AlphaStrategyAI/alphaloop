@@ -51,6 +51,7 @@ nav:
     - LLM judge: design/v06-llm-judge.md
     - WebUI: design/v071-webui.md
   - Requirements:
+    - Product positioning: requirements/product-positioning-requirements.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 

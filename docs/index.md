@@ -99,6 +99,6 @@ runs/<run_id>/
 - 🖥  [WebUI](webui.md) — 4 views, 8 animations, the *Quant Lab*
   visual design, keyboard shortcuts.
 - 📐 [Design: hybrid DAG](design/v07-hybrid-loop.md) · [LLM judge](design/v06-llm-judge.md) · [WebUI](design/v071-webui.md) — architecture.
-- 🧪 [Requirements: v0.7.2](requirements/v072-requirements.md) · [v0.8](requirements/v08-requirements.md) — specifications.
+- 🧪 [Requirements: product positioning](requirements/product-positioning-requirements.md) · [v0.7.2](requirements/v072-requirements.md) · [v0.8](requirements/v08-requirements.md) — specifications.
 - 🔗 [GitHub repo](https://github.com/AlphaStrategyAI/alphaloop) —
   source, issues, releases.

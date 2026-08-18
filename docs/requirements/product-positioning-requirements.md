@@ -1,4 +1,13 @@
-# alphaloop Product Positioning and System Design
+---
+title: "alphaloop — Product Positioning Requirements (PRD)"
+status: "requirements"
+authors:
+  - alphaloop
+date: "2026-08-18"
+supersedes: "none — first product-positioning requirements document"
+---
+
+# alphaloop Product Positioning Requirements
 
 **Date:** 2026-08-18
 **Status:** Draft for written review
