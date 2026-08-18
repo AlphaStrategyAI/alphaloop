@@ -1,7 +1,7 @@
 # alphaloop Product Positioning and System Design
 
-**Date:** 2026-08-18  
-**Status:** Draft for written review  
+**Date:** 2026-08-18
+**Status:** Draft for written review
 **Scope:** Product positioning and target architecture
 
 ## 1. Executive summary
@@ -626,4 +626,3 @@ Implementation must proceed through separate specifications and plans:
 
 The next implementation-design cycle should begin with item 1. Later
 items depend on its versioned contracts.
-
