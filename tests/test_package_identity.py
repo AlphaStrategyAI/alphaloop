@@ -55,3 +55,11 @@ def test_cli_help_uses_alphaloop_not_openstrategy(capsys):
 def test_cli_parser_prog_is_alphaloop():
     parser = create_parser()
     assert parser.prog == "alphaloop"
+
+
+def test_contracts_do_not_import_live():
+    root = ROOT / "src" / "alphaloop" / "contracts"
+    for path in root.glob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        assert "alphaloop.live" not in text
+        assert "from ..live" not in text

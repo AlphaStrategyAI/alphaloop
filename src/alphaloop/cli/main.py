@@ -7,6 +7,7 @@ import asyncio
 import sys
 
 from .commands import fetch_data, optimize_strategy, run_backtest
+from .export import register as register_export
 from .report import register as register_report
 from alphaloop.calibration.cli import register_judge_subcommand
 
@@ -296,6 +297,8 @@ def create_parser() -> argparse.ArgumentParser:
     # report 命令 (v1.0 acceptance report)
     register_report(subparsers)
 
+    register_export(subparsers)
+
     # loop 命令 (v0.7 hybrid loop)
     _register_loop(subparsers)
 
@@ -322,6 +325,8 @@ def main(args=None):
         elif parsed.command == "fetch":
             return fetch_data(parsed)
         elif parsed.command == "report":
+            return parsed.func(parsed)
+        elif parsed.command == "export":
             return parsed.func(parsed)
         elif parsed.command == "loop":
             return _handle_loop(parsed)

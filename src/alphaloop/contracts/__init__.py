@@ -1,3 +1,10 @@
+from .bundle import (
+    ExportNotAllowed,
+    StrategyCandidateBundle,
+    assert_exportable,
+    bundle_from_payload,
+    canonical_hash,
+)
 from .artifacts import (
     DatasetMismatchError,
     DatasetRef,
@@ -22,6 +29,11 @@ from .research_spec import (
 from .status import JobStatus, ResearchOutcome, derive_research_outcome
 
 __all__ = [
+    "ExportNotAllowed",
+    "StrategyCandidateBundle",
+    "assert_exportable",
+    "bundle_from_payload",
+    "canonical_hash",
     "DatasetMismatchError",
     "DatasetRef",
     "GateEvidence",
