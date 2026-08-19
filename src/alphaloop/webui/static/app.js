@@ -61,4 +61,31 @@ async function loadJobs() {
   }
 }
 
+async function submitJob() {
+  const errors = document.getElementById("preflight-errors");
+  const constraint = document.getElementById("host-constraint");
+  errors.textContent = "";
+  const response = await fetch("/v1/jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/yaml" },
+    body: document.getElementById("spec-yaml").value,
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    const list = body.errors || [body.error || "submit failed"];
+    errors.textContent = list.join("; ");
+    return;
+  }
+  if (body.host_constraint) {
+    constraint.textContent = body.host_constraint;
+  }
+  loadJobs();
+}
+
+document.getElementById("submit-job").addEventListener("click", function () {
+  submitJob();
+});
+
+setInterval(loadJobs, 2000);
+
 loadJobs();

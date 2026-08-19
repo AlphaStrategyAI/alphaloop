@@ -69,3 +69,8 @@ h1 {
 section {
   margin-bottom: 2rem;
 }
+
+#spec-yaml {
+  width: 100%;
+  font-family: monospace;
+}

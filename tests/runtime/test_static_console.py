@@ -24,6 +24,10 @@ def test_packaged_assets_are_read_only_morning_copy():
     assert "FOUND" in html
     assert "NO_EVIDENCE" in html
     assert "INCONCLUSIVE" in html
+    assert 'id="spec-yaml"' in html
+    assert 'id="submit-job"' in html
+    assert "application/yaml" in script
+    assert "setInterval" in script
     assert "/v1/jobs" in script
     assert "override" not in script.lower()
     assert "hard_gates=" not in script
@@ -83,6 +87,7 @@ def test_root_serves_packaged_html(tmp_path):
         assert "NO_EVIDENCE" in body
         assert "INCONCLUSIVE" in body
         assert "/app.js" in body
+        assert "spec-yaml" in body
     finally:
         server.shutdown()
 

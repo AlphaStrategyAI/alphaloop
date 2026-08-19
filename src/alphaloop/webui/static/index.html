@@ -23,6 +23,16 @@
       </p>
     </header>
     <main>
+      <section id="submit">
+        <h2>Submit</h2>
+        <label for="spec-yaml">Research spec (YAML)</label>
+        <textarea id="spec-yaml" rows="16" cols="72"></textarea>
+        <p>
+          <button id="submit-job" type="button">Submit</button>
+        </p>
+        <p id="preflight-errors"></p>
+        <p id="host-constraint"></p>
+      </section>
       <section id="jobs">
         <h2>Jobs</h2>
         <ul id="job-list"></ul>
