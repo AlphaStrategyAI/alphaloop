@@ -56,8 +56,13 @@ def test_cancelled_run_cannot_be_resumed(tmp_path):
     cancelled = api.cancel_run(run_id)
     assert cancelled["status"] == JobStatus.CANCELLED.value
     assert cancelled["research_outcome"] == ResearchOutcome.INCONCLUSIVE.value
+    terminated_after_cancel = list(api.supervisor.worker.terminated)
+    assert len(terminated_after_cancel) == 1
+
     with pytest.raises(ValueError):
         api.resume_run(run_id)
+
+    assert api.supervisor.worker.terminated == terminated_after_cancel
 
 
 def test_resume_running_terminates_worker_and_requeues_until_tick(tmp_path):

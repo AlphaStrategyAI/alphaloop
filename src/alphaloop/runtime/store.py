@@ -206,7 +206,11 @@ class JobStore:
                 ).fetchone()
         return self._row_to_record(row)
 
-    def requeue_unless_terminal(self, run_id: str) -> JobRecord:
+    def requeue_unless_terminal(
+        self,
+        run_id: str,
+        expected_pid: Optional[int] = None,
+    ) -> JobRecord:
         now = _utc_now_iso()
         with self._lock:
             with self._connect() as conn:
@@ -218,6 +222,12 @@ class JobStore:
                 status = JobStatus(row["status"])
                 if status in (JobStatus.CANCELLED, JobStatus.COMPLETED):
                     raise ValueError(f"cannot resume {status.value} job")
+                if (
+                    expected_pid is not None
+                    and status is JobStatus.RUNNING
+                    and row["worker_pid"] not in (expected_pid, None)
+                ):
+                    return self._row_to_record(row)
                 conn.execute(
                     """
                     UPDATE jobs SET
