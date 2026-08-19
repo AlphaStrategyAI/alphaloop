@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from .status import JobStatus, ResearchOutcome, derive_research_outcome
 
@@ -74,3 +74,26 @@ def outcome_from_evidence(job_status: JobStatus, evidence: GateEvidence) -> Rese
         evidence_complete=evidence.complete,
         all_gates_passed=evidence.all_passed,
     )
+
+
+def evidence_to_dict(evidence: GateEvidence) -> dict[str, Any]:
+    return {
+        "required": [name.value for name in evidence.required],
+        "results": [
+            {"name": row.name.value, "passed": row.passed, "detail": dict(row.detail)}
+            for row in evidence.results
+        ],
+    }
+
+
+def evidence_from_dict(payload: Mapping[str, Any]) -> GateEvidence:
+    required = tuple(HardGateName(name) for name in payload["required"])
+    results = tuple(
+        GateResult(
+            name=HardGateName(row["name"]),
+            passed=bool(row["passed"]),
+            detail=dict(row.get("detail") or {}),
+        )
+        for row in payload["results"]
+    )
+    return GateEvidence(results=results, required=required)

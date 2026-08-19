@@ -8,6 +8,8 @@ from alphaloop.contracts.gates import (
     HardGateName,
     IncompleteEvidenceError,
     evaluate_hard_gates,
+    evidence_from_dict,
+    evidence_to_dict,
     outcome_from_evidence,
 )
 from alphaloop.contracts.status import JobStatus, ResearchOutcome
@@ -77,3 +79,8 @@ def test_duplicate_gate_results_do_not_last_write_win():
     )
     with pytest.raises((IncompleteEvidenceError, ValueError)):
         evaluate_hard_gates((HardGateName.DSR,), rows)
+
+
+def test_evidence_dict_round_trip():
+    evidence = evaluate_hard_gates(REQUIRED, _all_pass())
+    assert evidence_from_dict(evidence_to_dict(evidence)) == evidence

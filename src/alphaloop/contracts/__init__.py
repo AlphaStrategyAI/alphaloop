@@ -19,6 +19,8 @@ from .gates import (
     HardGateName,
     IncompleteEvidenceError,
     evaluate_hard_gates,
+    evidence_from_dict,
+    evidence_to_dict,
     outcome_from_evidence,
 )
 from .research_spec import (
@@ -51,6 +53,8 @@ __all__ = [
     "derive_research_outcome",
     "hash_bytes",
     "evaluate_hard_gates",
+    "evidence_from_dict",
+    "evidence_to_dict",
     "new_research_spec",
     "outcome_from_evidence",
     "require_dataset",
