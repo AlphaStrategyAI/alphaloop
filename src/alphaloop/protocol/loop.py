@@ -27,6 +27,7 @@ from alphaloop.protocol.dsl import (
 )
 from alphaloop.protocol.gates import run_hard_gates
 from alphaloop.protocol.profiles import get_profile
+from alphaloop.protocol.returns import compute_strategy_returns
 from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.protocol.stop import (
     FORBIDDEN_CONTINUE_REASONS,
@@ -167,19 +168,21 @@ def run_protocol(
         n_trials += 1
         primary = trial_doc.universe[0]
         primary_prices = prices.get(primary, buy_hold_prices)
+        strategy_fn = _strategy_fn_for(trial_doc, prices)
+        weights = strategy_fn(primary_prices)
         stop_evidence: Optional[GateEvidence] = None
         try:
             evidence = runner(
                 required,
                 prices=primary_prices,
-                strategy_returns=primary_prices.pct_change().fillna(0.0),
+                strategy_returns=compute_strategy_returns(primary_prices, weights),
                 buy_hold_prices=buy_hold_prices,
                 benchmark_prices=benchmark_prices,
                 secondary_frames=secondary_frames,
                 n_trials=n_trials,
                 profile=profile,
                 seed=spec.seed,
-                strategy_fn=_strategy_fn_for(trial_doc, prices),
+                strategy_fn=strategy_fn,
             )
         except IncompleteEvidenceError:
             evidence = None

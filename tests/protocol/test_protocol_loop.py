@@ -239,6 +239,37 @@ def test_protocol_does_not_mutate_frozen_hypothesis(tmp_path):
     assert spec.hypothesis.signal_mechanism == "momentum_12_1"
 
 
+def test_gate_runner_receives_lagged_weight_returns_not_raw_prices(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    captured = {}
+
+    def runner(required, **kwargs):
+        captured["strategy_returns"] = kwargs["strategy_returns"]
+        captured["strategy_fn"] = kwargs["strategy_fn"]
+        return _all_pass(required, **kwargs)
+
+    prices = _prices()
+    run_protocol(
+        _spec(),
+        layout,
+        prices=prices,
+        buy_hold_prices=prices["AAPL"],
+        benchmark_prices=prices["AAPL"],
+        gate_runner=runner,
+    )
+    raw = prices["AAPL"].pct_change().fillna(0.0)
+    assert "strategy_returns" in captured
+    assert not captured["strategy_returns"].equals(raw)
+    weights = captured["strategy_fn"](prices["AAPL"])
+    expected = weights.shift(1).fillna(0.0) * raw
+    pd.testing.assert_series_equal(
+        captured["strategy_returns"],
+        expected,
+        check_names=False,
+    )
+
+
 def test_economic_proposal_is_queued_and_not_executed(tmp_path):
     layout = RunLayout(tmp_path / "run")
     layout.run_dir.mkdir()
