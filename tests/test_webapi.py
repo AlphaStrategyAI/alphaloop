@@ -20,6 +20,8 @@ from alphaloop.webui.data import (
     DIAGNOSTIC_LABELS,
 )
 
+pytest.importorskip("fastapi")
+
 
 # ---------------------------------------------------------------------
 # Fixtures

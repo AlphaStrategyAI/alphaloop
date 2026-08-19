@@ -19,7 +19,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from alphaloop.webui import create_app
 from alphaloop.webui.share import (
@@ -199,11 +198,17 @@ def test_share_mint_for_unknown_run_raises(tmp_path):
 
 @pytest.fixture
 def client(runs_dir):
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
     app = create_app(runs_dir=runs_dir)
     return TestClient(app)
 
 
 def test_share_endpoint_404_for_unknown_run(runs_dir):
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
     app = create_app(runs_dir=runs_dir)
     c = TestClient(app)
     r = c.post("/api/runs/does-not-exist/share")
