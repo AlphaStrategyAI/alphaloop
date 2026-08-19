@@ -329,6 +329,31 @@ def test_economic_proposal_is_queued_and_not_executed(tmp_path):
     assert calls["n"] == 1
 
 
+def test_n_trials_matches_unique_ledger_ids(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    seen = []
+
+    def runner(required, **kwargs):
+        seen.append(kwargs["n_trials"])
+        if len(seen) == 1:
+            raise IncompleteEvidenceError("missing walk_forward")
+        return _all_pass(required, **kwargs)
+
+    run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    lines = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
+    ids = [json.loads(line)["trial_id"] for line in lines]
+    assert seen[-1] == len(set(ids)) == len(ids)
+    assert seen == [1, 2]
+
+
 def test_n_trials_counts_existing_ledger_rows(tmp_path):
     layout = RunLayout(tmp_path / "run")
     layout.run_dir.mkdir()
