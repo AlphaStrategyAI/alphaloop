@@ -12,6 +12,7 @@ import alphaloop.runtime.worker as worker_module
 from alphaloop.contracts.artifacts import DatasetRef, RunLayout
 from alphaloop.contracts.research_spec import new_research_spec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome, derive_research_outcome
+from alphaloop.protocol.loop import ProtocolResult
 from alphaloop.runtime.checkpoint import (
     Checkpoint,
     load_latest_complete,
@@ -80,7 +81,12 @@ def test_run_worker_passes_clock_and_cost_budget(monkeypatch, tmp_path):
     def fake_run_protocol(spec, layout, **kwargs):
         captured["kwargs"] = kwargs
         captured["spec"] = spec
-        return None
+        return ProtocolResult(
+            job_status=JobStatus.COMPLETED,
+            research_outcome=ResearchOutcome.INCONCLUSIVE,
+            candidate_id=None,
+            evidence=None,
+        )
 
     monkeypatch.setattr("alphaloop.protocol.loop.run_protocol", fake_run_protocol)
     run_id = "j_clock"
@@ -129,6 +135,8 @@ def test_run_worker_default_path_writes_protocol_artifacts(tmp_path):
     rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
     assert rec["queued_hypotheses"] == []
     assert layout.trial_ledger.exists()
+    assert layout.manifest.exists()
+    assert layout.report.exists()
 
 
 def test_run_worker_without_snapshot_does_not_synthesize(tmp_path):
@@ -173,7 +181,12 @@ def test_run_worker_resumes_from_checkpoint_ids(monkeypatch, tmp_path):
     def fake_run_protocol(spec, layout, **kwargs):
         captured["completed"] = kwargs.get("completed_trial_ids")
         captured["on_trial"] = kwargs.get("on_trial")
-        return None
+        return ProtocolResult(
+            job_status=JobStatus.COMPLETED,
+            research_outcome=ResearchOutcome.INCONCLUSIVE,
+            candidate_id=None,
+            evidence=None,
+        )
 
     monkeypatch.setattr("alphaloop.protocol.loop.run_protocol", fake_run_protocol)
     run_id = "j_resume"

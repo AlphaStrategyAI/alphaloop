@@ -71,7 +71,36 @@ def stopgap_terminal_outcome() -> ResearchOutcome:
 
 
 def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
+    from alphaloop import __version__
     from alphaloop.protocol.loop import run_protocol
+    from alphaloop.runtime.artifacts_io import (
+        write_candidates_parquet,
+        write_manifest,
+        write_report,
+    )
+    from alphaloop.runtime.morning import (
+        STOP_REASON_ALL_GATES_PASSED,
+        STOP_REASON_HARD_GATE_FAILED,
+        STOP_REASON_INCOMPLETE_EVIDENCE,
+    )
+
+    def _stop_reason(outcome: ResearchOutcome) -> str | None:
+        if outcome is ResearchOutcome.FOUND:
+            return STOP_REASON_ALL_GATES_PASSED
+        if outcome is ResearchOutcome.NO_EVIDENCE:
+            return STOP_REASON_HARD_GATE_FAILED
+        if outcome is ResearchOutcome.INCONCLUSIVE:
+            return STOP_REASON_INCOMPLETE_EVIDENCE
+        return None
+
+    def _write_artifacts(outcome: ResearchOutcome) -> None:
+        write_manifest(layout, spec, engine_version=__version__)
+        write_candidates_parquet(layout)
+        write_report(
+            layout,
+            research_outcome=outcome.value,
+            stop_reason=_stop_reason(outcome),
+        )
 
     ckpt = load_latest_complete(layout)
     done = tuple((ckpt.payload.get("completed_trial_ids") or []) if ckpt else ())
@@ -97,9 +126,10 @@ def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
             layout, spec, data_dir=layout.run_dir.parent
         )
     except (DatasetUnavailableError, DatasetMismatchError):
+        _write_artifacts(ResearchOutcome.INCONCLUSIVE)
         return
     started = time.monotonic()
-    run_protocol(
+    result = run_protocol(
         spec,
         layout,
         prices=prices,
@@ -110,6 +140,7 @@ def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
         clock=lambda: time.monotonic() - started,
         remaining_cost_usd=spec.cost_budget_usd,
     )
+    _write_artifacts(result.research_outcome)
 
 
 def _refresh_heartbeat(layout: RunLayout, stop: threading.Event) -> None:
