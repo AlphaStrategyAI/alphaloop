@@ -47,6 +47,7 @@ nav:
   - CLI reference: cli.md
   - WebUI: webui.md
   - Design docs:
+    - Overnight lab refactor: design/overnight-research-lab-refactor.md
     - Hybrid DAG loop: design/v07-hybrid-loop.md
     - LLM judge: design/v06-llm-judge.md
     - WebUI: design/v071-webui.md

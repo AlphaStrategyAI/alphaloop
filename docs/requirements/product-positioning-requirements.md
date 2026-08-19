@@ -420,9 +420,53 @@ The archive contains:
 - fixed conformance inputs and expected outputs;
 - an optional `registry_uri`;
 - no credentials;
-- no arbitrary executable code.
+- no executable files.
 
 Any change creates a new bundle and a new content hash.
+
+### 8.2.1 Canonical form versus execution
+
+The `.asb` archive is a **data** handoff, not a code drop.
+
+YAML (the DSL document, parameters, profile, risk envelope, lineage,
+and conformance fixtures) is the canonical source of truth. AlphaStrategy
+does not `import` or `exec` a per-candidate Python module from the
+archive.
+
+"No arbitrary executable code" is a file-level rule, not only a
+research-loop rule:
+
+- the archive must not contain `.py`, `.pyc`, wheels, scripts,
+  notebooks, binaries, or other executable payloads;
+- LLM-authored Python is forbidden in the bundle;
+- a generated Python projection of the DSL is also forbidden in the
+  first-release `.asb`, even if it is a deterministic translation.
+
+Existing `alphaloop.strategies` Python classes remain an **internal
+interpreter backend** for named DSL kinds. They are not copied into the
+bundle. A candidate is a DSL document (`kind` plus frozen parameters),
+not a new strategy class.
+
+AlphaStrategy executes a bundle by loading it with a **versioned DSL
+interpreter** that implements the same
+
+```text
+effective_at -> {asset_id: target_weight}
+```
+
+contract used in research. That interpreter must match the
+`schema_version` / DSL version declared in `bundle.yaml`. Execution
+convenience is a Python import of the shared interpreter (for example
+`load_bundle("strategy.asb")`), not a Python file inside `strategy.asb`.
+
+Need for more precise control extends the DSL. Hypotheses that cannot be
+expressed in the current DSL are rejected at preflight (§9.1), not
+shipped as free-form Python.
+
+A generated, AST-constrained Python *view* of the DSL may be considered
+later as a human-inspection aid. If it ever exists, it is not the source
+of truth, is not required for import, and is not present in first-release
+`.asb` files.
 
 ### 8.3 Strategy output semantics
 
@@ -447,7 +491,10 @@ AlphaStrategy must reject a bundle when:
 - the content hash is invalid;
 - required lineage or evidence is missing;
 - conformance fixtures produce different target weights;
-- the market profile is unsupported.
+- the market profile is unsupported;
+- the archive contains executable files, unknown payload keys, or
+  anything other than the declared YAML / evidence / conformance
+  layout.
 
 Import does not authorize trading. Promotion from imported to paper,
 shadow, or live is an independent AlphaStrategy workflow with explicit
@@ -565,6 +612,7 @@ desktop maintenance.
 - AlphaStrategy-to-alphaloop telemetry;
 - automatic paper/live promotion;
 - arbitrary generated strategy code;
+- Python or other executable files inside `.asb`;
 - an MCP adapter; this is a later integration and must never keep an
   overnight tool call open.
 
@@ -633,5 +681,26 @@ Implementation must proceed through separate specifications and plans:
 6. **Agent entry:** local Skill and CLI workflow, followed only if needed
    by a thin asynchronous MCP adapter.
 
-The next implementation-design cycle should begin with item 1. Later
-items depend on its versioned contracts.
+The next implementation-design cycle: items 1–6 are implemented. MCP remains
+an optional later adapter and must never keep an overnight tool call open.
+
+Refactor mapping and file boundaries:
+[`docs/design/overnight-research-lab-refactor.md`](../design/overnight-research-lab-refactor.md).
+
+Phase 1 implementation plan:
+[`docs/superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md`](../superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md).
+
+Phase 2 implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md`](../superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md).
+
+Phase 3 implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md`](../superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md).
+
+Phase 4 implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](../superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md).
+
+Phase 5 implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md`](../superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md).
+
+Phase 6 implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md`](../superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md).

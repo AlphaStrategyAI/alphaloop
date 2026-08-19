@@ -1,0 +1,60 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from alphaloop.contracts.research_spec import ResearchSpec
+from alphaloop.contracts.status import JobStatus
+from alphaloop.runtime.morning import morning_view
+from alphaloop.runtime.preflight import preflight
+from alphaloop.runtime.store import JobStore
+from alphaloop.runtime.supervisor import Supervisor
+
+
+class PreflightRejected(ValueError):  # noqa: N818 - public API name
+    pass
+
+
+class JobAPI:
+    def __init__(
+        self,
+        store: JobStore,
+        supervisor: Supervisor,
+        data_dir: Path,
+    ) -> None:
+        self.store = store
+        self.supervisor = supervisor
+        self.data_dir = Path(data_dir)
+
+    def create_run(self, spec: ResearchSpec) -> dict[str, Any]:
+        result = preflight(spec, self.data_dir)
+        if not result.ok:
+            raise PreflightRejected(result.errors)
+        job = self.store.create(spec)
+        payload = morning_view(job, self.data_dir)
+        payload["host_constraint"] = result.host_constraint
+        return payload
+
+    def list_jobs(self) -> dict[str, Any]:
+        return {
+            "jobs": [morning_view(job, self.data_dir) for job in self.store.list_jobs()]
+        }
+
+    def get_run(self, run_id: str) -> dict[str, Any]:
+        return morning_view(self.store.get(run_id), self.data_dir)
+
+    def cancel_run(self, run_id: str) -> dict[str, Any]:
+        return morning_view(self.supervisor.request_cancel(run_id), self.data_dir)
+
+    def resume_run(self, run_id: str) -> dict[str, Any]:
+        with self.supervisor.lifecycle_lock:
+            job = self.store.get(run_id)
+            if job.status in (JobStatus.CANCELLED, JobStatus.COMPLETED):
+                raise ValueError(f"cannot resume {job.status.value} job")
+            pid = job.worker_pid
+            if job.status is JobStatus.RUNNING and pid is not None:
+                self.supervisor.worker.terminate(pid, run_id)
+            return morning_view(
+                self.store.requeue_unless_terminal(run_id, expected_pid=pid),
+                self.data_dir,
+            )

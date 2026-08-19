@@ -1,11 +1,12 @@
 """
-OpenStrategy - An open-source quantitative investment research framework.
+alphaloop — local-first overnight research lab.
 
-A simple, reliable framework for individual investors that prioritizes
-honest evaluation over alpha promises.
+Honest, verifiable, agent-assisted quantitative research.
+It does not promise alpha.
 """
 
-__version__ = "1.0.0"
+from .__version__ import __version__
+
 __author__ = "OpenStrategy Team"
 
 from .backtest import BacktestConfig, BacktestEngine
@@ -22,14 +23,19 @@ from .diagnostic import (
     vs_spy_buyhold,
     walk_forward_cv,
 )
-from .live import (
-    AlpacaAdapter,
-    Broker,
-    BrokerConfig,
-    CONFIRM_LIVE_FLAG,
-    LiveTradingRefused,
-)
 from .strategies import BuyHoldStrategy, RebalanceStrategy, StrategyFactory
+from .engineer import (
+    atr_breakout,
+    bollinger_zscore,
+    macd,
+    momentum_12_1,
+    obv_slope,
+    ohlr_4_pct,
+    pairs_spread,
+    parkinson_hist_vol,
+    roc,
+    rsi,
+)
 
 # v0.7 hybrid loop — imported lazily so an environment without the
 # loop deps can still import the core package.
@@ -88,12 +94,6 @@ __all__ = [
     "atr_breakout",
     "parkinson_hist_vol",
     "obv_slope",
-    # live (broker connectivity, hard-walled)
-    "AlpacaAdapter",
-    "Broker",
-    "BrokerConfig",
-    "CONFIRM_LIVE_FLAG",
-    "LiveTradingRefused",
     # v0.7: hybrid loop
     "LoopRunner",
     "LoopReplay",

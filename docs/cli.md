@@ -6,8 +6,100 @@ for the live version (it's the source of truth — this page mirrors it).
 ## Global usage
 
 ```
-alphaloop [-h] {backtest, optimize, fetch, report, loop, replay, webui, judge} ...
+alphaloop [-h] {backtest, optimize, fetch, report, export, start, submit, status, cancel, resume, loop, replay, webui, judge} ...
 ```
+
+## `alphaloop start`
+
+Start the local alphaloop daemon (Job API + supervisor + packaged morning
+Web console).  Binds to loopback by default; the CLI and browser can exit
+without stopping jobs.
+
+Open `http://127.0.0.1:8765/` for the morning review.  The home page
+leads with `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE`.  The console cannot
+override hard gates.
+
+```
+alphaloop start [--data-dir DIR] [--host HOST] [--port PORT] [--detach]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--data-dir` | Runs output root (default: `./runs`). |
+| `--host`     | Bind address (default: `127.0.0.1`). |
+| `--port`     | Listen port (default: `8765`). |
+| `--detach`   | Spawn the daemon in the background and print host/port/pid. |
+
+Without `--detach`, the process stays in the foreground until you stop it.
+
+## `alphaloop submit`
+
+Submit a frozen `ResearchSpec` YAML to the daemon.  Returns `run_id`
+immediately; the job keeps running after the CLI exits.
+
+```
+alphaloop submit --spec PATH [--data-dir DIR]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--spec`     | **Required.** Path to a `ResearchSpec` YAML file. |
+| `--data-dir` | Runs output root (default: `./runs`). |
+
+On success prints `run_id` and the host-constraint disclosure.  If the
+daemon is not running, the command fails with a hint to run
+`alphaloop start`.
+
+## `alphaloop status`
+
+Show the current status of a research job.
+
+```
+alphaloop status RUN_ID [--data-dir DIR]
+```
+
+Prints a JSON object with job fields (`run_id`, `status`,
+`research_outcome`, timestamps, etc.).
+
+## `alphaloop cancel`
+
+Request cancellation of a running job.
+
+```
+alphaloop cancel RUN_ID [--data-dir DIR]
+```
+
+Prints the updated job record as JSON.
+
+## `alphaloop resume`
+
+Resume a job from its last checkpoint after a supervisor restart or
+host wake.
+
+```
+alphaloop resume RUN_ID [--data-dir DIR]
+```
+
+Prints the updated job record as JSON.
+
+## `alphaloop export`
+
+Export a sealed `FOUND` candidate as an immutable `.asb` zip.  YAML/DSL
+is canonical; the archive contains no Python files.  Human-triggered
+only.
+
+```
+alphaloop export CANDIDATE_ID --run-id RUN_ID [--data-dir DIR] --output PATH
+```
+
+| Flag | Description |
+|------|-------------|
+| `CANDIDATE_ID` | Trial-ledger `trial_id` of the sealed candidate. |
+| `--run-id`     | **Required.** Job id returned by `submit`. |
+| `--data-dir`   | Runs output root (default: `./runs`). |
+| `--output, -o` | **Required.** Destination `.asb` path. |
+
+Non-`FOUND` jobs exit 2.
 
 ## `alphaloop report`
 

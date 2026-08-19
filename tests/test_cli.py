@@ -35,7 +35,7 @@ def test_cli_help_exits_cleanly(capsys):
     rc = cli_main([])
     assert rc == 1
     out = capsys.readouterr().out
-    assert "OpenStrategy" in out
+    assert "alphaloop" in out.lower()
     assert "backtest" in out
     assert "fetch" in out
 

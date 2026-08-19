@@ -1,25 +1,22 @@
 """
-alphaloop.webui — FastAPI JSON-only backend for the v0.7.1 WebUI.
+alphaloop.webui — packaged morning console plus optional v0.7 FastAPI API.
 
-This module exposes the v0.7 loop artifacts (manifest.yaml, top5.json,
-results.parquet, report.md) as JSON over HTTP. The frontend (Vite + React
-SPA) consumes these endpoints; FastAPI does NOT render HTML.
+Overnight-lab workers and the loopback daemon serve static assets from
+``alphaloop.webui.static``. Those paths must import without FastAPI.
 
-Endpoints (all under /api/, JSON only):
-
-  GET /api/runs                              → list_runs
-  GET /api/runs/{rid}/top5                   → top5
-  GET /api/runs/{rid}/strategies/{sid}       → strategy_detail
-  GET /api/runs/{rid}/diagnostics            → diagnostics (radar + bar)
-  GET /api/runs/{rid}/replay                 → 6-node DAG + timing
-  GET /api/runs/{rid}/stream                 → SSE live progress
-  GET /api/runs/{rid}/export                 → standalone HTML
-  GET /healthz                                → smoke
-
-See docs/design/v071-webui.md § 3.1 for the full schema.
+``create_app`` is the v0.7 FastAPI compatibility surface. It is imported
+lazily so installing ``alphaloop[dev]`` is enough for the morning
+console. FastAPI is only required when a caller actually constructs the
+JSON API.
 """
 from __future__ import annotations
 
-from .api import create_app
+from typing import Any
 
 __all__ = ["create_app"]
+
+
+def create_app(*args: Any, **kwargs: Any):
+    from .api import create_app as _create_app
+
+    return _create_app(*args, **kwargs)

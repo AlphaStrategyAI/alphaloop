@@ -1,0 +1,71 @@
+:root {
+  color-scheme: dark;
+  --bg: #101218;
+  --fg: #e8ecf1;
+  --muted: #9aa3b2;
+  --card: #1b2030;
+  --accent: #7dd3a8;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+header,
+main {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+}
+
+h1 {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.promise,
+.legend {
+  color: var(--muted);
+}
+
+.legend span {
+  color: var(--accent);
+}
+
+#outcome {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0.75rem;
+}
+
+#outcome[data-outcome="FOUND"] {
+  color: var(--accent);
+}
+
+#job-list,
+#evidence,
+#funnel,
+#revisions,
+#queued {
+  list-style: none;
+  padding: 0;
+}
+
+#job-list button {
+  background: var(--card);
+  color: var(--fg);
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.65rem 0.85rem;
+  margin: 0.25rem 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+section {
+  margin-bottom: 2rem;
+}
