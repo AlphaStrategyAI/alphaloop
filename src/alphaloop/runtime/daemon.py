@@ -18,7 +18,7 @@ from typing import Any, Optional
 from urllib.parse import unquote, urlsplit
 from urllib.request import urlopen
 
-from alphaloop.contracts.research_spec import ResearchSpec
+from alphaloop.runtime.submit import spec_from_submit_payload
 from alphaloop.runtime.api import JobAPI, PreflightRejected
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
@@ -117,7 +117,7 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
         def _create_run(self) -> None:
             try:
                 payload = self._read_json()
-                spec = ResearchSpec.from_dict(payload)
+                spec = spec_from_submit_payload(payload)
                 response = api.create_run(spec)
             except PreflightRejected as exc:
                 errors = exc.args[0] if exc.args else ()

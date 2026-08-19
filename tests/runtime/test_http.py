@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+from urllib.request import Request, urlopen
 
 import pytest
 
@@ -15,6 +17,31 @@ from alphaloop.runtime.daemon import (
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
 from tests.runtime.test_supervisor import FakeWorker, _spec
+
+
+def test_http_create_accepts_payload_without_spec_id(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    worker = FakeWorker()
+    sup = Supervisor(store, tmp_path, worker, heartbeat_timeout_s=60.0)
+    api = JobAPI(store, sup, tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    try:
+        payload = _spec().to_dict()
+        payload.pop("spec_id")
+        req = Request(
+            f"http://{host}:{port}/v1/jobs",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(req) as response:
+            body = json.loads(response.read().decode("utf-8"))
+            assert response.status == 201
+            assert body["run_id"].startswith("j_")
+            assert body["host_constraint"]
+    finally:
+        server.shutdown()
 
 
 def test_http_create_get_cancel(tmp_path):
