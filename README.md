@@ -1,199 +1,143 @@
-# alphaloop v0.5
+# alphaloop
 
-> **AI-automated quant research loop.**
-> Jeff Dean style: "design loops that prompt your agents" — but for quant.
-> Honest, verifiable, agent-friendly. **alpha → loop → report → iterate**.
+Local-first overnight research lab for AI-native independent quants.
 
-alphaloop is an open-source framework for individual investors and small
-research teams who want to evaluate trading strategies honestly AND run them
-inside an AI-driven research loop.
+> Submit in one minute before bed. Leave a local worker running overnight.
+> Understand a trustworthy conclusion in five minutes the next morning.
 
-It ships:
+alphaloop does **not** promise alpha, future profitability, or that any
+strategy will beat the market. It runs a frozen hypothesis against
+predeclared hard gates and reports one of three conclusions:
 
-- 4 data sources (Yahoo Finance, AKShare, CCXT, OpenBB)
-- 10 alpha factors across 4 families (momentum, mean-reversion,
-  volatility, volume)
-- 6 diagnostic tools (Deflated Sharpe Ratio, walk-forward CV,
-  cross-source consistency, vs random, vs buy-and-hold, vs SPY)
-- A read-only broker adapter (Alpaca paper-by-default, hard-walled
-  against accidental live trading)
-- A CLI (`alphaloop report`) that generates a Markdown acceptance
-  report answering the 6 v1.0 questions for any strategy
-- **Coming in v0.6+**: `alphaloop loop` — autonomous research loop
-  driven by LLM agents. See [ROADMAP.md](ROADMAP.md) for details.
+- `FOUND` — every required hard gate is present and passed
+- `NO_EVIDENCE` — evidence is complete and at least one hard gate failed
+- `INCONCLUSIVE` — data, budget, diagnostics, or a technical failure
+  prevented a valid conclusion
 
-**It does not promise alpha. It does not promise you'll beat the
-market. It promises 3 things: methodology you can verify, results
-you can reproduce, and a process you can trust.**
+Job status (`queued` / `running` / `completed` / `failed` / `cancelled`)
+is not the research conclusion. `FOUND` comes only from sealed
+`GateEvidence`. An LLM judge, a story, or a Web console cannot override
+gates.
+
+It is **not a trading bot**. Paper trading, live trading, brokers, and
+promotion belong in the separate AlphaStrategy project. alphaloop can
+export a `FOUND` candidate as an immutable YAML-only `.asb` bundle after
+human confirmation.
 
 ---
 
 ## Honest disclosure
 
-**We do not promise:**
-- That any strategy will beat the market
-- That you'll find alpha
-- That backtests predict the future
+**We do not promise**
 
-**We promise:**
-- The tools will identify strategies that "look good but are
-  overfit"
-- Comparisons between strategies are honest (no survival bias,
-  no in-sample/out-of-sample leakage)
-- Six months from now you can re-run the same code and get the
-  same numbers
+- that overnight search will find alpha
+- that a passing backtest predicts the future
+- that the host can sleep while a job is running
 
-If you're looking for a tool that tells you your strategy is
-amazing, this isn't it. If you're looking for a tool that tells
-you the truth about your strategy — even when the truth is
-uncomfortable — read on.
+**We do promise**
 
----
+- methodology you can verify (Deflated Sharpe, walk-forward, vs random,
+  vs buy-and-hold, vs benchmark)
+- results you can reproduce from a content-addressed dataset snapshot
+- a process that fails closed instead of inventing prices or `FOUND`
 
-## The 6 v1.0 acceptance questions
-
-Before trusting any backtest, alphaloop can answer these in
-under 30 minutes:
-
-1. **Overfit?** Has the strategy's Sharpe ratio survived
-   Deflated Sharpe Ratio correction for the number of trials?
-2. **Data sources consistent?** Does the same symbol give
-   consistent prices across Yahoo vs AKShare (or whichever
-   sources you use)?
-3. **Out-of-sample valid?** Does walk-forward CV show positive
-   Sharpe in held-out windows?
-4. **Beats a random strategy?** Is your Sharpe significantly
-   above block-shuffled baselines (max-drawdown test)?
-5. **Beats passive buy-and-hold?** Does your strategy beat
-   passive holding of the same instrument?
-6. **Beats SPY buy-and-hold?** Does your strategy beat SPY
-   over the same window? (The hardest benchmark. Most individual
-   strategies fail this one.)
-
-If any answer is "no", the strategy doesn't ship.
+The host must remain awake while a local worker is running. Closing the
+browser or terminal does not stop a job, but suspending or powering off
+the host stops computation. After a crash or sleep, resume from
+checkpoint with `alphaloop resume`.
 
 ---
 
 ## Quick start
 
+Python 3.9+. Install the package, start the local control plane, paste a
+hypothesis, and leave the machine awake.
+
 ```bash
-# Install (Python 3.11+)
 git clone https://github.com/AlphaStrategyAI/alphaloop.git
 cd alphaloop
-pip install -e .
+pip install -e ".[dev]"
 
-# Run the acceptance report on synthetic data
-alphaloop report
-
-# Or save to a file
-alphaloop report --output my-report.md
-
-# Run the 5-strategy comparison demo
-python3 examples/comparison_demo.py
-
-# Run the 6-question diagnostic demo
-python3 examples/diagnostic_demo.py
-
-# Launch the WebUI
-streamlit run alphaloop/ui.py
+alphaloop start --detach
 ```
 
----
+Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/). Paste YAML into
+the home page (or use `alphaloop submit --spec spec.yaml`). The page
+polls every two seconds and cannot change hard gates.
 
-## 5-strategy comparison (synthetic data)
-
-The honest output of `examples/comparison_demo.py`:
-
-```
-Strategy                 Sharpe  vs Buy & Hold     vs SPY   vs Random     Max DD
---------------------------------------------------------------------------------
-buy_and_hold              +0.43           fail       fail        PASS    -26.22%
-rsi_momentum              -0.16           fail       fail        PASS    -35.89%
-bollinger_meanrev         +0.79           PASS       fail        PASS     -7.82%
-atr_breakout              -0.58           fail       fail        fail     -4.10%
-obv_volume                +0.03           fail       fail        fail    -33.97%
-
-Of 5 strategies tested, 0 beat SPY buy-and-hold.
-This is on a synthetic random walk; real markets may differ.
-The point of this demo is to show that the tools work — not
-to declare a winner.
+```yaml
+statement: 12-1 momentum works in US large caps net of costs
+economic_logic: past winners continue
+signal_mechanism: momentum_12_1
+market_scope: AAPL, MSFT
+market_profile: us-equity-daily
+benchmark: SPY
+hard_gates: [dsr, walk_forward, vs_benchmark]
+seed: 7
+time_budget_s: 3600
+cost_budget_usd: 5.0
 ```
 
-**Reading this table honestly**:
-- `buy_and_hold` is the *same universe as the strategies*, not
-  SPY. Of course it loses to SPY in this test setup — that's the
-  point: random-walk universes don't match the real market.
-- The 4 strategies mostly fail `vs_random` because on a random
-  walk, there's nothing to extract. Real markets have non-random
-  structure (which is why SPY exists and grows).
-- The tool worked. It reported 4/5 strategies as FAIL on most
-  benchmarks. That's the honest answer.
+`signal_mechanism` must be a constrained DSL kind (`momentum_12_1`,
+`rsi`, `macd`, `roc`, `bollinger_zscore`, `ohlr_4_pct`, `pairs_spread`,
+`atr_breakout`, `parkinson_hist_vol`, `obv_slope`). Markets
+`us-equity-daily` and `crypto-daily` are independent.
 
----
-
-## What v1.0 does NOT do
-
-These are explicit non-goals, deferred to v2.0:
-
-- **ML models** (XGBoost, deep RL). The 10 alpha factors are
-  classical; ML adds overfit risk that v1.0 deliberately avoids.
-- **NLP factors** (sentiment from earnings calls / news).
-- **100+ factors**. v1.0 ships 10; each is tested, documented,
-  and known to work.
-- **Live trading**. The Alpaca adapter is implemented but defaults
-  to paper. Going live requires both `paper=False` AND
-  `confirm_live=True`. Even then, v1.0 only exposes read-only API.
-- **Web services, SaaS, paid plans**. v1.0 is local-only.
-
-See [`docs/lessons/`](./docs/lessons/) for retrospectives on each
-milestone and the failure patterns we hit and learned from.
-
----
-
-## Architecture
-
-```
-alphaloop/
-├── data/          # 4 data sources (Yahoo, AKShare, CCXT, OpenBB)
-├── engineer/      # 10 alpha factors (pure functions: Series -> weights)
-├── diagnostic/    # 6 tools: DSR, walk-forward CV, consistency, 3 benchmarks
-├── live/          # Alpaca adapter (paper-by-default, hard-walled)
-├── cli/           # `alphaloop` CLI (backtest, optimize, fetch, report)
-└── ui.py          # Streamlit WebUI (single file)
-```
-
-Each subpackage is independently importable. Pure functions where
-possible. Tests at every level.
-
----
-
-## Running the tests
+If the spec declares a `dataset`, the parquet must exist under
+`datasets/<id>/prices.parquet` and match the recorded SHA-256. Missing
+or mismatched snapshots do not synthesize prices.
 
 ```bash
-# All tests
-python3 -m pytest tests/ -v
-
-# Just the diagnostic package
-python3 -m pytest tests/diagnostic/ -v
-
-# Just the safety tests for the live trading adapter
-python3 -m pytest tests/live/test_safety.py -v
+alphaloop status RUN_ID
+alphaloop resume RUN_ID          # after a crash or host sleep
+alphaloop replay RUN_ID          # rewrite report.md from sealed gates.json
+alphaloop export CANDIDATE_ID --run-id RUN_ID --output strategy.asb
 ```
 
-**Current status**: 154 tests pass.
+Export is allowed only for `FOUND`, only after a human confirms, and the
+archive contains no Python.
+
+---
+
+## What this repository is
+
+| Layer | Role |
+| --- | --- |
+| `alphaloop start` | Loopback Job API + supervisor + packaged morning Web |
+| `alphaloop.protocol` | Constrained DSL, lagged strategy returns, hard gates, stop rules |
+| `alphaloop.runtime` | Durable jobs, checkpoints, dataset cache, artifacts |
+| `alphaloop.diagnostic` | Trust layer: DSR, walk-forward, consistency, three benchmarks |
+| `alphaloop.engineer` | Classical factors consumed by the DSL |
+| `alphaloop.webui.static` | Morning console (review, YAML submit, progress) |
+| `alphaloop.live` | Frozen read-only Alpaca adapter. Not the overnight path. |
+
+`alphaloop.protocol` does not import `live`, `webui`, or `runtime`.
+
+CLI utilities `report`, `fetch`, `backtest`, `optimize`, `loop`, and
+`judge` remain for diagnostics and heritage workflows. The overnight
+product path is `start` → submit → morning review → optional `.asb`
+export.
+
+---
+
+## Tests
+
+```bash
+python3 -m pytest -m "not integration and not llm" --ignore=tests/integration
+```
+
+Live data, soak, five-minute usability, and AlphaStrategy consumer
+import tests are not this repository's CI.
 
 ---
 
 ## Documentation
 
-- [`docs/lessons/m1-retrospective.md`](./docs/lessons/m1-retrospective.md)
-  — Failure patterns from M1 (diagnostic package)
-- [`docs/lessons/m3-retrospective.md`](./docs/lessons/m3-retrospective.md)
-  — Failure patterns from M3 (live trading)
-- `src/alphaloop/live/README.md` — Hard wall design for live trading
-- `examples/diagnostic_demo.py` — 6-question diagnostic walkthrough
-- `examples/alpha_comparison_demo.py` — 10-factor vs buy-and-hold
-- `examples/comparison_demo.py` — 5-strategy head-to-head
+- [`docs/requirements/product-positioning-requirements.md`](./docs/requirements/product-positioning-requirements.md) — product locks
+- [`docs/cli.md`](./docs/cli.md) — CLI reference
+- [`docs/plans/overnight-research-lab-refactor.md`](./docs/plans/overnight-research-lab-refactor.md) — architecture
+- [`src/alphaloop/skills/overnight-lab/SKILL.md`](./src/alphaloop/skills/overnight-lab/SKILL.md) — agent skill
+- [`src/alphaloop/live/README.md`](./src/alphaloop/live/README.md) — frozen live-adapter wall
 
 ---
 
@@ -211,6 +155,6 @@ MIT. See [`LICENSE`](./LICENSE).
 - Wilder (1978) — RSI, ATR
 - Parkinson (1980) — Historical volatility estimator
 
-These references are implemented as plain Python (no proprietary
-math) in [`src/alphaloop/diagnostic/`](./src/alphaloop/diagnostic/)
-and [`src/alphaloop/engineer/`](./src/alphaloop/engineer/).
+These references are implemented as plain Python in
+[`src/alphaloop/diagnostic/`](./src/alphaloop/diagnostic/) and
+[`src/alphaloop/engineer/`](./src/alphaloop/engineer/).
