@@ -42,3 +42,9 @@ def test_protocol_does_not_import_live_webui_or_runtime():
         assert "from ..live" not in text, path
         assert "from ..webui" not in text, path
         assert "from ..runtime" not in text, path
+
+
+def test_runtime_does_not_import_webui_api():
+    for path, text in _iter_py("runtime"):
+        assert "alphaloop.webui.api" not in text, path
+        assert "from alphaloop.webui import create_app" not in text, path

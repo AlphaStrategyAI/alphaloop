@@ -370,6 +370,9 @@ Implementation plan:
 
 ### Phase 4 — Morning Web
 
+Implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](../superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md).
+
 - Packaged static UI, no Node on the user PATH.
 - Home page leads with `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE`.
 - Cannot override gates.

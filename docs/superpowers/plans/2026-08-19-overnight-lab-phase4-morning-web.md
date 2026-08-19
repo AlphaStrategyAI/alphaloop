@@ -1,6 +1,6 @@
 # Overnight Lab Phase 4 — Morning Web Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Serve a packaged morning Web console from `alphaloop start` so a user can identify the conclusion, primary evidence, and stop reason in five minutes — without Node on PATH and without any way to override hard gates.
 
@@ -56,15 +56,15 @@
 - `funnel.dominant_failures` is the names of required gates whose `passed` is False; empty if no evidence
 - `queued_hypotheses` from `recommendations.json` key `queued_hypotheses`, else `[]`
 
-- [ ] **Step 1: Write failing tests** covering FOUND with passing gates.json, INCONCLUSIVE with missing gates, NO_EVIDENCE with one failed gate, corrupt gates.json does not claim FOUND, revisions from trial-ledger, queued list from recommendations.
+- [x] **Step 1: Write failing tests** covering FOUND with passing gates.json, INCONCLUSIVE with missing gates, NO_EVIDENCE with one failed gate, corrupt gates.json does not claim FOUND, revisions from trial-ledger, queued list from recommendations.
 
-- [ ] **Step 2: Run tests, expect FAIL** (`ModuleNotFoundError: alphaloop.runtime.morning`)
+- [x] **Step 2: Run tests, expect FAIL** (`ModuleNotFoundError: alphaloop.runtime.morning`)
 
-- [ ] **Step 3: Implement morning.py**
+- [x] **Step 3: Implement morning.py**
 
-- [ ] **Step 4: Tests PASS**
+- [x] **Step 4: Tests PASS**
 
-- [ ] **Step 5: Commit** `feat(runtime): assemble morning review payload from sealed artifacts`
+- [x] **Step 5: Commit** `feat(runtime): assemble morning review payload from sealed artifacts`
 
 ---
 
@@ -80,8 +80,8 @@
 - `create_run` still adds `host_constraint`; `get_run` / `list_jobs` do not need to repeat it
 - No method that accepts replacement hard gates or evidence
 
-- [ ] Tests: list includes research_outcome first-class; get_run after writing gates.json returns FOUND + evidence; existing create/cancel/resume tests still pass
-- [ ] Commit `feat(runtime): expose morning job list and evidence on Job API`
+- [x] Tests: list includes research_outcome first-class; get_run after writing gates.json returns FOUND + evidence; existing create/cancel/resume tests still pass
+- [x] Commit `feat(runtime): expose morning job list and evidence on Job API`
 
 ---
 
@@ -103,8 +103,8 @@
 - Path traversal (`/../`, encoded) must not escape the static root
 - Serving uses `importlib.resources` of `alphaloop.webui.static`, not a Vite `dist/` that requires Node
 
-- [ ] Tests: HTML content-type; list endpoint; gates override 404; healthz unchanged; create/get/cancel still work
-- [ ] Commit `feat(runtime): serve packaged morning console and job list over HTTP`
+- [x] Tests: HTML content-type; list endpoint; gates override 404; healthz unchanged; create/get/cancel still work
+- [x] Commit `feat(runtime): serve packaged morning console and job list over HTTP`
 
 ---
 
@@ -123,7 +123,7 @@
 - No input that posts gate names, no "override", no "force FOUND"
 - Tests read packaged files as text (no browser): HTML references `/app.js`; JS fetches `/v1/jobs`; strings `FOUND`, `NO_EVIDENCE`, `INCONCLUSIVE` present; JS does not contain `override` / `hard_gates=` assignment posts
 
-- [ ] Commit `feat(webui): add packaged morning console static assets`
+- [x] Commit `feat(webui): add packaged morning console static assets`
 
 ---
 
@@ -136,7 +136,7 @@
 - Modify: `tests/runtime/test_import_graph.py` — runtime may import `webui.static` resource path only; still no `alphaloop.live`; protocol still no webui/runtime
 - Run: `python3 -m pytest tests/ -m "not integration" -q`
 
-- [ ] Commit `docs: point Phase 4 morning Web at the implementation plan`
+- [x] Commit `docs: point Phase 4 morning Web at the implementation plan`
 
 ---
 

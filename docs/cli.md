@@ -11,8 +11,13 @@ alphaloop [-h] {backtest, optimize, fetch, report, export, start, submit, status
 
 ## `alphaloop start`
 
-Start the local alphaloop daemon (Job API + supervisor).  Binds to
-loopback by default; the CLI and browser can exit without stopping jobs.
+Start the local alphaloop daemon (Job API + supervisor + packaged morning
+Web console).  Binds to loopback by default; the CLI and browser can exit
+without stopping jobs.
+
+Open `http://127.0.0.1:8765/` for the morning review.  The home page
+leads with `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE`.  The console cannot
+override hard gates.
 
 ```
 alphaloop start [--data-dir DIR] [--host HOST] [--port PORT] [--detach]
