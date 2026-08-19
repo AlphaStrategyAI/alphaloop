@@ -14,10 +14,19 @@ from typing import Any, Callable, Optional
 
 import yaml
 
-from alphaloop.contracts.artifacts import RunLayout
+from alphaloop.contracts.artifacts import DatasetMismatchError, RunLayout
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome, derive_research_outcome
-from alphaloop.runtime.checkpoint import Checkpoint, write_checkpoint, write_heartbeat
+from alphaloop.runtime.checkpoint import (
+    Checkpoint,
+    load_latest_complete,
+    write_checkpoint,
+    write_heartbeat,
+)
+from alphaloop.runtime.dataset_cache import (
+    DatasetUnavailableError,
+    load_prices,
+)
 
 RunnerFactory = Callable[..., Any]
 _WORKER_MODULE = b"alphaloop.runtime.worker"
@@ -61,42 +70,34 @@ def stopgap_terminal_outcome() -> ResearchOutcome:
     return derive_research_outcome(JobStatus.COMPLETED, False, False)
 
 
-def _universe(market_scope: str) -> tuple[str, ...]:
-    return tuple(part.strip() for part in market_scope.split(",") if part.strip())
-
-
-def _load_or_synthesize_prices(layout: RunLayout, spec: ResearchSpec):
-    import numpy as np
-    import pandas as pd
-
-    parquet = layout.run_dir / "prices.parquet"
-    if parquet.is_file():
-        frame = pd.read_parquet(parquet)
-        prices = {str(col): frame[col].astype(float) for col in frame.columns}
-        universe = _universe(spec.hypothesis.market_scope)
-        primary = universe[0] if universe else next(iter(prices))
-        buy_hold = prices.get(primary, next(iter(prices.values())))
-        benchmark = prices.get(spec.hypothesis.benchmark, buy_hold)
-        return prices, buy_hold, benchmark
-
-    rng = np.random.default_rng(int(spec.seed))
-    n = 252
-    idx = pd.bdate_range("2018-01-01", periods=n)
-    universe = list(_universe(spec.hypothesis.market_scope))
-    assets = list(dict.fromkeys([*universe, spec.hypothesis.benchmark]))
-    prices: dict[str, pd.Series] = {}
-    for ticker in assets:
-        shocks = rng.normal(loc=0.0003, scale=0.012, size=n)
-        levels = 100.0 * np.exp(np.cumsum(shocks))
-        prices[ticker] = pd.Series(levels, index=idx, dtype=float)
-    primary = universe[0] if universe else assets[0]
-    return prices, prices[primary], prices.get(spec.hypothesis.benchmark, prices[primary])
-
-
 def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
     from alphaloop.protocol.loop import run_protocol
 
-    prices, buy_hold, benchmark = _load_or_synthesize_prices(layout, spec)
+    ckpt = load_latest_complete(layout)
+    done = tuple((ckpt.payload.get("completed_trial_ids") or []) if ckpt else ())
+    seq = ckpt.seq if ckpt else 0
+
+    def on_trial(payload):
+        nonlocal seq
+        seq += 1
+        write_checkpoint(
+            layout,
+            Checkpoint(
+                seq=seq,
+                complete=True,
+                payload={
+                    "phase": "protocol",
+                    "completed_trial_ids": list(payload["completed_trial_ids"]),
+                },
+            ),
+        )
+
+    try:
+        prices, buy_hold, benchmark = load_prices(
+            layout, spec, data_dir=layout.run_dir.parent
+        )
+    except (DatasetUnavailableError, DatasetMismatchError):
+        return
     started = time.monotonic()
     run_protocol(
         spec,
@@ -104,6 +105,8 @@ def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
         prices=prices,
         buy_hold_prices=buy_hold,
         benchmark_prices=benchmark,
+        completed_trial_ids=done,
+        on_trial=on_trial,
         clock=lambda: time.monotonic() - started,
         remaining_cost_usd=spec.cost_budget_usd,
     )
@@ -136,16 +139,17 @@ def run_worker(
         pid=os.getpid(),
         at=datetime.now(timezone.utc).isoformat(),
     )
-    write_checkpoint(
-        layout,
-        Checkpoint(
-            seq=1,
-            complete=True,
-            payload={
-                "phase": "protocol" if runner_factory is None else "looprunner-stopgap"
-            },
-        ),
-    )
+    # LoopRunner stopgap keeps the seq=1 complete checkpoint. On the default
+    # protocol path prefer heartbeat-only until the first on_trial write.
+    if runner_factory is not None:
+        write_checkpoint(
+            layout,
+            Checkpoint(
+                seq=1,
+                complete=True,
+                payload={"phase": "looprunner-stopgap"},
+            ),
+        )
 
     heartbeat_stop = threading.Event()
     heartbeat_thread = threading.Thread(

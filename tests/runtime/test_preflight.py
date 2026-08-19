@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from alphaloop.contracts.artifacts import DatasetRef
 from alphaloop.contracts.research_spec import new_research_spec
 from alphaloop.runtime.preflight import HOST_CONSTRAINT, preflight
 
@@ -68,3 +69,45 @@ def test_data_dir_that_is_a_file_rejected(tmp_path):
     result = preflight(_spec(), target)
     assert result.ok is False
     assert any("writ" in err.lower() or "data" in err.lower() for err in result.errors)
+
+
+def test_declared_dataset_must_exist(tmp_path):
+    spec = new_research_spec(
+        statement="12-1 momentum works in US large caps net of costs",
+        economic_logic="past winners continue",
+        signal_mechanism="momentum_12_1",
+        market_scope="AAPL, MSFT",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr", "walk_forward", "vs_benchmark"),
+        seed=7,
+        time_budget_s=3600,
+        cost_budget_usd=5.0,
+        dataset=DatasetRef(dataset_id="ds_missing", sha256="a" * 64),
+    )
+    result = preflight(spec, tmp_path)
+    assert result.ok is False
+    assert any("dataset" in err.lower() for err in result.errors)
+    assert result.host_constraint == HOST_CONSTRAINT
+
+
+def test_declared_dataset_hash_must_match(tmp_path):
+    parquet = tmp_path / "datasets" / "ds_x" / "prices.parquet"
+    parquet.parent.mkdir(parents=True)
+    parquet.write_bytes(b"not-a-real-parquet-but-hashed")
+    spec = new_research_spec(
+        statement="12-1 momentum works in US large caps net of costs",
+        economic_logic="past winners continue",
+        signal_mechanism="momentum_12_1",
+        market_scope="AAPL, MSFT",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr", "walk_forward", "vs_benchmark"),
+        seed=7,
+        time_budget_s=3600,
+        cost_budget_usd=5.0,
+        dataset=DatasetRef(dataset_id="ds_x", sha256="0" * 64),
+    )
+    result = preflight(spec, tmp_path)
+    assert result.ok is False
+    assert any("hash" in err.lower() for err in result.errors)

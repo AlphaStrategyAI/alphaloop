@@ -6,6 +6,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from alphaloop.contracts.artifacts import DatasetMismatchError, require_dataset
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.protocol.dsl import ALLOWED_KINDS
 
@@ -77,6 +78,17 @@ def preflight(
         errors.append("cost budget must be finite and non-negative")
 
     errors.extend(_check_data_dir(data_dir, min_free_bytes))
+
+    dataset = getattr(spec, "dataset", None)
+    if dataset is not None:
+        path = Path(data_dir) / "datasets" / dataset.dataset_id / "prices.parquet"
+        if not path.is_file():
+            errors.append("dataset snapshot is unavailable")
+        else:
+            try:
+                require_dataset(dataset, path.read_bytes())
+            except DatasetMismatchError:
+                errors.append("dataset snapshot hash mismatch")
 
     return PreflightResult(
         ok=not errors,

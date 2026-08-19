@@ -4,13 +4,20 @@ import asyncio
 import json
 import os
 
+import pandas as pd
 import pytest
 import yaml
 
 import alphaloop.runtime.worker as worker_module
-from alphaloop.contracts.artifacts import RunLayout
+from alphaloop.contracts.artifacts import DatasetRef, RunLayout
+from alphaloop.contracts.research_spec import new_research_spec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome, derive_research_outcome
-from alphaloop.runtime.checkpoint import load_latest_complete, read_heartbeat
+from alphaloop.runtime.checkpoint import (
+    Checkpoint,
+    load_latest_complete,
+    read_heartbeat,
+    write_checkpoint,
+)
 from alphaloop.runtime.worker import (
     ProcessWorker,
     is_worker_cmdline,
@@ -18,6 +25,11 @@ from alphaloop.runtime.worker import (
     stopgap_terminal_outcome,
 )
 from tests.runtime.test_supervisor import _spec
+
+
+def _write_prices_parquet(path, prices: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(prices).to_parquet(path)
 
 
 def test_stopgap_never_claims_found():
@@ -79,6 +91,15 @@ def test_run_worker_passes_clock_and_cost_budget(monkeypatch, tmp_path):
         yaml.safe_dump(spec.to_dict()),
         encoding="utf-8",
     )
+    idx = pd.bdate_range("2018-01-01", periods=30)
+    _write_prices_parquet(
+        layout.run_dir / "prices.parquet",
+        {
+            "AAPL": pd.Series(range(30), index=idx, dtype=float),
+            "MSFT": pd.Series(range(30), index=idx, dtype=float),
+            "SPY": pd.Series(range(30), index=idx, dtype=float),
+        },
+    )
     assert run_worker(run_id, tmp_path) == 0
     assert callable(captured["kwargs"]["clock"])
     assert captured["kwargs"]["remaining_cost_usd"] == spec.cost_budget_usd
@@ -95,10 +116,92 @@ def test_run_worker_default_path_writes_protocol_artifacts(tmp_path):
         yaml.safe_dump(_spec().to_dict()),
         encoding="utf-8",
     )
+    idx = pd.bdate_range("2018-01-01", periods=30)
+    _write_prices_parquet(
+        layout.run_dir / "prices.parquet",
+        {
+            "AAPL": pd.Series(range(30), index=idx, dtype=float),
+            "MSFT": pd.Series(range(30), index=idx, dtype=float),
+            "SPY": pd.Series(range(30), index=idx, dtype=float),
+        },
+    )
     assert run_worker(run_id, tmp_path) == 0
     rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
     assert rec["queued_hypotheses"] == []
     assert layout.trial_ledger.exists()
+
+
+def test_run_worker_without_snapshot_does_not_synthesize(tmp_path):
+    run_id = "j_nosnap"
+    layout = RunLayout(tmp_path / run_id)
+    layout.run_dir.mkdir()
+    layout.research_spec.write_text(yaml.safe_dump(_spec().to_dict()), encoding="utf-8")
+    assert run_worker(run_id, tmp_path) == 0
+    assert not (layout.evidence / "gates.json").exists()
+    assert not layout.trial_ledger.exists() or layout.trial_ledger.read_text() == ""
+
+
+def test_run_worker_rejects_hash_mismatch(tmp_path):
+    idx = pd.bdate_range("2018-01-01", periods=30)
+    frame = pd.DataFrame({"AAPL": range(30), "MSFT": range(30), "SPY": range(30)}, index=idx)
+    blob_path = tmp_path / "datasets" / "ds_bad" / "prices.parquet"
+    _write_prices_parquet(blob_path, {c: frame[c] for c in frame.columns})
+    spec = new_research_spec(
+        statement="12-1 momentum works in US large caps net of costs",
+        economic_logic="past winners continue",
+        signal_mechanism="momentum_12_1",
+        market_scope="AAPL, MSFT",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr",),
+        seed=7,
+        time_budget_s=60,
+        cost_budget_usd=1.0,
+        dataset=DatasetRef(dataset_id="ds_bad", sha256="0" * 64),
+    )
+    run_id = "j_mismatch"
+    layout = RunLayout(tmp_path / run_id)
+    layout.run_dir.mkdir()
+    layout.research_spec.write_text(yaml.safe_dump(spec.to_dict()), encoding="utf-8")
+    assert run_worker(run_id, tmp_path) == 0
+    assert not (layout.evidence / "gates.json").exists()
+
+
+def test_run_worker_resumes_from_checkpoint_ids(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_run_protocol(spec, layout, **kwargs):
+        captured["completed"] = kwargs.get("completed_trial_ids")
+        captured["on_trial"] = kwargs.get("on_trial")
+        return None
+
+    monkeypatch.setattr("alphaloop.protocol.loop.run_protocol", fake_run_protocol)
+    run_id = "j_resume"
+    layout = RunLayout(tmp_path / run_id)
+    layout.run_dir.mkdir()
+    layout.research_spec.write_text(yaml.safe_dump(_spec().to_dict()), encoding="utf-8")
+    idx = pd.bdate_range("2018-01-01", periods=30)
+    _write_prices_parquet(
+        layout.run_dir / "prices.parquet",
+        {"AAPL": pd.Series(range(30), index=idx, dtype=float),
+         "MSFT": pd.Series(range(30), index=idx, dtype=float),
+         "SPY": pd.Series(range(30), index=idx, dtype=float)},
+    )
+    write_checkpoint(
+        layout,
+        Checkpoint(
+            seq=3,
+            complete=True,
+            payload={"phase": "protocol", "completed_trial_ids": ["c_already"]},
+        ),
+    )
+    assert run_worker(run_id, tmp_path) == 0
+    assert captured["completed"] == ["c_already"] or captured["completed"] == ("c_already",)
+    captured["on_trial"]({"trial_id": "c_new", "completed_trial_ids": ("c_already", "c_new"), "n_trials": 2})
+    latest = load_latest_complete(layout)
+    assert latest is not None
+    assert latest.seq == 4
+    assert latest.payload["completed_trial_ids"][-1] == "c_new"
 
 
 def test_run_worker_refreshes_heartbeat_while_runner_is_active(monkeypatch, tmp_path):
