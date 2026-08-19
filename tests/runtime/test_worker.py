@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 
 import pytest
@@ -59,6 +60,20 @@ def test_run_worker_checkpoints_and_heartbeats_before_dry_run(tmp_path):
     assert run_worker(run_id, tmp_path, runner_factory=runner_factory) == 0
     assert factory_kwargs["run_id"] == run_id
     assert factory_kwargs["dry_run"] is True
+
+
+def test_run_worker_default_path_writes_protocol_artifacts(tmp_path):
+    run_id = "j_protocol"
+    layout = RunLayout(tmp_path / run_id)
+    layout.run_dir.mkdir()
+    layout.research_spec.write_text(
+        yaml.safe_dump(_spec().to_dict()),
+        encoding="utf-8",
+    )
+    assert run_worker(run_id, tmp_path) == 0
+    rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
+    assert rec["queued_hypotheses"] == []
+    assert layout.trial_ledger.exists()
 
 
 def test_run_worker_refreshes_heartbeat_while_runner_is_active(monkeypatch, tmp_path):

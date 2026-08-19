@@ -60,10 +60,49 @@ def stopgap_terminal_outcome() -> ResearchOutcome:
     return derive_research_outcome(JobStatus.COMPLETED, False, False)
 
 
-def _default_runner_factory(**kwargs: Any) -> Any:
-    from alphaloop.loop import LoopRunner
+def _universe(market_scope: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in market_scope.split(",") if part.strip())
 
-    return LoopRunner(**kwargs)
+
+def _load_or_synthesize_prices(layout: RunLayout, spec: ResearchSpec):
+    import numpy as np
+    import pandas as pd
+
+    parquet = layout.run_dir / "prices.parquet"
+    if parquet.is_file():
+        frame = pd.read_parquet(parquet)
+        prices = {str(col): frame[col].astype(float) for col in frame.columns}
+        universe = _universe(spec.hypothesis.market_scope)
+        primary = universe[0] if universe else next(iter(prices))
+        buy_hold = prices.get(primary, next(iter(prices.values())))
+        benchmark = prices.get(spec.hypothesis.benchmark, buy_hold)
+        return prices, buy_hold, benchmark
+
+    rng = np.random.default_rng(int(spec.seed))
+    n = 252
+    idx = pd.bdate_range("2018-01-01", periods=n)
+    universe = list(_universe(spec.hypothesis.market_scope))
+    assets = list(dict.fromkeys([*universe, spec.hypothesis.benchmark]))
+    prices: dict[str, pd.Series] = {}
+    for ticker in assets:
+        shocks = rng.normal(loc=0.0003, scale=0.012, size=n)
+        levels = 100.0 * np.exp(np.cumsum(shocks))
+        prices[ticker] = pd.Series(levels, index=idx, dtype=float)
+    primary = universe[0] if universe else assets[0]
+    return prices, prices[primary], prices.get(spec.hypothesis.benchmark, prices[primary])
+
+
+def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
+    from alphaloop.protocol.loop import run_protocol
+
+    prices, buy_hold, benchmark = _load_or_synthesize_prices(layout, spec)
+    run_protocol(
+        spec,
+        layout,
+        prices=prices,
+        buy_hold_prices=buy_hold,
+        benchmark_prices=benchmark,
+    )
 
 
 def _refresh_heartbeat(layout: RunLayout, stop: threading.Event) -> None:
@@ -98,7 +137,9 @@ def run_worker(
         Checkpoint(
             seq=1,
             complete=True,
-            payload={"phase": "looprunner-stopgap"},
+            payload={
+                "phase": "protocol" if runner_factory is None else "looprunner-stopgap"
+            },
         ),
     )
 
@@ -111,18 +152,19 @@ def run_worker(
     )
     heartbeat_thread.start()
     try:
-        factory = runner_factory or _default_runner_factory
-        runner = factory(
-            goal=spec.hypothesis.statement,
-            run_id=run_id,
-            seed=spec.seed,
-            budget_usd=spec.cost_budget_usd,
-            timeout_s=spec.time_budget_s,
-            data_dir=str(data_dir),
-            # Phase-2 stopgap: real workers only execute LoopRunner's dry-run path.
-            dry_run=True,
-        )
-        asyncio.run(runner.run())
+        if runner_factory is not None:
+            runner = runner_factory(
+                goal=spec.hypothesis.statement,
+                run_id=run_id,
+                seed=spec.seed,
+                budget_usd=spec.cost_budget_usd,
+                timeout_s=spec.time_budget_s,
+                data_dir=str(data_dir),
+                dry_run=True,
+            )
+            asyncio.run(runner.run())
+        else:
+            _run_protocol(spec, layout)
     finally:
         heartbeat_stop.set()
         heartbeat_thread.join()

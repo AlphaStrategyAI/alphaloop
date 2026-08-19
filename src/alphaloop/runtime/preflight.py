@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from alphaloop.contracts.research_spec import ResearchSpec
+from alphaloop.protocol.dsl import ALLOWED_KINDS
 
 HOST_CONSTRAINT = (
     "The host must remain awake while a local worker is running. "
@@ -59,6 +60,12 @@ def preflight(
     min_free_bytes: int = 67108864,
 ) -> PreflightResult:
     errors: list[str] = []
+
+    if spec.hypothesis.signal_mechanism not in ALLOWED_KINDS:
+        errors.append(
+            "unsupported signal_mechanism: "
+            f"{spec.hypothesis.signal_mechanism}"
+        )
 
     if not spec.success_criteria.hard_gates:
         errors.append("at least one hard gate is required")

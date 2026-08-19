@@ -15,8 +15,8 @@ def _spec():
     return new_research_spec(
         statement="12-1 momentum works in US large caps net of costs",
         economic_logic="past winners continue",
-        signal_mechanism="12-1 momentum",
-        market_scope="US large-cap equities",
+        signal_mechanism="momentum_12_1",
+        market_scope="AAPL, MSFT",
         market_profile="us-equity-daily",
         benchmark="SPY",
         hard_gates=("dsr", "walk_forward", "vs_benchmark"),

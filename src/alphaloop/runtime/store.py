@@ -11,6 +11,8 @@ from typing import Optional
 
 import yaml
 
+from alphaloop.contracts.artifacts import RunLayout
+from alphaloop.contracts.gates import evidence_from_dict, outcome_from_evidence
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome, derive_research_outcome
 
@@ -201,6 +203,51 @@ class JobStore:
                             run_id,
                         ),
                     )
+                conn.commit()
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE run_id = ?", (run_id,)
+                ).fetchone()
+        return self._row_to_record(row)
+
+    def complete_from_artifacts(self, run_id: str) -> JobRecord:
+        layout = RunLayout(self._data_dir / run_id)
+        path = layout.evidence / "gates.json"
+        if not path.is_file():
+            return self.update_status(run_id, JobStatus.COMPLETED)
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                return self.update_status(run_id, JobStatus.COMPLETED)
+            evidence = evidence_from_dict(payload)
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            return self.update_status(run_id, JobStatus.COMPLETED)
+        outcome = outcome_from_evidence(JobStatus.COMPLETED, evidence)
+        sealed = (
+            ResearchOutcome.FOUND.value if outcome is ResearchOutcome.FOUND else None
+        )
+        now = _utc_now_iso()
+        with self._lock:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE run_id = ?", (run_id,)
+                ).fetchone()
+                if row is None:
+                    raise KeyError(run_id)
+                conn.execute(
+                    """
+                    UPDATE jobs SET
+                      status = ?, research_outcome = ?, sealed_outcome = ?,
+                      updated_at = ?, error = NULL
+                    WHERE run_id = ?
+                    """,
+                    (
+                        JobStatus.COMPLETED.value,
+                        outcome.value,
+                        sealed,
+                        now,
+                        run_id,
+                    ),
+                )
                 conn.commit()
                 row = conn.execute(
                     "SELECT * FROM jobs WHERE run_id = ?", (run_id,)

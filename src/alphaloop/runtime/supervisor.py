@@ -73,7 +73,7 @@ class Supervisor:
 
         code = self.worker.poll(job.worker_pid, job.run_id)
         if code == 0:
-            self.store.update_status(job.run_id, JobStatus.COMPLETED)
+            self.store.complete_from_artifacts(job.run_id)
             return
         if code is not None:
             self._recover(job, worker_running=False)

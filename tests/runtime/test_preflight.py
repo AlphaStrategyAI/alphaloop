@@ -8,8 +8,8 @@ def _spec(**overrides):
     payload = dict(
         statement="12-1 momentum works in US large caps net of costs",
         economic_logic="past winners continue",
-        signal_mechanism="12-1 momentum",
-        market_scope="US large-cap equities",
+        signal_mechanism="momentum_12_1",
+        market_scope="AAPL, MSFT",
         market_profile="us-equity-daily",
         benchmark="SPY",
         hard_gates=("dsr", "walk_forward", "vs_benchmark"),
@@ -53,6 +53,13 @@ def test_nan_cost_budget_rejected(tmp_path):
     result = preflight(_spec(cost_budget_usd=float("nan")), tmp_path)
     assert result.ok is False
     assert any("cost" in err.lower() for err in result.errors)
+
+
+def test_unknown_dsl_kind_rejected(tmp_path):
+    result = preflight(_spec(signal_mechanism="12-1 momentum"), tmp_path)
+    assert result.ok is False
+    assert any("signal_mechanism" in err.lower() or "kind" in err.lower() for err in result.errors)
+    assert result.host_constraint == HOST_CONSTRAINT
 
 
 def test_data_dir_that_is_a_file_rejected(tmp_path):
