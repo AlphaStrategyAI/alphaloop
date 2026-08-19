@@ -28,6 +28,44 @@ def test_create_run_returns_immediately_without_starting_worker(tmp_path):
     assert api.supervisor.worker.spawned == []
 
 
+def test_list_jobs_includes_research_outcome(tmp_path):
+    api = _api(tmp_path)
+    created = api.create_run(_spec())
+    listed = api.list_jobs()
+    assert listed["jobs"][0]["run_id"] == created["run_id"]
+    assert listed["jobs"][0]["research_outcome"] == ResearchOutcome.NONE.value
+    assert listed["jobs"][0]["hypothesis"]["signal_mechanism"] == "momentum_12_1"
+
+
+def test_get_run_includes_sealed_evidence(tmp_path):
+    import json
+
+    from alphaloop.contracts.gates import (
+        GateResult,
+        HardGateName,
+        evidence_to_dict,
+        evaluate_hard_gates,
+    )
+
+    api = _api(tmp_path)
+    created = api.create_run(_spec())
+    run_id = created["run_id"]
+    job = api.store.get(run_id)
+    required = tuple(HardGateName(name) for name in job.spec.success_criteria.hard_gates)
+    evidence = evaluate_hard_gates(
+        required,
+        tuple(GateResult(name=name, passed=True, detail={}) for name in required),
+    )
+    evidence_dir = tmp_path / run_id / "evidence"
+    evidence_dir.mkdir()
+    (evidence_dir / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+    api.store.complete_from_artifacts(run_id)
+    payload = api.get_run(run_id)
+    assert payload["research_outcome"] == ResearchOutcome.FOUND.value
+    assert payload["evidence"]["all_passed"] is True
+    assert payload["stop_reason"] == "all_gates_passed"
+
+
 def test_create_run_rejects_empty_gates_without_inserting_job(tmp_path):
     api = _api(tmp_path)
     spec = new_research_spec(
