@@ -32,3 +32,13 @@ def test_loop_does_not_import_runtime_or_bundle():
     for path, text in _iter_py("loop"):
         assert "alphaloop.runtime" not in text, path
         assert "alphaloop.contracts.bundle" not in text, path
+
+
+def test_protocol_does_not_import_live_webui_or_runtime():
+    for path, text in _iter_py("protocol"):
+        assert "alphaloop.live" not in text, path
+        assert "alphaloop.webui" not in text, path
+        assert "alphaloop.runtime" not in text, path
+        assert "from ..live" not in text, path
+        assert "from ..webui" not in text, path
+        assert "from ..runtime" not in text, path

@@ -360,6 +360,9 @@ Implementation plan:
 
 ### Phase 3 — Research protocol
 
+Implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md`](../superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md).
+
 - Constrained DSL over `engineer` + `strategies`.
 - Epistemic stop: method repairs allowed; economic-logic changes queued.
 - Independent `us-equity-daily` and `crypto-daily` profiles.

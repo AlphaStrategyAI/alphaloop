@@ -1,6 +1,6 @@
 # Overnight Lab Phase 3 — Research Protocol Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the LoopRunner stopgap with a constrained DSL research protocol that can seal `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE` from real hard-gate evidence.
 
@@ -64,15 +64,15 @@
   - Unknown kind / wrong schema / empty universe raise `UnsupportedDslError`
   - `effective_at` missing from an asset series → that asset weight 0
 
-- [ ] **Step 1: Write failing tests** in `tests/protocol/test_dsl.py` covering parse, unknown kind, momentum_12_1 weights on a rising series, unknown kind error, empty universe error, weights sum to 1.
+- [x] **Step 1: Write failing tests** in `tests/protocol/test_dsl.py` covering parse, unknown kind, momentum_12_1 weights on a rising series, unknown kind error, empty universe error, weights sum to 1.
 
-- [ ] **Step 2: Run tests, expect FAIL** (`ModuleNotFoundError: alphaloop.protocol.dsl`)
+- [x] **Step 2: Run tests, expect FAIL** (`ModuleNotFoundError: alphaloop.protocol.dsl`)
 
-- [ ] **Step 3: Implement dsl.py** wrapping engineer functions. For each asset, call the factor on that asset's close series; take the value at `effective_at` (asof last bar ≤ timestamp); clip negatives to 0; L1-normalize.
+- [x] **Step 3: Implement dsl.py** wrapping engineer functions. For each asset, call the factor on that asset's close series; take the value at `effective_at` (asof last bar ≤ timestamp); clip negatives to 0; L1-normalize.
 
-- [ ] **Step 4: Tests PASS**
+- [x] **Step 4: Tests PASS**
 
-- [ ] **Step 5: Commit** `feat(protocol): add constrained DSL interpreter over engineer factors`
+- [x] **Step 5: Commit** `feat(protocol): add constrained DSL interpreter over engineer factors`
 
 ---
 
@@ -91,7 +91,7 @@
 - `get_profile(name: str) -> MarketProfile` raises `ValueError` on unknown
 - `assert_single_profile(docs: Sequence[StrategyDocument])` raises `MixedProfileError` if more than one `market_profile`
 
-- [ ] Tests first, then implement, then commit `feat(protocol): add independent US equity and crypto daily profiles`
+- [x] Tests first, then implement, then commit `feat(protocol): add independent US equity and crypto daily profiles`
 
 ---
 
@@ -110,8 +110,8 @@
 - Catch diagnostic exceptions → do not include that gate (caller translates missing required gate to INCONCLUSIVE via `IncompleteEvidenceError`)
 - `evidence_to_dict` / `evidence_from_dict` round-trip `GateResult.name` as strings
 
-- [ ] Tests: each adapter name present; llm_judge not invoked; US vs crypto benchmark function choice; missing secondary → data_consistency fail; dict round-trip
-- [ ] Commit `feat(protocol): wrap diagnostics as hard-gate evidence`
+- [x] Tests: each adapter name present; llm_judge not invoked; US vs crypto benchmark function choice; missing secondary → data_consistency fail; dict round-trip
+- [x] Commit `feat(protocol): wrap diagnostics as hard-gate evidence`
 
 ---
 
@@ -132,7 +132,7 @@
 - If last_evidence complete and not all_passed and proposed_kind is METHOD with stop_reason None: still `continue_search=False`, reason `hard_gate_failed` (do not search until profitable)
 - METHOD repair with incomplete evidence and budget remaining: `continue_search=True`, reason `method_repair`
 
-- [ ] Commit `feat(protocol): add epistemic stop and revision classifier`
+- [x] Commit `feat(protocol): add epistemic stop and revision classifier`
 
 ---
 
@@ -154,8 +154,8 @@
 - If `should_continue` says stop after a complete failing evidence set, do not generate further parameter variants
 - Injectable `gate_runner` so FOUND/NO_EVIDENCE tests do not depend on beating all six real diagnostics
 
-- [ ] Tests: FOUND via fake all-pass gates; NO_EVIDENCE via fake one-fail; INCONCLUSIVE via missing required gate; economic revision not executed (loop does not change signal_mechanism); mixed profiles not applicable (single spec); trial ledger appended; recommendations.json exists
-- [ ] Commit `feat(protocol): add research loop with trial ledger and sealed evidence`
+- [x] Tests: FOUND via fake all-pass gates; NO_EVIDENCE via fake one-fail; INCONCLUSIVE via missing required gate; economic revision not executed (loop does not change signal_mechanism); mixed profiles not applicable (single spec); trial ledger appended; recommendations.json exists
+- [x] Commit `feat(protocol): add research loop with trial ledger and sealed evidence`
 
 ---
 
@@ -174,7 +174,7 @@
 - Worker: if `runner_factory` provided, keep current LoopRunner-style call for existing worker unit tests; **default** factory None → `run_protocol`
 - Generating synthetic prices must not import `alphaloop.loop`
 
-- [ ] Commit `feat(runtime): seal research outcome from protocol evidence artifacts`
+- [x] Commit `feat(runtime): seal research outcome from protocol evidence artifacts`
 
 ---
 
@@ -186,7 +186,7 @@
 - Modify: `docs/requirements/product-positioning-requirements.md` §13 — items 1–2 done; item 3 is this plan
 - Run: `python3 -m pytest tests/ -m "not integration" -q`
 
-- [ ] Commit `test(protocol): lock import graph and document phase 3 plan`
+- [x] Commit `test(protocol): lock import graph and document phase 3 plan`
 
 ---
 
