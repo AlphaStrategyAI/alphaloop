@@ -21,12 +21,14 @@ def test_skill_is_packaged_markdown():
 
 
 def test_skill_teaches_submit_and_poll_not_block():
-    text = _skill_text().lower()
-    assert "alphaloop start" in text
-    assert "alphaloop submit" in text
-    assert "alphaloop status" in text
-    assert "poll" in text
-    assert "do not block" in text or "do not keep" in text
+    text = _skill_text()
+    lowered = text.lower()
+    assert "alphaloop start" in lowered
+    assert "alphaloop submit" in lowered
+    assert "alphaloop status" in lowered
+    assert "poll" in lowered
+    assert "do not block" in lowered or "do not keep" in lowered
+    assert "Submit" in text or "YAML" in text
 
 
 def test_skill_forbids_alpha_claims_and_gate_overrides():

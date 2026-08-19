@@ -15,9 +15,10 @@ Start the local alphaloop daemon (Job API + supervisor + packaged morning
 Web console).  Binds to loopback by default; the CLI and browser can exit
 without stopping jobs.
 
-Open `http://127.0.0.1:8765/` for the morning review.  The home page
-leads with `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE`.  The console cannot
-override hard gates.
+Open `http://127.0.0.1:8765/` for the morning console.  Paste YAML on
+the home page to POST to `/v1/jobs`, or use `alphaloop submit`; the page
+polls progress every two seconds.  The home page leads with `FOUND` /
+`NO_EVIDENCE` / `INCONCLUSIVE`.  The console cannot override hard gates.
 
 ```
 alphaloop start [--data-dir DIR] [--host HOST] [--port PORT] [--detach]
