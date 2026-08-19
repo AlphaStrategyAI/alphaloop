@@ -84,6 +84,44 @@ def test_resume_running_terminates_worker_and_requeues_until_tick(tmp_path):
     assert queued.worker_pid is None
 
 
+def test_resume_running_serializes_requeue_before_replacement_tick(
+    tmp_path, monkeypatch
+):
+    api = _api(tmp_path)
+    run_id = api.create_run(_spec())["run_id"]
+    api.supervisor.tick()
+    running = api.store.get(run_id)
+    old_pid = running.worker_pid
+    assert old_pid is not None
+    lifecycle_lock = api.supervisor.lifecycle_lock
+    original_get = api.store.get
+    original_requeue = api.store.requeue_unless_terminal
+
+    def get_while_locked(requested_run_id):
+        assert lifecycle_lock.locked()
+        return original_get(requested_run_id)
+
+    def requeue_while_locked(requested_run_id, expected_pid=None):
+        assert lifecycle_lock.locked()
+        return original_requeue(requested_run_id, expected_pid)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(api.store, "get", get_while_locked)
+        patch.setattr(api.store, "requeue_unless_terminal", requeue_while_locked)
+        resumed = api.resume_run(run_id)
+
+    assert resumed["status"] == JobStatus.QUEUED.value
+    assert old_pid not in api.supervisor.worker.running
+    assert api.supervisor.worker.running == {}
+
+    api.supervisor.tick()
+
+    replacement = api.store.get(run_id)
+    assert replacement.status is JobStatus.RUNNING
+    assert replacement.worker_pid != old_pid
+    assert list(api.supervisor.worker.running) == [replacement.worker_pid]
+
+
 def test_resume_failed_requeues_and_clears_error(tmp_path):
     api = _api(tmp_path)
     run_id = api.create_run(_spec())["run_id"]

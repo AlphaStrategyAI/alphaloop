@@ -41,15 +41,16 @@ class JobAPI:
         return self._job_dict(self.supervisor.request_cancel(run_id))
 
     def resume_run(self, run_id: str) -> dict[str, Any]:
-        job = self.store.get(run_id)
-        if job.status in (JobStatus.CANCELLED, JobStatus.COMPLETED):
-            raise ValueError(f"cannot resume {job.status.value} job")
-        pid = job.worker_pid
-        if job.status is JobStatus.RUNNING and pid is not None:
-            self.supervisor.worker.terminate(pid)
-        return self._job_dict(
-            self.store.requeue_unless_terminal(run_id, expected_pid=pid)
-        )
+        with self.supervisor.lifecycle_lock:
+            job = self.store.get(run_id)
+            if job.status in (JobStatus.CANCELLED, JobStatus.COMPLETED):
+                raise ValueError(f"cannot resume {job.status.value} job")
+            pid = job.worker_pid
+            if job.status is JobStatus.RUNNING and pid is not None:
+                self.supervisor.worker.terminate(pid)
+            return self._job_dict(
+                self.store.requeue_unless_terminal(run_id, expected_pid=pid)
+            )
 
     @staticmethod
     def _job_dict(job: JobRecord) -> dict[str, Any]:

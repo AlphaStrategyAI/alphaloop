@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Protocol
@@ -35,25 +36,28 @@ class Supervisor:
         self.worker = worker
         self.heartbeat_timeout_s = heartbeat_timeout_s
         self.max_recovery = max_recovery
+        self.lifecycle_lock = threading.Lock()
 
     def tick(self) -> None:
-        for job in self.store.list_jobs():
-            if job.status is JobStatus.QUEUED:
-                self._spawn(job.run_id)
-            elif job.status is JobStatus.RUNNING:
-                self._monitor(job)
+        with self.lifecycle_lock:
+            for job in self.store.list_jobs():
+                if job.status is JobStatus.QUEUED:
+                    self._spawn(job.run_id)
+                elif job.status is JobStatus.RUNNING:
+                    self._monitor(job)
 
     def request_cancel(self, run_id: str) -> JobRecord:
-        job = self.store.get(run_id)
-        if job.status in (
-            JobStatus.COMPLETED,
-            JobStatus.FAILED,
-            JobStatus.CANCELLED,
-        ):
-            return job
-        if job.worker_pid is not None:
-            self.worker.terminate(job.worker_pid)
-        return self.store.update_status(run_id, JobStatus.CANCELLED)
+        with self.lifecycle_lock:
+            job = self.store.get(run_id)
+            if job.status in (
+                JobStatus.COMPLETED,
+                JobStatus.FAILED,
+                JobStatus.CANCELLED,
+            ):
+                return job
+            if job.worker_pid is not None:
+                self.worker.terminate(job.worker_pid)
+            return self.store.update_status(run_id, JobStatus.CANCELLED)
 
     def _spawn(self, run_id: str) -> JobRecord:
         pid = self.worker.spawn(run_id, self.data_dir)
