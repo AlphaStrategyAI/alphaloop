@@ -18,6 +18,8 @@ from typing import Any, Optional
 from urllib.parse import unquote, urlsplit
 from urllib.request import urlopen
 
+import yaml
+
 from alphaloop.runtime.submit import spec_from_submit_payload
 from alphaloop.runtime.api import JobAPI, PreflightRejected
 from alphaloop.runtime.store import JobStore
@@ -116,14 +118,14 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
 
         def _create_run(self) -> None:
             try:
-                payload = self._read_json()
+                payload = self._read_payload()
                 spec = spec_from_submit_payload(payload)
                 response = api.create_run(spec)
             except PreflightRejected as exc:
                 errors = exc.args[0] if exc.args else ()
                 self._send_json(400, {"errors": list(errors)})
                 return
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
                 self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(201, response)
@@ -142,9 +144,15 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
                 return
             self._send_json(200, response)
 
-        def _read_json(self) -> dict[str, Any]:
+        def _read_payload(self) -> dict[str, Any]:
             content_length = int(self.headers.get("Content-Length", "0"))
             raw = self.rfile.read(content_length)
+            media_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if media_type.startswith("application/yaml") or media_type.startswith("text/yaml"):
+                payload = yaml.safe_load(raw.decode("utf-8"))
+                if not isinstance(payload, dict):
+                    raise ValueError("YAML body must be an object")
+                return payload
             payload = json.loads(raw.decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("JSON body must be an object")

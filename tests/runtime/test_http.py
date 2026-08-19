@@ -5,6 +5,7 @@ import logging
 from urllib.request import Request, urlopen
 
 import pytest
+import yaml
 
 from alphaloop.runtime.api import JobAPI
 from alphaloop.runtime.client import JobClient
@@ -40,6 +41,28 @@ def test_http_create_accepts_payload_without_spec_id(tmp_path):
             assert response.status == 201
             assert body["run_id"].startswith("j_")
             assert body["host_constraint"]
+    finally:
+        server.shutdown()
+
+
+def test_http_create_accepts_yaml_body(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    try:
+        payload = _spec().to_dict()
+        payload.pop("spec_id")
+        req = Request(
+            f"http://{host}:{port}/v1/jobs",
+            data=yaml.safe_dump(payload).encode("utf-8"),
+            headers={"Content-Type": "application/yaml"},
+            method="POST",
+        )
+        with urlopen(req) as response:
+            assert response.status == 201
+            body = json.loads(response.read().decode("utf-8"))
+            assert "run_id" in body
     finally:
         server.shutdown()
 
