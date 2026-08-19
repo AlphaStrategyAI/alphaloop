@@ -64,12 +64,14 @@ nav:
     - Morning Web E2E: plans/2026-08-19-overnight-lab-web-e2e-design.md
     - Morning Web E2E plan: plans/2026-08-19-overnight-lab-web-e2e.md
     - Five-minute morning review plan: plans/2026-08-19-five-minute-morning-review.md
+    - Net-of-cost validation plan: plans/2026-08-19-net-of-cost-validation.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md
   - Requirements:
     - Product positioning: requirements/product-positioning-requirements.md
     - Five-minute morning review: requirements/2026-08-19-five-minute-morning-review.md
+    - Net-of-cost validation: requirements/2026-08-19-net-of-cost-validation.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 
