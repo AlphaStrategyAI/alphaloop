@@ -69,6 +69,10 @@ def _open_morning(page, base_url: str) -> None:
     page.wait_for_selector("#submit-job")
 
 
+def _list_research_outcome(text: str) -> str:
+    return text.split(" — ")[-1].strip()
+
+
 def _first_run_id(page) -> str:
     page.wait_for_selector("#job-list button", timeout=15000)
     text = page.locator("#job-list button").first.inner_text()
@@ -90,11 +94,11 @@ def _open_job_detail(page) -> None:
 def _wait_list_outcome(page, timeout_ms: int = 60000) -> str:
     page.wait_for_function(
         """() => [...document.querySelectorAll('#job-list button')].some((button) =>
-            /FOUND|NO_EVIDENCE|INCONCLUSIVE/.test(button.textContent || ''))""",
+            /FOUND|NO_EVIDENCE|INCONCLUSIVE/.test((button.textContent || '').split(' — ').pop() || ''))""",
         timeout=timeout_ms,
     )
     text = page.locator("#job-list button").first.inner_text()
-    return text.split(" — ", 1)[1].strip()
+    return _list_research_outcome(text)
 
 
 def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
@@ -145,6 +149,14 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     _open_job_detail(page)
     outcome = page.locator("#outcome").inner_text().strip()
     assert outcome in ("NONE",) + _OUTCOMES
+    assert page.locator("#job-status").inner_text().startswith("Job status:")
+    assert "12-1 momentum works in US large caps net of costs" in page.locator(
+        "#hypothesis-statement"
+    ).inner_text()
+    meta = page.locator("#spec-meta").inner_text()
+    assert "spec_id:" in meta
+    assert "seed:" in meta
+    assert "n_trials:" in meta
     assert "Stop reason:" in page.locator("#stop-reason").inner_text()
     assert "target found" not in page.content()
 
@@ -265,7 +277,10 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     replayed = _cli(real_daemon["data_dir"], "replay", run_id)
     assert replayed.returncode == 0
     assert layout.report.is_file()
-    assert layout.report.read_text(encoding="utf-8") != "" or before == ""
+    report = layout.report.read_text(encoding="utf-8")
+    assert report != "" or before == ""
+    assert "This report does not claim alpha or future profitability." in report
+    assert "12-1 momentum works in US large caps net of costs" in report
     page.wait_for_timeout(2500)
     assert _wait_list_outcome(page, timeout_ms=5000) == outcome
 

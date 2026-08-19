@@ -26,6 +26,10 @@ def test_packaged_assets_are_read_only_morning_copy():
     assert "INCONCLUSIVE" in html
     assert 'id="spec-yaml"' in html
     assert 'id="submit-job"' in html
+    assert 'id="job-status"' in html
+    assert 'id="hypothesis-statement"' in html
+    assert 'id="spec-meta"' in html
+    assert 'job.run_id + " — " + job.status + " — " + job.research_outcome' in script
     assert "application/yaml" in script
     assert "setInterval" in script
     assert "/v1/jobs" in script
@@ -102,6 +106,10 @@ def test_static_javascript_and_css(tmp_path):
         assert "override" not in script.lower()
         with urlopen(base + "/styles.css") as response:
             assert response.headers.get_content_type() == "text/css"
+            css = response.read().decode("utf-8")
+        assert '[data-outcome="FOUND"]' in css
+        assert '[data-outcome="NO_EVIDENCE"]' in css
+        assert '[data-outcome="INCONCLUSIVE"]' in css
     finally:
         server.shutdown()
 

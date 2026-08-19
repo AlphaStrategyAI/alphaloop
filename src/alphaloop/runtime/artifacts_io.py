@@ -10,6 +10,7 @@ from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.research_spec import ResearchSpec
 
 _CANDIDATE_COLUMNS = ("trial_id", "kind", "parameters", "revision")
+NO_ALPHA_CLAIM = "This report does not claim alpha or future profitability."
 
 
 def write_manifest(layout: RunLayout, spec: ResearchSpec, *, engine_version: str) -> Path:
@@ -87,17 +88,48 @@ def _gate_result_lines(layout: RunLayout) -> list[str]:
     return lines
 
 
+def _unique_trial_count(layout: RunLayout) -> int:
+    ids: list[str] = []
+    for row in _ledger_rows(layout):
+        trial_id = row.get("trial_id")
+        if trial_id:
+            ids.append(str(trial_id))
+    return len(dict.fromkeys(ids))
+
+
 def write_report(
     layout: RunLayout,
     *,
     research_outcome: str,
     stop_reason: str | None,
+    spec: ResearchSpec | None = None,
+    n_trials: int | None = None,
 ) -> Path:
     layout.run_dir.mkdir(parents=True, exist_ok=True)
-    lines = ["# Research conclusion", ""]
+    if n_trials is None:
+        n_trials = _unique_trial_count(layout)
+    lines = ["# Research conclusion", "", NO_ALPHA_CLAIM, ""]
     lines.append(f"research_outcome: {research_outcome}")
     if stop_reason is not None:
         lines.append(f"stop_reason: {stop_reason}")
+    if spec is not None:
+        lines.append(f"spec_id: {spec.spec_id}")
+        lines.append(f"seed: {spec.seed}")
+        lines.append(f"n_trials: {n_trials}")
+        hyp = spec.hypothesis
+        lines.extend(
+            [
+                "",
+                "## Frozen hypothesis",
+                "",
+                f"statement: {hyp.statement}",
+                f"economic_logic: {hyp.economic_logic}",
+                f"signal_mechanism: {hyp.signal_mechanism}",
+                f"market_scope: {hyp.market_scope}",
+                f"market_profile: {hyp.market_profile}",
+                f"benchmark: {hyp.benchmark}",
+            ]
+        )
     gate_lines = _gate_result_lines(layout)
     if gate_lines:
         lines.extend(["", "## Gates", ""])

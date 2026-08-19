@@ -35,6 +35,8 @@ def test_list_jobs_includes_research_outcome(tmp_path):
     assert listed["jobs"][0]["run_id"] == created["run_id"]
     assert listed["jobs"][0]["research_outcome"] == ResearchOutcome.NONE.value
     assert listed["jobs"][0]["hypothesis"]["signal_mechanism"] == "momentum_12_1"
+    assert listed["jobs"][0]["seed"] == created["seed"]
+    assert listed["jobs"][0]["n_trials"] == 0
 
 
 def test_get_run_includes_sealed_evidence(tmp_path):
@@ -64,6 +66,8 @@ def test_get_run_includes_sealed_evidence(tmp_path):
     assert payload["research_outcome"] == ResearchOutcome.FOUND.value
     assert payload["evidence"]["all_passed"] is True
     assert payload["stop_reason"] == "all_gates_passed"
+    assert payload["seed"] == job.spec.seed
+    assert payload["n_trials"] == 0
 
 
 def test_create_run_rejects_empty_gates_without_inserting_job(tmp_path):

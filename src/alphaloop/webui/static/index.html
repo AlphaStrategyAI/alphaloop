@@ -15,11 +15,11 @@
       </p>
       <p class="legend">
         Conclusions:
-        <span>FOUND</span>
+        <span data-outcome="FOUND">FOUND</span>
         ·
-        <span>NO_EVIDENCE</span>
+        <span data-outcome="NO_EVIDENCE">NO_EVIDENCE</span>
         ·
-        <span>INCONCLUSIVE</span>
+        <span data-outcome="INCONCLUSIVE">INCONCLUSIVE</span>
       </p>
     </header>
     <main>
@@ -39,6 +39,9 @@
       </section>
       <section id="detail" hidden>
         <p id="outcome" data-outcome></p>
+        <p id="job-status"></p>
+        <p id="hypothesis-statement"></p>
+        <p id="spec-meta"></p>
         <p id="stop-reason"></p>
         <h3>Evidence</h3>
         <ul id="evidence"></ul>

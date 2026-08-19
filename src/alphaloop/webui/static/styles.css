@@ -5,6 +5,8 @@
   --muted: #9aa3b2;
   --card: #1b2030;
   --accent: #7dd3a8;
+  --warn: #e8b86d;
+  --inconclusive: #c9a0dc;
 }
 
 html,
@@ -32,8 +34,23 @@ h1 {
   color: var(--muted);
 }
 
-.legend span {
+.legend span[data-outcome="FOUND"],
+#outcome[data-outcome="FOUND"] {
   color: var(--accent);
+}
+
+.legend span[data-outcome="NO_EVIDENCE"],
+#outcome[data-outcome="NO_EVIDENCE"] {
+  color: var(--warn);
+}
+
+.legend span[data-outcome="INCONCLUSIVE"],
+#outcome[data-outcome="INCONCLUSIVE"] {
+  color: var(--inconclusive);
+}
+
+#outcome[data-outcome="NONE"] {
+  color: var(--muted);
 }
 
 #outcome {
@@ -42,8 +59,10 @@ h1 {
   margin: 0.25rem 0 0.75rem;
 }
 
-#outcome[data-outcome="FOUND"] {
-  color: var(--accent);
+#job-status,
+#hypothesis-statement,
+#spec-meta {
+  color: var(--muted);
 }
 
 #job-list,

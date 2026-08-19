@@ -53,6 +53,35 @@ def test_report_is_a_view_of_sealed_evidence(tmp_path):
     write_report(layout, research_outcome="FOUND", stop_reason="all_gates_passed")
     text = layout.report.read_text(encoding="utf-8")
     assert "# Research conclusion" in text
+    assert "This report does not claim alpha or future profitability." in text
     assert "FOUND" in text
     assert "all_gates_passed" in text
     assert "dsr" in text.lower()
+
+
+def test_report_includes_frozen_hypothesis_and_n_trials(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    spec = _spec()
+    layout.trial_ledger.write_text(
+        json.dumps({"trial_id": "c_1", "revision": "none"})
+        + "\n"
+        + json.dumps({"trial_id": "c_1", "revision": "method"})
+        + "\n"
+        + json.dumps({"trial_id": "c_2", "revision": "none"})
+        + "\n",
+        encoding="utf-8",
+    )
+    write_report(
+        layout,
+        research_outcome="NO_EVIDENCE",
+        stop_reason="hard_gate_failed",
+        spec=spec,
+    )
+    text = layout.report.read_text(encoding="utf-8")
+    assert "This report does not claim alpha or future profitability." in text
+    assert f"spec_id: {spec.spec_id}" in text
+    assert f"seed: {spec.seed}" in text
+    assert "n_trials: 2" in text
+    assert spec.hypothesis.statement in text
+    assert "signal_mechanism: momentum_12_1" in text

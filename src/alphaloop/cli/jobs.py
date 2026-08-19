@@ -181,13 +181,14 @@ def run_replay(args: argparse.Namespace) -> int:
         print(f"error: run directory not found: {layout.run_dir}", file=sys.stderr)
         return 2
 
+    spec = None
     spec_path = layout.research_spec
     if spec_path.is_file():
         try:
             payload = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("research spec must be a mapping")
-            ResearchSpec.from_dict(payload)
+            spec = ResearchSpec.from_dict(payload)
         except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
             print(f"error: unable to read research spec: {exc}", file=sys.stderr)
             return 2
@@ -217,6 +218,7 @@ def run_replay(args: argparse.Namespace) -> int:
         layout,
         research_outcome=outcome.value,
         stop_reason=stop_reason,
+        spec=spec,
     )
     print(f"research_outcome: {outcome.value}")
     return 0

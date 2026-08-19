@@ -100,6 +100,7 @@ def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
             layout,
             research_outcome=outcome.value,
             stop_reason=_stop_reason(outcome),
+            spec=spec,
         )
 
     ckpt = load_latest_complete(layout)

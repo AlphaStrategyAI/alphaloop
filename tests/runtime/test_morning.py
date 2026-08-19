@@ -99,3 +99,33 @@ def test_revisions_and_queued_hypotheses(tmp_path):
     assert view["queued_hypotheses"][0]["statement"] == "try mean reversion"
     assert view["research_outcome"] == ResearchOutcome.NONE.value
     assert view["stop_reason"] is None
+
+
+def test_morning_view_exposes_seed_and_unique_n_trials(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    run_dir = tmp_path / job.run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "trial-ledger.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps({"trial_id": "c_1", "revision": "none"}),
+                json.dumps({"trial_id": "c_1", "revision": "method"}),
+                json.dumps({"trial_id": "c_2", "revision": "none"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    view = morning_view(store.get(job.run_id), tmp_path)
+    assert view["seed"] == job.spec.seed
+    assert view["n_trials"] == 2
+    assert view["spec_id"] == job.spec.spec_id
+
+
+def test_morning_view_n_trials_zero_without_ledger(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    view = morning_view(store.get(job.run_id), tmp_path)
+    assert view["n_trials"] == 0
+    assert view["seed"] == 7

@@ -21,6 +21,17 @@ async function showJob(runId) {
   const outcome = document.getElementById("outcome");
   outcome.dataset.outcome = job.research_outcome;
   outcome.textContent = job.research_outcome;
+  document.getElementById("job-status").textContent = "Job status: " + job.status;
+  const statement =
+    job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";
+  document.getElementById("hypothesis-statement").textContent = statement;
+  document.getElementById("spec-meta").textContent =
+    "spec_id: " +
+    job.spec_id +
+    " · seed: " +
+    job.seed +
+    " · n_trials: " +
+    job.n_trials;
   document.getElementById("stop-reason").textContent = job.stop_reason
     ? "Stop reason: " + job.stop_reason
     : "Stop reason: (running or not yet terminal)";
@@ -52,7 +63,7 @@ async function loadJobs() {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = job.run_id + " — " + job.research_outcome;
+    button.textContent = job.run_id + " — " + job.status + " — " + job.research_outcome;
     button.addEventListener("click", function () {
       showJob(job.run_id);
     });

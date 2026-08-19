@@ -69,6 +69,15 @@ def _load_queued(layout: RunLayout) -> list[Any]:
     return list(queued) if isinstance(queued, list) else []
 
 
+def _n_trials(layout: RunLayout) -> int:
+    ids: list[str] = []
+    for row in _load_revisions(layout):
+        trial_id = row.get("trial_id")
+        if trial_id:
+            ids.append(str(trial_id))
+    return len(dict.fromkeys(ids))
+
+
 def _dominant_failures(evidence: Optional[dict[str, Any]]) -> list[str]:
     if not evidence:
         return []
@@ -91,6 +100,8 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "status": job.status.value,
         "research_outcome": job.research_outcome.value,
         "spec_id": job.spec.spec_id,
+        "seed": job.spec.seed,
+        "n_trials": _n_trials(layout),
         "error": job.error,
         "recovery_attempts": job.recovery_attempts,
         "hypothesis": asdict(job.spec.hypothesis),
