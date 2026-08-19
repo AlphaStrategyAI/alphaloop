@@ -29,10 +29,18 @@ def _frame_to_prices(
 ) -> tuple[dict[str, pd.Series], pd.Series, pd.Series]:
     prices = {str(col): frame[col].astype(float) for col in frame.columns}
     universe = _universe(spec.hypothesis.market_scope)
-    primary_key = universe[0] if universe else next(iter(prices))
-    buy_hold = prices.get(primary_key, next(iter(prices.values())))
+    required = list(universe)
     benchmark_key = spec.hypothesis.benchmark
-    benchmark = prices.get(benchmark_key, buy_hold) if benchmark_key else buy_hold
+    if benchmark_key:
+        required.append(benchmark_key)
+    missing = [key for key in required if key not in prices]
+    if missing or not universe:
+        detail = ", ".join(missing) if missing else "universe is empty"
+        raise DatasetUnavailableError(
+            f"dataset missing required columns: {detail}"
+        )
+    buy_hold = prices[universe[0]]
+    benchmark = prices[benchmark_key] if benchmark_key else buy_hold
     return prices, buy_hold, benchmark
 
 

@@ -444,3 +444,53 @@ def test_retry_does_not_duplicate_ledger_row(tmp_path):
     lines = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
     ids = [json.loads(line)["trial_id"] for line in lines]
     assert ids.count(first_id) == 1
+
+
+def test_complete_evidence_is_on_disk_before_on_trial_returns(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    seen = {}
+
+    def on_trial(payload):
+        gates = layout.evidence / "gates.json"
+        seen["exists"] = gates.is_file()
+        if gates.is_file():
+            evidence = evidence_from_dict(json.loads(gates.read_text(encoding="utf-8")))
+            seen["complete"] = evidence.complete
+            seen["all_passed"] = evidence.all_passed
+
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=_all_pass,
+        on_trial=on_trial,
+    )
+    assert seen["exists"] is True
+    assert seen["complete"] is True
+    assert seen["all_passed"] is True
+    assert result.research_outcome is ResearchOutcome.FOUND
+
+
+def test_incomplete_evidence_does_not_invent_gates_before_on_trial(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    seen = {}
+
+    def on_trial(payload):
+        seen["exists"] = (layout.evidence / "gates.json").is_file()
+
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=_incomplete,
+        on_trial=on_trial,
+    )
+    assert seen["exists"] is False
+    assert result.research_outcome is ResearchOutcome.INCONCLUSIVE
+    assert not (layout.evidence / "gates.json").exists()

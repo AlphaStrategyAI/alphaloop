@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import json
-
 import pandas as pd
-import yaml
 
 from alphaloop.contracts.artifacts import RunLayout, DatasetRef, hash_bytes
 from alphaloop.contracts.research_spec import new_research_spec
-from alphaloop.contracts.status import ResearchOutcome
+from alphaloop.runtime.api import JobAPI
+from alphaloop.runtime.store import JobStore
+from alphaloop.runtime.supervisor import Supervisor
 from alphaloop.runtime.worker import run_worker
+from tests.runtime.test_supervisor import FakeWorker
 
 
 def _prices_frame():
@@ -20,6 +20,13 @@ def _prices_frame():
             "SPY": 100.0 + pd.Series(range(260), index=idx, dtype=float),
         }
     )
+
+
+def _api(tmp_path) -> JobAPI:
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    worker = FakeWorker()
+    sup = Supervisor(store, tmp_path, worker, heartbeat_timeout_s=60.0)
+    return JobAPI(store, sup, tmp_path)
 
 
 def test_shortened_overnight_writes_required_artifacts(tmp_path):
@@ -41,10 +48,12 @@ def test_shortened_overnight_writes_required_artifacts(tmp_path):
         cost_budget_usd=1.0,
         dataset=DatasetRef(dataset_id="ds_e2e", sha256=digest),
     )
-    run_id = "j_e2e"
+    api = _api(tmp_path)
+    created = api.create_run(spec)
+    run_id = created["run_id"]
+    assert api.supervisor.worker.spawned == []
     layout = RunLayout(tmp_path / run_id)
-    layout.run_dir.mkdir()
-    layout.research_spec.write_text(yaml.safe_dump(spec.to_dict()), encoding="utf-8")
+    assert layout.research_spec.is_file()
     assert run_worker(run_id, tmp_path) == 0
     assert layout.manifest.is_file()
     assert layout.trial_ledger.is_file()
@@ -54,10 +63,9 @@ def test_shortened_overnight_writes_required_artifacts(tmp_path):
     assert any(token in report for token in ("FOUND", "NO_EVIDENCE", "INCONCLUSIVE"))
     assert "target found" not in report
     first = (layout.evidence / "gates.json").read_bytes() if (layout.evidence / "gates.json").is_file() else None
-    layout2 = RunLayout(tmp_path / "j_e2e_b")
-    layout2.run_dir.mkdir()
-    layout2.research_spec.write_text(yaml.safe_dump(spec.to_dict()), encoding="utf-8")
-    assert run_worker("j_e2e_b", tmp_path) == 0
+    created2 = api.create_run(spec)
+    layout2 = RunLayout(tmp_path / created2["run_id"])
+    assert run_worker(created2["run_id"], tmp_path) == 0
     if first is not None:
         second = (layout2.evidence / "gates.json").read_bytes()
         assert first == second

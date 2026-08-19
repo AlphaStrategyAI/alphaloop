@@ -205,6 +205,15 @@ def run_protocol(
         except IncompleteEvidenceError:
             evidence = None
 
+        if evidence is not None:
+            layout.evidence.mkdir(parents=True, exist_ok=True)
+            (layout.evidence / "gates.json").write_text(
+                json.dumps(evidence_to_dict(evidence), indent=2) + "\n",
+                encoding="utf-8",
+            )
+            last_evidence = evidence
+            stop_evidence = evidence
+
         if on_trial is not None:
             if candidate_id not in finished_ids:
                 finished_ids.append(candidate_id)
@@ -215,15 +224,6 @@ def run_protocol(
                     "n_trials": n_trials,
                 }
             )
-
-        if evidence is not None:
-            layout.evidence.mkdir(parents=True, exist_ok=True)
-            (layout.evidence / "gates.json").write_text(
-                json.dumps(evidence_to_dict(evidence), indent=2) + "\n",
-                encoding="utf-8",
-            )
-            last_evidence = evidence
-            stop_evidence = evidence
 
         if clock is not None:
             remaining_time = float(spec.time_budget_s - clock())

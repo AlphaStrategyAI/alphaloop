@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 import alphaloop.runtime.worker as worker_module
-from alphaloop.contracts.artifacts import DatasetRef, RunLayout
+from alphaloop.contracts.artifacts import DatasetRef, RunLayout, hash_bytes
 from alphaloop.contracts.research_spec import new_research_spec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome, derive_research_outcome
 from alphaloop.protocol.loop import ProtocolResult
@@ -172,6 +172,44 @@ def test_run_worker_rejects_hash_mismatch(tmp_path):
         dataset=DatasetRef(dataset_id="ds_bad", sha256="0" * 64),
     )
     run_id = "j_mismatch"
+    layout = RunLayout(tmp_path / run_id)
+    layout.run_dir.mkdir()
+    layout.research_spec.write_text(yaml.safe_dump(spec.to_dict()), encoding="utf-8")
+    assert run_worker(run_id, tmp_path) == 0
+    assert not (layout.evidence / "gates.json").exists()
+    assert layout.manifest.exists()
+    assert layout.candidates.exists()
+    assert layout.report.exists()
+    assert "INCONCLUSIVE" in layout.report.read_text(encoding="utf-8")
+
+
+def test_run_worker_missing_universe_column_is_inconclusive(tmp_path):
+    idx = pd.bdate_range("2018-01-01", periods=30)
+    blob_path = tmp_path / "datasets" / "ds_nocol" / "prices.parquet"
+    _write_prices_parquet(
+        blob_path,
+        {
+            "MSFT": pd.Series(range(30), index=idx, dtype=float),
+            "SPY": pd.Series(range(30), index=idx, dtype=float),
+        },
+    )
+    spec = new_research_spec(
+        statement="12-1 momentum works in US large caps net of costs",
+        economic_logic="past winners continue",
+        signal_mechanism="momentum_12_1",
+        market_scope="AAPL, MSFT",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr",),
+        seed=7,
+        time_budget_s=60,
+        cost_budget_usd=1.0,
+        dataset=DatasetRef(
+            dataset_id="ds_nocol",
+            sha256=hash_bytes(blob_path.read_bytes()),
+        ),
+    )
+    run_id = "j_nocol"
     layout = RunLayout(tmp_path / run_id)
     layout.run_dir.mkdir()
     layout.research_spec.write_text(yaml.safe_dump(spec.to_dict()), encoding="utf-8")
