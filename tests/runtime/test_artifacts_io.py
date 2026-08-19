@@ -23,6 +23,8 @@ def test_manifest_records_engine_seed_and_null_dataset(tmp_path):
     assert payload["spec_id"] == spec.spec_id
     assert payload["dataset_id"] is None
     assert payload["dataset_sha256"] is None
+    assert payload["time_budget_s"] == spec.time_budget_s
+    assert payload["cost_budget_usd"] == spec.cost_budget_usd
 
 
 def test_candidates_parquet_mirrors_ledger(tmp_path):

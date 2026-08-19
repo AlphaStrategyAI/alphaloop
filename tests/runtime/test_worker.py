@@ -147,6 +147,10 @@ def test_run_worker_without_snapshot_does_not_synthesize(tmp_path):
     assert run_worker(run_id, tmp_path) == 0
     assert not (layout.evidence / "gates.json").exists()
     assert not layout.trial_ledger.exists() or layout.trial_ledger.read_text() == ""
+    assert layout.manifest.exists()
+    assert layout.candidates.exists()
+    assert layout.report.exists()
+    assert "INCONCLUSIVE" in layout.report.read_text(encoding="utf-8")
 
 
 def test_run_worker_rejects_hash_mismatch(tmp_path):
@@ -173,6 +177,10 @@ def test_run_worker_rejects_hash_mismatch(tmp_path):
     layout.research_spec.write_text(yaml.safe_dump(spec.to_dict()), encoding="utf-8")
     assert run_worker(run_id, tmp_path) == 0
     assert not (layout.evidence / "gates.json").exists()
+    assert layout.manifest.exists()
+    assert layout.candidates.exists()
+    assert layout.report.exists()
+    assert "INCONCLUSIVE" in layout.report.read_text(encoding="utf-8")
 
 
 def test_run_worker_resumes_from_checkpoint_ids(monkeypatch, tmp_path):
