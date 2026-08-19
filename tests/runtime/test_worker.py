@@ -80,7 +80,20 @@ def test_process_worker_uses_module_entrypoint(monkeypatch, tmp_path):
     assert calls[-1] == "terminated"
 
 
-def test_process_worker_poll_treats_unknown_live_pid_as_running():
+def test_process_worker_poll_rejects_unknown_live_pid():
     worker = ProcessWorker()
 
-    assert worker.poll(os.getpid()) is None
+    assert worker.poll(os.getpid()) not in (None, 0)
+
+
+def test_process_worker_terminate_ignores_unknown_live_pid(monkeypatch):
+    worker = ProcessWorker()
+    signals = []
+    monkeypatch.setattr(
+        "alphaloop.runtime.worker.os.kill",
+        lambda pid, signal: signals.append((pid, signal)),
+    )
+
+    worker.terminate(os.getpid())
+
+    assert signals == []

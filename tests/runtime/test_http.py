@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import logging
+
 import pytest
 
 from alphaloop.runtime.api import JobAPI
 from alphaloop.runtime.client import JobClient
-from alphaloop.runtime.daemon import DEFAULT_HOST, UnsupportedBindHost, start_http_server
+from alphaloop.runtime.daemon import (
+    DEFAULT_HOST,
+    UnsupportedBindHost,
+    _safe_tick,
+    start_http_server,
+)
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
 from tests.runtime.test_supervisor import FakeWorker, _spec
@@ -34,3 +41,23 @@ def test_non_loopback_bind_rejected(tmp_path):
     api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
     with pytest.raises(UnsupportedBindHost):
         start_http_server(api, "0.0.0.0", 8765)
+
+
+def test_safe_tick_logs_failure_and_allows_next_tick(caplog):
+    class FlakySupervisor:
+        def __init__(self):
+            self.calls = 0
+
+        def tick(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("transient tick failure")
+
+    supervisor = FlakySupervisor()
+    with caplog.at_level(logging.ERROR, logger="alphaloop.runtime.daemon"):
+        _safe_tick(supervisor)
+        _safe_tick(supervisor)
+
+    assert supervisor.calls == 2
+    assert "supervisor tick failed" in caplog.text
+    assert "transient tick failure" in caplog.text

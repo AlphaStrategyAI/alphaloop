@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import http.server
 import json
+import logging
 import os
 import signal
 import socket
@@ -31,6 +32,7 @@ _DAEMON_PID = "daemon.pid"
 _DAEMON_START_TIMEOUT_S = 10.0
 _DAEMON_START_POLL_S = 0.05
 _DAEMON_HEALTH_REQUEST_TIMEOUT_S = 0.2
+logger = logging.getLogger(__name__)
 
 
 class DaemonAlreadyRunning(RuntimeError):  # noqa: N818 - public API name
@@ -213,9 +215,16 @@ def _write_pidfile(data_dir: Path, pid: int) -> Path:
     return path
 
 
+def _safe_tick(supervisor: Supervisor) -> None:
+    try:
+        supervisor.tick()
+    except Exception:
+        logger.exception("supervisor tick failed")
+
+
 def _supervisor_loop(supervisor: Supervisor, stop_event: threading.Event) -> None:
     while not stop_event.is_set():
-        supervisor.tick()
+        _safe_tick(supervisor)
         stop_event.wait(0.5)
 
 

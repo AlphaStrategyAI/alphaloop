@@ -18,6 +18,7 @@ from alphaloop.contracts.status import JobStatus, ResearchOutcome, derive_resear
 from alphaloop.runtime.checkpoint import Checkpoint, write_checkpoint, write_heartbeat
 
 RunnerFactory = Callable[..., Any]
+_WORKER_MODULE = b"alphaloop.runtime.worker"
 
 
 def stopgap_terminal_outcome() -> ResearchOutcome:
@@ -94,6 +95,8 @@ class ProcessWorker:
     def poll(self, pid: int) -> Optional[int]:
         process = self._processes.get(pid)
         if process is None:
+            if not self._is_worker_process(pid):
+                return 1
             try:
                 os.kill(pid, 0)
             except OSError as exc:
@@ -108,12 +111,23 @@ class ProcessWorker:
     def terminate(self, pid: int) -> None:
         process = self._processes.get(pid)
         if process is None:
+            if not self._is_worker_process(pid):
+                return
             try:
                 os.kill(pid, 15)
             except ProcessLookupError:
                 pass
             return
         process.terminate()
+
+    @staticmethod
+    def _is_worker_process(pid: int) -> bool:
+        try:
+            raw_cmdline = Path(f"/proc/{pid}/cmdline").read_bytes()
+        except OSError:
+            return False
+        cmdline = b" ".join(raw_cmdline.split(b"\0"))
+        return _WORKER_MODULE in cmdline
 
 
 def run_loop_command(args: argparse.Namespace) -> int:
