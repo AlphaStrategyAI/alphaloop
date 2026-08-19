@@ -53,6 +53,42 @@ def test_completed_incomplete_evidence_is_inconclusive():
     )
 
 
+@pytest.mark.parametrize(
+    "status, complete, passed, expected",
+    [
+        (JobStatus.QUEUED, False, False, ResearchOutcome.NONE),
+        (JobStatus.QUEUED, True, True, ResearchOutcome.NONE),
+        (JobStatus.RUNNING, False, False, ResearchOutcome.NONE),
+        (JobStatus.RUNNING, True, True, ResearchOutcome.NONE),
+        (JobStatus.COMPLETED, True, True, ResearchOutcome.FOUND),
+        (JobStatus.COMPLETED, True, False, ResearchOutcome.NO_EVIDENCE),
+        (JobStatus.COMPLETED, False, True, ResearchOutcome.INCONCLUSIVE),
+        (JobStatus.COMPLETED, False, False, ResearchOutcome.INCONCLUSIVE),
+        (JobStatus.FAILED, True, True, ResearchOutcome.INCONCLUSIVE),
+        (JobStatus.FAILED, True, False, ResearchOutcome.INCONCLUSIVE),
+        (JobStatus.FAILED, False, False, ResearchOutcome.INCONCLUSIVE),
+        (JobStatus.CANCELLED, True, False, ResearchOutcome.INCONCLUSIVE),
+        (JobStatus.CANCELLED, False, True, ResearchOutcome.INCONCLUSIVE),
+    ],
+)
+def test_status_outcome_matrix(status, complete, passed, expected):
+    assert (
+        derive_research_outcome(status, complete, passed)
+        is expected
+    )
+
+
+def test_cancelled_cannot_claim_found_without_seal():
+    assert (
+        derive_research_outcome(
+            JobStatus.CANCELLED,
+            evidence_complete=True,
+            all_gates_passed=True,
+        )
+        is ResearchOutcome.INCONCLUSIVE
+    )
+
+
 @pytest.mark.parametrize("status", [JobStatus.FAILED, JobStatus.CANCELLED])
 def test_failed_or_cancelled_cannot_claim_found(status):
     assert (
