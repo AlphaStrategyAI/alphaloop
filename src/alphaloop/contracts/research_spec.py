@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
+from .artifacts import DatasetRef
 from .gates import HardGateName
 
 ALLOWED_PROFILES = ("us-equity-daily", "crypto-daily")
@@ -51,6 +52,7 @@ class ResearchSpec:
     seed: int
     time_budget_s: int
     cost_budget_usd: float
+    dataset: Optional[DatasetRef] = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -59,6 +61,12 @@ class ResearchSpec:
     def from_dict(cls, payload: Mapping[str, Any]) -> "ResearchSpec":
         hyp = payload["hypothesis"]
         crit = payload["success_criteria"]
+        raw_ds = payload.get("dataset")
+        dataset = None
+        if isinstance(raw_ds, dict) and raw_ds.get("dataset_id") and raw_ds.get("sha256"):
+            dataset = DatasetRef(
+                dataset_id=str(raw_ds["dataset_id"]), sha256=str(raw_ds["sha256"])
+            )
         spec = cls(
             spec_id=str(payload["spec_id"]),
             hypothesis=Hypothesis(
@@ -75,6 +83,7 @@ class ResearchSpec:
             seed=int(payload["seed"]),
             time_budget_s=int(payload["time_budget_s"]),
             cost_budget_usd=float(payload["cost_budget_usd"]),
+            dataset=dataset,
         )
         expected = new_research_spec(
             statement=spec.hypothesis.statement,
@@ -87,6 +96,7 @@ class ResearchSpec:
             seed=spec.seed,
             time_budget_s=spec.time_budget_s,
             cost_budget_usd=spec.cost_budget_usd,
+            dataset=spec.dataset,
         )
         if spec.spec_id != expected.spec_id:
             raise ValueError(
@@ -107,6 +117,7 @@ def new_research_spec(
     seed: int,
     time_budget_s: int,
     cost_budget_usd: float,
+    dataset: Optional[DatasetRef] = None,
 ) -> ResearchSpec:
     hypothesis = Hypothesis(
         statement=statement,
@@ -117,13 +128,18 @@ def new_research_spec(
         benchmark=benchmark,
     )
     criteria = SuccessCriteria(hard_gates=tuple(hard_gates))
-    payload = {
+    payload: dict[str, Any] = {
         "hypothesis": asdict(hypothesis),
         "success_criteria": asdict(criteria),
         "seed": seed,
         "time_budget_s": time_budget_s,
         "cost_budget_usd": cost_budget_usd,
     }
+    if dataset is not None:
+        payload["dataset"] = {
+            "dataset_id": dataset.dataset_id,
+            "sha256": dataset.sha256,
+        }
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -134,4 +150,5 @@ def new_research_spec(
         seed=seed,
         time_budget_s=time_budget_s,
         cost_budget_usd=cost_budget_usd,
+        dataset=dataset,
     )

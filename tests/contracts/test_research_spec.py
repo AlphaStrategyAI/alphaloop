@@ -4,6 +4,7 @@ import dataclasses
 
 import pytest
 
+from alphaloop.contracts.artifacts import DatasetRef
 from alphaloop.contracts.research_spec import (
     Hypothesis,
     ResearchSpec,
@@ -54,6 +55,44 @@ def test_new_spec_ids_are_stable_for_same_payload_and_seed():
     a = _spec()
     b = _spec()
     assert a.spec_id == b.spec_id
+
+
+def test_existing_spec_id_unchanged_without_dataset():
+    spec = _spec()
+    again = new_research_spec(
+        statement="12-1 momentum works in US large caps net of costs",
+        economic_logic="past winners continue",
+        signal_mechanism="12-1 momentum",
+        market_scope="US large-cap equities",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr", "walk_forward", "vs_benchmark"),
+        seed=7,
+        time_budget_s=3600,
+        cost_budget_usd=5.0,
+    )
+    assert spec.spec_id == again.spec_id
+    assert getattr(spec, "dataset", None) is None
+
+
+def test_dataset_changes_spec_id_and_round_trips():
+    ref = DatasetRef(dataset_id="ds_fixture", sha256="a" * 64)
+    with_ds = new_research_spec(
+        statement="12-1 momentum works in US large caps net of costs",
+        economic_logic="past winners continue",
+        signal_mechanism="12-1 momentum",
+        market_scope="US large-cap equities",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr", "walk_forward", "vs_benchmark"),
+        seed=7,
+        time_budget_s=3600,
+        cost_budget_usd=5.0,
+        dataset=ref,
+    )
+    assert with_ds.dataset == ref
+    assert with_ds.spec_id != _spec().spec_id
+    assert ResearchSpec.from_dict(with_ds.to_dict()) == with_ds
 
 
 def test_hard_gates_reject_llm_judge():
