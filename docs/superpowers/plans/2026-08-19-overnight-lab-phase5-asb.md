@@ -1,6 +1,6 @@
 # Overnight Lab Phase 5 — `.asb` Producer Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the Phase-1 export placeholder with an immutable `.asb` zip that a future AlphaStrategy consumer can load as YAML/DSL data only.
 
@@ -48,8 +48,8 @@
 - Reader rejects zip if any member has a forbidden suffix or if `canonical_hash` of reconstructed payload != `content_hash` in `bundle.yaml`
 - `read_asb` uses `bundle_from_payload` so unknown keys still fail closed
 
-- [ ] Tests: round-trip hash; `.py` member rejected on write and read; missing evidence dir still allowed if empty mapping writes no extra files? **Write `evidence/gates.json` when provided**; empty evidence mapping writes no evidence files but export of FOUND should include gates — CLI task supplies them.
-- [ ] Commit `feat(bundle): write and read immutable YAML-only .asb archives`
+- [x] Tests: round-trip hash; `.py` member rejected on write and read; missing evidence dir still allowed if empty mapping writes no extra files? **Write `evidence/gates.json` when provided**; empty evidence mapping writes no evidence files but export of FOUND should include gates — CLI task supplies them.
+- [x] Commit `feat(bundle): write and read immutable YAML-only .asb archives`
 
 ---
 
@@ -65,8 +65,8 @@
 - `expected_weights(kind, parameters, universe, profile, prices, as_of) -> dict[str, float]` via `protocol.dsl.target_weights`
 - `conformance_members(kind, parameters, universe, profile) -> dict[str, bytes]` YAML for `inputs.yaml` and `expected_weights.yaml`
 
-- [ ] Tests: expected weights sum to 1.0 or all 0; fixture bytes are YAML not Python
-- [ ] Commit `feat(bundle): add shared DSL conformance fixtures`
+- [x] Tests: expected weights sum to 1.0 or all 0; fixture bytes are YAML not Python
+- [x] Commit `feat(bundle): add shared DSL conformance fixtures`
 
 ---
 
@@ -85,8 +85,8 @@
 - Help text no longer says placeholder
 - Non-FOUND still exit 2
 
-- [ ] Tests: FOUND job exports zip with bundle.yaml and no .py; NO_EVIDENCE exit 2; help has `.asb` not placeholder
-- [ ] Commit `feat(cli): export FOUND candidates as immutable .asb archives`
+- [x] Tests: FOUND job exports zip with bundle.yaml and no .py; NO_EVIDENCE exit 2; help has `.asb` not placeholder
+- [x] Commit `feat(cli): export FOUND candidates as immutable .asb archives`
 
 ---
 
@@ -97,7 +97,7 @@
 - Modify: requirements §13 items 1–4 done; item 5 is this plan
 - Run: `python3 -m pytest tests/ -m "not integration" -q`
 
-- [ ] Commit `docs: point Phase 5 .asb producer at the implementation plan`
+- [x] Commit `docs: point Phase 5 .asb producer at the implementation plan`
 
 ---
 

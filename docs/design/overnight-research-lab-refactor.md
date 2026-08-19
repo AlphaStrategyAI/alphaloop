@@ -379,6 +379,9 @@ Implementation plan:
 
 ### Phase 5 — `.asb` producer
 
+Implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md`](../superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md).
+
 - Implement archive format using Phase 1 `StrategyCandidateBundle`.
 - Shared conformance fixtures for a future AlphaStrategy consumer.
 - No reverse telemetry.

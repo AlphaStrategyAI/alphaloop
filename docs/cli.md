@@ -82,6 +82,25 @@ alphaloop resume RUN_ID [--data-dir DIR]
 
 Prints the updated job record as JSON.
 
+## `alphaloop export`
+
+Export a sealed `FOUND` candidate as an immutable `.asb` zip.  YAML/DSL
+is canonical; the archive contains no Python files.  Human-triggered
+only.
+
+```
+alphaloop export CANDIDATE_ID --run-id RUN_ID [--data-dir DIR] --output PATH
+```
+
+| Flag | Description |
+|------|-------------|
+| `CANDIDATE_ID` | Trial-ledger `trial_id` of the sealed candidate. |
+| `--run-id`     | **Required.** Job id returned by `submit`. |
+| `--data-dir`   | Runs output root (default: `./runs`). |
+| `--output, -o` | **Required.** Destination `.asb` path. |
+
+Non-`FOUND` jobs exit 2.
+
 ## `alphaloop report`
 
 Build the v1.0-style diagnostic report for a single strategy.

@@ -681,8 +681,8 @@ Implementation must proceed through separate specifications and plans:
 6. **Agent entry:** local Skill and CLI workflow, followed only if needed
    by a thin asynchronous MCP adapter.
 
-The next implementation-design cycle: items 1–3 are implemented; item 4
-is this morning Web plan ([`docs/superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](../superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md)).
+The next implementation-design cycle: items 1–4 are implemented; item 5
+is this `.asb` plan ([`docs/superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md`](../superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md)).
 Later items depend on its versioned contracts.
 
 Refactor mapping and file boundaries:
@@ -696,3 +696,6 @@ Phase 2 implementation plan:
 
 Phase 3 implementation plan:
 [`docs/superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md`](../superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md).
+
+Phase 4 implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](../superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md).

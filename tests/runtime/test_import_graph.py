@@ -48,3 +48,10 @@ def test_runtime_does_not_import_webui_api():
     for path, text in _iter_py("runtime"):
         assert "alphaloop.webui.api" not in text, path
         assert "from alphaloop.webui import create_app" not in text, path
+
+
+def test_bundle_does_not_import_live_runtime_or_webui():
+    for path, text in _iter_py("bundle"):
+        assert "alphaloop.live" not in text, path
+        assert "alphaloop.runtime" not in text, path
+        assert "alphaloop.webui" not in text, path
