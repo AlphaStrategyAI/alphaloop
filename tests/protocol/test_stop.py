@@ -90,6 +90,23 @@ def test_budget_exhausted_stops():
     assert decision.reason == "budget_exhausted"
 
 
+def test_complete_pass_beats_exhausted_budget():
+    evidence = GateEvidence(
+        results=(GateResult(name=HardGateName.DSR, passed=True, detail={}),),
+        required=(HardGateName.DSR,),
+    )
+    decision = should_continue(
+        remaining_time_s=0,
+        remaining_cost_usd=0.0,
+        last_evidence=evidence,
+        proposed_kind=RevisionKind.METHOD,
+        stop_reason=None,
+    )
+    assert decision.continue_search is False
+    assert decision.queue_for_human is False
+    assert decision.reason == "found"
+
+
 def test_complete_pass_stops_as_found():
     evidence = GateEvidence(
         results=(GateResult(name=HardGateName.DSR, passed=True, detail={}),),

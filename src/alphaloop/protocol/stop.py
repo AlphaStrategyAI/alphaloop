@@ -70,17 +70,17 @@ def should_continue(
             queue_for_human=False,
             reason=stop_reason,
         )
-    if remaining_time_s <= 0 or remaining_cost_usd <= 0:
-        return StopDecision(
-            continue_search=False,
-            queue_for_human=False,
-            reason="budget_exhausted",
-        )
     if last_evidence is not None and last_evidence.complete and last_evidence.all_passed:
         return StopDecision(
             continue_search=False,
             queue_for_human=False,
             reason="found",
+        )
+    if remaining_time_s <= 0 or remaining_cost_usd <= 0:
+        return StopDecision(
+            continue_search=False,
+            queue_for_human=False,
+            reason="budget_exhausted",
         )
     if (
         last_evidence is not None

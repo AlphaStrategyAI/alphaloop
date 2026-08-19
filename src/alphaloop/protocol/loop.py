@@ -196,6 +196,8 @@ def run_protocol(
             last_evidence = evidence
             stop_evidence = evidence
 
+        if clock is not None:
+            remaining_time = float(spec.time_budget_s - clock())
         decision = should_continue(
             remaining_time_s=remaining_time,
             remaining_cost_usd=remaining_cost,

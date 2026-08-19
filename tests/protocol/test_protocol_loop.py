@@ -157,6 +157,30 @@ def test_method_repair_retries_and_counts_trials(tmp_path):
     assert evidence.all_passed is True
 
 
+def test_found_after_trial_when_clock_exhausts_during_gates(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    ticks = {"n": 0}
+
+    def clock():
+        ticks["n"] += 1
+        if ticks["n"] == 1:
+            return 0.0
+        return 1000.0
+
+    result = run_protocol(
+        _spec(time_budget_s=10),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=_all_pass,
+        clock=clock,
+    )
+    assert result.research_outcome is ResearchOutcome.FOUND
+    assert result.job_status is JobStatus.COMPLETED
+
+
 def test_budget_exhaustion_after_incomplete_is_inconclusive(tmp_path):
     layout = RunLayout(tmp_path / "run")
     layout.run_dir.mkdir()
