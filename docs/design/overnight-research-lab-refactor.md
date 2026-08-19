@@ -271,7 +271,18 @@ class StrategyCandidateBundle:
 ```
 
 Canonicalization: JSON with sorted keys, UTF-8, no secrets, no
-executable blobs. `bundle_id = "b_" + content_hash[:32]`.
+executable blobs. `bundle_id = "b_" + content_hash[:32]`. Unknown
+payload keys are rejected. The hashed document is YAML/DSL data only;
+`.py` source is not a bundle field and must not appear in the `.asb`
+archive.
+
+`alphaloop.strategies` Python classes are the in-repo interpreter
+backend for named DSL `kind`s. They stay in this repository. They are
+not serialized into the candidate bundle. AlphaStrategy runs a bundle
+by loading the YAML with a versioned DSL interpreter that produces
+`effective_at -> {asset_id: target_weight}` and must pass the bundled
+conformance fixtures. Handoff convenience is that interpreter import,
+not a per-candidate Python file.
 
 Export is allowed only when `ResearchOutcome == FOUND` and the
 candidate id is in the sealed evidence. The CLI command is
@@ -312,7 +323,9 @@ Do not add an order object to `Signal`.
 
 The planner must emit DSL documents, not `MovingAverageCrossoverStrategy`
 class names. Until the DSL exists, Phase 1 forbids bundle export of
-class-name candidates.
+class-name candidates. Precise control that the current DSL cannot
+express is a DSL extension (or a preflight rejection), not a `.py`
+file in the bundle.
 
 ### 4.3 LoopRunner compatibility
 

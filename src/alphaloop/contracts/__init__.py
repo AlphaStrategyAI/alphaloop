@@ -1,4 +1,5 @@
 from .bundle import (
+    BundleSchemaError,
     ExportNotAllowed,
     StrategyCandidateBundle,
     assert_exportable,
@@ -29,6 +30,7 @@ from .research_spec import (
 from .status import JobStatus, ResearchOutcome, derive_research_outcome
 
 __all__ = [
+    "BundleSchemaError",
     "ExportNotAllowed",
     "StrategyCandidateBundle",
     "assert_exportable",

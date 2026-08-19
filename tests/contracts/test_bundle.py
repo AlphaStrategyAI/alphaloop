@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from alphaloop.contracts.bundle import (
+    BundleSchemaError,
     ExportNotAllowed,
     assert_exportable,
     bundle_from_payload,
@@ -63,3 +64,16 @@ def test_registry_uri_normalization_produces_same_hash():
 def test_to_payload_recomputes_hash():
     bundle = bundle_from_payload(_payload())
     assert canonical_hash(bundle.to_payload()) == bundle.content_hash
+
+
+def test_payload_rejects_executable_or_unknown_fields():
+    for extra in (
+        {"source_py": "print('hi')"},
+        {"code": "def weights(): ..."},
+        {"strategy.py": "class S: pass"},
+        {"module": "alphaloop.strategies.foo"},
+    ):
+        with pytest.raises(BundleSchemaError):
+            canonical_hash({**_payload(), **extra})
+        with pytest.raises(BundleSchemaError):
+            bundle_from_payload({**_payload(), **extra})

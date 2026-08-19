@@ -12,6 +12,10 @@ class ExportNotAllowed(ValueError):
     """Raised when a candidate cannot be exported as a bundle."""
 
 
+class BundleSchemaError(ValueError):
+    """Raised when a bundle payload contains disallowed fields."""
+
+
 _BUNDLE_HASH_FIELDS = (
     "schema_version",
     "strategy_dsl",
@@ -22,6 +26,17 @@ _BUNDLE_HASH_FIELDS = (
     "conformance",
     "registry_uri",
 )
+_ALLOWED_PAYLOAD_KEYS = frozenset(_BUNDLE_HASH_FIELDS)
+_IDENTITY_KEYS = frozenset({"bundle_id", "content_hash"})
+
+
+def _reject_unknown_keys(payload: Mapping[str, Any]) -> None:
+    extra = set(payload) - _ALLOWED_PAYLOAD_KEYS - _IDENTITY_KEYS
+    if extra:
+        raise BundleSchemaError(
+            "bundle payload contains disallowed fields "
+            f"{sorted(extra)}; candidate bundles are YAML/DSL data only"
+        )
 
 
 def _normalize_registry_uri(registry: Any) -> Optional[str]:
@@ -31,6 +46,7 @@ def _normalize_registry_uri(registry: Any) -> Optional[str]:
 
 
 def bundle_hash_projection(payload: Mapping[str, Any]) -> dict[str, Any]:
+    _reject_unknown_keys(payload)
     return {
         "schema_version": str(payload["schema_version"]),
         "strategy_dsl": dict(payload["strategy_dsl"]),
