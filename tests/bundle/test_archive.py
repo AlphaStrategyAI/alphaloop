@@ -97,3 +97,37 @@ def test_read_rejects_hash_mismatch(tmp_path):
             dst.writestr(item.filename, data)
     with pytest.raises(BundleSchemaError):
         read_asb(mutated)
+
+
+def test_conformance_fixture_weights_are_yaml_not_python():
+    from alphaloop.bundle.fixtures import (
+        CONFORMANCE_AS_OF,
+        conformance_members,
+        conformance_prices,
+        expected_weights,
+    )
+
+    prices = conformance_prices()
+    weights = expected_weights(
+        "momentum_12_1",
+        {},
+        ("AAPL", "MSFT"),
+        "us-equity-daily",
+        prices,
+        CONFORMANCE_AS_OF,
+    )
+    total = sum(weights.values())
+    assert total == 0.0 or abs(total - 1.0) < 1e-9
+    members = conformance_members(
+        "momentum_12_1",
+        {},
+        ("AAPL", "MSFT"),
+        "us-equity-daily",
+    )
+    assert "inputs.yaml" in members
+    assert "expected_weights.yaml" in members
+    for name, data in members.items():
+        assert not name.endswith(".py")
+        text = data.decode("utf-8")
+        assert "def " not in text
+        yaml.safe_load(text)
