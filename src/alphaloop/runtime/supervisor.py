@@ -6,7 +6,7 @@ from typing import Optional, Protocol
 
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.status import JobStatus
-from alphaloop.runtime.checkpoint import read_heartbeat
+from alphaloop.runtime.checkpoint import read_heartbeat, write_heartbeat
 from alphaloop.runtime.store import JobRecord, JobStore
 
 MAX_RECOVERY_ATTEMPTS = 3
@@ -57,9 +57,9 @@ class Supervisor:
 
     def _spawn(self, run_id: str) -> JobRecord:
         pid = self.worker.spawn(run_id, self.data_dir)
+        at = datetime.now(timezone.utc).isoformat()
+        write_heartbeat(RunLayout(self.data_dir / run_id), pid=pid, at=at)
         self.store.update_status(run_id, JobStatus.RUNNING, worker_pid=pid)
-        heartbeat = read_heartbeat(RunLayout(self.data_dir / run_id))
-        at = self._heartbeat_at(heartbeat) or datetime.now(timezone.utc).isoformat()
         return self.store.set_heartbeat(run_id, pid=pid, at=at)
 
     def _monitor(self, job: JobRecord) -> None:
@@ -99,7 +99,12 @@ class Supervisor:
 
     def _heartbeat_is_stale(self, job: JobRecord) -> bool:
         heartbeat = read_heartbeat(RunLayout(self.data_dir / job.run_id))
-        at = self._heartbeat_at(heartbeat) or job.heartbeat_at
+        file_at = (
+            self._heartbeat_at(heartbeat)
+            if heartbeat is not None and heartbeat.get("pid") == job.worker_pid
+            else None
+        )
+        at = file_at or job.heartbeat_at
         if at is None:
             return True
         try:

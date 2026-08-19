@@ -27,11 +27,12 @@ def _spec():
 
 
 class FakeWorker:
-    def __init__(self) -> None:
+    def __init__(self, *, write_heartbeat_on_spawn: bool = True) -> None:
         self.running: Dict[int, str] = {}
         self.exit_codes: Dict[int, int] = {}
         self.spawned: list[str] = []
         self.terminated: list[int] = []
+        self.write_heartbeat_on_spawn = write_heartbeat_on_spawn
         self._next_pid = 1000
 
     def spawn(self, run_id: str, data_dir: Path) -> int:
@@ -39,9 +40,10 @@ class FakeWorker:
         self._next_pid += 1
         self.running[pid] = run_id
         self.spawned.append(run_id)
-        layout = RunLayout(Path(data_dir) / run_id)
-        layout.run_dir.mkdir(parents=True, exist_ok=True)
-        write_heartbeat(layout, pid=pid, at="2026-08-19T00:00:00+00:00")
+        if self.write_heartbeat_on_spawn:
+            layout = RunLayout(Path(data_dir) / run_id)
+            layout.run_dir.mkdir(parents=True, exist_ok=True)
+            write_heartbeat(layout, pid=pid, at="2026-08-19T00:00:00+00:00")
         return pid
 
     def poll(self, pid: int) -> Optional[int]:
@@ -110,6 +112,28 @@ def test_crash_restarts_until_max_then_fails(tmp_path):
     assert failed.status is JobStatus.FAILED
     assert failed.research_outcome is ResearchOutcome.INCONCLUSIVE
     assert failed.recovery_attempts == 2
+
+
+def test_replacement_worker_gets_fresh_heartbeat_on_spawn(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    worker = FakeWorker()
+    sup = Supervisor(store, tmp_path, worker, max_recovery=2, heartbeat_timeout_s=60.0)
+    job = store.create(_spec())
+    sup.tick()
+    pid1 = store.get(job.run_id).worker_pid
+    assert pid1 is not None
+
+    worker.write_heartbeat_on_spawn = False
+    worker.crash(pid1)
+    sup.tick()
+    replacement = store.get(job.run_id)
+    assert replacement.worker_pid is not None
+    assert replacement.worker_pid != pid1
+
+    sup.tick()
+    still_running = store.get(job.run_id)
+    assert still_running.status is JobStatus.RUNNING
+    assert still_running.recovery_attempts == 1
 
 
 def test_cancel_kills_worker(tmp_path):
