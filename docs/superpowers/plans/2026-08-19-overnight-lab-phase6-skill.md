@@ -1,6 +1,6 @@
 # Overnight Lab Phase 6 — Agent Skill Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ship a local Agent Skill that teaches coding agents the overnight-lab workflow: preflight, submit, poll, interpret `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE`, and never claim alpha or export without a human.
 
@@ -42,7 +42,7 @@
 - Body MUST say method repairs may continue only when evidence is incomplete; economic changes are queued for a human
 - Load via `importlib.resources.files("alphaloop.skills.overnight-lab").joinpath("SKILL.md")`
 
-- [ ] Tests first (file missing → fail), then write SKILL.md, then commit `feat(skills): add local overnight-lab agent skill`
+- [x] Tests first (file missing → fail), then write SKILL.md, then commit `feat(skills): add local overnight-lab agent skill`
 
 ---
 
@@ -52,7 +52,7 @@
 - Requirements §13: items 1–5 done; item 6 is this plan
 - `python3 -m pytest tests/ -m "not integration" -q`
 
-- [ ] Commit `docs: point Phase 6 Agent Skill at the implementation plan`
+- [x] Commit `docs: point Phase 6 Agent Skill at the implementation plan`
 
 ---
 

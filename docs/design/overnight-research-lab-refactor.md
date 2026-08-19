@@ -388,6 +388,9 @@ Implementation plan:
 
 ### Phase 6 — Agent Skill
 
+Implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md`](../superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md).
+
 - Local Skill + CLI: preflight, submit, poll, interpret outcomes.
 - No overnight MCP tool call.
 
