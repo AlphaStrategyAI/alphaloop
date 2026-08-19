@@ -9,7 +9,10 @@ from urllib.error import HTTPError, URLError
 
 import yaml
 
+from alphaloop.contracts.artifacts import RunLayout
+from alphaloop.contracts.gates import evidence_from_dict, outcome_from_evidence
 from alphaloop.contracts.research_spec import ResearchSpec
+from alphaloop.contracts.status import JobStatus, ResearchOutcome
 from alphaloop.runtime.client import JobClient
 from alphaloop.runtime.daemon import (
     DEFAULT_HOST,
@@ -59,6 +62,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     resume.add_argument("run_id")
     _add_data_dir(resume)
     resume.set_defaults(func=run_resume)
+
+    replay = subparsers.add_parser("replay", help="rewrite report.md from sealed artifacts")
+    replay.add_argument("run_id")
+    _add_data_dir(replay)
+    replay.set_defaults(func=run_replay)
 
 
 def _daemon_unavailable(exc: Exception) -> int:
@@ -158,3 +166,57 @@ def run_cancel(args: argparse.Namespace) -> int:
 
 def run_resume(args: argparse.Namespace) -> int:
     return _run_action(args, JobClient.resume_run)
+
+
+def run_replay(args: argparse.Namespace) -> int:
+    from alphaloop.runtime.artifacts_io import write_report
+    from alphaloop.runtime.morning import (
+        STOP_REASON_ALL_GATES_PASSED,
+        STOP_REASON_HARD_GATE_FAILED,
+        STOP_REASON_INCOMPLETE_EVIDENCE,
+    )
+
+    layout = RunLayout(Path(args.data_dir) / args.run_id)
+    if not layout.run_dir.is_dir():
+        print(f"error: run directory not found: {layout.run_dir}", file=sys.stderr)
+        return 2
+
+    spec_path = layout.research_spec
+    if spec_path.is_file():
+        try:
+            payload = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("research spec must be a mapping")
+            ResearchSpec.from_dict(payload)
+        except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
+            print(f"error: unable to read research spec: {exc}", file=sys.stderr)
+            return 2
+
+    gates_path = layout.evidence / "gates.json"
+    outcome = ResearchOutcome.INCONCLUSIVE
+    if gates_path.is_file():
+        try:
+            payload = json.loads(gates_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                evidence = evidence_from_dict(payload)
+                if evidence.complete:
+                    outcome = outcome_from_evidence(JobStatus.COMPLETED, evidence)
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            pass
+
+    if outcome is ResearchOutcome.FOUND:
+        stop_reason = STOP_REASON_ALL_GATES_PASSED
+    elif outcome is ResearchOutcome.NO_EVIDENCE:
+        stop_reason = STOP_REASON_HARD_GATE_FAILED
+    elif outcome is ResearchOutcome.INCONCLUSIVE:
+        stop_reason = STOP_REASON_INCOMPLETE_EVIDENCE
+    else:
+        stop_reason = None
+
+    write_report(
+        layout,
+        research_outcome=outcome.value,
+        stop_reason=stop_reason,
+    )
+    print(f"research_outcome: {outcome.value}")
+    return 0

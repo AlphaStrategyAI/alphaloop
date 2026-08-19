@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+
 import yaml
 
 from alphaloop.cli.main import create_parser, main
+from alphaloop.contracts.artifacts import RunLayout
+from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict, evaluate_hard_gates
 from alphaloop.runtime.preflight import HOST_CONSTRAINT
 from tests.runtime.test_supervisor import _spec
 
@@ -67,3 +71,26 @@ def test_status_missing_run_surfaces_http_error_without_start_hint(tmp_path, cap
         assert "alphaloop start" not in captured.err
     finally:
         server.shutdown()
+
+
+def test_parser_has_top_level_replay():
+    parser = create_parser()
+    assert "replay" in parser.format_help()
+
+
+def test_replay_rewrites_report_without_looprunner(tmp_path, capsys):
+    layout = RunLayout(tmp_path / "j_replay")
+    layout.run_dir.mkdir()
+    layout.research_spec.write_text(yaml.safe_dump(_spec().to_dict()), encoding="utf-8")
+    evidence = evaluate_hard_gates(
+        (HardGateName.DSR,),
+        (GateResult(name=HardGateName.DSR, passed=True, detail={}),),
+    )
+    layout.evidence.mkdir()
+    (layout.evidence / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+    rc = main(["replay", "j_replay", "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "FOUND" in captured.out
+    assert layout.report.is_file()
+    assert "FOUND" in layout.report.read_text(encoding="utf-8")
