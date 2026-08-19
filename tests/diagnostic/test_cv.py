@@ -106,3 +106,30 @@ def test_walk_forward_summary_is_string():
     s = result.summary()
     assert isinstance(s, str)
     assert "Walk-Forward CV verdict" in s
+
+
+def test_walk_forward_strategy_fn_sees_history_through_test():
+    prices = _make_prices(400)
+    seen: list[int] = []
+
+    def spy(series: pd.Series) -> pd.Series:
+        seen.append(len(series))
+        return pd.Series(1.0, index=series.index)
+
+    walk_forward_cv(
+        prices, spy, train_size=200, test_size=50, embargo_size=5, step_size=50
+    )
+    assert seen
+    assert all(length >= 200 + 5 + 50 for length in seen)
+
+
+def test_walk_forward_embargo_gaps_train_and_test():
+    prices = _make_prices(400)
+    result = walk_forward_cv(
+        prices, _buy_and_hold, train_size=200, test_size=50, embargo_size=5, step_size=55
+    )
+    assert result.n_folds >= 1
+    for fold in result.folds:
+        train_end_i = prices.index.get_loc(fold.train_end)
+        test_start_i = prices.index.get_loc(fold.test_start)
+        assert int(test_start_i) - int(train_end_i) - 1 == 5

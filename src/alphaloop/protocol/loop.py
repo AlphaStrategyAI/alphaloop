@@ -193,7 +193,9 @@ def run_protocol(
             evidence = runner(
                 required,
                 prices=primary_prices,
-                strategy_returns=compute_strategy_returns(primary_prices, weights),
+                strategy_returns=compute_strategy_returns(
+                    primary_prices, weights, cost_bps=profile.cost_bps
+                ),
                 buy_hold_prices=buy_hold_prices,
                 benchmark_prices=benchmark_prices,
                 secondary_frames=secondary_frames,

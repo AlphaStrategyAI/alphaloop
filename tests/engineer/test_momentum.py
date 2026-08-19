@@ -121,6 +121,15 @@ def test_momentum_12_1_pure_uptrend_is_always_long():
     assert w.iloc[280:].sum() > 50
 
 
+def test_momentum_12_1_lookback_changes_warmup():
+    idx = pd.date_range("2018-01-01", periods=400, freq="B")
+    p = pd.Series(np.linspace(100, 200, 400), index=idx)
+    short = momentum_12_1(p, skip=21, lookback=126)
+    long = momentum_12_1(p, skip=21, lookback=252)
+    assert float(short.iloc[160]) > 0
+    assert float(long.iloc[160]) == 0
+
+
 def test_momentum_12_1_short_input_returns_zeros():
     p = _make_prices(100)
     w = momentum_12_1(p)

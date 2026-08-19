@@ -13,6 +13,8 @@ from alphaloop.contracts.gates import (
 )
 from alphaloop.protocol.gates import run_hard_gates
 from alphaloop.protocol.profiles import get_profile
+from alphaloop.protocol.profiles.us_equity_daily import US_EQUITY_DAILY
+from alphaloop.protocol.returns import compute_strategy_returns
 
 
 def _prices(n: int = 80) -> pd.Series:
@@ -126,3 +128,81 @@ def test_missing_secondary_fails_data_consistency():
     assert row.passed is False
     assert row.detail["reason"] == "missing_secondary_source"
     evaluate_hard_gates(required, evidence.results)
+
+
+def test_walk_forward_adapter_passes_profile_cost_and_embargo():
+    prices = _prices(80)
+    required = (HardGateName.WALK_FORWARD,)
+    with mock.patch("alphaloop.protocol.gates.walk_forward_cv") as wf:
+        wf.return_value = mock.Mock(passes=True, oos_sharpe_mean=0.1)
+        run_hard_gates(
+            required,
+            prices=prices,
+            strategy_returns=_returns(prices),
+            buy_hold_prices=prices,
+            benchmark_prices=prices,
+            secondary_frames=None,
+            n_trials=1,
+            profile=get_profile("us-equity-daily"),
+            seed=1,
+            strategy_fn=_strategy_fn,
+        )
+        kwargs = wf.call_args.kwargs
+        assert kwargs["cost_bps"] == 5.0
+        assert kwargs["embargo_size"] >= 1
+
+
+def test_dsr_detail_records_cost_bps():
+    prices = _prices()
+    evidence = run_hard_gates(
+        (HardGateName.DSR,),
+        prices=prices,
+        strategy_returns=_returns(prices),
+        buy_hold_prices=prices,
+        benchmark_prices=prices,
+        secondary_frames=None,
+        n_trials=1,
+        profile=get_profile("us-equity-daily"),
+        seed=1,
+        strategy_fn=_strategy_fn,
+    )
+    assert evidence.results[0].detail["cost_bps"] == 5.0
+
+
+def test_high_turnover_costs_reduce_dsr_observed_sharpe():
+    from dataclasses import replace
+
+    prices = _prices(80)
+    flip = pd.Series([float(i % 2) for i in range(len(prices))], index=prices.index)
+    gross = compute_strategy_returns(prices, flip, cost_bps=0.0)
+    net = compute_strategy_returns(prices, flip, cost_bps=1000.0)
+    cheap = run_hard_gates(
+        (HardGateName.DSR,),
+        prices=prices,
+        strategy_returns=gross,
+        buy_hold_prices=prices,
+        benchmark_prices=prices,
+        secondary_frames=None,
+        n_trials=1,
+        profile=get_profile("us-equity-daily"),
+        seed=1,
+        strategy_fn=lambda s: flip.reindex(s.index).fillna(0.0),
+    )
+    expensive_profile = replace(US_EQUITY_DAILY, cost_bps=1000.0)
+    expensive = run_hard_gates(
+        (HardGateName.DSR,),
+        prices=prices,
+        strategy_returns=net,
+        buy_hold_prices=prices,
+        benchmark_prices=prices,
+        secondary_frames=None,
+        n_trials=1,
+        profile=expensive_profile,
+        seed=1,
+        strategy_fn=lambda s: flip.reindex(s.index).fillna(0.0),
+    )
+    assert (
+        cheap.results[0].detail["observed_sharpe"]
+        > expensive.results[0].detail["observed_sharpe"]
+    )
+    assert expensive.results[0].detail["cost_bps"] == 1000.0

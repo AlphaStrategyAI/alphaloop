@@ -32,6 +32,8 @@ from typing import Any, Callable, List, Optional
 import numpy as np
 import pandas as pd
 
+from alphaloop.protocol.returns import compute_strategy_returns
+
 
 @dataclass
 class WalkForwardFold:
@@ -97,14 +99,15 @@ def walk_forward_cv(
     step_size: Optional[int] = None,
     periods_per_year: int = 252,
     min_oos_sharpe: float = 0.0,
+    embargo_size: int = 0,
+    cost_bps: float = 0.0,
 ) -> WalkForwardResult:
-    """Walk-forward cross-validation.
+    """Walk-forward cross-validation with optional embargo and costs.
 
     Args:
         prices: Price series with a DatetimeIndex.
         strategy_fn: Function that takes a price series and returns
             a series of position weights or signals (same length).
-            For convenience, see `alphaloop.diagnostic.helpers`.
         train_size: Number of bars in the training window.
         test_size: Number of bars in the test (out-of-sample) window.
         step_size: How many bars to roll forward each fold. Defaults
@@ -112,50 +115,53 @@ def walk_forward_cv(
         periods_per_year: For annualizing Sharpe. Default 252 (daily).
         min_oos_sharpe: Threshold for `result.passes` (default 0.0,
             i.e. mean OOS Sharpe must be positive).
+        embargo_size: Bars skipped between the last train bar and the
+            first test bar (López de Prado Ch. 7 embargo). Default 0
+            preserves historical fold geometry.
+        cost_bps: One-way transaction cost in basis points applied via
+            `compute_strategy_returns`.
 
     Returns:
         WalkForwardResult with per-fold details and aggregate stats.
     """
+    if embargo_size < 0:
+        raise ValueError(f"embargo_size must be >= 0, got {embargo_size}")
     if step_size is None:
         step_size = test_size
     if not isinstance(prices, pd.Series):
         raise TypeError(f"prices must be a pandas Series, got {type(prices)}")
-    if len(prices) < train_size + test_size:
+    required = train_size + embargo_size + test_size
+    if len(prices) < required:
         raise ValueError(
-            f"Need at least train_size+test_size = {train_size + test_size} bars, "
+            f"Need at least train_size+embargo_size+test_size = {required} bars, "
             f"got {len(prices)}"
         )
 
     folds: List[WalkForwardFold] = []
     fold_id = 0
     i = 0
-    while i + train_size + test_size <= len(prices):
-        train_idx = prices.index[i : i + train_size]
-        test_idx = prices.index[i + train_size : i + train_size + test_size]
+    idx = prices.index
+    while i + train_size + embargo_size + test_size <= len(prices):
+        test_start_i = i + train_size + embargo_size
+        test_end_i = test_start_i + test_size
+        history = prices.iloc[:test_end_i]
+        all_weights = strategy_fn(history)
+        net = compute_strategy_returns(history, all_weights, cost_bps=cost_bps)
+        train_returns = net.iloc[i : i + train_size]
+        test_returns = net.iloc[test_start_i:test_end_i]
 
-        # Coerce index labels to Timestamp for the dataclass type hint.
-        idx = prices.index
         train_start = pd.Timestamp(idx[i])
         train_end = pd.Timestamp(idx[i + train_size - 1])
-        test_start = pd.Timestamp(idx[i + train_size])
-        test_end = pd.Timestamp(idx[i + train_size + test_size - 1])
-
-        train_prices = prices.iloc[i : i + train_size]
-        test_prices = prices.iloc[i + train_size : i + train_size + test_size]
-
-        train_weights = strategy_fn(train_prices)
-        train_returns = (train_prices.pct_change().fillna(0.0) * train_weights.shift(1).fillna(0.0))
-
-        test_weights = strategy_fn(test_prices)
-        test_returns = (test_prices.pct_change().fillna(0.0) * test_weights.shift(1).fillna(0.0))
+        test_start = pd.Timestamp(idx[test_start_i])
+        test_end = pd.Timestamp(idx[test_end_i - 1])
 
         folds.append(
             WalkForwardFold(
                 fold_id=fold_id,
-                train_start=train_idx[0],
-                train_end=train_idx[-1],
-                test_start=test_idx[0],
-                test_end=test_idx[-1],
+                train_start=train_start,
+                train_end=train_end,
+                test_start=test_start,
+                test_end=test_end,
                 train_sharpe=_annualized_sharpe(train_returns, periods_per_year),
                 oos_sharpe=_annualized_sharpe(test_returns, periods_per_year),
                 oos_return=float((1.0 + test_returns).prod() - 1.0),

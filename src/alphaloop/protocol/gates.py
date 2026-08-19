@@ -41,6 +41,21 @@ def _detail(result: object) -> dict:
     return payload
 
 
+def _walk_forward_windows(n: int, periods_per_year: int) -> tuple[int, int, int]:
+    embargo = max(1, periods_per_year // 52)
+    year = periods_per_year
+    quarter = max(1, periods_per_year // 4)
+    if n >= year + quarter + embargo:
+        return year, quarter, embargo
+    train = max(20, n // 2)
+    test = max(10, n // 8)
+    if n < train + embargo + test:
+        raise ValueError(
+            f"Need at least train+embargo+test = {train + embargo + test} bars, got {n}"
+        )
+    return train, test, embargo
+
+
 def run_hard_gates(
     required: Sequence[HardGateName],
     *,
@@ -71,7 +86,9 @@ def run_hard_gates(
             )
         except Exception:
             continue
-        rows.append(row)
+        detail = dict(row.detail)
+        detail["cost_bps"] = profile.cost_bps
+        rows.append(GateResult(name=row.name, passed=row.passed, detail=detail))
     return evaluate_hard_gates(required, rows)
 
 
@@ -98,13 +115,14 @@ def _run_one(
         )
         return GateResult(name=name, passed=bool(result.passes), detail=_detail(result))
     if name is HardGateName.WALK_FORWARD:
-        train = min(40, max(10, len(prices) // 3))
-        test = min(10, max(5, len(prices) // 8))
+        train, test, embargo = _walk_forward_windows(len(prices), periods)
         result = walk_forward_cv(
             prices,
             strategy_fn,
             train_size=train,
             test_size=test,
+            embargo_size=embargo,
+            cost_bps=profile.cost_bps,
             periods_per_year=periods,
         )
         return GateResult(name=name, passed=bool(result.passes), detail=_detail(result))

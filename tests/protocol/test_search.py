@@ -17,7 +17,9 @@ def _hypothesis() -> Hypothesis:
 def test_grid_starts_with_defaults():
     grid = method_parameter_grid("momentum_12_1")
     assert grid[0] == {}
-    assert {"skip": 42} in grid
+    assert {"lookback": 126, "skip": 21} in grid
+    assert {"lookback": 189, "skip": 21} in grid
+    assert len(grid) == 3
 
 
 def test_grid_entries_are_method_revisions():

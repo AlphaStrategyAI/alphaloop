@@ -17,6 +17,7 @@ from alphaloop.contracts.gates import (
 from alphaloop.contracts.research_spec import new_research_spec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome
 from alphaloop.protocol.loop import run_protocol
+from alphaloop.protocol.returns import compute_strategy_returns
 
 
 def _spec(**overrides):
@@ -158,7 +159,7 @@ def test_method_repair_retries_and_counts_trials(tmp_path):
     assert len(ledger) == 2
     assert json.loads(ledger[0])["revision"] == "none"
     assert json.loads(ledger[1])["revision"] == "method"
-    assert json.loads(ledger[1])["parameters"] == {"skip": 42}
+    assert json.loads(ledger[1])["parameters"] == {"lookback": 126, "skip": 21}
     evidence = evidence_from_dict(json.loads((layout.evidence / "gates.json").read_text()))
     assert evidence.all_passed is True
 
@@ -292,7 +293,7 @@ def test_gate_runner_receives_lagged_weight_returns_not_raw_prices(tmp_path):
     assert "strategy_returns" in captured
     assert not captured["strategy_returns"].equals(raw)
     weights = captured["strategy_fn"](prices["AAPL"])
-    expected = weights.shift(1).fillna(0.0) * raw
+    expected = compute_strategy_returns(prices["AAPL"], weights, cost_bps=5.0)
     pd.testing.assert_series_equal(
         captured["strategy_returns"],
         expected,

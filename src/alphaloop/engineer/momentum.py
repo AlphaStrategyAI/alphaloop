@@ -78,23 +78,19 @@ def roc(prices: pd.Series, window: int = 20, threshold: float = 0.0) -> pd.Serie
     return signal.shift(1).fillna(0.0)
 
 
-def momentum_12_1(prices: pd.Series, skip: int = 21) -> pd.Series:
-    """12-month-1-month momentum: long when price > price 252 bars ago AND
-    price > price 21 bars ago (i.e. we skip the short-term reversal month).
+def momentum_12_1(prices: pd.Series, skip: int = 21, lookback: int = 252) -> pd.Series:
+    """12-month-1-month momentum: long when formation-period return is
+    positive AND the skipped short-term window was also positive.
 
-    `skip` is the bars in the most recent window that we ignore
-    (default 21 = 1 month), since momentum famously fails on the
-    most recent month.
+    `lookback` is the formation window (default 252 ≈ 12 months).
+    `skip` is the most recent bars ignored for short-term reversal
+    (default 21 ≈ 1 month), following Jegadeesh and Titman (1993).
     """
-    if prices.empty or len(prices) < 252 + skip:
+    if prices.empty or len(prices) < lookback + skip:
         return _empty_weights_like(prices)
 
-    long_term = prices.pct_change(periods=252)
-    # Shift `long_term` forward by `skip` bars so we use the value from
-    # `skip` bars ago, which is 252 - skip bars of "old" performance.
+    long_term = prices.pct_change(periods=lookback)
     shifted_long = long_term.shift(skip)
-    # The 1-month check: do we have positive momentum over the last
-    # `skip` bars (looking at the value at t-skip, not at t)?
     short_term = prices.pct_change(periods=skip).shift(skip)
     signal = ((shifted_long > 0) & (short_term > 0)).astype(float)
     return signal
