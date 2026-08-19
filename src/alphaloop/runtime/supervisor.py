@@ -16,9 +16,9 @@ MAX_RECOVERY_ATTEMPTS = 3
 class WorkerHandle(Protocol):
     def spawn(self, run_id: str, data_dir: Path) -> int: ...
 
-    def poll(self, pid: int) -> Optional[int]: ...
+    def poll(self, pid: int, run_id: Optional[str] = None) -> Optional[int]: ...
 
-    def terminate(self, pid: int) -> None: ...
+    def terminate(self, pid: int, run_id: Optional[str] = None) -> None: ...
 
 
 class Supervisor:
@@ -56,7 +56,7 @@ class Supervisor:
             ):
                 return job
             if job.worker_pid is not None:
-                self.worker.terminate(job.worker_pid)
+                self.worker.terminate(job.worker_pid, run_id)
             return self.store.update_status(run_id, JobStatus.CANCELLED)
 
     def _spawn(self, run_id: str) -> JobRecord:
@@ -71,7 +71,7 @@ class Supervisor:
             self._recover(job, worker_running=False)
             return
 
-        code = self.worker.poll(job.worker_pid)
+        code = self.worker.poll(job.worker_pid, job.run_id)
         if code == 0:
             self.store.update_status(job.run_id, JobStatus.COMPLETED)
             return
@@ -83,7 +83,7 @@ class Supervisor:
 
     def _recover(self, job: JobRecord, *, worker_running: bool) -> None:
         if worker_running and job.worker_pid is not None:
-            self.worker.terminate(job.worker_pid)
+            self.worker.terminate(job.worker_pid, job.run_id)
         if job.recovery_attempts >= self.max_recovery:
             self._mark_recovery_exhausted(job.run_id)
             return

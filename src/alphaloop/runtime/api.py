@@ -47,7 +47,7 @@ class JobAPI:
                 raise ValueError(f"cannot resume {job.status.value} job")
             pid = job.worker_pid
             if job.status is JobStatus.RUNNING and pid is not None:
-                self.supervisor.worker.terminate(pid)
+                self.supervisor.worker.terminate(pid, run_id)
             return self._job_dict(
                 self.store.requeue_unless_terminal(run_id, expected_pid=pid)
             )

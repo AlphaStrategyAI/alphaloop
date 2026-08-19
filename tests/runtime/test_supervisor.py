@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional
 
+from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.research_spec import new_research_spec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome
 from alphaloop.runtime.checkpoint import write_heartbeat
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
-from alphaloop.contracts.artifacts import RunLayout
 
 
 def _spec():
@@ -46,14 +46,18 @@ class FakeWorker:
             write_heartbeat(layout, pid=pid, at="2026-08-19T00:00:00+00:00")
         return pid
 
-    def poll(self, pid: int) -> Optional[int]:
+    def poll(self, pid: int, run_id: Optional[str] = None) -> Optional[int]:
+        if run_id is not None and self.running.get(pid, run_id) != run_id:
+            return 1
         if pid in self.exit_codes:
             return self.exit_codes[pid]
         if pid in self.running:
             return None
         return 1
 
-    def terminate(self, pid: int) -> None:
+    def terminate(self, pid: int, run_id: Optional[str] = None) -> None:
+        if run_id is not None and self.running.get(pid, run_id) != run_id:
+            return
         self.terminated.append(pid)
         self.running.pop(pid, None)
         self.exit_codes[pid] = -15

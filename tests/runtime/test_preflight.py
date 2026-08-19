@@ -49,6 +49,12 @@ def test_zero_time_budget_rejected(tmp_path):
     assert any("time" in err.lower() for err in result.errors)
 
 
+def test_nan_cost_budget_rejected(tmp_path):
+    result = preflight(_spec(cost_budget_usd=float("nan")), tmp_path)
+    assert result.ok is False
+    assert any("cost" in err.lower() for err in result.errors)
+
+
 def test_data_dir_that_is_a_file_rejected(tmp_path):
     target = tmp_path / "blocked"
     target.write_text("not-a-directory", encoding="utf-8")

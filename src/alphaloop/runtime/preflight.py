@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import shutil
 from dataclasses import dataclass
@@ -62,11 +63,11 @@ def preflight(
     if not spec.success_criteria.hard_gates:
         errors.append("at least one hard gate is required")
 
-    if spec.time_budget_s <= 0:
-        errors.append("time budget must be positive")
+    if not math.isfinite(spec.time_budget_s) or spec.time_budget_s <= 0:
+        errors.append("time budget must be finite and positive")
 
-    if spec.cost_budget_usd < 0:
-        errors.append("cost budget cannot be negative")
+    if not math.isfinite(spec.cost_budget_usd) or spec.cost_budget_usd < 0:
+        errors.append("cost budget must be finite and non-negative")
 
     errors.extend(_check_data_dir(data_dir, min_free_bytes))
 

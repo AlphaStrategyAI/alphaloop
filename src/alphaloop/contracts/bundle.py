@@ -3,12 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Mapping, Optional, Sequence
 
 from .status import ResearchOutcome
 
 
-class ExportNotAllowed(ValueError):
+class ExportNotAllowed(ValueError):  # noqa: N818 - public API name
     """Raised when a candidate cannot be exported as a bundle."""
 
 
@@ -70,13 +71,27 @@ class StrategyCandidateBundle:
     schema_version: str
     bundle_id: str
     content_hash: str
-    strategy_dsl: dict
+    strategy_dsl: Mapping[str, Any]
     market_profile: str
-    parameters: dict
-    risk_envelope: dict
-    lineage: dict
-    conformance: dict
+    parameters: Mapping[str, Any]
+    risk_envelope: Mapping[str, Any]
+    lineage: Mapping[str, Any]
+    conformance: Mapping[str, Any]
     registry_uri: Optional[str]
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "strategy_dsl",
+            "parameters",
+            "risk_envelope",
+            "lineage",
+            "conformance",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                MappingProxyType(dict(getattr(self, field_name))),
+            )
 
     def to_payload(self) -> dict[str, Any]:
         return {

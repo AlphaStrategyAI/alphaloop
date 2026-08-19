@@ -7,7 +7,6 @@ from typing import Any, Mapping, Sequence
 
 from .gates import HardGateName
 
-
 ALLOWED_PROFILES = ("us-equity-daily", "crypto-daily")
 
 
@@ -60,7 +59,7 @@ class ResearchSpec:
     def from_dict(cls, payload: Mapping[str, Any]) -> "ResearchSpec":
         hyp = payload["hypothesis"]
         crit = payload["success_criteria"]
-        return cls(
+        spec = cls(
             spec_id=str(payload["spec_id"]),
             hypothesis=Hypothesis(
                 statement=str(hyp["statement"]),
@@ -77,6 +76,23 @@ class ResearchSpec:
             time_budget_s=int(payload["time_budget_s"]),
             cost_budget_usd=float(payload["cost_budget_usd"]),
         )
+        expected = new_research_spec(
+            statement=spec.hypothesis.statement,
+            economic_logic=spec.hypothesis.economic_logic,
+            signal_mechanism=spec.hypothesis.signal_mechanism,
+            market_scope=spec.hypothesis.market_scope,
+            market_profile=spec.hypothesis.market_profile,
+            benchmark=spec.hypothesis.benchmark,
+            hard_gates=spec.success_criteria.hard_gates,
+            seed=spec.seed,
+            time_budget_s=spec.time_budget_s,
+            cost_budget_usd=spec.cost_budget_usd,
+        )
+        if spec.spec_id != expected.spec_id:
+            raise ValueError(
+                f"spec_id does not match payload: expected {expected.spec_id}"
+            )
+        return spec
 
 
 def new_research_spec(

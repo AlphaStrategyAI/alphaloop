@@ -6,6 +6,7 @@ import errno
 import os
 import subprocess
 import sys
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -19,6 +20,7 @@ from alphaloop.runtime.checkpoint import Checkpoint, write_checkpoint, write_hea
 
 RunnerFactory = Callable[..., Any]
 _WORKER_MODULE = b"alphaloop.runtime.worker"
+HEARTBEAT_INTERVAL_S = 2.0
 
 
 def is_worker_cmdline(raw_cmdline: bytes) -> bool:
@@ -30,6 +32,30 @@ def is_worker_cmdline(raw_cmdline: bytes) -> bool:
     return False
 
 
+def is_worker_for_run(raw_cmdline: bytes, run_id: str) -> bool:
+    """True when argv identifies the worker module and an exact run ID."""
+    if not is_worker_cmdline(raw_cmdline):
+        return False
+    argv = raw_cmdline.split(b"\0")
+    expected_run_id = run_id.encode()
+    for i, arg in enumerate(argv):
+        if arg == b"--run-id" and i + 1 < len(argv) and argv[i + 1] == expected_run_id:
+            return True
+    return False
+
+
+def find_running_worker_pid(run_id: str) -> Optional[int]:
+    """Return a running worker PID for ``run_id``, if one exists."""
+    for proc_dir in Path("/proc").glob("[0-9]*"):
+        try:
+            raw_cmdline = (proc_dir / "cmdline").read_bytes()
+        except OSError:
+            continue
+        if is_worker_for_run(raw_cmdline, run_id):
+            return int(proc_dir.name)
+    return None
+
+
 def stopgap_terminal_outcome() -> ResearchOutcome:
     return derive_research_outcome(JobStatus.COMPLETED, False, False)
 
@@ -38,6 +64,15 @@ def _default_runner_factory(**kwargs: Any) -> Any:
     from alphaloop.loop import LoopRunner
 
     return LoopRunner(**kwargs)
+
+
+def _refresh_heartbeat(layout: RunLayout, stop: threading.Event) -> None:
+    while not stop.wait(HEARTBEAT_INTERVAL_S):
+        write_heartbeat(
+            layout,
+            pid=os.getpid(),
+            at=datetime.now(timezone.utc).isoformat(),
+        )
 
 
 def run_worker(
@@ -67,26 +102,43 @@ def run_worker(
         ),
     )
 
-    factory = runner_factory or _default_runner_factory
-    runner = factory(
-        goal=spec.hypothesis.statement,
-        run_id=run_id,
-        seed=spec.seed,
-        budget_usd=spec.cost_budget_usd,
-        timeout_s=spec.time_budget_s,
-        data_dir=str(data_dir),
-        # Phase-2 stopgap: real workers only execute LoopRunner's dry-run path.
-        dry_run=True,
+    heartbeat_stop = threading.Event()
+    heartbeat_thread = threading.Thread(
+        target=_refresh_heartbeat,
+        args=(layout, heartbeat_stop),
+        name=f"alphaloop-heartbeat-{run_id}",
+        daemon=True,
     )
-    asyncio.run(runner.run())
+    heartbeat_thread.start()
+    try:
+        factory = runner_factory or _default_runner_factory
+        runner = factory(
+            goal=spec.hypothesis.statement,
+            run_id=run_id,
+            seed=spec.seed,
+            budget_usd=spec.cost_budget_usd,
+            timeout_s=spec.time_budget_s,
+            data_dir=str(data_dir),
+            # Phase-2 stopgap: real workers only execute LoopRunner's dry-run path.
+            dry_run=True,
+        )
+        asyncio.run(runner.run())
+    finally:
+        heartbeat_stop.set()
+        heartbeat_thread.join()
     return 0
 
 
 class ProcessWorker:
     def __init__(self) -> None:
         self._processes: dict[int, subprocess.Popen] = {}
+        self._run_ids: dict[int, str] = {}
 
     def spawn(self, run_id: str, data_dir: Path) -> int:
+        running_pid = find_running_worker_pid(run_id)
+        if running_pid is not None:
+            self._run_ids[running_pid] = run_id
+            return running_pid
         process = subprocess.Popen(
             [
                 sys.executable,
@@ -99,12 +151,23 @@ class ProcessWorker:
             ]
         )
         self._processes[process.pid] = process
+        self._run_ids[process.pid] = run_id
         return process.pid
 
-    def poll(self, pid: int) -> Optional[int]:
+    def poll(self, pid: int, run_id: Optional[str] = None) -> Optional[int]:
+        tracked_run_id = self._run_ids.get(pid)
+        if (
+            run_id is not None
+            and tracked_run_id is not None
+            and run_id != tracked_run_id
+        ):
+            return 1
         process = self._processes.get(pid)
         if process is None:
-            if not self._is_worker_process(pid):
+            expected_run_id = run_id or tracked_run_id
+            if expected_run_id is None or not self._is_worker_process(
+                pid, expected_run_id
+            ):
                 return 1
             try:
                 os.kill(pid, 0)
@@ -117,10 +180,20 @@ class ProcessWorker:
             return None
         return process.poll()
 
-    def terminate(self, pid: int) -> None:
+    def terminate(self, pid: int, run_id: Optional[str] = None) -> None:
+        tracked_run_id = self._run_ids.get(pid)
+        if (
+            run_id is not None
+            and tracked_run_id is not None
+            and run_id != tracked_run_id
+        ):
+            return
         process = self._processes.get(pid)
         if process is None:
-            if not self._is_worker_process(pid):
+            expected_run_id = run_id or tracked_run_id
+            if expected_run_id is None or not self._is_worker_process(
+                pid, expected_run_id
+            ):
                 return
             try:
                 os.kill(pid, 15)
@@ -130,12 +203,12 @@ class ProcessWorker:
         process.terminate()
 
     @staticmethod
-    def _is_worker_process(pid: int) -> bool:
+    def _is_worker_process(pid: int, run_id: str) -> bool:
         try:
             raw_cmdline = Path(f"/proc/{pid}/cmdline").read_bytes()
         except OSError:
             return False
-        return is_worker_cmdline(raw_cmdline)
+        return is_worker_for_run(raw_cmdline, run_id)
 
 
 def run_loop_command(args: argparse.Namespace) -> int:

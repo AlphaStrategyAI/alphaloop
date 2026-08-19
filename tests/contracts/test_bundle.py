@@ -66,6 +66,16 @@ def test_to_payload_recomputes_hash():
     assert canonical_hash(bundle.to_payload()) == bundle.content_hash
 
 
+def test_bundle_dict_fields_are_detached_and_immutable():
+    payload = _payload()
+    bundle = bundle_from_payload(payload)
+
+    payload["strategy_dsl"]["kind"] = "mean_reversion"
+    assert bundle.strategy_dsl["kind"] == "momentum_12_1"
+    with pytest.raises(TypeError):
+        bundle.strategy_dsl["x"] = 1
+
+
 def test_payload_rejects_executable_or_unknown_fields():
     for extra in (
         {"source_py": "print('hi')"},

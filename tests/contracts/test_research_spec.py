@@ -42,6 +42,14 @@ def test_round_trip_yaml_dict_preserves_fields():
     assert again.hypothesis.market_profile == "us-equity-daily"
 
 
+def test_from_dict_rejects_spec_id_that_does_not_match_payload():
+    payload = _spec().to_dict()
+    payload["spec_id"] = "rs_" + "0" * 32
+
+    with pytest.raises(ValueError, match="spec_id"):
+        ResearchSpec.from_dict(payload)
+
+
 def test_new_spec_ids_are_stable_for_same_payload_and_seed():
     a = _spec()
     b = _spec()
