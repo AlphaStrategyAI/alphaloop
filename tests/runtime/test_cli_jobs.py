@@ -78,6 +78,13 @@ def test_parser_has_top_level_replay():
     assert "replay" in parser.format_help()
 
 
+def test_replay_missing_run_dir_returns_2(tmp_path, capsys):
+    rc = main(["replay", "j_missing", "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "j_missing" in captured.err or "not found" in captured.err.lower() or "missing" in captured.err.lower()
+
+
 def test_replay_rewrites_report_without_looprunner(tmp_path, capsys):
     layout = RunLayout(tmp_path / "j_replay")
     layout.run_dir.mkdir()
