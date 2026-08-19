@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Optional
 
@@ -26,7 +26,8 @@ from alphaloop.protocol.dsl import (
 )
 from alphaloop.protocol.gates import run_hard_gates
 from alphaloop.protocol.profiles import get_profile
-from alphaloop.protocol.stop import RevisionKind, should_continue
+from alphaloop.protocol.search import method_parameter_grid
+from alphaloop.protocol.stop import FORBIDDEN_CONTINUE_REASONS, RevisionKind, should_continue
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,20 @@ def _strategy_fn_for(doc, prices: Mapping[str, pd.Series]):
     return _fn
 
 
+def _result(
+    *,
+    research_outcome: ResearchOutcome,
+    candidate_id: Optional[str],
+    evidence: Optional[GateEvidence],
+) -> ProtocolResult:
+    return ProtocolResult(
+        job_status=JobStatus.COMPLETED,
+        research_outcome=research_outcome,
+        candidate_id=candidate_id,
+        evidence=evidence,
+    )
+
+
 def run_protocol(
     spec: ResearchSpec,
     layout: RunLayout,
@@ -96,8 +111,7 @@ def run_protocol(
             }
         )
     except UnsupportedDslError:
-        return ProtocolResult(
-            job_status=JobStatus.COMPLETED,
+        return _result(
             research_outcome=ResearchOutcome.INCONCLUSIVE,
             candidate_id=None,
             evidence=None,
@@ -106,58 +120,101 @@ def run_protocol(
     required = tuple(HardGateName(name) for name in spec.success_criteria.hard_gates)
     runner = gate_runner or run_hard_gates
     profile = get_profile(spec.hypothesis.market_profile)
-    primary = doc.universe[0]
-    primary_prices = prices.get(primary, buy_hold_prices)
-    candidate_id = _candidate_id(doc.kind, doc.parameters)
-    _append_ledger(
-        layout,
-        {
-            "trial_id": candidate_id,
-            "kind": doc.kind,
-            "parameters": dict(doc.parameters),
-            "revision": "none",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        },
-    )
-    try:
-        evidence = runner(
-            required,
-            prices=primary_prices,
-            strategy_returns=primary_prices.pct_change().fillna(0.0),
-            buy_hold_prices=buy_hold_prices,
-            benchmark_prices=benchmark_prices,
-            secondary_frames=secondary_frames,
-            n_trials=1,
-            profile=profile,
-            seed=spec.seed,
-            strategy_fn=_strategy_fn_for(doc, prices),
-        )
-    except IncompleteEvidenceError:
-        return ProtocolResult(
-            job_status=JobStatus.COMPLETED,
-            research_outcome=ResearchOutcome.INCONCLUSIVE,
-            candidate_id=candidate_id,
-            evidence=None,
-        )
-
-    layout.evidence.mkdir(parents=True, exist_ok=True)
-    (layout.evidence / "gates.json").write_text(
-        json.dumps(evidence_to_dict(evidence), indent=2) + "\n",
-        encoding="utf-8",
-    )
-    remaining_time = float(spec.time_budget_s if clock is None else max(spec.time_budget_s - clock(), 0))
     remaining_cost = spec.cost_budget_usd if remaining_cost_usd is None else remaining_cost_usd
-    should_continue(
-        remaining_time_s=remaining_time,
-        remaining_cost_usd=remaining_cost,
-        last_evidence=evidence,
-        proposed_kind=RevisionKind.METHOD,
-        stop_reason=None,
-    )
-    outcome = outcome_from_evidence(JobStatus.COMPLETED, evidence)
-    return ProtocolResult(
-        job_status=JobStatus.COMPLETED,
-        research_outcome=outcome,
-        candidate_id=candidate_id,
-        evidence=evidence,
+    last_evidence: Optional[GateEvidence] = None
+    last_candidate_id: Optional[str] = None
+    n_trials = 0
+
+    for index, parameters in enumerate(method_parameter_grid(doc.kind)):
+        remaining_time = float(
+            spec.time_budget_s if clock is None else spec.time_budget_s - clock()
+        )
+        if remaining_time <= 0 or remaining_cost <= 0:
+            if last_evidence is not None and last_evidence.complete:
+                return _result(
+                    research_outcome=outcome_from_evidence(JobStatus.COMPLETED, last_evidence),
+                    candidate_id=last_candidate_id,
+                    evidence=last_evidence,
+                )
+            return _result(
+                research_outcome=ResearchOutcome.INCONCLUSIVE,
+                candidate_id=last_candidate_id,
+                evidence=None,
+            )
+
+        trial_doc = replace(doc, parameters=dict(parameters))
+        candidate_id = _candidate_id(trial_doc.kind, trial_doc.parameters)
+        last_candidate_id = candidate_id
+        _append_ledger(
+            layout,
+            {
+                "trial_id": candidate_id,
+                "kind": trial_doc.kind,
+                "parameters": dict(trial_doc.parameters),
+                "revision": "none" if index == 0 else "method",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        n_trials += 1
+        primary = trial_doc.universe[0]
+        primary_prices = prices.get(primary, buy_hold_prices)
+        stop_evidence: Optional[GateEvidence] = None
+        try:
+            evidence = runner(
+                required,
+                prices=primary_prices,
+                strategy_returns=primary_prices.pct_change().fillna(0.0),
+                buy_hold_prices=buy_hold_prices,
+                benchmark_prices=benchmark_prices,
+                secondary_frames=secondary_frames,
+                n_trials=n_trials,
+                profile=profile,
+                seed=spec.seed,
+                strategy_fn=_strategy_fn_for(trial_doc, prices),
+            )
+        except IncompleteEvidenceError:
+            evidence = None
+
+        if evidence is not None:
+            layout.evidence.mkdir(parents=True, exist_ok=True)
+            (layout.evidence / "gates.json").write_text(
+                json.dumps(evidence_to_dict(evidence), indent=2) + "\n",
+                encoding="utf-8",
+            )
+            last_evidence = evidence
+            stop_evidence = evidence
+
+        decision = should_continue(
+            remaining_time_s=remaining_time,
+            remaining_cost_usd=remaining_cost,
+            last_evidence=stop_evidence,
+            proposed_kind=RevisionKind.METHOD,
+            stop_reason=None,
+        )
+        if decision.reason == "found":
+            return _result(
+                research_outcome=ResearchOutcome.FOUND,
+                candidate_id=candidate_id,
+                evidence=last_evidence,
+            )
+        if decision.reason in FORBIDDEN_CONTINUE_REASONS:
+            return _result(
+                research_outcome=ResearchOutcome.NO_EVIDENCE,
+                candidate_id=candidate_id,
+                evidence=last_evidence,
+            )
+        if decision.continue_search:
+            continue
+        break
+
+    if last_evidence is not None and last_evidence.complete and not last_evidence.all_passed:
+        return _result(
+            research_outcome=ResearchOutcome.NO_EVIDENCE,
+            candidate_id=last_candidate_id,
+            evidence=last_evidence,
+        )
+    return _result(
+        research_outcome=ResearchOutcome.INCONCLUSIVE,
+        candidate_id=last_candidate_id,
+        evidence=last_evidence if last_evidence is not None and last_evidence.complete else None,
     )

@@ -74,9 +74,109 @@ def test_protocol_found_from_passing_gates(tmp_path):
     evidence = evidence_from_dict(json.loads((layout.evidence / "gates.json").read_text()))
     assert evidence.all_passed is True
     ledger = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
-    assert len(ledger) >= 1
+    assert len(ledger) == 1
     rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
     assert rec["queued_hypotheses"] == []
+
+
+def test_found_stops_after_first_passing_trial(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    calls = {"n": 0}
+
+    def runner(required, **kwargs):
+        calls["n"] += 1
+        return _all_pass(required, **kwargs)
+
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    assert result.research_outcome is ResearchOutcome.FOUND
+    assert calls["n"] == 1
+    ledger = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
+    assert len(ledger) == 1
+
+
+def test_failed_gate_does_not_walk_the_parameter_grid(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    calls = {"n": 0}
+
+    def runner(required, **kwargs):
+        calls["n"] += 1
+        return _one_fail(required, **kwargs)
+
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    assert result.research_outcome is ResearchOutcome.NO_EVIDENCE
+    assert calls["n"] == 1
+
+
+class _IncompleteThenPass:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, required, **kwargs):
+        self.calls.append(kwargs["n_trials"])
+        if len(self.calls) == 1:
+            raise IncompleteEvidenceError("missing walk_forward")
+        return _all_pass(required, **kwargs)
+
+
+def test_method_repair_retries_and_counts_trials(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    runner = _IncompleteThenPass()
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    assert result.research_outcome is ResearchOutcome.FOUND
+    assert runner.calls == [1, 2]
+    ledger = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
+    assert len(ledger) == 2
+    assert json.loads(ledger[0])["revision"] == "none"
+    assert json.loads(ledger[1])["revision"] == "method"
+    assert json.loads(ledger[1])["parameters"] == {"skip": 42}
+    evidence = evidence_from_dict(json.loads((layout.evidence / "gates.json").read_text()))
+    assert evidence.all_passed is True
+
+
+def test_budget_exhaustion_after_incomplete_is_inconclusive(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    ticks = {"n": 0}
+
+    def clock():
+        ticks["n"] += 1
+        return 0 if ticks["n"] == 1 else 1000
+
+    result = run_protocol(
+        _spec(time_budget_s=10),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=_incomplete,
+        clock=clock,
+    )
+    assert result.research_outcome is ResearchOutcome.INCONCLUSIVE
+    assert not (layout.evidence / "gates.json").exists()
 
 
 def test_protocol_no_evidence_from_failed_gate(tmp_path):
