@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from importlib.resources import files
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -25,6 +27,40 @@ def test_packaged_assets_are_read_only_morning_copy():
     assert "/v1/jobs" in script
     assert "override" not in script.lower()
     assert "hard_gates=" not in script
+
+
+def test_static_package_loads_without_fastapi():
+    """Morning assets must load even when FastAPI is not installed."""
+    code = r"""
+import sys
+from importlib.abc import MetaPathFinder
+from importlib.resources import files
+
+
+class BlockFastAPI(MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "fastapi" or fullname.startswith("fastapi."):
+            raise ModuleNotFoundError("No module named 'fastapi'")
+        return None
+
+
+sys.meta_path.insert(0, BlockFastAPI())
+for name in list(sys.modules):
+    if name == "fastapi" or name.startswith("fastapi.") or name.startswith("alphaloop.webui"):
+        del sys.modules[name]
+
+html = files("alphaloop.webui.static").joinpath("index.html").read_text(encoding="utf-8")
+assert "FOUND" in html
+assert "NO_EVIDENCE" in html
+assert "INCONCLUSIVE" in html
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def _server(tmp_path):
