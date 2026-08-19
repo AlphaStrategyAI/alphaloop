@@ -60,6 +60,8 @@ nav:
     - Phase 9 durability and artifacts: plans/2026-08-19-overnight-lab-phase9-durability-artifacts.md
     - Phase 10 morning submit: plans/2026-08-19-overnight-lab-phase10-morning-submit.md
     - Phase 11 verification: plans/2026-08-19-overnight-lab-phase11-verification.md
+    - Morning Web E2E: plans/2026-08-19-overnight-lab-web-e2e-design.md
+    - Morning Web E2E plan: plans/2026-08-19-overnight-lab-web-e2e.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md

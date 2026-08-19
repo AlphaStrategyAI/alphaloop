@@ -491,3 +491,12 @@ Expected: exit 0.
 git add docs/plans/2026-08-19-overnight-lab-remaining-work.md
 git commit -m "docs: record soak and five-minute review as release checks"
 ```
+
+---
+
+Morning-console coverage that drives the packaged Web page against a
+**real daemon** (not `FakeWorker`) is specified in
+[`2026-08-19-overnight-lab-web-e2e-design.md`](2026-08-19-overnight-lab-web-e2e-design.md).
+Unit HTTP tests may use that daemon without a browser. E2E tests must
+use both Chromium and the daemon. They are marker `e2e` and are not part
+of the default unit job.

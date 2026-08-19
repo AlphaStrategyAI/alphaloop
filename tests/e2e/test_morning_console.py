@@ -1,0 +1,326 @@
+from __future__ import annotations
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
+import pandas as pd
+import pytest
+import yaml
+
+from alphaloop.contracts.artifacts import RunLayout, hash_bytes
+from alphaloop.runtime.preflight import HOST_CONSTRAINT
+from alphaloop.runtime.worker import find_running_worker_pid
+
+pytestmark = pytest.mark.e2e
+
+_OUTCOMES = ("FOUND", "NO_EVIDENCE", "INCONCLUSIVE")
+
+
+def _write_dataset(data_dir: Path, columns=("AAPL", "MSFT", "SPY"), dataset_id="ds_e2e"):
+    idx = pd.bdate_range("2018-01-01", periods=260)
+    frame = pd.DataFrame(
+        {name: 100.0 + pd.Series(range(260), index=idx, dtype=float) for name in columns}
+    )
+    path = Path(data_dir) / "datasets" / dataset_id / "prices.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_parquet(path)
+    return {
+        "dataset_id": dataset_id,
+        "sha256": hash_bytes(path.read_bytes()),
+    }
+
+
+def _spec_yaml(dataset, **overrides) -> str:
+    payload = {
+        "statement": "12-1 momentum works in US large caps net of costs",
+        "economic_logic": "past winners continue",
+        "signal_mechanism": "momentum_12_1",
+        "market_scope": "AAPL, MSFT",
+        "market_profile": "us-equity-daily",
+        "benchmark": "SPY",
+        "hard_gates": ["dsr"],
+        "seed": 7,
+        "time_budget_s": 30,
+        "cost_budget_usd": 1.0,
+        "dataset": dataset,
+    }
+    payload.update(overrides)
+    return yaml.safe_dump(payload)
+
+
+def _cli(data_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "alphaloop.cli.main", *args, "--data-dir", str(data_dir)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _open_morning(page, base_url: str) -> None:
+    page.goto(base_url + "/", wait_until="domcontentloaded")
+    page.wait_for_selector("#submit-job")
+
+
+def _first_run_id(page) -> str:
+    page.wait_for_selector("#job-list button", timeout=15000)
+    text = page.locator("#job-list button").first.inner_text()
+    return text.split(" — ")[0].strip()
+
+
+def _open_job_detail(page) -> None:
+    page.locator("#job-list button").first.click()
+    page.wait_for_function(
+        """() => {
+            const detail = document.getElementById('detail');
+            const outcome = document.getElementById('outcome');
+            return detail && !detail.hidden && (outcome.textContent || '').trim().length > 0;
+        }""",
+        timeout=10000,
+    )
+
+
+def _wait_list_outcome(page, timeout_ms: int = 60000) -> str:
+    page.wait_for_function(
+        """() => [...document.querySelectorAll('#job-list button')].some((button) =>
+            /FOUND|NO_EVIDENCE|INCONCLUSIVE/.test(button.textContent || ''))""",
+        timeout=timeout_ms,
+    )
+    text = page.locator("#job-list button").first.inner_text()
+    return text.split(" — ", 1)[1].strip()
+
+
+def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    body = page.content()
+    assert "Submit in one minute" in body
+    assert "FOUND" in body
+    assert "NO_EVIDENCE" in body
+    assert "INCONCLUSIVE" in body
+    assert page.locator("#spec-yaml").count() == 1
+    assert page.locator("#submit-job").count() == 1
+
+
+def test_invalid_yaml_shows_preflight_errors_without_job(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml({"dataset_id": "x", "sha256": "0" * 64}, hard_gates=[]))
+    page.click("#submit-job")
+    page.wait_for_function(
+        "() => (document.getElementById('preflight-errors').textContent || '').length > 0",
+        timeout=10000,
+    )
+    assert page.locator("#job-list button").count() == 0
+
+
+def test_valid_submit_shows_host_constraint_and_job_row(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset))
+    page.click("#submit-job")
+    page.wait_for_function(
+        f"() => (document.getElementById('host-constraint').textContent || '') === {json.dumps(HOST_CONSTRAINT)}",
+        timeout=10000,
+    )
+    run_id = _first_run_id(page)
+    assert run_id.startswith("j_")
+
+
+def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset))
+    page.click("#submit-job")
+    page.wait_for_selector("#job-list button", timeout=15000)
+    _open_job_detail(page)
+    outcome = page.locator("#outcome").inner_text().strip()
+    assert outcome in ("NONE",) + _OUTCOMES
+    assert "Stop reason:" in page.locator("#stop-reason").inner_text()
+    assert "target found" not in page.content()
+
+
+def test_terminal_outcome_matches_cli_status(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=30))
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page)
+    assert outcome in _OUTCOMES
+    run_id = _first_run_id(page)
+    status = _cli(real_daemon["data_dir"], "status", run_id)
+    assert status.returncode == 0
+    payload = json.loads(status.stdout)
+    assert payload["research_outcome"] == outcome
+    assert payload["research_outcome"] in _OUTCOMES
+    _open_job_detail(page)
+    assert page.locator("#outcome").inner_text().strip() == payload["research_outcome"]
+    assert "target found" not in page.content()
+
+
+def test_missing_columns_are_inconclusive_without_gates(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"], columns=("MSFT", "SPY"), dataset_id="ds_nocol")
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset))
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page)
+    assert outcome == "INCONCLUSIVE"
+    run_id = _first_run_id(page)
+    layout = RunLayout(real_daemon["data_dir"] / run_id)
+    assert not (layout.evidence / "gates.json").exists()
+    _open_job_detail(page)
+    assert page.locator("#outcome").inner_text().strip() == "INCONCLUSIVE"
+    evidence = page.locator("#evidence").inner_text()
+    assert "none" in evidence or evidence.strip() == "none"
+
+
+def test_cancel_before_seal_is_inconclusive(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=3600))
+    page.click("#submit-job")
+    run_id = _first_run_id(page)
+    cancelled = _cli(real_daemon["data_dir"], "cancel", run_id)
+    assert cancelled.returncode == 0
+    payload = json.loads(cancelled.stdout)
+    assert payload["status"] == "cancelled"
+    assert payload["research_outcome"] == "INCONCLUSIVE"
+    page.wait_for_function(
+        """() => [...document.querySelectorAll('#job-list button')].some((button) =>
+            (button.textContent || '').includes('INCONCLUSIVE'))""",
+        timeout=15000,
+    )
+    _open_job_detail(page)
+    assert page.locator("#outcome").inner_text().strip() == "INCONCLUSIVE"
+
+
+def test_cancel_keeps_found_when_already_sealed(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=30))
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page)
+    run_id = _first_run_id(page)
+    if outcome != "FOUND":
+        pytest.skip("shortened worker run did not seal FOUND")
+    cancelled = _cli(real_daemon["data_dir"], "cancel", run_id)
+    assert cancelled.returncode == 0
+    page.wait_for_timeout(2500)
+    _open_job_detail(page)
+    assert page.locator("#outcome").inner_text().strip() == "FOUND"
+
+
+def test_kill_worker_then_resume_shows_queued_or_running(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=3600))
+    page.click("#submit-job")
+    run_id = _first_run_id(page)
+    deadline = time.time() + 20
+    pid = None
+    while time.time() < deadline:
+        pid = find_running_worker_pid(run_id)
+        if pid is not None:
+            break
+        time.sleep(0.1)
+    if pid is None:
+        pytest.skip("worker pid never appeared")
+    os.kill(pid, signal.SIGKILL)
+    resumed = _cli(real_daemon["data_dir"], "resume", run_id)
+    assert resumed.returncode == 0
+    payload = json.loads(resumed.stdout)
+    assert payload["status"] in {"queued", "running"}
+    page.wait_for_function(
+        """(runId) => [...document.querySelectorAll('#job-list button')].some((button) =>
+            (button.textContent || '').startsWith(runId))""",
+        arg=run_id,
+        timeout=15000,
+    )
+
+
+def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=30))
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page)
+    run_id = _first_run_id(page)
+    layout = RunLayout(real_daemon["data_dir"] / run_id)
+    before = layout.report.read_text(encoding="utf-8") if layout.report.is_file() else ""
+    replayed = _cli(real_daemon["data_dir"], "replay", run_id)
+    assert replayed.returncode == 0
+    assert layout.report.is_file()
+    assert layout.report.read_text(encoding="utf-8") != "" or before == ""
+    page.wait_for_timeout(2500)
+    assert _wait_list_outcome(page, timeout_ms=5000) == outcome
+
+
+def test_export_found_only(real_daemon, browser_page, tmp_path):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=30))
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page)
+    run_id = _first_run_id(page)
+    dest = tmp_path / "out.asb"
+    layout = RunLayout(real_daemon["data_dir"] / run_id)
+    candidate = "c_missing"
+    if layout.trial_ledger.is_file():
+        for line in layout.trial_ledger.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                candidate = json.loads(line)["trial_id"]
+                break
+    exported = _cli(
+        real_daemon["data_dir"],
+        "export",
+        candidate,
+        "--run-id",
+        run_id,
+        "--output",
+        str(dest),
+    )
+    if outcome == "FOUND":
+        assert exported.returncode == 0
+        assert dest.is_file()
+    else:
+        assert exported.returncode == 2
+        assert not dest.exists()
+
+
+def test_no_gate_override_in_page_or_http(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    html = page.content()
+    script = urlopen(real_daemon["base_url"] + "/app.js").read().decode("utf-8")
+    assert "override" not in html.lower()
+    assert "override" not in script.lower()
+    page.fill("#spec-yaml", _spec_yaml(dataset))
+    page.click("#submit-job")
+    run_id = _first_run_id(page)
+    for method in ("PUT", "PATCH", "POST"):
+        req = Request(
+            f"{real_daemon['base_url']}/v1/jobs/{run_id}/gates",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method=method,
+        )
+        with pytest.raises(HTTPError) as exc:
+            urlopen(req)
+        assert exc.value.code == 404

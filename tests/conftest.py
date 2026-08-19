@@ -7,7 +7,9 @@ requested via `pytest -m integration` or the env var `OPENSTRATEGY_INTEGRATION=1
 """
 
 import os
+import signal
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -25,6 +27,7 @@ import pandas as pd
 import pytest
 
 from alphaloop.judge import RawCompletion
+from alphaloop.runtime.daemon import spawn_detached_daemon
 
 
 def _integration_enabled() -> bool:
@@ -37,12 +40,51 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "integration: tests that hit real APIs/network")
     config.addinivalue_line("markers", "no_lookahead: factor look-ahead audit tests (v1.1.1)")
     config.addinivalue_line("markers", "llm: tests that require a live LLM endpoint (skipped without LLM_API_KEY)")
+    config.addinivalue_line(
+        "markers",
+        "e2e: real packaged Web page plus real daemon (Playwright)",
+    )
 
 
 def pytest_runtest_setup(item):
     """Skip integration tests unless explicitly enabled."""
     if item.get_closest_marker("integration") and not _integration_enabled():
         pytest.skip("integration tests disabled (set OPENSTRATEGY_INTEGRATION=1)")
+
+
+def start_real_daemon(data_dir: Path) -> dict:
+    meta = dict(spawn_detached_daemon(data_dir, "127.0.0.1", 0))
+    meta["data_dir"] = Path(data_dir)
+    meta["base_url"] = f"http://{meta['host']}:{meta['port']}"
+    return meta
+
+
+def stop_real_daemon(meta: dict) -> None:
+    pid = int(meta["pid"])
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+
+
+@pytest.fixture
+def real_daemon(tmp_path):
+    meta = start_real_daemon(tmp_path)
+    try:
+        yield meta
+    finally:
+        stop_real_daemon(meta)
 
 
 @pytest.fixture

@@ -56,6 +56,9 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+e2e = [
+    "playwright>=1.40",
+]
 
 [project.scripts]
 alphaloop = "alphaloop.cli.main:main"

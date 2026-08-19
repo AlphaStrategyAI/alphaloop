@@ -123,7 +123,12 @@ export.
 ## Tests
 
 ```bash
-python3 -m pytest -m "not integration and not llm" --ignore=tests/integration
+python3 -m pytest -m "not integration and not llm and not e2e" --ignore=tests/integration
+
+# Morning console e2e (real daemon + Chromium)
+pip install -e ".[e2e]"
+python3 -m playwright install chromium
+python3 -m pytest -m e2e
 ```
 
 Live data, soak, five-minute usability, and AlphaStrategy consumer
