@@ -62,6 +62,31 @@ def test_run_worker_checkpoints_and_heartbeats_before_dry_run(tmp_path):
     assert factory_kwargs["dry_run"] is True
 
 
+def test_run_worker_passes_clock_and_cost_budget(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_run_protocol(spec, layout, **kwargs):
+        captured["kwargs"] = kwargs
+        captured["spec"] = spec
+        return None
+
+    monkeypatch.setattr("alphaloop.protocol.loop.run_protocol", fake_run_protocol)
+    run_id = "j_clock"
+    layout = RunLayout(tmp_path / run_id)
+    layout.run_dir.mkdir()
+    spec = _spec()
+    layout.research_spec.write_text(
+        yaml.safe_dump(spec.to_dict()),
+        encoding="utf-8",
+    )
+    assert run_worker(run_id, tmp_path) == 0
+    assert callable(captured["kwargs"]["clock"])
+    assert captured["kwargs"]["remaining_cost_usd"] == spec.cost_budget_usd
+    first = captured["kwargs"]["clock"]()
+    second = captured["kwargs"]["clock"]()
+    assert second >= first
+
+
 def test_run_worker_default_path_writes_protocol_artifacts(tmp_path):
     run_id = "j_protocol"
     layout = RunLayout(tmp_path / run_id)

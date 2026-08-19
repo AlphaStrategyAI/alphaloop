@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -96,12 +97,15 @@ def _run_protocol(spec: ResearchSpec, layout: RunLayout) -> None:
     from alphaloop.protocol.loop import run_protocol
 
     prices, buy_hold, benchmark = _load_or_synthesize_prices(layout, spec)
+    started = time.monotonic()
     run_protocol(
         spec,
         layout,
         prices=prices,
         buy_hold_prices=buy_hold,
         benchmark_prices=benchmark,
+        clock=lambda: time.monotonic() - started,
+        remaining_cost_usd=spec.cost_budget_usd,
     )
 
 
