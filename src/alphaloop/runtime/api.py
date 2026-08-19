@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 from alphaloop.contracts.research_spec import ResearchSpec
-from alphaloop.contracts.status import JobStatus
 from alphaloop.runtime.preflight import preflight
 from alphaloop.runtime.store import JobRecord, JobStore
 from alphaloop.runtime.supervisor import Supervisor
@@ -42,11 +41,9 @@ class JobAPI:
 
     def resume_run(self, run_id: str) -> dict[str, Any]:
         job = self.store.get(run_id)
-        if job.status in (JobStatus.CANCELLED, JobStatus.COMPLETED):
-            raise ValueError(f"cannot resume {job.status.value} job")
-        return self._job_dict(
-            self.store.update_status(run_id, JobStatus.QUEUED, error=None)
-        )
+        if job.worker_pid is not None:
+            self.supervisor.worker.terminate(job.worker_pid)
+        return self._job_dict(self.store.requeue_unless_terminal(run_id))
 
     @staticmethod
     def _job_dict(job: JobRecord) -> dict[str, Any]:

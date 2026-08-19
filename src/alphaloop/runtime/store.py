@@ -206,6 +206,38 @@ class JobStore:
                 ).fetchone()
         return self._row_to_record(row)
 
+    def requeue_unless_terminal(self, run_id: str) -> JobRecord:
+        now = _utc_now_iso()
+        with self._lock:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE run_id = ?", (run_id,)
+                ).fetchone()
+                if row is None:
+                    raise KeyError(run_id)
+                status = JobStatus(row["status"])
+                if status in (JobStatus.CANCELLED, JobStatus.COMPLETED):
+                    raise ValueError(f"cannot resume {status.value} job")
+                conn.execute(
+                    """
+                    UPDATE jobs SET
+                      status = ?, research_outcome = ?, updated_at = ?,
+                      error = NULL, worker_pid = NULL
+                    WHERE run_id = ?
+                    """,
+                    (
+                        JobStatus.QUEUED.value,
+                        ResearchOutcome.NONE.value,
+                        now,
+                        run_id,
+                    ),
+                )
+                conn.commit()
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE run_id = ?", (run_id,)
+                ).fetchone()
+        return self._row_to_record(row)
+
     def set_heartbeat(self, run_id: str, *, pid: int, at: str) -> JobRecord:
         now = _utc_now_iso()
         with self._lock:

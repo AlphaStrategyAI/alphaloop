@@ -47,7 +47,7 @@ def test_create_run_rejects_empty_gates_without_inserting_job(tmp_path):
     assert api.store.list_jobs() == ()
 
 
-def test_get_cancel_resume(tmp_path):
+def test_cancelled_run_cannot_be_resumed(tmp_path):
     api = _api(tmp_path)
     created = api.create_run(_spec())
     run_id = created["run_id"]
@@ -58,3 +58,34 @@ def test_get_cancel_resume(tmp_path):
     assert cancelled["research_outcome"] == ResearchOutcome.INCONCLUSIVE.value
     with pytest.raises(ValueError):
         api.resume_run(run_id)
+
+
+def test_resume_running_terminates_worker_and_requeues_until_tick(tmp_path):
+    api = _api(tmp_path)
+    run_id = api.create_run(_spec())["run_id"]
+    api.supervisor.tick()
+    running = api.store.get(run_id)
+    pid = running.worker_pid
+    assert pid is not None
+    spawned_before_resume = list(api.supervisor.worker.spawned)
+
+    resumed = api.resume_run(run_id)
+
+    assert api.supervisor.worker.terminated == [pid]
+    assert api.supervisor.worker.spawned == spawned_before_resume
+    assert resumed["status"] == JobStatus.QUEUED.value
+    queued = api.store.get(run_id)
+    assert queued.status is JobStatus.QUEUED
+    assert queued.worker_pid is None
+
+
+def test_resume_failed_requeues_and_clears_error(tmp_path):
+    api = _api(tmp_path)
+    run_id = api.create_run(_spec())["run_id"]
+    api.store.update_status(run_id, JobStatus.FAILED, error="worker crashed")
+
+    resumed = api.resume_run(run_id)
+
+    assert resumed["status"] == JobStatus.QUEUED.value
+    assert resumed["research_outcome"] == ResearchOutcome.NONE.value
+    assert resumed["error"] is None
