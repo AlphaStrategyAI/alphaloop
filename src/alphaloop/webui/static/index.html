@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>alphaloop morning review</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>alphaloop</h1>
+      <p class="promise">
+        Submit in one minute. Overnight, a local worker researches. In the
+        morning, read a trustworthy conclusion in five minutes.
+      </p>
+      <p class="legend">
+        Conclusions:
+        <span>FOUND</span>
+        ·
+        <span>NO_EVIDENCE</span>
+        ·
+        <span>INCONCLUSIVE</span>
+      </p>
+    </header>
+    <main>
+      <section id="jobs">
+        <h2>Jobs</h2>
+        <ul id="job-list"></ul>
+      </section>
+      <section id="detail" hidden>
+        <p id="outcome" data-outcome></p>
+        <p id="stop-reason"></p>
+        <h3>Evidence</h3>
+        <ul id="evidence"></ul>
+        <h3>Elimination funnel</h3>
+        <ul id="funnel"></ul>
+        <h3>Methodological revisions</h3>
+        <ul id="revisions"></ul>
+        <h3>Queued hypotheses</h3>
+        <ul id="queued"></ul>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

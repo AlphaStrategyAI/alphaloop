@@ -12,8 +12,9 @@ import subprocess
 import sys
 import threading
 import time
+from importlib.resources import files as resource_files
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import unquote, urlsplit
 from urllib.request import urlopen
 
@@ -32,6 +33,12 @@ _DAEMON_PID = "daemon.pid"
 _DAEMON_START_TIMEOUT_S = 10.0
 _DAEMON_START_POLL_S = 0.05
 _DAEMON_HEALTH_REQUEST_TIMEOUT_S = 0.2
+_STATIC_PACKAGE = "alphaloop.webui.static"
+_STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+}
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +50,17 @@ class UnsupportedBindHost(ValueError):  # noqa: N818 - public API name
     pass
 
 
+def _safe_static_name(path: str) -> Optional[str]:
+    if path in ("/", "/index.html"):
+        return "index.html"
+    if not path.startswith("/") or path.startswith("/v1/") or path == "/healthz":
+        return None
+    name = unquote(path[1:])
+    if not name or "/" in name or "\\" in name or name.startswith(".") or ".." in name:
+        return None
+    return name
+
+
 class _ThreadingHTTPServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
@@ -52,11 +70,11 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
     class JobRequestHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             path = urlsplit(self.path).path
-            if path == "/":
-                self._send_text(200, "alphaloop control plane")
-                return
             if path == "/healthz":
                 self._send_json(200, {"status": "ok"})
+                return
+            if path == "/v1/jobs":
+                self._send_json(200, api.list_jobs())
                 return
             prefix = "/v1/jobs/"
             if path.startswith(prefix):
@@ -67,6 +85,16 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
                     except KeyError:
                         self._send_json(404, {"error": "job not found"})
                     return
+            name = _safe_static_name(path)
+            if name is not None:
+                self._send_static(name)
+                return
+            self._send_json(404, {"error": "not found"})
+
+        def do_PUT(self) -> None:
+            self._send_json(404, {"error": "not found"})
+
+        def do_PATCH(self) -> None:
             self._send_json(404, {"error": "not found"})
 
         def do_POST(self) -> None:
@@ -130,13 +158,19 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(body)
 
-        def _send_text(self, status: int, text: str) -> None:
-            body = text.encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
+        def _send_static(self, name: str) -> None:
+            try:
+                data = resource_files(_STATIC_PACKAGE).joinpath(name).read_bytes()
+            except (FileNotFoundError, IsADirectoryError, OSError, ValueError, ModuleNotFoundError):
+                self._send_json(404, {"error": "not found"})
+                return
+            suffix = Path(name).suffix.lower()
+            content_type = _STATIC_TYPES.get(suffix, "application/octet-stream")
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(data)
 
         def log_message(self, format: str, *args: object) -> None:
             return

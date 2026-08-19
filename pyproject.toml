@@ -78,3 +78,8 @@ lint.ignore = ["E501", "F401", "F811"]
 python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/alphaloop/webui/static/index.html" = "alphaloop/webui/static/index.html"
+"src/alphaloop/webui/static/app.js" = "alphaloop/webui/static/app.js"
+"src/alphaloop/webui/static/styles.css" = "alphaloop/webui/static/styles.css"
