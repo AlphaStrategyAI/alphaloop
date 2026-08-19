@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import errno
 import os
 import subprocess
 import sys
@@ -93,7 +94,15 @@ class ProcessWorker:
     def poll(self, pid: int) -> Optional[int]:
         process = self._processes.get(pid)
         if process is None:
-            return 1
+            try:
+                os.kill(pid, 0)
+            except OSError as exc:
+                if exc.errno == errno.ESRCH:
+                    return 1
+                if exc.errno == errno.EPERM:
+                    return None
+                raise
+            return None
         return process.poll()
 
     def terminate(self, pid: int) -> None:

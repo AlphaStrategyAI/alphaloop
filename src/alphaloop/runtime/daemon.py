@@ -10,9 +10,11 @@ import socketserver
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
+from urllib.request import urlopen
 
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.runtime.api import JobAPI, PreflightRejected
@@ -26,6 +28,9 @@ _LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
 _CONTROL_DIR = ".alphaloop"
 _DAEMON_META = "daemon.json"
 _DAEMON_PID = "daemon.pid"
+_DAEMON_START_TIMEOUT_S = 10.0
+_DAEMON_START_POLL_S = 0.05
+_DAEMON_HEALTH_REQUEST_TIMEOUT_S = 0.2
 
 
 class DaemonAlreadyRunning(RuntimeError):  # noqa: N818 - public API name
@@ -273,6 +278,35 @@ def _available_port(host: str) -> int:
         return int(probe.getsockname()[1])
 
 
+def _healthz_succeeds(host: str, port: int) -> bool:
+    with urlopen(
+        f"http://{host}:{port}/healthz",
+        timeout=_DAEMON_HEALTH_REQUEST_TIMEOUT_S,
+    ) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return isinstance(payload, dict) and payload.get("status") == "ok"
+
+
+def _remove_daemon_meta_for_pid(data_dir: Path, pid: int) -> None:
+    path = _control_dir(data_dir) / _DAEMON_META
+    try:
+        if read_daemon_meta(data_dir).get("pid") == pid:
+            path.unlink(missing_ok=True)
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+
+
+def _stop_detached_process(process: subprocess.Popen[Any]) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=1.0)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=1.0)
+
+
 def spawn_detached_daemon(data_dir: Path, host: str, port: int) -> dict[str, Any]:
     if host not in _LOOPBACK_HOSTS:
         raise UnsupportedBindHost(host)
@@ -305,12 +339,39 @@ def spawn_detached_daemon(data_dir: Path, host: str, port: int) -> dict[str, Any
         start_new_session=True,
         close_fds=True,
     )
-    return write_daemon_meta(
-        data_dir,
-        host=host,
-        port=selected_port,
-        pid=process.pid,
-    )
+    deadline = time.monotonic() + _DAEMON_START_TIMEOUT_S
+    last_error: Exception | None = None
+    try:
+        while time.monotonic() < deadline:
+            exit_code = process.poll()
+            if exit_code is not None:
+                raise RuntimeError(
+                    f"detached daemon exited before becoming healthy "
+                    f"(exit code {exit_code})"
+                )
+            try:
+                healthy = _healthz_succeeds(host, selected_port)
+                meta = read_daemon_meta(data_dir)
+                if (
+                    healthy
+                    and meta["port"] == selected_port
+                    and meta["pid"] == process.pid
+                    and process.poll() is None
+                ):
+                    return meta
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                last_error = exc
+            time.sleep(_DAEMON_START_POLL_S)
+
+        detail = f": {last_error}" if last_error is not None else ""
+        raise RuntimeError(
+            f"detached daemon did not become healthy within "
+            f"{_DAEMON_START_TIMEOUT_S:g}s{detail}"
+        )
+    except BaseException:
+        _stop_detached_process(process)
+        _remove_daemon_meta_for_pid(data_dir, process.pid)
+        raise
 
 
 def _create_parser() -> Any:

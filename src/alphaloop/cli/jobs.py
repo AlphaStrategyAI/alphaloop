@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Callable
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 import yaml
 
@@ -69,7 +69,22 @@ def _daemon_unavailable(exc: Exception) -> int:
     return 2
 
 
-def _client(data_dir: Path) -> JobClient:
+def _http_error(exc: HTTPError) -> int:
+    body = exc.read().decode("utf-8", errors="replace").strip()
+    detail = f": {body}" if body else ""
+    print(
+        f"error: daemon request failed (HTTP {exc.code} {exc.reason}){detail}",
+        file=sys.stderr,
+    )
+    return 2
+
+
+def _daemon_request_failed(exc: Exception) -> int:
+    print(f"error: daemon request failed ({exc})", file=sys.stderr)
+    return 2
+
+
+def _connect(data_dir: Path) -> JobClient:
     meta = read_daemon_meta(data_dir)
     client = JobClient(f"http://{meta['host']}:{meta['port']}")
     client.healthz()
@@ -78,9 +93,15 @@ def _client(data_dir: Path) -> JobClient:
 
 def _invoke(data_dir: Path, operation: Callable[[JobClient], dict[str, Any]]) -> Any:
     try:
-        return operation(_client(data_dir))
-    except (OSError, URLError, json.JSONDecodeError, KeyError, ValueError) as exc:
+        return operation(_connect(data_dir))
+    except HTTPError as exc:
+        _http_error(exc)
+        return None
+    except (FileNotFoundError, URLError) as exc:
         _daemon_unavailable(exc)
+        return None
+    except (OSError, json.JSONDecodeError, KeyError, ValueError) as exc:
+        _daemon_request_failed(exc)
         return None
 
 

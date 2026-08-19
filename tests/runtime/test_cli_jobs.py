@@ -44,3 +44,26 @@ def test_submit_returns_run_id_and_host_constraint(tmp_path, capsys):
         assert "j_" in captured.out
     finally:
         server.shutdown()
+
+
+def test_status_missing_run_surfaces_http_error_without_start_hint(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    try:
+        rc = main(["status", "j_missing", "--data-dir", str(tmp_path)])
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "404" in captured.err
+        assert "job not found" in captured.err
+        assert "alphaloop start" not in captured.err
+    finally:
+        server.shutdown()

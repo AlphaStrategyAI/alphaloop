@@ -78,3 +78,9 @@ def test_process_worker_uses_module_entrypoint(monkeypatch, tmp_path):
     assert worker.poll(123) is None
     worker.terminate(123)
     assert calls[-1] == "terminated"
+
+
+def test_process_worker_poll_treats_unknown_live_pid_as_running():
+    worker = ProcessWorker()
+
+    assert worker.poll(os.getpid()) is None
