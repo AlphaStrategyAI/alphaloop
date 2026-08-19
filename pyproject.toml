@@ -83,3 +83,4 @@ warn_unused_configs = true
 "src/alphaloop/webui/static/index.html" = "alphaloop/webui/static/index.html"
 "src/alphaloop/webui/static/app.js" = "alphaloop/webui/static/app.js"
 "src/alphaloop/webui/static/styles.css" = "alphaloop/webui/static/styles.css"
+"src/alphaloop/skills/overnight-lab/SKILL.md" = "alphaloop/skills/overnight-lab/SKILL.md"
