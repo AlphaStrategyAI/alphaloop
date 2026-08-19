@@ -7,7 +7,12 @@ import yaml
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.status import JobStatus, ResearchOutcome, derive_research_outcome
 from alphaloop.runtime.checkpoint import load_latest_complete, read_heartbeat
-from alphaloop.runtime.worker import ProcessWorker, run_worker, stopgap_terminal_outcome
+from alphaloop.runtime.worker import (
+    ProcessWorker,
+    is_worker_cmdline,
+    run_worker,
+    stopgap_terminal_outcome,
+)
 from tests.runtime.test_supervisor import _spec
 
 
@@ -84,6 +89,21 @@ def test_process_worker_poll_rejects_unknown_live_pid():
     worker = ProcessWorker()
 
     assert worker.poll(os.getpid()) not in (None, 0)
+
+
+def test_is_worker_cmdline_accepts_module_entrypoint():
+    cmdline = b"python\0-m\0alphaloop.runtime.worker\0--run-id\0x"
+    assert is_worker_cmdline(cmdline) is True
+
+
+def test_is_worker_cmdline_rejects_exec_string():
+    cmdline = b"python\0-c\0import alphaloop.runtime.worker"
+    assert is_worker_cmdline(cmdline) is False
+
+
+def test_is_worker_cmdline_rejects_substring_in_single_argv():
+    cmdline = b"evil alphaloop.runtime.worker\0"
+    assert is_worker_cmdline(cmdline) is False
 
 
 def test_process_worker_terminate_ignores_unknown_live_pid(monkeypatch):

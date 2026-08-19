@@ -21,6 +21,15 @@ RunnerFactory = Callable[..., Any]
 _WORKER_MODULE = b"alphaloop.runtime.worker"
 
 
+def is_worker_cmdline(raw_cmdline: bytes) -> bool:
+    """True when NUL-separated argv contains ``-m`` followed by the worker module."""
+    argv = raw_cmdline.split(b"\0")
+    for i, arg in enumerate(argv):
+        if arg == b"-m" and i + 1 < len(argv) and argv[i + 1] == _WORKER_MODULE:
+            return True
+    return False
+
+
 def stopgap_terminal_outcome() -> ResearchOutcome:
     return derive_research_outcome(JobStatus.COMPLETED, False, False)
 
@@ -126,8 +135,7 @@ class ProcessWorker:
             raw_cmdline = Path(f"/proc/{pid}/cmdline").read_bytes()
         except OSError:
             return False
-        cmdline = b" ".join(raw_cmdline.split(b"\0"))
-        return _WORKER_MODULE in cmdline
+        return is_worker_cmdline(raw_cmdline)
 
 
 def run_loop_command(args: argparse.Namespace) -> int:
