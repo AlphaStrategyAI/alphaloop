@@ -7,6 +7,7 @@ import pytest
 
 from alphaloop.contracts.gates import (
     HardGateName,
+    IncompleteEvidenceError,
     evidence_from_dict,
     evidence_to_dict,
     evaluate_hard_gates,
@@ -134,7 +135,12 @@ def test_walk_forward_adapter_passes_profile_cost_and_embargo():
     prices = _prices(80)
     required = (HardGateName.WALK_FORWARD,)
     with mock.patch("alphaloop.protocol.gates.walk_forward_cv") as wf:
-        wf.return_value = mock.Mock(passes=True, oos_sharpe_mean=0.1)
+        wf.return_value = mock.Mock(
+            passes=True,
+            oos_sharpe_mean=0.1,
+            oos_returns=pd.Series([0.001] * 40, dtype=float),
+            n_folds=1,
+        )
         run_hard_gates(
             required,
             prices=prices,
@@ -167,6 +173,7 @@ def test_dsr_detail_records_cost_bps():
         strategy_fn=_strategy_fn,
     )
     assert evidence.results[0].detail["cost_bps"] == 5.0
+    assert evidence.results[0].detail["returns_scope"] == "full_sample"
 
 
 def test_high_turnover_costs_reduce_dsr_observed_sharpe():
@@ -206,3 +213,83 @@ def test_high_turnover_costs_reduce_dsr_observed_sharpe():
         > expensive.results[0].detail["observed_sharpe"]
     )
     assert expensive.results[0].detail["cost_bps"] == 1000.0
+
+
+def test_dsr_uses_oos_returns_when_walk_forward_required():
+    prices = _prices(80)
+    oos = pd.Series(
+        [0.001] * 40, index=pd.bdate_range("2020-06-01", periods=40), dtype=float
+    )
+    with mock.patch("alphaloop.protocol.gates.deflated_sharpe") as dsr, mock.patch(
+        "alphaloop.protocol.gates.walk_forward_cv"
+    ) as wf:
+        wf.return_value = mock.Mock(
+            passes=True, oos_sharpe_mean=0.1, oos_returns=oos, n_folds=1
+        )
+        dsr.return_value = mock.Mock(
+            passes=True, dsr=0.99, observed_sharpe=1.0, p_value=0.01
+        )
+        evidence = run_hard_gates(
+            (HardGateName.DSR, HardGateName.WALK_FORWARD),
+            prices=prices,
+            strategy_returns=_returns(prices),
+            buy_hold_prices=prices,
+            benchmark_prices=prices,
+            secondary_frames=None,
+            n_trials=2,
+            profile=get_profile("us-equity-daily"),
+            seed=1,
+            strategy_fn=_strategy_fn,
+        )
+        dsr.assert_called_once()
+        passed = dsr.call_args.kwargs["returns"]
+        assert list(passed) == list(oos)
+        by_name = {row.name: row for row in evidence.results}
+        assert by_name[HardGateName.DSR].detail["returns_scope"] == "oos_walk_forward"
+
+
+def test_dsr_omitted_when_oos_shorter_than_30():
+    prices = _prices(80)
+    oos = pd.Series(
+        [0.001] * 10, index=pd.bdate_range("2020-06-01", periods=10), dtype=float
+    )
+    with mock.patch("alphaloop.protocol.gates.deflated_sharpe") as dsr, mock.patch(
+        "alphaloop.protocol.gates.walk_forward_cv"
+    ) as wf:
+        wf.return_value = mock.Mock(
+            passes=True, oos_sharpe_mean=0.1, oos_returns=oos, n_folds=1
+        )
+        with pytest.raises(IncompleteEvidenceError):
+            run_hard_gates(
+                (HardGateName.DSR, HardGateName.WALK_FORWARD),
+                prices=prices,
+                strategy_returns=_returns(prices),
+                buy_hold_prices=prices,
+                benchmark_prices=prices,
+                secondary_frames=None,
+                n_trials=1,
+                profile=get_profile("us-equity-daily"),
+                seed=1,
+                strategy_fn=_strategy_fn,
+            )
+        dsr.assert_not_called()
+
+
+def test_vs_random_adapter_uses_powered_bootstrap():
+    prices = _prices(80)
+    with mock.patch("alphaloop.protocol.gates.vs_random") as vr:
+        vr.return_value = mock.Mock(passes=True, p_value=0.1, strategy_sharpe=0.5)
+        run_hard_gates(
+            (HardGateName.VS_RANDOM,),
+            prices=prices,
+            strategy_returns=_returns(prices),
+            buy_hold_prices=prices,
+            benchmark_prices=prices,
+            secondary_frames=None,
+            n_trials=1,
+            profile=get_profile("us-equity-daily"),
+            seed=1,
+            strategy_fn=_strategy_fn,
+        )
+        assert vr.call_args.kwargs["n_simulations"] == 200
+        assert vr.call_args.kwargs["block_size"] == 21

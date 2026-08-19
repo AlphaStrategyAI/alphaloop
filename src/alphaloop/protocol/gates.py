@@ -56,6 +56,28 @@ def _walk_forward_windows(n: int, periods_per_year: int) -> tuple[int, int, int]
     return train, test, embargo
 
 
+MIN_DSR_OBSERVATIONS = 30
+VS_RANDOM_SIMULATIONS = 200
+VS_RANDOM_BLOCK = 21
+
+
+def _compute_walk_forward(
+    prices: pd.Series,
+    strategy_fn: Callable[[pd.Series], pd.Series],
+    profile: MarketProfile,
+):
+    train, test, embargo = _walk_forward_windows(len(prices), profile.periods_per_year)
+    return walk_forward_cv(
+        prices,
+        strategy_fn,
+        train_size=train,
+        test_size=test,
+        embargo_size=embargo,
+        cost_bps=profile.cost_bps,
+        periods_per_year=profile.periods_per_year,
+    )
+
+
 def run_hard_gates(
     required: Sequence[HardGateName],
     *,
@@ -69,25 +91,50 @@ def run_hard_gates(
     seed: int,
     strategy_fn: Callable[[pd.Series], pd.Series],
 ) -> GateEvidence:
+    wf_result = None
+    if HardGateName.WALK_FORWARD in required:
+        try:
+            wf_result = _compute_walk_forward(prices, strategy_fn, profile)
+        except Exception:
+            wf_result = None
+    oos = wf_result.oos_returns if wf_result is not None else None
+    wf_required = HardGateName.WALK_FORWARD in required
+    oos_ok = isinstance(oos, pd.Series) and len(oos) > 0
+    if wf_required and oos_ok:
+        scored = oos
+        scope = "oos_walk_forward"
+    elif wf_required:
+        scored = None
+        scope = "oos_walk_forward"
+    else:
+        scored = strategy_returns
+        scope = "full_sample"
+
     rows: list[GateResult] = []
     for name in required:
         try:
             row = _run_one(
                 name,
                 prices=prices,
-                strategy_returns=strategy_returns,
+                scored_returns=scored,
                 buy_hold_prices=buy_hold_prices,
                 benchmark_prices=benchmark_prices,
                 secondary_frames=secondary_frames,
                 n_trials=n_trials,
                 profile=profile,
                 seed=seed,
-                strategy_fn=strategy_fn,
+                wf_result=wf_result,
             )
         except Exception:
             continue
+        if row is None:
+            continue
         detail = dict(row.detail)
         detail["cost_bps"] = profile.cost_bps
+        if name is not HardGateName.DATA_CONSISTENCY:
+            detail["returns_scope"] = (
+                "oos_walk_forward" if name is HardGateName.WALK_FORWARD else scope
+            )
         rows.append(GateResult(name=row.name, passed=row.passed, detail=detail))
     return evaluate_hard_gates(required, rows)
 
@@ -96,62 +143,64 @@ def _run_one(
     name: HardGateName,
     *,
     prices: pd.Series,
-    strategy_returns: pd.Series,
+    scored_returns: Optional[pd.Series],
     buy_hold_prices: pd.Series,
     benchmark_prices: pd.Series,
     secondary_frames: Optional[Mapping[str, tuple[pd.DataFrame, pd.DataFrame]]],
     n_trials: int,
     profile: MarketProfile,
     seed: int,
-    strategy_fn: Callable[[pd.Series], pd.Series],
-) -> GateResult:
+    wf_result,
+) -> Optional[GateResult]:
     periods = profile.periods_per_year
     if name is HardGateName.DSR:
-        observed = _annualized_sharpe(strategy_returns, periods)
+        if scored_returns is None or len(scored_returns) < MIN_DSR_OBSERVATIONS:
+            return None
+        observed = _annualized_sharpe(scored_returns, periods)
         result = deflated_sharpe(
             observed_sharpe=observed,
             n_trials=n_trials,
-            returns=strategy_returns,
+            returns=scored_returns,
         )
         return GateResult(name=name, passed=bool(result.passes), detail=_detail(result))
     if name is HardGateName.WALK_FORWARD:
-        train, test, embargo = _walk_forward_windows(len(prices), periods)
-        result = walk_forward_cv(
-            prices,
-            strategy_fn,
-            train_size=train,
-            test_size=test,
-            embargo_size=embargo,
-            cost_bps=profile.cost_bps,
-            periods_per_year=periods,
+        if wf_result is None:
+            return None
+        return GateResult(
+            name=name, passed=bool(wf_result.passes), detail=_detail(wf_result)
         )
-        return GateResult(name=name, passed=bool(result.passes), detail=_detail(result))
     if name is HardGateName.VS_RANDOM:
+        if scored_returns is None or scored_returns.empty:
+            return None
         result = vs_random(
-            strategy_returns,
-            n_simulations=32,
-            block_size=5,
+            scored_returns,
+            n_simulations=VS_RANDOM_SIMULATIONS,
+            block_size=VS_RANDOM_BLOCK,
             seed=seed,
             periods_per_year=periods,
         )
         return GateResult(name=name, passed=bool(result.passes), detail=_detail(result))
     if name is HardGateName.VS_BUY_HOLD:
+        if scored_returns is None or scored_returns.empty:
+            return None
         result = vs_buy_hold(
-            strategy_returns,
+            scored_returns,
             buy_hold_prices,
             periods_per_year=periods,
         )
         return GateResult(name=name, passed=bool(result.passes), detail=_detail(result))
     if name is HardGateName.VS_BENCHMARK:
+        if scored_returns is None or scored_returns.empty:
+            return None
         if profile.name == "us-equity-daily":
             result = vs_spy_buyhold(
-                strategy_returns,
+                scored_returns,
                 benchmark_prices,
                 periods_per_year=periods,
             )
         else:
             result = vs_buy_hold(
-                strategy_returns,
+                scored_returns,
                 benchmark_prices,
                 periods_per_year=periods,
             )

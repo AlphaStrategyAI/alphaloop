@@ -6,8 +6,8 @@ _GRIDS: dict[str, tuple[dict[str, object], ...]] = {
         {"lookback": 126, "skip": 21},
         {"lookback": 189, "skip": 21},
     ),
-    "rsi": ({}, {"window": 21}, {"window": 28}),
-    "roc": ({}, {"window": 40}),
+    "rsi": ({}, {"window": 9}, {"window": 21}),
+    "roc": ({}, {"window": 63}, {"window": 126}),
 }
 
 

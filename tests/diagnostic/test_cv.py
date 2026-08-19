@@ -108,6 +108,16 @@ def test_walk_forward_summary_is_string():
     assert "Walk-Forward CV verdict" in s
 
 
+def test_walk_forward_exposes_concatenated_oos_returns():
+    prices = _make_prices(400)
+    result = walk_forward_cv(
+        prices, _buy_and_hold, train_size=200, test_size=50, embargo_size=0, step_size=50
+    )
+    assert result.n_folds >= 1
+    assert len(result.oos_returns) == result.n_folds * 50
+    assert list(result.oos_returns.index[:50]) == list(prices.index[200:250])
+
+
 def test_walk_forward_strategy_fn_sees_history_through_test():
     prices = _make_prices(400)
     seen: list[int] = []

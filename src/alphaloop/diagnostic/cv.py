@@ -61,6 +61,7 @@ class WalkForwardResult:
     oos_return_mean: float
     n_folds: int
     passes: bool  # mean OOS Sharpe > 0
+    oos_returns: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
 
     def summary(self) -> str:
         verdict = "PASS" if self.passes else "FAIL"
@@ -138,6 +139,7 @@ def walk_forward_cv(
         )
 
     folds: List[WalkForwardFold] = []
+    oos_parts: list[pd.Series] = []
     fold_id = 0
     i = 0
     idx = prices.index
@@ -149,6 +151,7 @@ def walk_forward_cv(
         net = compute_strategy_returns(history, all_weights, cost_bps=cost_bps)
         train_returns = net.iloc[i : i + train_size]
         test_returns = net.iloc[test_start_i:test_end_i]
+        oos_parts.append(test_returns)
 
         train_start = pd.Timestamp(idx[i])
         train_end = pd.Timestamp(idx[i + train_size - 1])
@@ -172,6 +175,10 @@ def walk_forward_cv(
         fold_id += 1
         i += step_size
 
+    concat = pd.concat(oos_parts) if oos_parts else pd.Series(dtype=float)
+    if not concat.empty:
+        concat = concat[~concat.index.duplicated(keep="first")]
+
     if not folds:
         return WalkForwardResult(
             folds=[],
@@ -181,6 +188,7 @@ def walk_forward_cv(
             oos_return_mean=0.0,
             n_folds=0,
             passes=False,
+            oos_returns=concat,
         )
 
     oos_sharpes = np.array([f.oos_sharpe for f in folds])
@@ -193,4 +201,5 @@ def walk_forward_cv(
         oos_return_mean=float(oos_returns.mean()),
         n_folds=len(folds),
         passes=bool(oos_sharpes.mean() > min_oos_sharpe),
+        oos_returns=concat,
     )
