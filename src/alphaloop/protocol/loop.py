@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 import pandas as pd
 
@@ -60,6 +60,17 @@ def _append_ledger(layout: RunLayout, payload: Mapping[str, Any]) -> None:
         handle.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
+def _ledger_rows(layout: RunLayout) -> list[dict[str, Any]]:
+    if not layout.trial_ledger.exists():
+        return []
+    lines = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
+
+
+def _ledger_ids(rows: list[Mapping[str, Any]]) -> list[str]:
+    return [str(row["trial_id"]) for row in rows if "trial_id" in row]
+
+
 def _strategy_fn_for(doc, prices: Mapping[str, pd.Series]):
     primary = next(iter(doc.universe))
 
@@ -104,12 +115,15 @@ def run_protocol(
     revision_proposer: Optional[
         Callable[[ResearchSpec, StrategyDocument], Optional[Mapping[str, object]]]
     ] = None,
+    completed_trial_ids: Sequence[str] = (),
+    on_trial: Optional[Callable[[Mapping[str, Any]], None]] = None,
 ) -> ProtocolResult:
     layout.run_dir.mkdir(parents=True, exist_ok=True)
-    layout.recommendations.write_text(
-        json.dumps({"queued_hypotheses": []}, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    if not layout.recommendations.exists():
+        layout.recommendations.write_text(
+            json.dumps({"queued_hypotheses": []}, indent=2) + "\n",
+            encoding="utf-8",
+        )
     try:
         doc = parse_strategy_document(
             {
@@ -133,7 +147,8 @@ def run_protocol(
     remaining_cost = spec.cost_budget_usd if remaining_cost_usd is None else remaining_cost_usd
     last_evidence: Optional[GateEvidence] = None
     last_candidate_id: Optional[str] = None
-    n_trials = 0
+    completed_skip = set(completed_trial_ids)
+    finished_ids: list[str] = list(completed_trial_ids)
 
     for index, parameters in enumerate(method_parameter_grid(doc.kind)):
         remaining_time = float(
@@ -154,18 +169,21 @@ def run_protocol(
 
         trial_doc = replace(doc, parameters=dict(parameters))
         candidate_id = _candidate_id(trial_doc.kind, trial_doc.parameters)
+        if candidate_id in completed_skip:
+            continue
         last_candidate_id = candidate_id
-        _append_ledger(
-            layout,
-            {
-                "trial_id": candidate_id,
-                "kind": trial_doc.kind,
-                "parameters": dict(trial_doc.parameters),
-                "revision": "none" if index == 0 else "method",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            },
-        )
-        n_trials += 1
+        if candidate_id not in set(_ledger_ids(_ledger_rows(layout))):
+            _append_ledger(
+                layout,
+                {
+                    "trial_id": candidate_id,
+                    "kind": trial_doc.kind,
+                    "parameters": dict(trial_doc.parameters),
+                    "revision": "none" if index == 0 else "method",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+        n_trials = len(dict.fromkeys(_ledger_ids(_ledger_rows(layout))))
         primary = trial_doc.universe[0]
         primary_prices = prices.get(primary, buy_hold_prices)
         strategy_fn = _strategy_fn_for(trial_doc, prices)
@@ -186,6 +204,17 @@ def run_protocol(
             )
         except IncompleteEvidenceError:
             evidence = None
+
+        if on_trial is not None:
+            if candidate_id not in finished_ids:
+                finished_ids.append(candidate_id)
+            on_trial(
+                {
+                    "trial_id": candidate_id,
+                    "completed_trial_ids": tuple(finished_ids),
+                    "n_trials": n_trials,
+                }
+            )
 
         if evidence is not None:
             layout.evidence.mkdir(parents=True, exist_ok=True)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 
 import pandas as pd
@@ -55,6 +56,11 @@ def _one_fail(required, **kwargs):
 
 def _incomplete(required, **kwargs):
     raise IncompleteEvidenceError("missing walk_forward")
+
+
+def _cid(kind, parameters):
+    encoded = json.dumps({"kind": kind, "parameters": dict(parameters)}, sort_keys=True).encode()
+    return "c_" + hashlib.sha256(encoded).hexdigest()[:16]
 
 
 def test_protocol_found_from_passing_gates(tmp_path):
@@ -321,3 +327,95 @@ def test_economic_proposal_is_queued_and_not_executed(tmp_path):
     assert rec["queued_hypotheses"][0]["signal_mechanism"] == "rsi"
     assert result.research_outcome is ResearchOutcome.INCONCLUSIVE
     assert calls["n"] == 1
+
+
+def test_n_trials_counts_existing_ledger_rows(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    layout.trial_ledger.write_text(
+        json.dumps({"trial_id": "c_prior", "kind": "momentum_12_1", "parameters": {}})
+        + "\n",
+        encoding="utf-8",
+    )
+    seen = []
+
+    def runner(required, **kwargs):
+        seen.append(kwargs["n_trials"])
+        return _all_pass(required, **kwargs)
+
+    run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+        completed_trial_ids=(),
+    )
+    assert seen[0] == 2
+
+
+def test_completed_trial_ids_are_skipped(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    first_id = _cid("momentum_12_1", {})
+    calls = {"n": 0}
+
+    def runner(required, **kwargs):
+        calls["n"] += 1
+        return _incomplete(required, **kwargs)
+
+    run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+        completed_trial_ids=(first_id,),
+    )
+    ledger = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
+    assert calls["n"] >= 1
+    assert json.loads(ledger[0])["trial_id"] != first_id
+
+
+def test_existing_recommendations_are_not_truncated(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    layout.recommendations.write_text(
+        json.dumps({"queued_hypotheses": [{"statement": "keep me"}]}) + "\n",
+        encoding="utf-8",
+    )
+    run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=_all_pass,
+    )
+    rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
+    assert rec["queued_hypotheses"][0]["statement"] == "keep me"
+
+
+def test_retry_does_not_duplicate_ledger_row(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    first_id = _cid("momentum_12_1", {})
+    layout.trial_ledger.write_text(
+        json.dumps({"trial_id": first_id, "kind": "momentum_12_1", "parameters": {}})
+        + "\n",
+        encoding="utf-8",
+    )
+    run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=_all_pass,
+        completed_trial_ids=(),
+    )
+    lines = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
+    ids = [json.loads(line)["trial_id"] for line in lines]
+    assert ids.count(first_id) == 1
