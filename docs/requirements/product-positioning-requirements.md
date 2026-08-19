@@ -681,26 +681,32 @@ Implementation must proceed through separate specifications and plans:
 6. **Agent entry:** local Skill and CLI workflow, followed only if needed
    by a thin asynchronous MCP adapter.
 
-The next implementation-design cycle: items 1–6 are implemented. MCP remains
+The next implementation-design cycle: items 1–6 landed contracts, the
+local runtime, a single-pass protocol, morning review, the `.asb`
+producer, and the Agent Skill. Phase 7 wires the iterative protocol
+loop, method repairs, and multiple-testing `n_trials`. MCP remains
 an optional later adapter and must never keep an overnight tool call open.
 
 Refactor mapping and file boundaries:
-[`docs/design/overnight-research-lab-refactor.md`](../design/overnight-research-lab-refactor.md).
+[`docs/plans/overnight-research-lab-refactor.md`](../plans/overnight-research-lab-refactor.md).
 
 Phase 1 implementation plan:
-[`docs/superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md`](../superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md).
+[`docs/plans/2026-08-18-overnight-lab-phase1-contracts.md`](../plans/2026-08-18-overnight-lab-phase1-contracts.md).
 
 Phase 2 implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md`](../superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md).
+[`docs/plans/2026-08-19-overnight-lab-phase2-runtime.md`](../plans/2026-08-19-overnight-lab-phase2-runtime.md).
 
 Phase 3 implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md`](../superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md).
+[`docs/plans/2026-08-19-overnight-lab-phase3-protocol.md`](../plans/2026-08-19-overnight-lab-phase3-protocol.md).
 
 Phase 4 implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](../superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md).
+[`docs/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](../plans/2026-08-19-overnight-lab-phase4-morning-web.md).
 
 Phase 5 implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md`](../superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md).
+[`docs/plans/2026-08-19-overnight-lab-phase5-asb.md`](../plans/2026-08-19-overnight-lab-phase5-asb.md).
 
 Phase 6 implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md`](../superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md).
+[`docs/plans/2026-08-19-overnight-lab-phase6-skill.md`](../plans/2026-08-19-overnight-lab-phase6-skill.md).
+
+Phase 7 implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md`](../plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md).

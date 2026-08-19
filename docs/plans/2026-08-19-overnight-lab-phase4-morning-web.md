@@ -19,7 +19,7 @@
 - JobStatus and ResearchOutcome stay separate. UI must not display LoopRunner letters A/B/C/D as outcomes.
 - `FOUND` is display-only of sealed evidence; the UI cannot mint it.
 - Tests use the Job API / HTTP daemon; no network; no browser driver required.
-- Source of truth: `docs/requirements/product-positioning-requirements.md` §4.3 / §5.2 and `docs/design/overnight-research-lab-refactor.md`.
+- Source of truth: `docs/requirements/product-positioning-requirements.md` §4.3 / §5.2 and `docs/plans/overnight-research-lab-refactor.md`.
 
 ## File Structure
 
@@ -130,7 +130,7 @@
 ### Task 5: Docs, import graph, regression
 
 **Files:**
-- Modify: `docs/design/overnight-research-lab-refactor.md` Phase 4 → link this plan
+- Modify: `docs/plans/overnight-research-lab-refactor.md` Phase 4 → link this plan
 - Modify: `docs/requirements/product-positioning-requirements.md` §13 — items 1–3 done; item 4 is this plan
 - Modify: `docs/cli.md` — `alphaloop start` serves the morning console at `/`
 - Modify: `tests/runtime/test_import_graph.py` — runtime may import `webui.static` resource path only; still no `alphaloop.live`; protocol still no webui/runtime

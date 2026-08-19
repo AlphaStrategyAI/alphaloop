@@ -17,7 +17,7 @@
 - `alphaloop.contracts` must not import `alphaloop.live`.
 - Bundle `registry_uri` is optional and may be `None`.
 - Do not rewrite `loop/aggregator.py` diagnostic math in this plan.
-- Source of truth: `docs/requirements/product-positioning-requirements.md` and `docs/design/overnight-research-lab-refactor.md`.
+- Source of truth: `docs/requirements/product-positioning-requirements.md` and `docs/plans/overnight-research-lab-refactor.md`.
 
 ---
 
@@ -1195,16 +1195,16 @@ In `docs/requirements/product-positioning-requirements.md` section 13, after the
 
 ```markdown
 Refactor mapping and file boundaries:
-[`docs/design/overnight-research-lab-refactor.md`](../design/overnight-research-lab-refactor.md).
+[`docs/plans/overnight-research-lab-refactor.md`](overnight-research-lab-refactor.md).
 
 Phase 1 implementation plan:
-[`docs/superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md`](../superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md).
+[`docs/plans/2026-08-18-overnight-lab-phase1-contracts.md`](2026-08-18-overnight-lab-phase1-contracts.md).
 ```
 
 In `mkdocs.yml` under `Design docs`, add:
 
 ```yaml
-    - Overnight lab refactor: design/overnight-research-lab-refactor.md
+    - Overnight lab refactor: plans/overnight-research-lab-refactor.md
 ```
 
 - [ ] **Step 3: Rebuild docs**

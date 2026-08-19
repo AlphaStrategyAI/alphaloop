@@ -21,7 +21,7 @@
 - `alphaloop.loop` must not import `alphaloop.runtime` or `alphaloop.contracts.bundle`.
 - Do not rewrite diagnostic or engineer math. Wrap them.
 - Tests use synthetic prices only (no network).
-- Source of truth: `docs/requirements/product-positioning-requirements.md` and `docs/design/overnight-research-lab-refactor.md`.
+- Source of truth: `docs/requirements/product-positioning-requirements.md` and `docs/plans/overnight-research-lab-refactor.md`.
 
 ## File Structure
 
@@ -182,7 +182,7 @@
 
 **Files:**
 - Modify: `tests/runtime/test_import_graph.py` — also scan `protocol/` for live/webui/runtime imports
-- Modify: `docs/design/overnight-research-lab-refactor.md` Phase 3 bullet → link this plan
+- Modify: `docs/plans/overnight-research-lab-refactor.md` Phase 3 bullet → link this plan
 - Modify: `docs/requirements/product-positioning-requirements.md` §13 — items 1–2 done; item 3 is this plan
 - Run: `python3 -m pytest tests/ -m "not integration" -q`
 

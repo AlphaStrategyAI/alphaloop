@@ -1,7 +1,7 @@
 """
 N3 executor — parallel backtest runner.
 
-Design (docs/design/v07-hybrid-loop.md § 1.4, § 2.5):
+Design (docs/plans/v07-hybrid-loop.md § 1.4, § 2.5):
 
 - ``multiprocessing.Pool(processes=cpu_count)`` for CPU-bound backtests.
 - An async adapter (``_aiter_pool``) so the asyncio main loop can stay

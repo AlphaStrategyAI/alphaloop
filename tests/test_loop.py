@@ -1,7 +1,7 @@
 """
 v0.7 hybrid loop tests — 34 new tests, zero real LLM HTTP calls.
 
-The design doc (docs/design/v07-hybrid-loop.md § 4) commits us to:
+The design doc (docs/plans/v07-hybrid-loop.md § 4) commits us to:
 
 - 30 unit tests covering the 6 nodes + persistence + replay + termination.
 - 4 integration tests covering end-to-end flow + dry-run + cost gate + Ctrl-C.

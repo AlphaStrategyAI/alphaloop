@@ -18,7 +18,7 @@
 - A preflight error is not a research outcome: failed preflight must not insert a job row.
 - `alphaloop.runtime` must not import `alphaloop.live`. Only `runtime/worker.py` may import `alphaloop.loop`.
 - `alphaloop.loop` must not import `alphaloop.contracts.bundle` or `alphaloop.runtime`.
-- Source of truth: `docs/requirements/product-positioning-requirements.md` and `docs/design/overnight-research-lab-refactor.md`.
+- Source of truth: `docs/requirements/product-positioning-requirements.md` and `docs/plans/overnight-research-lab-refactor.md`.
 
 ## File Structure
 
@@ -960,7 +960,7 @@ git commit -m "feat(runtime): add alphaloop start/submit and stopgap worker"
 - Test: `tests/runtime/test_import_graph.py`
 - Modify: `tests/test_package_identity.py` (CLI help mentions `start`)
 - Modify: `docs/cli.md`
-- Modify: `docs/design/overnight-research-lab-refactor.md` (point Phase 2 at this plan)
+- Modify: `docs/plans/overnight-research-lab-refactor.md` (point Phase 2 at this plan)
 - Modify: `docs/requirements/product-positioning-requirements.md` §13 next-cycle sentence
 
 **Interfaces:**
@@ -1038,7 +1038,7 @@ Expected: all previously passing tests still pass, plus the new runtime tests.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/runtime/test_import_graph.py tests/test_package_identity.py docs/cli.md docs/design/overnight-research-lab-refactor.md docs/requirements/product-positioning-requirements.md
+git add tests/runtime/test_import_graph.py tests/test_package_identity.py docs/cli.md docs/plans/overnight-research-lab-refactor.md docs/requirements/product-positioning-requirements.md
 git commit -m "test(runtime): lock import graph and document start/submit CLI"
 ```
 

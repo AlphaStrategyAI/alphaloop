@@ -25,7 +25,7 @@ A missing `model` or `api_key` is **not** fatal — the judge returns a
 `LLMJudgeResult(error="...")` and the rest of the report continues.
 The 6 quantitative sections are never blocked by a missing LLM key.
 
-See `docs/design/v06-llm-judge.md` for the design rationale.
+See `docs/plans/v06-llm-judge.md` for the design rationale.
 """
 from __future__ import annotations
 

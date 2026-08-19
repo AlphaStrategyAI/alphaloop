@@ -844,7 +844,7 @@ guarantee.
 
 - `ROADMAP.md § v0.7` — original scope statement (this doc supersedes
   it for design detail).
-- `docs/design/v06-llm-judge.md` — pattern reference for: dataclass
+- `docs/plans/v06-llm-judge.md` — pattern reference for: dataclass
   result schema (§ 3.1), FakeLLMClient pattern (§ 4.2), risk matrix
   layout (§ 5.1), reversibility section (§ 5.4), cost budget table
   (§ 5.2). The v0.7 design mirrors these patterns deliberately.
@@ -875,7 +875,7 @@ before any implementation work begins.** No code under
 only this document, awaiting OK.
 
 Hard wall reminders (from state file):
-1. Only write `docs/design/v07-hybrid-loop.md` (this file).
+1. Only write `docs/plans/v07-hybrid-loop.md` (this file).
 2. Do not modify any existing alphaloop source or test.
 3. Do not write `src/alphaloop/loop/*` yet.
 4. Do not write `tests/test_loop.py` yet.

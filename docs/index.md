@@ -75,7 +75,7 @@ land in the top-5. A pick that fails any one is **flagged** in
 | Q5 | **Turnover** | Strategies that would erode returns in live trading |
 | Q6 | **Cost sensitivity** | Sensitivity to slippage, fees, borrow |
 
-(The full set extends to 7 in `docs/design/` — the 7th, *factor
+(The full set extends to 7 in `docs/plans/` — the 7th, *factor
 crowding*, is optional and off by default.)
 
 ## What you get
@@ -98,7 +98,7 @@ runs/<run_id>/
 - 📘 [CLI reference](cli.md) — every subcommand and flag.
 - 🖥  [WebUI](webui.md) — 4 views, 8 animations, the *Quant Lab*
   visual design, keyboard shortcuts.
-- 📐 [Design: hybrid DAG](design/v07-hybrid-loop.md) · [LLM judge](design/v06-llm-judge.md) · [WebUI](design/v071-webui.md) — architecture.
+- 📐 [Overnight lab](plans/overnight-research-lab-refactor.md) · [hybrid DAG](plans/v07-hybrid-loop.md) · [LLM judge](plans/v06-llm-judge.md) · [WebUI](plans/v071-webui.md) — architecture.
 - 🧪 [Requirements: product positioning](requirements/product-positioning-requirements.md) · [v0.7.2](requirements/v072-requirements.md) · [v0.8](requirements/v08-requirements.md) — specifications.
 - 🔗 [GitHub repo](https://github.com/AlphaStrategyAI/alphaloop) —
   source, issues, releases.

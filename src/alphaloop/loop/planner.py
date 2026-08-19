@@ -1,7 +1,7 @@
 """
 LLM planner helper used by N1, N2, and N5.
 
-The design (docs/design/v07-hybrid-loop.md § 2.3) commits us to a
+The design (docs/plans/v07-hybrid-loop.md § 2.3) commits us to a
 *hybrid* runtime: the DAG skeleton is static and deterministic, but
 inside N1 (data), N2 (strategy plan), and N5 (report) the LLM gets to
 make decisions. This module isolates that LLM-planning surface so:

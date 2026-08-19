@@ -20,7 +20,7 @@ Public API (design doc § 3):
 Plus the 4 termination gates (A/B/C/D) and the hybrid DAG primitives
 for tests + advanced users.
 
-Read ``docs/design/v07-hybrid-loop.md`` for the design rationale;
+Read ``docs/plans/v07-hybrid-loop.md`` for the design rationale;
 this file is the implementation.
 """
 from __future__ import annotations

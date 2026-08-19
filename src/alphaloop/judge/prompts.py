@@ -12,7 +12,7 @@ Resolution order (highest priority first):
    import time).
 
 The bundled default matches the system + user rubric described in
-`docs/design/v06-llm-judge.md` § 3.2 verbatim. Tests can override any
+`docs/plans/v06-llm-judge.md` § 3.2 verbatim. Tests can override any
 of the three sources.
 """
 from __future__ import annotations

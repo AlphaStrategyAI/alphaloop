@@ -18,7 +18,7 @@ alphaloop v0.7.1 (commit `facef25`, tag `v0.7.1`) shipped the WebUI
 read-mostly Vite + React + TypeScript SPA with 4 views (Top-5 card,
 Strategy Detail, Run Diagnostics, Replay), 8 Framer Motion animations,
 and a dark "Quant Lab" visual language. v0.7.1 design doc
-(`docs/design/v071-webui.md`, 2045 lines) is the source of truth for
+(`docs/plans/v071-webui.md`, 2045 lines) is the source of truth for
 the implementation; this PRD is the requirements layer for v0.7.2.
 
 v0.7.2 scope was confirmed by the user as **E1 — polish + auto-launch
@@ -743,11 +743,11 @@ before writing code.
 ## 7. References
 
 - v0.7.1 design (this PRD builds on):
-  `docs/design/v071-webui.md` (2045 lines)
+  `docs/plans/v071-webui.md` (2045 lines)
 - v0.7 design (hybrid loop):
-  `docs/design/v07-hybrid-loop.md` (883 lines)
+  `docs/plans/v07-hybrid-loop.md` (883 lines)
 - v0.6 design (LLM judge):
-  `docs/design/v06-llm-judge.md` (762 lines)
+  `docs/plans/v06-llm-judge.md` (762 lines)
 - v0.7.1 export (share-link starting point):
   `src/alphaloop/webui/export.py` (174 lines)
 - v0.7.1 FastAPI JSON backend:

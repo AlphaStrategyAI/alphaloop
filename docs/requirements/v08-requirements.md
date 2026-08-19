@@ -26,7 +26,7 @@ report on three narrative dimensions:
 
 Each dimension scores 1–10; the overall `passes` flag is the
 conjunction with threshold ≥ 7. The judge was designed in
-`docs/design/v06-llm-judge.md` (762 lines) and implemented behind an
+`docs/plans/v06-llm-judge.md` (762 lines) and implemented behind an
 OpenAI-compatible HTTP client (`src/alphaloop/judge/client.py`) with
 env-var resolution (`LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`).
 
@@ -706,7 +706,7 @@ The 900 ratings (100 cases × 3 dimensions × 3 reviewers) require:
 
 - **3 reviewers** with quant-research background. Each reviewer
   independently rates every case on every dimension using the
-  rubric from `docs/design/v06-llm-judge.md` § 3.2 (readability /
+  rubric from `docs/plans/v06-llm-judge.md` § 3.2 (readability /
   decision合理性 / risk-disclosure 1-10 scale).
 - **Review tool:** a shared CSV template
   (`data/calibration/v1/reviewer_ratings_template.csv`) with
@@ -856,7 +856,7 @@ before writing code.
 ## 7. References
 
 - v0.6 design (judge that v0.8 calibrates):
-  `docs/design/v06-llm-judge.md` (762 lines)
+  `docs/plans/v06-llm-judge.md` (762 lines)
 - v0.6 judge code:
   `src/alphaloop/diagnostic/judge.py` (267 lines)
   `src/alphaloop/judge/client.py` (351 lines)
@@ -865,9 +865,9 @@ before writing code.
   `docs/requirements/v072-requirements.md` (791 lines)
 - v0.7.2 ship commit: `2ae2f9f`, tag `v0.7.2`, 320 tests pass
 - v0.7.1 design (WebUI):
-  `docs/design/v071-webui.md` (2045 lines)
+  `docs/plans/v071-webui.md` (2045 lines)
 - v0.7 design (hybrid loop):
-  `docs/design/v07-hybrid-loop.md` (883 lines)
+  `docs/plans/v07-hybrid-loop.md` (883 lines)
 - ROADMAP: `ROADMAP.md` § v0.8 (post-v0.7, pre-v1.0)
 - Loop state file:
   `~/.hermes/profiles/coder/.claude/loops/alphaloop-v08-requirements-doc.md`

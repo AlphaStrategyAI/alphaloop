@@ -2,7 +2,7 @@
 N4 (diagnose) + N5 (aggregate) bodies — the 7 diagnostics, top-5 pick,
 and Markdown report.
 
-Design (docs/design/v07-hybrid-loop.md § 2.1, § 3.6):
+Design (docs/plans/v07-hybrid-loop.md § 2.1, § 3.6):
 
 - N4 runs the 7 diagnostics (Q1–Q6 deterministic + Q7 = v0.6 LLM judge).
 - N5 picks the top 5 by DSR (only ``passes_all=True`` rows), writes

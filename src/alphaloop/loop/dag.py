@@ -1,7 +1,7 @@
 """
 Hybrid DAG — static 6-node skeleton for the v0.7 research loop.
 
-The design (docs/design/v07-hybrid-loop.md § 2.1) commits us to a
+The design (docs/plans/v07-hybrid-loop.md § 2.1) commits us to a
 *static* skeleton (N1 → N2 → N3 → N4 → N5 → N6) with LLM-planner
 freedom inside N1, N2, N5 only. This module defines:
 

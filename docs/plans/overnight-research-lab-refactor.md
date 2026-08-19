@@ -3,7 +3,7 @@ title: "alphaloop Overnight Research Lab — Refactor Technical Design"
 status: "design"
 date: "2026-08-18"
 related_requirements: "docs/requirements/product-positioning-requirements.md"
-supersedes: "docs/design/v07-hybrid-loop.md as the product-level orchestrator; v0.7 remains the historical DAG design"
+supersedes: "docs/plans/v07-hybrid-loop.md as the product-level orchestrator; v0.7 remains the historical DAG design"
 ---
 
 # alphaloop Overnight Research Lab — Refactor Technical Design
@@ -14,10 +14,12 @@ onto the **existing** `src/alphaloop` tree. It is a refactor design, not a
 greenfield rewrite. New code is added only where current modules cannot
 satisfy the overnight-lab contracts.
 
-Implementation is split into six independently testable plans. This
-document is the architectural source of truth for all six. The first
-executable plan is
-`docs/superpowers/plans/2026-08-18-overnight-lab-phase1-contracts.md`.
+Implementation is split into independently testable plans under
+`docs/plans/`. This document is the architectural source of truth.
+The first executable plan is
+`docs/plans/2026-08-18-overnight-lab-phase1-contracts.md`.
+Phase 7 continues the research protocol after the single-pass worker
+landed in Phase 3.
 
 ## 1. Current system versus target
 
@@ -350,7 +352,7 @@ Keep the package and its tests. Add a guard test:
 ### Phase 2 — Durable local runtime
 
 Implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md`](../superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md).
+[`docs/plans/2026-08-19-overnight-lab-phase2-runtime.md`](2026-08-19-overnight-lab-phase2-runtime.md).
 
 - `alphaloop start` launches a local daemon (Job API + static web root).
 - `create_run` returns `run_id` immediately.
@@ -361,7 +363,7 @@ Implementation plan:
 ### Phase 3 — Research protocol
 
 Implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md`](../superpowers/plans/2026-08-19-overnight-lab-phase3-protocol.md).
+[`docs/plans/2026-08-19-overnight-lab-phase3-protocol.md`](2026-08-19-overnight-lab-phase3-protocol.md).
 
 - Constrained DSL over `engineer` + `strategies`.
 - Epistemic stop: method repairs allowed; economic-logic changes queued.
@@ -371,7 +373,7 @@ Implementation plan:
 ### Phase 4 — Morning Web
 
 Implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](../superpowers/plans/2026-08-19-overnight-lab-phase4-morning-web.md).
+[`docs/plans/2026-08-19-overnight-lab-phase4-morning-web.md`](2026-08-19-overnight-lab-phase4-morning-web.md).
 
 - Packaged static UI, no Node on the user PATH.
 - Home page leads with `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE`.
@@ -380,7 +382,7 @@ Implementation plan:
 ### Phase 5 — `.asb` producer
 
 Implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md`](../superpowers/plans/2026-08-19-overnight-lab-phase5-asb.md).
+[`docs/plans/2026-08-19-overnight-lab-phase5-asb.md`](2026-08-19-overnight-lab-phase5-asb.md).
 
 - Implement archive format using Phase 1 `StrategyCandidateBundle`.
 - Shared conformance fixtures for a future AlphaStrategy consumer.
@@ -389,10 +391,22 @@ Implementation plan:
 ### Phase 6 — Agent Skill
 
 Implementation plan:
-[`docs/superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md`](../superpowers/plans/2026-08-19-overnight-lab-phase6-skill.md).
+[`docs/plans/2026-08-19-overnight-lab-phase6-skill.md`](2026-08-19-overnight-lab-phase6-skill.md).
 
 - Local Skill + CLI: preflight, submit, poll, interpret outcomes.
 - No overnight MCP tool call.
+
+### Phase 7 — Iterative protocol loop
+
+Implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md`](2026-08-19-overnight-lab-phase7-iterative-protocol.md).
+
+- Honor `should_continue` inside `run_protocol` (do not discard the decision).
+- Method-repair parameter search with `n_trials` equal to the trial-ledger length.
+- Queue economic revisions into `recommendations.json`; never execute them in the same run.
+- Stop on `FOUND`, complete hard-gate failure, forbidden continue reasons, or exhausted budget.
+
+Later, separate plans (not this document): checkpoint resume, full run artifacts (`manifest.yaml`, `candidates.parquet`, `report.md`, dataset snapshot fail-closed), Web submit/preflight, and §12 verification (CI overnight, soak).
 
 ## 6. Public API and CLI after Phase 1
 

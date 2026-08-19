@@ -7,7 +7,7 @@ authors:
 date: "2026-08-16"
 loop: "alphaloop-v071-webui-design"
 related_roadmap_section: "ROADMAP.md § v0.7.1"
-supersedes: "none — adds to v0.7 design (docs/design/v07-hybrid-loop.md)"
+supersedes: "none — adds to v0.7 design (docs/plans/v07-hybrid-loop.md)"
 ---
 
 # alphaloop v0.7.1 — WebUI Design
@@ -18,7 +18,7 @@ alphaloop v0.7 (commit `882f4d1` on `AlphaStrategyAI/alphaloop`) ships the
 hybrid loop MVP: a 6-node DAG (N1 Load → N2 Plan → N3 Execute → N4 Diagnose →
 N5 Aggregate → N6 Commit), `manifest.yaml` + `results.parquet` + `top5.json` +
 `report.md` artifacts per run, and `LoopReplay` for deterministic re-execution
-(v0.7 design: `docs/design/v07-hybrid-loop.md`, 883 lines).
+(v0.7 design: `docs/plans/v07-hybrid-loop.md`, 883 lines).
 
 The v0.7 CLI surfaces results as plain text + Markdown. v0.7.1 adds a
 **read-mostly WebUI** that turns the same artifacts into 4 interactive
@@ -35,7 +35,7 @@ reviewed. Hard wall (per loop state file §"设计阶段 hard wall"):
 
 1. Only write this design doc; no code, no tests, no implementation.
 2. Do not modify any existing alphaloop file except by *creating*
-   `docs/design/v071-webui.md`.
+   `docs/plans/v071-webui.md`.
 3. Do not write `src/alphaloop/webui/*` (deferred to v0.7.1 dev).
 4. Do not write `webui/src/*` or `webui/package.json` (deferred to
    v0.7.1 dev).
@@ -1704,7 +1704,7 @@ later refactors `_tick_progress`, the SSE stream silently breaks.
 - `sse.stream_run()` already handles `progress.json` being missing
   (yields no events, still alive). Worst case: the UI shows
   "waiting for progress" — no crash, no blank screen.
-- Document the contract in `docs/design/v071-webui.md` § 2.5 so the
+- Document the contract in `docs/plans/v071-webui.md` § 2.5 so the
   v0.7 maintainer knows what depends on it.
 
 **Likelihood:** Medium.
@@ -1902,7 +1902,7 @@ toggle. These are NOT in the user-confirmed scope (state file
 - This design doc is the source of truth; any deviation requires
   explicit user OK before implementation.
 - The hard wall in the loop state file prohibits modifying anything
-  outside `docs/design/v071-webui.md` during the design phase.
+  outside `docs/plans/v071-webui.md` during the design phase.
 - A reviewer reading this doc can spot scope creep and reject the
   PR.
 
@@ -1999,9 +1999,9 @@ Hard gates per week:
 
 ## 11. References
 
-- v0.7 design (this WebUI builds on): `docs/design/v07-hybrid-loop.md`
+- v0.7 design (this WebUI builds on): `docs/plans/v07-hybrid-loop.md`
   (883 lines)
-- v0.6 design (Q7 LLM judge): `docs/design/v06-llm-judge.md` (762 lines)
+- v0.6 design (Q7 LLM judge): `docs/plans/v06-llm-judge.md` (762 lines)
 - v0.7 persistence: `src/alphaloop/loop/persistence.py` (615 lines)
 - v0.7 DAG: `src/alphaloop/loop/dag.py` (239 lines)
 - v0.7 aggregator: `src/alphaloop/loop/aggregator.py` (491 lines)
