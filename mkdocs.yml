@@ -55,6 +55,11 @@ nav:
     - Phase 5 .asb: plans/2026-08-19-overnight-lab-phase5-asb.md
     - Phase 6 skill: plans/2026-08-19-overnight-lab-phase6-skill.md
     - Phase 7 iterative protocol: plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md
+    - Remaining work: plans/2026-08-19-overnight-lab-remaining-work.md
+    - Phase 8 protocol semantics: plans/2026-08-19-overnight-lab-phase8-protocol-semantics.md
+    - Phase 9 durability and artifacts: plans/2026-08-19-overnight-lab-phase9-durability-artifacts.md
+    - Phase 10 morning submit: plans/2026-08-19-overnight-lab-phase10-morning-submit.md
+    - Phase 11 verification: plans/2026-08-19-overnight-lab-phase11-verification.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md

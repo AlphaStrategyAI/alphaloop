@@ -41,6 +41,9 @@
 - Packaged Web submit / preflight / progress polling
 - CI shortened overnight workflow, soak benchmark, usability study
 
+Those items are now Phases 8–11:
+[`docs/plans/2026-08-19-overnight-lab-remaining-work.md`](2026-08-19-overnight-lab-remaining-work.md).
+
 ---
 
 ### Task 1: Stop after a complete passing evidence set

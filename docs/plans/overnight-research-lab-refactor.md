@@ -19,7 +19,8 @@ Implementation is split into independently testable plans under
 The first executable plan is
 `docs/plans/2026-08-18-overnight-lab-phase1-contracts.md`.
 Phase 7 continues the research protocol after the single-pass worker
-landed in Phase 3.
+landed in Phase 3. Remaining first-release work is
+[`docs/plans/2026-08-19-overnight-lab-remaining-work.md`](2026-08-19-overnight-lab-remaining-work.md).
 
 ## 1. Current system versus target
 
@@ -406,7 +407,43 @@ Implementation plan:
 - Queue economic revisions into `recommendations.json`; never execute them in the same run.
 - Stop on `FOUND`, complete hard-gate failure, forbidden continue reasons, or exhausted budget.
 
-Later, separate plans (not this document): checkpoint resume, full run artifacts (`manifest.yaml`, `candidates.parquet`, `report.md`, dataset snapshot fail-closed), Web submit/preflight, and §12 verification (CI overnight, soak).
+Remaining first-release work is specified in
+[`docs/plans/2026-08-19-overnight-lab-remaining-work.md`](2026-08-19-overnight-lab-remaining-work.md)
+(Phases 8–11).
+
+### Phase 8 — Protocol semantics
+
+Implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase8-protocol-semantics.md`](2026-08-19-overnight-lab-phase8-protocol-semantics.md).
+
+- Hard gates see lagged target-weight returns for the current grid trial.
+- Complete passing evidence is `FOUND` even if the clock expires during that trial.
+- Production worker passes a monotonic clock and the spec cost budget.
+
+### Phase 9 — Durability and artifacts
+
+Implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase9-durability-artifacts.md`](2026-08-19-overnight-lab-phase9-durability-artifacts.md).
+
+- Content-addressed dataset fail-closed; no synthetic prices in the worker.
+- Resume skips checkpointed `trial_id`s; `n_trials` follows unique ledger ids.
+- Write `manifest.yaml`, `candidates.parquet`, `report.md`; `alphaloop replay` re-emits the report.
+
+### Phase 10 — Morning submit and progress
+
+Implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase10-morning-submit.md`](2026-08-19-overnight-lab-phase10-morning-submit.md).
+
+- YAML textarea POST to `/v1/jobs` without a precomputed `spec_id`.
+- Show preflight errors and host constraint; poll job list. No gate override.
+
+### Phase 11 — Verification
+
+Implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase11-verification.md`](2026-08-19-overnight-lab-phase11-verification.md).
+
+- CI pytest excluding integration/LLM. Shortened overnight e2e. Checkpoint resume uniqueness.
+- Soak and five-minute review stay a release checklist, not CI.
 
 ## 6. Public API and CLI after Phase 1
 

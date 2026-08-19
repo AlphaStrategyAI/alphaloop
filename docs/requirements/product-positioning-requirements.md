@@ -684,7 +684,9 @@ Implementation must proceed through separate specifications and plans:
 The next implementation-design cycle: items 1–6 landed contracts, the
 local runtime, a single-pass protocol, morning review, the `.asb`
 producer, and the Agent Skill. Phase 7 wires the iterative protocol
-loop, method repairs, and multiple-testing `n_trials`. MCP remains
+loop, method repairs, and multiple-testing `n_trials`. Remaining
+first-release gaps are protocol gate returns, durable artifacts,
+morning submit/progress, and §12 verification (Phases 8–11). MCP remains
 an optional later adapter and must never keep an overnight tool call open.
 
 Refactor mapping and file boundaries:
@@ -710,3 +712,18 @@ Phase 6 implementation plan:
 
 Phase 7 implementation plan:
 [`docs/plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md`](../plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md).
+
+Remaining work (Phases 8–11) technical design:
+[`docs/plans/2026-08-19-overnight-lab-remaining-work.md`](../plans/2026-08-19-overnight-lab-remaining-work.md).
+
+Phase 8 implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase8-protocol-semantics.md`](../plans/2026-08-19-overnight-lab-phase8-protocol-semantics.md).
+
+Phase 9 implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase9-durability-artifacts.md`](../plans/2026-08-19-overnight-lab-phase9-durability-artifacts.md).
+
+Phase 10 implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase10-morning-submit.md`](../plans/2026-08-19-overnight-lab-phase10-morning-submit.md).
+
+Phase 11 implementation plan:
+[`docs/plans/2026-08-19-overnight-lab-phase11-verification.md`](../plans/2026-08-19-overnight-lab-phase11-verification.md).
