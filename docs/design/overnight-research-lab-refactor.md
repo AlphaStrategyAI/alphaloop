@@ -349,6 +349,9 @@ Keep the package and its tests. Add a guard test:
 
 ### Phase 2 — Durable local runtime
 
+Implementation plan:
+[`docs/superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md`](../superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md).
+
 - `alphaloop start` launches a local daemon (Job API + static web root).
 - `create_run` returns `run_id` immediately.
 - Supervisor heartbeats and restarts workers from checkpoints.

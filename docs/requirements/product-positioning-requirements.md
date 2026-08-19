@@ -681,8 +681,9 @@ Implementation must proceed through separate specifications and plans:
 6. **Agent entry:** local Skill and CLI workflow, followed only if needed
    by a thin asynchronous MCP adapter.
 
-The next implementation-design cycle should begin with item 1. Later
-items depend on its versioned contracts.
+The next implementation-design cycle: item 1 is implemented; item 2 is
+this runtime plan ([`docs/superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md`](../superpowers/plans/2026-08-19-overnight-lab-phase2-runtime.md)).
+Later items depend on its versioned contracts.
 
 Refactor mapping and file boundaries:
 [`docs/design/overnight-research-lab-refactor.md`](../design/overnight-research-lab-refactor.md).

@@ -68,3 +68,11 @@ def test_contracts_do_not_import_live():
         text = path.read_text(encoding="utf-8")
         assert "alphaloop.live" not in text
         assert "from ..live" not in text
+
+
+def test_cli_help_lists_start(capsys):
+    rc = main([])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "start" in out
+    assert "submit" in out
