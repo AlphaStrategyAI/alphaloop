@@ -3,17 +3,29 @@ from __future__ import annotations
 import errno
 import http.server
 import json
+import os
+import signal
+import socket
 import socketserver
+import subprocess
+import sys
 import threading
+from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.runtime.api import JobAPI, PreflightRejected
+from alphaloop.runtime.store import JobStore
+from alphaloop.runtime.supervisor import Supervisor
+from alphaloop.runtime.worker import ProcessWorker
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 _LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
+_CONTROL_DIR = ".alphaloop"
+_DAEMON_META = "daemon.json"
+_DAEMON_PID = "daemon.pid"
 
 
 class DaemonAlreadyRunning(RuntimeError):  # noqa: N818 - public API name
@@ -33,6 +45,9 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
     class JobRequestHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             path = urlsplit(self.path).path
+            if path == "/":
+                self._send_text(200, "alphaloop control plane")
+                return
             if path == "/healthz":
                 self._send_json(200, {"status": "ok"})
                 return
@@ -108,6 +123,14 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(body)
 
+        def _send_text(self, status: int, text: str) -> None:
+            body = text.encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def log_message(self, format: str, *args: object) -> None:
             return
 
@@ -130,3 +153,181 @@ def start_http_server(
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server
+
+
+def _control_dir(data_dir: Path) -> Path:
+    return Path(data_dir) / _CONTROL_DIR
+
+
+def write_daemon_meta(data_dir: Path, host: str, port: int, pid: int) -> dict[str, Any]:
+    control_dir = _control_dir(data_dir)
+    control_dir.mkdir(parents=True, exist_ok=True)
+    meta: dict[str, Any] = {"host": host, "port": port, "pid": pid}
+    path = control_dir / _DAEMON_META
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(meta, sort_keys=True), encoding="utf-8")
+    temporary.replace(path)
+    return meta
+
+
+def read_daemon_meta(data_dir: Path) -> dict[str, Any]:
+    path = _control_dir(data_dir) / _DAEMON_META
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("daemon metadata must be an object")
+    host = payload.get("host")
+    port = payload.get("port")
+    pid = payload.get("pid")
+    if not isinstance(host, str) or not isinstance(port, int) or not isinstance(pid, int):
+        raise ValueError("invalid daemon metadata")
+    return {"host": host, "port": port, "pid": pid}
+
+
+def _pid_is_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _write_pidfile(data_dir: Path, pid: int) -> Path:
+    path = _control_dir(data_dir) / _DAEMON_PID
+    if path.is_file():
+        try:
+            existing = int(path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            existing = 0
+        if _pid_is_running(existing):
+            raise DaemonAlreadyRunning(f"pid {existing}")
+    path.write_text(f"{pid}\n", encoding="utf-8")
+    return path
+
+
+def _supervisor_loop(supervisor: Supervisor, stop_event: threading.Event) -> None:
+    while not stop_event.is_set():
+        supervisor.tick()
+        stop_event.wait(0.5)
+
+
+def serve_forever(data_dir: Path, host: str, port: int) -> None:
+    data_dir = Path(data_dir)
+    control_dir = _control_dir(data_dir)
+    control_dir.mkdir(parents=True, exist_ok=True)
+    store = JobStore(control_dir / "state.db", data_dir)
+    supervisor = Supervisor(store, data_dir, ProcessWorker())
+    api = JobAPI(store, supervisor, data_dir)
+    server = start_http_server(api, host, port)
+    bound_host, bound_port = server.server_address[:2]
+    pid = os.getpid()
+    pidfile = _write_pidfile(data_dir, pid)
+    meta_path = control_dir / _DAEMON_META
+    write_daemon_meta(data_dir, host=bound_host, port=bound_port, pid=pid)
+
+    stop_event = threading.Event()
+    supervisor_thread = threading.Thread(
+        target=_supervisor_loop,
+        args=(supervisor, stop_event),
+        daemon=True,
+    )
+    supervisor_thread.start()
+
+    previous_handlers: dict[int, Any] = {}
+
+    def request_stop(signum: int, frame: Any) -> None:
+        stop_event.set()
+
+    if threading.current_thread() is threading.main_thread():
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            previous_handlers[signum] = signal.getsignal(signum)
+            signal.signal(signum, request_stop)
+
+    try:
+        stop_event.wait()
+    finally:
+        stop_event.set()
+        server.shutdown()
+        server.server_close()
+        supervisor_thread.join(timeout=1.0)
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+        try:
+            if read_daemon_meta(data_dir).get("pid") == pid:
+                meta_path.unlink(missing_ok=True)
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+        try:
+            if int(pidfile.read_text(encoding="utf-8").strip()) == pid:
+                pidfile.unlink(missing_ok=True)
+        except (OSError, ValueError):
+            pass
+
+
+def _available_port(host: str) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind((host, 0))
+        return int(probe.getsockname()[1])
+
+
+def spawn_detached_daemon(data_dir: Path, host: str, port: int) -> dict[str, Any]:
+    if host not in _LOOPBACK_HOSTS:
+        raise UnsupportedBindHost(host)
+    data_dir = Path(data_dir).resolve()
+    selected_port = _available_port(host) if port == 0 else port
+    src_dir = Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    current_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(src_dir)
+        if not current_pythonpath
+        else os.pathsep.join((str(src_dir), current_pythonpath))
+    )
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "alphaloop.runtime.daemon",
+            "--data-dir",
+            str(data_dir),
+            "--host",
+            host,
+            "--port",
+            str(selected_port),
+        ],
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+        close_fds=True,
+    )
+    return write_daemon_meta(
+        data_dir,
+        host=host,
+        port=selected_port,
+        pid=process.pid,
+    )
+
+
+def _create_parser() -> Any:
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="python -m alphaloop.runtime.daemon")
+    parser.add_argument("--data-dir", required=True, type=Path)
+    parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument("--port", default=DEFAULT_PORT, type=int)
+    return parser
+
+
+def main(argv: Any = None) -> int:
+    args = _create_parser().parse_args(argv)
+    serve_forever(args.data_dir, args.host, args.port)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

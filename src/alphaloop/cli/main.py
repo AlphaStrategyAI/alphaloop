@@ -3,13 +3,14 @@ CLI 主入口
 """
 
 import argparse
-import asyncio
 import sys
+
+from alphaloop.calibration.cli import register_judge_subcommand
 
 from .commands import fetch_data, optimize_strategy, run_backtest
 from .export import register as register_export
+from .jobs import register as register_jobs
 from .report import register as register_report
-from alphaloop.calibration.cli import register_judge_subcommand
 
 
 def _register_loop(subparsers: argparse._SubParsersAction) -> None:
@@ -107,116 +108,9 @@ def _register_loop(subparsers: argparse._SubParsersAction) -> None:
 
 def _handle_loop(args: argparse.Namespace) -> int:
     """Dispatch the ``loop`` subcommand."""
-    from pathlib import Path
+    from alphaloop.runtime.worker import run_loop_command
 
-    # If user invoked `alphaloop loop "<goal>"` with no subcommand,
-    # fall back to the legacy flat-arg layout by re-parsing.
-    if args.loop_command is None:
-        # No subcommand at all → show help.
-        print("Usage: alphaloop loop {run,replay,inspect,list} ...", file=sys.stderr)
-        return 1
-
-    if args.loop_command == "list":
-        data_dir = Path(args.data_dir)
-        if not data_dir.is_dir():
-            print(f"No runs directory at: {data_dir}", file=sys.stderr)
-            return 0
-        runs = sorted(p.name for p in data_dir.iterdir() if p.is_dir())
-        for rid in runs:
-            print(rid)
-        return 0
-
-    if args.loop_command == "replay":
-        from alphaloop.loop import LoopReplay
-        replay = LoopReplay(run_id=args.run_id, data_dir=args.data_dir)
-        try:
-            replay.validate()
-        except FileNotFoundError as e:
-            print(f"Replay failed: {e}", file=sys.stderr)
-            return 1
-        summary = replay.load_summary()
-        print(f"run_id: {summary.run_id}")
-        print(f"termination_reason: {summary.termination_reason}")
-        print(f"completed/total: {summary.completed_tasks}/{summary.total_tasks}")
-        print(f"top5: {len(summary.top5)} picks")
-        return 0
-
-    if args.loop_command == "inspect":
-        from alphaloop.loop import LoopReplay
-        replay = LoopReplay(run_id=args.run_id, data_dir=args.data_dir)
-        try:
-            summary = replay.load_summary()
-        except FileNotFoundError as e:
-            print(f"Inspect failed: {e}", file=sys.stderr)
-            return 1
-        print(f"=== {summary.run_id} ===")
-        print(f"termination: {summary.termination_reason}")
-        print(f"artifacts:   {summary.artifacts_dir}")
-        print(f"cost:        ${summary.estimated_cost_usd:.3f}")
-        print(f"top5:")
-        for p in summary.top5:
-            thesis = p.one_line_thesis or "(no thesis)"
-            print(f"  #{p.rank} {p.strategy:<32} DSR={p.dsr:.3f}  {thesis}")
-        return 0
-
-    # default: run
-    from alphaloop.loop import LoopRunner, Planner, resolve_model
-
-    model = resolve_model(getattr(args, "model", None))
-    planner = Planner(client=None, model=model)
-    runner = LoopRunner(
-        goal=args.goal,
-        run_id=getattr(args, "run_id", None),
-        seed=getattr(args, "seed", None),
-        budget_usd=getattr(args, "budget", 5.0),
-        timeout_s=getattr(args, "timeout", 6 * 3600),
-        target_dsr=getattr(args, "target_dsr", 1.0),
-        data_dir=getattr(args, "data_dir", "./runs"),
-        planner=planner,
-        dry_run=bool(getattr(args, "dry_run", False)),
-        git_repo_dir=getattr(args, "git_repo_dir", "."),
-    )
-    summary = asyncio.run(runner.run())
-    print(f"alphaloop loop done.")
-    print(f"  run_id:             {summary.run_id}")
-    print(f"  termination:        {summary.termination_reason}")
-    print(f"  completed/total:    {summary.completed_tasks}/{summary.total_tasks}")
-    print(f"  cost (USD):         {summary.estimated_cost_usd:.3f}")
-    print(f"  elapsed (s):        {summary.elapsed_s:.2f}")
-    print(f"  top5 picks:         {len(summary.top5)}")
-    print(f"  artifacts dir:      {summary.artifacts_dir}")
-
-    # --- v0.7.2: auto-launch the WebUI (R-AutoLaunch stories 1-3) ---
-    no_launch = bool(getattr(args, "no_launch", False))
-    if not no_launch:
-        try:
-            from alphaloop.webui.auto_launch import (
-                auto_launch,
-                is_headless,
-            )
-            if is_headless():
-                print(
-                    "warning: no display detected, falling back to --no-launch",
-                    file=sys.stderr,
-                )
-            else:
-                ok, url, port = auto_launch(
-                    run_id=summary.run_id,
-                    artifacts_dir=summary.artifacts_dir,
-                )
-                if ok and url:
-                    print(f"alphaloop webui serving on {url}")
-                    print(f"  (open in browser; Ctrl-C to stop)")
-                elif port:
-                    print(
-                        f"warning: webui server started on port {port} "
-                        f"but health check did not respond in 15s",
-                        file=sys.stderr,
-                    )
-        except Exception as e:
-            print(f"warning: auto-launch failed: {e}", file=sys.stderr)
-    return 0
-
+    return run_loop_command(args)
 
 def create_parser() -> argparse.ArgumentParser:
     """创建命令行解析器"""
@@ -299,6 +193,9 @@ def create_parser() -> argparse.ArgumentParser:
 
     register_export(subparsers)
 
+    # Phase-2 runtime daemon and job commands
+    register_jobs(subparsers)
+
     # loop 命令 (v0.7 hybrid loop)
     _register_loop(subparsers)
 
@@ -327,6 +224,8 @@ def main(args=None):
         elif parsed.command == "report":
             return parsed.func(parsed)
         elif parsed.command == "export":
+            return parsed.func(parsed)
+        elif parsed.command in {"start", "submit", "status", "cancel", "resume"}:
             return parsed.func(parsed)
         elif parsed.command == "loop":
             return _handle_loop(parsed)

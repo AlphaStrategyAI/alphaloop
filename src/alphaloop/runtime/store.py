@@ -62,6 +62,7 @@ class JobStore:
         self._db_path = db_path
         self._data_dir = data_dir
         self._lock = threading.Lock()
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.execute(_CREATE_TABLE)
 
