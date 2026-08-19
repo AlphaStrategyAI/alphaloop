@@ -237,3 +237,32 @@ def test_protocol_does_not_mutate_frozen_hypothesis(tmp_path):
         gate_runner=_all_pass,
     )
     assert spec.hypothesis.signal_mechanism == "momentum_12_1"
+
+
+def test_economic_proposal_is_queued_and_not_executed(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    calls = {"n": 0}
+
+    def runner(required, **kwargs):
+        calls["n"] += 1
+        raise IncompleteEvidenceError("missing walk_forward")
+
+    def proposer(spec, doc):
+        return {"signal_mechanism": "rsi"}
+
+    spec = _spec()
+    result = run_protocol(
+        spec,
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+        revision_proposer=proposer,
+    )
+    assert spec.hypothesis.signal_mechanism == "momentum_12_1"
+    rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
+    assert rec["queued_hypotheses"][0]["signal_mechanism"] == "rsi"
+    assert result.research_outcome is ResearchOutcome.INCONCLUSIVE
+    assert calls["n"] == 1

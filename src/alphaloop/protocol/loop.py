@@ -20,6 +20,7 @@ from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome
 from alphaloop.protocol.dsl import (
     DSL_SCHEMA_VERSION,
+    StrategyDocument,
     UnsupportedDslError,
     parse_strategy_document,
     target_weights,
@@ -27,7 +28,12 @@ from alphaloop.protocol.dsl import (
 from alphaloop.protocol.gates import run_hard_gates
 from alphaloop.protocol.profiles import get_profile
 from alphaloop.protocol.search import method_parameter_grid
-from alphaloop.protocol.stop import FORBIDDEN_CONTINUE_REASONS, RevisionKind, should_continue
+from alphaloop.protocol.stop import (
+    FORBIDDEN_CONTINUE_REASONS,
+    RevisionKind,
+    classify_revision,
+    should_continue,
+)
 
 
 @dataclass(frozen=True)
@@ -94,6 +100,9 @@ def run_protocol(
     clock: Optional[Callable[[], float]] = None,
     gate_runner: Optional[Callable[..., GateEvidence]] = None,
     remaining_cost_usd: Optional[float] = None,
+    revision_proposer: Optional[
+        Callable[[ResearchSpec, StrategyDocument], Optional[Mapping[str, object]]]
+    ] = None,
 ) -> ProtocolResult:
     layout.run_dir.mkdir(parents=True, exist_ok=True)
     layout.recommendations.write_text(
@@ -204,6 +213,42 @@ def run_protocol(
                 evidence=last_evidence,
             )
         if decision.continue_search:
+            if revision_proposer is not None:
+                proposed = revision_proposer(spec, trial_doc)
+                if proposed:
+                    kind = classify_revision(
+                        spec.hypothesis,
+                        spec.success_criteria.hard_gates,
+                        proposed,
+                    )
+                    revision_decision = should_continue(
+                        remaining_time_s=remaining_time,
+                        remaining_cost_usd=remaining_cost,
+                        last_evidence=last_evidence,
+                        proposed_kind=kind,
+                        stop_reason=None,
+                    )
+                    if revision_decision.queue_for_human:
+                        queued = [
+                            {"queued_reason": revision_decision.reason, **dict(proposed)}
+                        ]
+                        layout.recommendations.write_text(
+                            json.dumps({"queued_hypotheses": queued}, indent=2) + "\n",
+                            encoding="utf-8",
+                        )
+                        return _result(
+                            research_outcome=(
+                                outcome_from_evidence(JobStatus.COMPLETED, last_evidence)
+                                if last_evidence is not None and last_evidence.complete
+                                else ResearchOutcome.INCONCLUSIVE
+                            ),
+                            candidate_id=candidate_id,
+                            evidence=(
+                                last_evidence
+                                if last_evidence is not None and last_evidence.complete
+                                else None
+                            ),
+                        )
             continue
         break
 
