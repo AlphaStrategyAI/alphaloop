@@ -1,124 +1,90 @@
 # alphaloop Roadmap
 
-> **From openstrategy v1.0 (honest tool) → alphaloop v2.0 (AI research system).**
-> Inspired by Jeff Dean's 9-point interview (Alpha Engineer 2026-08-07) on
-> AI's next paradigm: recursive & automated.
+alphaloop is a **local-first overnight research lab** for AI-native
+independent quantitative researchers. A user submits a constrained
+investment hypothesis before bed. A local worker researches on the
+user's machine. In the morning the console presents one of three
+conclusions: `FOUND`, `NO_EVIDENCE`, or `INCONCLUSIVE`.
+
+The product promise is:
+
+> Submit in one minute before bed; run reliably overnight; understand a
+> trustworthy conclusion in five minutes the next morning.
+
+alphaloop does **not** promise alpha or future profitability. Its value
+is making agent-assisted strategy research reproducible, auditable, and
+resistant to automated p-hacking.
 
 ---
 
-## Why alphaloop?
+## First release (current)
 
-openstrategy v1.0 (now archived as `v1.0` tag) was an honest, verifiable
-research tool — "not find alpha, don't waste time on bad strategies." It
-answered 6 questions for any strategy in under 30 minutes.
+What ships now:
 
-But Jeff Dean's view is sharper: **凡可测量者，皆可攻克 (anything measurable
-will be cracked)**. openstrategy's 6 diagnostic questions are measurable.
-That makes them candidates for *automation*, not just *tooling*.
+- Frozen `ResearchSpec` (hypothesis, hard gates, seed, budgets, optional
+  content-addressed dataset).
+- Local Job API + supervisor + `ProcessWorker`. `alphaloop start` is the
+  control plane, worker, and packaged static morning page.
+- Constrained strategy DSL. Markets `us-equity-daily` and `crypto-daily`
+  are independent.
+- Hard gates with fail-closed evidence. `FOUND` only from complete
+  `GateEvidence`. `llm_judge` is not a gate.
+- Trial ledger, checkpoints, `manifest.yaml`, `candidates.parquet`,
+  `report.md`.
+- Morning review: job **status** and research **outcome** stay separate;
+  the page and report disclose the frozen hypothesis, `spec_id`, `seed`,
+  and unique-ledger `n_trials`.
+- YAML submit from the packaged Web console or CLI. Closing the browser
+  or CLI does not stop a job; host sleep or power-off does.
+- Optional export of an immutable Strategy Candidate Bundle (`.asb`)
+  when `FOUND`. AlphaStrategy owns paper/live trading.
 
-So alphaloop's mission is to take the next step: turn openstrategy's
-diagnostic suite into the **evaluation layer of an autonomous research loop**.
+What this release is **not**:
 
----
-
-## Phased rollout
-
-### v0.5 (this release) — **rename + freeze**
-
-- Rename package `openstrategy` → `alphaloop`
-- Version 1.1.3 → **0.5.0** (semantic-reset to signal "new direction")
-- Keep **all v1.0 features working**: 4 sources, 10 factors, 11 strategies,
-  6 diagnostic, Alpaca paper-by-default broker adapter
-- Keep `v1.0` git tag as a permanent historical marker
-- 191/191 tests pass; CI integration unchanged
-- **No new features.** Pure rename + repositioning.
-
-### v0.6 — **LLM judge evaluator (Jeff Dean #9: accelerate the evaluator)**
-
-Add a 7th diagnostic: an **LLM-as-judge** that scores backtest reports on:
-
-- Readability (1-10)
-- Investment-decision合理性 (1-10)
-- Risk-disclosure completeness (1-10)
-
-Backend: OpenRouter Fusion (per the Trask / Fusion trend; multi-model
-ensemble for 7-point uplift at half cost).
-
-The point: **accelerate the evaluation loop** so the research loop can
-iterate faster. This is the literal Jeff Dean #9 thesis applied to quant.
-
-### v0.7 — **alphaloop loop MVP (Jeff Dean #8: AI builds AI)**
-
-Ship the first end-to-end autonomous research loop:
-
-```
-alphaloop loop "find a strategy that beats SPY with DSR > 1.0"
-```
-
-Auto-executes:
-
-1. Load 5y data from 4 sources
-2. Generate strategy × factor × parameter combinations (N≈500)
-3. Run walk-forward CV on each
-4. Score with 6 diagnostic + LLM judge (#7)
-5. Output top-5 strategy report (markdown + JSON)
-6. Commit report + backtest code to git
-
-Targets: a single command that runs ~6h on multi-agent parallel,
-returns a fully reproducible top-5 list.
-
-### v1.0 (re-release) — **alphaloop as a research loop platform**
-
-After v0.6 and v0.7 prove the concept, re-tag v1.0 under the new
-`alphaloop` brand with:
-
-- `alphaloop report` (rebranded from `openstrategy report`)
-- `alphaloop loop` (new autonomous research command)
-- `alphaloop serve` (MCP server — expose alphaloop to any LLM agent
-  via Anthropic MCP protocol)
-- Full integration with Anthropic Claude Code, OpenRouter, and at
-  least one OSS model provider
-
-### v2.0 — **AI research system (full)**
-
-The full Jeff Dean #8 vision:
-
-- Multi-agent evaluation search (multiple `alphaloop loop` runs,
-  with a meta-evaluator picking the most promising paths — Jeff Dean #4)
-- Self-feedback: failures auto-redesign the next experiment
-- Anthropic MCP-native (Sonnet can call alphaloop directly)
-- Hugging Face / Replicate / AWS Marketplace distribution
+- An AI trading bot, broker, or live execution path (`alphaloop.live`
+  stays frozen).
+- A command that "finds a strategy that beats SPY."
+- MCP as the overnight runtime. A later thin MCP may expose short
+  asynchronous job-control operations only.
+- The frozen Vite + React Quant Lab SPA under `webui/`. First-release UI
+  is `src/alphaloop/webui/static/` served by the daemon.
 
 ---
 
-## Why the version reset to 0.5.0?
+## Remaining work (not a promise of alpha)
 
-`v1.0` exists as a tag on the old `openstrategy` brand — that tag is
-**historical** and **not** going away. New development under the
-`alphaloop` brand starts at 0.5.0 so consumers can clearly distinguish:
+Honest follow-ons, in product order:
 
-- `openstrategy<1.0.0` — original tool (still installable via pip)
-- `alphaloop>=0.5.0` — rebrand (same code, new name)
-- `alphaloop>=0.6` — adds LLM judge
-- `alphaloop>=0.7` — adds autonomous loop
+1. **Overnight soak (release process, not CI).** PRD §3.4 asks that a
+   fixed overnight benchmark complete without operator intervention on
+   every supported platform. That is a release gate, not a pytest job.
+2. **Protocol preview before freeze.** PRD §4.1 step 4: review the
+   research protocol in the console before the job is frozen.
+3. **Richer five-minute evidence.** Qualifying-candidate tables and
+   funnel visualization beyond today's gate list, still without claiming
+   alpha.
+4. **Optional later surfaces.** Short MCP job-control; cloud workers for
+   hosts that cannot stay awake. Neither replaces the local Job API.
 
-`alphaloop==1.0.0` will be tagged when the loop MVP ships and we have
-**reproducible evidence** that the loop finds alpha the honest way.
+Out of scope until a later positioning change: team permissions, broker
+integration, unfreezing `alphaloop.live`, treating `llm_judge` as a hard
+gate.
 
 ---
 
-## Brand notes
+## Version note
 
-- The `openstrategy` PyPI name remains owned (we don't transfer it)
-- The `fpc0000/openstrategy` GitHub repo will be **renamed** to
-  `AlphaStrategyAI/alphaloop` in a separate step (requires user OK)
-- The 191 existing tests are unchanged; alphaloop is a drop-in rename
+Package version `0.5.0` is the overnight-lab line, not a rename-only
+freeze of the old `openstrategy` tool. Historical `openstrategy` v1.0
+remains a git tag. Do not read the version number as "the loop finds
+alpha."
 
 ---
 
 ## References
 
-- Jeff Dean interview (Alpha Engineer 2026-08-07) — 9 core points
-- Lilian Weng "Harness Engineering" (2026-07)
-- Addy Osmani "Loop Engineering" (2026-06)
-- LLM Wiki CLI (Karpathy-style persistent memory)
+- `docs/requirements/product-positioning-requirements.md`
+- `docs/requirements/2026-08-19-five-minute-morning-review.md`
+- Bailey & López de Prado (2014), Deflated Sharpe Ratio / selection-bias
+  disclosure
+- Nielsen, visibility of system status (job status ≠ research outcome)

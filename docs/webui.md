@@ -1,9 +1,21 @@
 # WebUI
 
-The alphaloop WebUI is a **Vite + React + TypeScript + Tailwind** SPA
-bundled into the package at `webui/`.  It runs alongside the FastAPI
-JSON backend (`src/alphaloop/webui/api.py`) and reads the same
-`runs/<rid>/` artifacts that the CLI writes.
+The **first-release** morning UI is the packaged static page at
+`src/alphaloop/webui/static/`, served by `alphaloop start` on loopback.
+Submit a YAML research spec, leave the host awake, and review
+`FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE` in the morning. Job status and
+research outcome stay separate. The page does not promise alpha.
+
+The Vite + React + TypeScript Quant Lab SPA under `webui/` is **frozen
+heritage**. It is not the overnight-lab product UI. The notes below
+document that frozen tree only.
+
+## Frozen Quant Lab SPA (heritage)
+
+The heritage alphaloop WebUI is a **Vite + React + TypeScript + Tailwind**
+SPA bundled into the package at `webui/`. It was designed to run
+alongside the FastAPI JSON backend (`src/alphaloop/webui/api.py`) and
+read the same `runs/<rid>/` artifacts that the CLI writes.
 
 ## Layout — the 4 views
 

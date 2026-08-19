@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "alphaloop"
 version = "0.5.0"
-description = "AI-automated quant research loop — Jeff Dean style 'design loops that prompt your agents'. Honest, verifiable, agent-friendly."
+description = "Local-first overnight research lab for constrained investment hypotheses. Submit before bed; review a trustworthy conclusion in the morning. Does not promise alpha."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
