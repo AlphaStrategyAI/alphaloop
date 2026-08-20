@@ -26,7 +26,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add `test_packaged_console_freeze_chrome` next to preview chrome:
 
@@ -67,7 +67,7 @@ In `test_home_shows_promise_and_submit_form`, after the preview
     )
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_freeze_chrome -v
@@ -75,7 +75,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_fr
 
 Expected: FAIL (`var(--ink)` missing).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```css
 #submit-job {
@@ -92,13 +92,13 @@ Expected: FAIL (`var(--ink)` missing).
 Keep `#submit-job:disabled`. `docs/webui.md`: Freeze uses ink
 background and FOUND accent, not ad-hoc hex.
 
-- [ ] **Step 4: PASS**
+- [x] **Step 4: PASS**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_freeze_chrome tests/runtime/test_static_console.py::test_packaged_console_preview_chrome tests/e2e/test_morning_console.py::test_home_shows_promise_and_submit_form -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/alphaloop/webui/static/styles.css docs/webui.md tests/runtime/test_static_console.py tests/e2e/test_morning_console.py docs/plans/2026-08-20-freeze-chrome.md

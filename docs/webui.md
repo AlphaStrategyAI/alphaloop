@@ -7,7 +7,8 @@ preview the compiled protocol (readable method grid and planned trial
 count), then freeze it. The dataset file picker accepts parquet or a
 wide close-only CSV. Per-symbol OHLCV is rejected. Load example uses designed secondary chrome
 (not FOUND green). Preview protocol uses focus-blue chrome (not
-FOUND green). Ctrl/Cmd+Enter previews, then freezes. j/k or arrows move between morning
+FOUND green). Freeze and submit uses ink background and FOUND accent
+chrome (not ad-hoc hex). Ctrl/Cmd+Enter previews, then freezes. j/k or arrows move between morning
 jobs. Cancel or resume from the job detail without
 leaving the page. A human **Export .asb** click on a `FOUND` candidate
 shows the same four-line receipt as `alphaloop export` (`FOUND`,

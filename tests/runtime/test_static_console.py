@@ -332,6 +332,24 @@ def test_packaged_console_preview_chrome():
     assert HOST_CONSTRAINT in html
 
 
+def test_packaged_console_freeze_chrome():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="submit-job"' in html
+    freeze_rule = css.find("#submit-job {")
+    assert freeze_rule != -1
+    freeze_block = css[freeze_rule : css.find("}", freeze_rule)]
+    assert "var(--ink)" in freeze_block
+    assert "var(--accent)" in freeze_block
+    assert "var(--focus)" not in freeze_block
+    assert "var(--warn)" not in freeze_block
+    assert "#16352c" not in freeze_block
+    assert "#2f6b55" not in freeze_block
+    assert "http" not in css.lower()
+    assert HOST_CONSTRAINT in html
+
+
 def test_packaged_console_load_chrome():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

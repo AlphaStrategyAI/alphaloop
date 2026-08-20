@@ -617,9 +617,13 @@ button {
 }
 
 #submit-job {
-  background: #16352c;
-  border-color: #2f6b55;
+  background: var(--ink);
   color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
 }
 
 #submit-job:disabled {

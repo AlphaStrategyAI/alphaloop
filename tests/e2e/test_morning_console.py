@@ -150,6 +150,18 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
         }""",
         timeout=10000,
     )
+    page.wait_for_function(
+        """() => {
+          const el = document.getElementById('submit-job');
+          if (!el) return false;
+          const style = getComputedStyle(el);
+          return (
+            style.color === 'rgb(62, 224, 160)' &&
+            style.backgroundColor === 'rgb(11, 15, 22)'
+          );
+        }""",
+        timeout=10000,
+    )
     assert page.locator("#submit-job").is_disabled()
     assert page.locator("#load-example").count() == 1
     page.wait_for_function(
