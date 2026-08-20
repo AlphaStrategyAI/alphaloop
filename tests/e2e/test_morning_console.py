@@ -207,6 +207,9 @@ def test_preview_without_dataset_shows_required_snapshot_error(real_daemon, brow
     )
     assert page.locator("#job-list button").count() == 0
     assert page.locator("#submit-job").is_disabled()
+
+
+def test_invalid_yaml_shows_preflight_errors_without_job(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
     _preview_yaml(page, _spec_yaml({"dataset_id": "x", "sha256": "0" * 64}, hard_gates=[]))
