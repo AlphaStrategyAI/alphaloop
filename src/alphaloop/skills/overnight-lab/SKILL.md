@@ -24,7 +24,7 @@ The host must remain awake while a local worker is running. Closing the browser 
 2. If the daemon is not up, run `alphaloop start --detach` (loopback Job API + packaged morning Web at `/`).
 3. **Preview** with `alphaloop preview --spec PATH` (does not create a job). Then freeze with the morning page YAML box at `/` **or** `alphaloop submit --spec PATH`; both return `run_id` immediately. The packaged morning page can POST YAML to `/v1/jobs`, polls progress every two seconds, and cannot change hard gates.
 4. **Poll** the morning page or `alphaloop status` (latest job) or `alphaloop status RUN_ID`. Parse JSON with `alphaloop status --json` or `alphaloop status RUN_ID --json`. Stop or resume the latest job with `alphaloop cancel` / `alphaloop resume`; pass `RUN_ID` for an explicit job. Do not block a chat, CLI, or MCP tool call for hours. There is no overnight MCP session.
-5. Open the morning console at `http://127.0.0.1:8765/` or inspect artifacts under the run directory. `alphaloop replay` rewrites `report.md` from sealed artifacts for the latest job and prints the same five-minute verdict as `status`. Pass `RUN_ID` for an explicit job. Parse JSON with `alphaloop replay --json` or `alphaloop replay RUN_ID --json`. It does not re-run gates.
+5. Open the morning console at `http://127.0.0.1:8765/` or inspect artifacts under the run directory. `alphaloop replay` rewrites `report.md` from sealed artifacts for the latest job and prints the same five-minute verdict as `status`. Pass `RUN_ID` for an explicit job. Parse JSON with `alphaloop replay --json` or `alphaloop replay RUN_ID --json`. The morning **Replay report** control does the same rewrite without leaving the page. It does not re-run gates.
 
 ## Outcomes
 

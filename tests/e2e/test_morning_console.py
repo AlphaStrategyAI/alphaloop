@@ -712,6 +712,8 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     assert "This report does not claim alpha or future profitability." in report
     assert "12-1 momentum works in US large caps net of costs" in report
     _open_job_detail(page)
+    page.wait_for_selector("#replay-job", timeout=10000)
+    page.click("#replay-job")
     page.wait_for_function(
         """() => (document.getElementById('report').textContent || '').indexOf(
             'This report does not claim alpha or future profitability.'

@@ -840,6 +840,10 @@ document.getElementById("resume-job").addEventListener("click", function () {
   postJobAction("resume");
 });
 
+document.getElementById("replay-job").addEventListener("click", function () {
+  postJobAction("replay");
+});
+
 document.getElementById("spec-yaml").addEventListener("input", function () {
   if (!syncingForm) {
     yamlToForm(document.getElementById("spec-yaml").value);

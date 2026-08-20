@@ -136,6 +136,29 @@ def test_export_run_rejects_non_found(tmp_path):
         api.export_run(run_id, "c1")
 
 
+def test_replay_run_rewrites_report_without_changing_sqlite_outcome(tmp_path):
+    from alphaloop.contracts.artifacts import RunLayout
+
+    api = _api(tmp_path)
+    run_id = api.create_run(_cached_spec())["run_id"]
+    before = api.store.get(run_id).research_outcome
+    payload = api.replay_run(run_id)
+    layout = RunLayout(tmp_path / run_id)
+    assert layout.report.is_file()
+    assert "This report does not claim alpha or future profitability." in layout.report.read_text(
+        encoding="utf-8"
+    )
+    assert payload["run_id"] == run_id
+    assert "report_markdown" in payload
+    assert api.store.get(run_id).research_outcome is before
+
+
+def test_replay_run_unknown_id_raises_keyerror(tmp_path):
+    api = _api(tmp_path)
+    with pytest.raises(KeyError):
+        api.replay_run("j_missing")
+
+
 def test_create_run_rejects_empty_gates_without_inserting_job(tmp_path):
     api = _api(tmp_path)
     spec = new_research_spec(

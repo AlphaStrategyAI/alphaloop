@@ -118,7 +118,7 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
                 len(parts) == 5
                 and parts[:3] == ["", "v1", "jobs"]
                 and parts[3]
-                and parts[4] in ("cancel", "resume", "export")
+                and parts[4] in ("cancel", "resume", "export", "replay")
             ):
                 run_id = unquote(parts[3])
                 if parts[4] == "export":
@@ -176,10 +176,15 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
             try:
                 if action == "cancel":
                     response = api.cancel_run(run_id)
+                elif action == "replay":
+                    response = api.replay_run(run_id)
                 else:
                     response = api.resume_run(run_id)
             except KeyError:
                 self._send_json(404, {"error": "job not found"})
+                return
+            except FileNotFoundError:
+                self._send_json(404, {"error": "run directory not found"})
                 return
             except ValueError as exc:
                 self._send_json(409, {"error": str(exc)})

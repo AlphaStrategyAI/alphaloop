@@ -36,6 +36,12 @@ class JobClient:
             f"/v1/jobs/{quote(run_id, safe='')}/resume",
         )
 
+    def replay_run(self, run_id: str) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            f"/v1/jobs/{quote(run_id, safe='')}/replay",
+        )
+
     def healthz(self) -> dict[str, Any]:
         return self._request("GET", "/healthz")
 

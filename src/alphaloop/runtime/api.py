@@ -83,6 +83,13 @@ class JobAPI:
                 self.data_dir,
             )
 
+    def replay_run(self, run_id: str) -> dict[str, Any]:
+        from alphaloop.runtime.replay import rewrite_sealed_report
+
+        self.store.get(run_id)
+        rewrite_sealed_report(self.data_dir, run_id)
+        return morning_view(self.store.get(run_id), self.data_dir)
+
     def export_run(self, run_id: str, candidate_id: str) -> dict[str, Any]:
         dest = (
             RunLayout(self.data_dir / run_id).run_dir

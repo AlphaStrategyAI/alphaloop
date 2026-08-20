@@ -122,6 +122,27 @@ def test_http_create_get_cancel(tmp_path):
         server.shutdown()
 
 
+def test_http_replay_rewrites_report(tmp_path):
+    from alphaloop.contracts.artifacts import RunLayout
+
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    client = JobClient(f"http://{host}:{port}")
+    try:
+        created = client.create_run(_cached_spec())
+        replayed = client.replay_run(created["run_id"])
+        assert replayed["run_id"] == created["run_id"]
+        report = RunLayout(tmp_path / created["run_id"]).report
+        assert report.is_file()
+        assert "This report does not claim alpha or future profitability." in report.read_text(
+            encoding="utf-8"
+        )
+    finally:
+        server.shutdown()
+
+
 def test_non_loopback_bind_rejected(tmp_path):
     store = JobStore(tmp_path / "state.db", tmp_path)
     api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)

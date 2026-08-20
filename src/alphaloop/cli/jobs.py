@@ -9,10 +9,7 @@ from urllib.error import HTTPError, URLError
 
 import yaml
 
-from alphaloop.contracts.artifacts import RunLayout
-from alphaloop.contracts.gates import evidence_from_dict, outcome_from_evidence
 from alphaloop.contracts.research_spec import ResearchSpec
-from alphaloop.contracts.status import JobStatus, ResearchOutcome
 from alphaloop.runtime.client import JobClient
 from alphaloop.runtime.daemon import (
     DEFAULT_HOST,
@@ -316,14 +313,8 @@ def run_resume(args: argparse.Namespace) -> int:
 
 
 def run_replay(args: argparse.Namespace) -> int:
-    from alphaloop.runtime.artifacts_io import write_report
-    from alphaloop.runtime.morning import (
-        STOP_REASON_ALL_GATES_PASSED,
-        STOP_REASON_HARD_GATE_FAILED,
-        STOP_REASON_INCOMPLETE_EVIDENCE,
-        format_status_verdict,
-        replay_view,
-    )
+    from alphaloop.runtime.morning import format_status_verdict
+    from alphaloop.runtime.replay import rewrite_sealed_report
     from alphaloop.runtime.store import JobStore
 
     named_latest = False
@@ -336,58 +327,17 @@ def run_replay(args: argparse.Namespace) -> int:
         args.run_id = jobs[0].run_id
         named_latest = True
 
-    layout = RunLayout(data_dir / args.run_id)
-    if not layout.run_dir.is_dir():
-        print(f"error: run directory not found: {layout.run_dir}", file=sys.stderr)
+    try:
+        view = rewrite_sealed_report(data_dir, args.run_id)
+    except FileNotFoundError:
+        print(
+            f"error: run directory not found: {data_dir / args.run_id}",
+            file=sys.stderr,
+        )
         return 2
-
-    spec = None
-    spec_path = layout.research_spec
-    if spec_path.is_file():
-        try:
-            payload = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
-            if not isinstance(payload, dict):
-                raise ValueError("research spec must be a mapping")
-            spec = ResearchSpec.from_dict(payload)
-        except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
-            print(f"error: unable to read research spec: {exc}", file=sys.stderr)
-            return 2
-
-    gates_path = layout.evidence / "gates.json"
-    outcome = ResearchOutcome.INCONCLUSIVE
-    if gates_path.is_file():
-        try:
-            payload = json.loads(gates_path.read_text(encoding="utf-8"))
-            if isinstance(payload, dict):
-                evidence = evidence_from_dict(payload)
-                if evidence.complete:
-                    outcome = outcome_from_evidence(JobStatus.COMPLETED, evidence)
-        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
-            pass
-
-    if outcome is ResearchOutcome.FOUND:
-        stop_reason = STOP_REASON_ALL_GATES_PASSED
-    elif outcome is ResearchOutcome.NO_EVIDENCE:
-        stop_reason = STOP_REASON_HARD_GATE_FAILED
-    elif outcome is ResearchOutcome.INCONCLUSIVE:
-        stop_reason = STOP_REASON_INCOMPLETE_EVIDENCE
-    else:
-        stop_reason = None
-
-    write_report(
-        layout,
-        research_outcome=outcome.value,
-        stop_reason=stop_reason,
-        spec=spec,
-    )
-    status = ""
-    db = data_dir / ".alphaloop" / "state.db"
-    if db.is_file():
-        try:
-            status = JobStore(db, data_dir).get(args.run_id).status.value
-        except KeyError:
-            status = ""
-    view = replay_view(layout, research_outcome=outcome.value, status=status)
+    except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
+        print(f"error: unable to read research spec: {exc}", file=sys.stderr)
+        return 2
     if named_latest:
         view = {**view, "run_id": args.run_id}
     if args.json:

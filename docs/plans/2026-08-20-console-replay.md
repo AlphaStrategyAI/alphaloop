@@ -27,7 +27,7 @@
 - Modify: `docs/webui.md`, `mkdocs.yml`
 - Test: `tests/runtime/test_api.py`, `tests/runtime/test_http.py`, `tests/runtime/test_static_console.py`, `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 HTTP: POST `/v1/jobs/{id}/replay` writes `report.md` and returns `run_id`.
 

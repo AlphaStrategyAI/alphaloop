@@ -227,7 +227,8 @@ promise alpha.
 ## `alphaloop replay`
 
 Rewrite `report.md` from sealed `gates.json` **without** re-running
-gates or requiring the daemon. Default stdout is the same five-minute
+gates or requiring the daemon. The morning console **Replay report**
+control uses the same rewrite. Default stdout is the same five-minute
 verdict as `status RUN_ID` (outcome token first). `--json` prints the
 artifact view for agents.
 

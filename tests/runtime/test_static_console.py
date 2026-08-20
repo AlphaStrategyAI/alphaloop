@@ -337,6 +337,25 @@ def test_packaged_console_load_chrome():
     assert HOST_CONSTRAINT in html
 
 
+def test_packaged_console_replay_report():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="replay-job"' in html
+    assert html.find('id="resume-job"') < html.find('id="replay-job"')
+    assert html.find('id="replay-job"') < html.find('id="report"')
+    assert 'postJobAction("replay")' in script
+    replay_rule = css.find("#replay-job {")
+    assert replay_rule != -1 or "#replay-job" in css
+    block_start = css.find("#replay-job")
+    assert block_start != -1
+    block = css[block_start : css.find("}", block_start)]
+    assert "var(--accent)" not in block
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_packaged_example_dataset_matches_load_example_hash():
     from alphaloop.contracts.artifacts import hash_bytes
 
