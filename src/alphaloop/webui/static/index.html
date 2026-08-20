@@ -28,8 +28,10 @@
         <label for="spec-yaml">Research spec (YAML)</label>
         <textarea id="spec-yaml" rows="16" cols="72"></textarea>
         <p>
-          <button id="submit-job" type="button">Submit</button>
+          <button id="preview-protocol" type="button">Preview protocol</button>
+          <button id="submit-job" type="button" disabled>Freeze and submit</button>
         </p>
+        <p id="protocol-preview"></p>
         <p id="preflight-errors"></p>
         <p id="host-constraint"></p>
       </section>

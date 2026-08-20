@@ -27,9 +27,9 @@ def test_packaged_assets_are_read_only_morning_copy():
     assert "INCONCLUSIVE" in html
     assert 'id="spec-yaml"' in html
     assert 'id="submit-job"' in html
-    assert 'id="job-status"' in html
-    assert 'id="hypothesis-statement"' in html
-    assert 'id="spec-meta"' in html
+    assert 'id="preview-protocol"' in html
+    assert 'id="protocol-preview"' in html
+    assert "disabled" in html
     assert 'job.run_id + " — " + job.status + " — " + job.research_outcome' in script
     assert "application/yaml" in script
     assert "setInterval" in script
@@ -58,6 +58,7 @@ def test_packaged_help_and_evidence_lines():
         in html
     )
     assert "job.evidence_lines" in script
+    assert "/v1/jobs/preview" in script
     assert "override" not in script.lower()
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import pytest
@@ -63,6 +64,41 @@ def test_http_create_accepts_yaml_body(tmp_path):
             assert response.status == 201
             body = json.loads(response.read().decode("utf-8"))
             assert "run_id" in body
+    finally:
+        server.shutdown()
+
+
+def test_http_preview_does_not_create_a_job(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    try:
+        payload = _spec().to_dict()
+        payload.pop("spec_id")
+        req = Request(
+            f"http://{host}:{port}/v1/jobs/preview",
+            data=yaml.safe_dump(payload).encode("utf-8"),
+            headers={"Content-Type": "application/yaml"},
+            method="POST",
+        )
+        with urlopen(req) as response:
+            assert response.status == 200
+            body = json.loads(response.read().decode("utf-8"))
+        assert body["ok"] is True
+        assert "run_id" not in body
+        assert body["planned_n_trials"] >= 1
+        assert api.list_jobs()["jobs"] == []
+        bad = Request(
+            f"http://{host}:{port}/v1/jobs/preview",
+            data=b": not yaml object",
+            headers={"Content-Type": "application/yaml"},
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as exc:
+            urlopen(bad)
+        assert exc.value.code == 400
+        assert api.list_jobs()["jobs"] == []
     finally:
         server.shutdown()
 

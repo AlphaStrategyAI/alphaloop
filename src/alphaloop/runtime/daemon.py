@@ -101,6 +101,9 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
 
         def do_POST(self) -> None:
             path = urlsplit(self.path).path
+            if path == "/v1/jobs/preview":
+                self._preview_run()
+                return
             if path == "/v1/jobs":
                 self._create_run()
                 return
@@ -129,6 +132,16 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
                 self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(201, response)
+
+        def _preview_run(self) -> None:
+            try:
+                payload = self._read_payload()
+                spec = spec_from_submit_payload(payload)
+                response = api.preview_run(spec)
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(200, response)
 
         def _run_action(self, run_id: str, action: str) -> None:
             try:

@@ -5,6 +5,7 @@ from typing import Any
 
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus
+from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.morning import morning_view
 from alphaloop.runtime.preflight import preflight
 from alphaloop.runtime.store import JobStore
@@ -34,6 +35,24 @@ class JobAPI:
         payload = morning_view(job, self.data_dir)
         payload["host_constraint"] = result.host_constraint
         return payload
+
+    def preview_run(self, spec: ResearchSpec) -> dict[str, Any]:
+        result = preflight(spec, self.data_dir)
+        grid = list(method_parameter_grid(spec.hypothesis.signal_mechanism))
+        return {
+            "ok": result.ok,
+            "errors": list(result.errors),
+            "host_constraint": result.host_constraint,
+            "spec_id": spec.spec_id,
+            "seed": spec.seed,
+            "statement": spec.hypothesis.statement,
+            "signal_mechanism": spec.hypothesis.signal_mechanism,
+            "hard_gates": list(spec.success_criteria.hard_gates),
+            "method_parameter_grid": grid,
+            "planned_n_trials": len(grid),
+            "time_budget_s": spec.time_budget_s,
+            "cost_budget_usd": spec.cost_budget_usd,
+        }
 
     def list_jobs(self) -> dict[str, Any]:
         return {

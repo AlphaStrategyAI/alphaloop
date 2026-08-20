@@ -79,7 +79,65 @@ async function loadJobs() {
   }
 }
 
+let previewedYaml = null;
+
+function yamlMatchesPreview() {
+  return (
+    previewedYaml !== null &&
+    document.getElementById("spec-yaml").value === previewedYaml
+  );
+}
+
+function setSubmitEnabled(enabled) {
+  document.getElementById("submit-job").disabled = !enabled;
+}
+
+async function previewProtocol() {
+  const errors = document.getElementById("preflight-errors");
+  const preview = document.getElementById("protocol-preview");
+  const constraint = document.getElementById("host-constraint");
+  errors.textContent = "";
+  preview.textContent = "";
+  setSubmitEnabled(false);
+  previewedYaml = null;
+  const yamlText = document.getElementById("spec-yaml").value;
+  const response = await fetch("/v1/jobs/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/yaml" },
+    body: yamlText,
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    errors.textContent = body.error || "preview failed";
+    return;
+  }
+  if (body.host_constraint) {
+    constraint.textContent = body.host_constraint;
+  }
+  preview.textContent =
+    "spec_id: " +
+    body.spec_id +
+    " · planned_n_trials: " +
+    body.planned_n_trials +
+    " · signal_mechanism: " +
+    body.signal_mechanism +
+    " · hard_gates: " +
+    (body.hard_gates || []).join(",") +
+    " · grid: " +
+    JSON.stringify(body.method_parameter_grid);
+  if (!body.ok) {
+    errors.textContent = (body.errors || []).join("; ");
+    return;
+  }
+  previewedYaml = yamlText;
+  setSubmitEnabled(true);
+}
+
 async function submitJob() {
+  if (!yamlMatchesPreview()) {
+    setSubmitEnabled(false);
+    return;
+  }
   const errors = document.getElementById("preflight-errors");
   const constraint = document.getElementById("host-constraint");
   errors.textContent = "";
@@ -100,8 +158,16 @@ async function submitJob() {
   loadJobs();
 }
 
+document.getElementById("preview-protocol").addEventListener("click", function () {
+  previewProtocol();
+});
+
 document.getElementById("submit-job").addEventListener("click", function () {
   submitJob();
+});
+
+document.getElementById("spec-yaml").addEventListener("input", function () {
+  setSubmitEnabled(yamlMatchesPreview());
 });
 
 setInterval(loadJobs, 2000);
