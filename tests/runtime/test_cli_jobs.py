@@ -248,6 +248,8 @@ def test_cancel_and_resume_parser_have_json_flag():
     parser = create_parser()
     assert parser.parse_args(["cancel", "j_x", "--json"]).json is True
     assert parser.parse_args(["resume", "j_x"]).json is False
+    assert parser.parse_args(["cancel"]).run_id is None
+    assert parser.parse_args(["resume"]).run_id is None
 
 
 def test_cancel_default_is_verdict_json_is_payload(tmp_path, capsys):
@@ -279,6 +281,85 @@ def test_cancel_default_is_verdict_json_is_payload(tmp_path, capsys):
         assert rc == 0
         assert payload["status"] == "cancelled"
         assert payload["research_outcome"] == "INCONCLUSIVE"
+    finally:
+        server.shutdown()
+
+
+def test_cancel_without_run_id_uses_latest(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    try:
+        older = store.create(_spec())
+        newest = store.create(_spec())
+        rc = main(["cancel", "--data-dir", str(tmp_path)])
+        human = capsys.readouterr()
+        assert rc == 0
+        assert human.out.splitlines()[0] == f"run_id: {newest.run_id}"
+        assert human.out.splitlines()[1] == "INCONCLUSIVE"
+        assert "Job status: cancelled" in human.out
+        assert store.get(newest.run_id).status is JobStatus.CANCELLED
+        assert store.get(older.run_id).status is JobStatus.QUEUED
+        assert "target found" not in human.out.lower()
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(human.out)
+    finally:
+        server.shutdown()
+
+
+def test_cancel_without_run_id_empty_store(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    try:
+        rc = main(["cancel", "--data-dir", str(tmp_path)])
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert captured.err == "error: no overnight job yet\n"
+        assert "FOUND" not in captured.out
+        assert "target found" not in captured.err.lower()
+    finally:
+        server.shutdown()
+
+
+def test_resume_without_run_id_uses_latest(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    try:
+        store.create(_spec())
+        newest = store.create(_spec())
+        store.update_status(newest.run_id, JobStatus.FAILED, error="worker crashed")
+        rc = main(["resume", "--data-dir", str(tmp_path)])
+        human = capsys.readouterr()
+        assert rc == 0
+        assert human.out.splitlines()[0] == f"run_id: {newest.run_id}"
+        assert "Job status: queued" in human.out
+        assert store.get(newest.run_id).status is JobStatus.QUEUED
     finally:
         server.shutdown()
 

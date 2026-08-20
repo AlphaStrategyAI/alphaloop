@@ -72,7 +72,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     status.set_defaults(func=run_status)
 
     cancel = subparsers.add_parser("cancel", help="cancel a research job")
-    cancel.add_argument("run_id")
+    cancel.add_argument("run_id", nargs="?")
     cancel.add_argument(
         "--json",
         action="store_true",
@@ -82,7 +82,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     cancel.set_defaults(func=run_cancel)
 
     resume = subparsers.add_parser("resume", help="resume a research job")
-    resume.add_argument("run_id")
+    resume.add_argument("run_id", nargs="?")
     resume.add_argument(
         "--json",
         action="store_true",
@@ -256,12 +256,25 @@ def _run_action(
     args: argparse.Namespace,
     operation: Callable[[JobClient, str], dict[str, Any]],
 ) -> int:
+    named_latest = False
+    if not args.run_id:
+        listed = _invoke(args.data_dir, lambda client: client.list_jobs())
+        if listed is None:
+            return 2
+        jobs = listed.get("jobs") or []
+        if not jobs:
+            print("error: no overnight job yet", file=sys.stderr)
+            return 2
+        args.run_id = jobs[0]["run_id"]
+        named_latest = not bool(getattr(args, "json", False))
     result = _invoke(
         args.data_dir,
         lambda client: operation(client, args.run_id),
     )
     if result is None:
         return 2
+    if named_latest:
+        print(f"run_id: {args.run_id}")
     return _print_view(result, bool(getattr(args, "json", False)))
 
 

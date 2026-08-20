@@ -25,7 +25,7 @@
 - Modify: `docs/cli.md`, `README.md`, `src/alphaloop/skills/overnight-lab/SKILL.md`, `mkdocs.yml`
 - Test: `tests/runtime/test_cli_jobs.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Parser: `parse_args(["cancel"]).run_id is None`.
 
@@ -37,19 +37,19 @@ Resume omit: failed job, omit id, `Job status: queued`.
 
 Explicit cancel first line still `INCONCLUSIVE`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_cancel_without_run_id_uses_latest -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `nargs="?"` on cancel/resume. Resolve latest before `_run_action`.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(cli): cancel and resume without a run id use the latest job"

@@ -102,13 +102,18 @@ conclusion.
 Request cancellation of a running job.
 
 ```
-alphaloop cancel RUN_ID [--data-dir DIR] [--json]
+alphaloop cancel [RUN_ID] [--data-dir DIR] [--json]
 ```
 
-Default stdout is the five-minute verdict cluster (same as
-`alphaloop status RUN_ID`). `--json` prints the full `morning_view`
-payload. Cancel before a sealed `FOUND` is `INCONCLUSIVE`. A sealed
-`FOUND` stays `FOUND`.
+With no `RUN_ID`, cancels the **latest** job (newest `created_at`) and
+prefixes human stdout with `run_id:`. If there is no job yet, stderr is
+`error: no overnight job yet` and the command exits 2 (does not claim
+alpha). Daemon-unavailable stays the start hint.
+
+With a `RUN_ID`, default stdout is the five-minute verdict cluster (same
+as `alphaloop status RUN_ID`) and does not prefix `run_id:`. `--json`
+prints the full `morning_view` payload. Cancel before a sealed `FOUND`
+is `INCONCLUSIVE`. A sealed `FOUND` stays `FOUND`.
 
 ## `alphaloop resume`
 
@@ -116,11 +121,15 @@ Resume a job from its last checkpoint after a supervisor restart or
 host wake.
 
 ```
-alphaloop resume RUN_ID [--data-dir DIR] [--json]
+alphaloop resume [RUN_ID] [--data-dir DIR] [--json]
 ```
 
-Default stdout is the five-minute verdict cluster. `--json` prints the
-full `morning_view` payload. Job status is not the research conclusion.
+With no `RUN_ID`, resumes the **latest** job and prefixes human stdout
+with `run_id:`. Empty store and daemon-unavailable match `cancel`.
+
+With a `RUN_ID`, default stdout is the five-minute verdict cluster and
+does not prefix `run_id:`. `--json` prints the full `morning_view`
+payload. Job status is not the research conclusion.
 
 ## `alphaloop export`
 

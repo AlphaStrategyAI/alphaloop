@@ -95,9 +95,12 @@ alphaloop submit --spec spec.yaml    # freeze after preview
 alphaloop status                     # latest job five-minute verdict
 alphaloop status RUN_ID              # five-minute verdict for one run
 alphaloop status RUN_ID --json       # full morning_view payload for agents
-alphaloop resume RUN_ID              # after a crash or host sleep
+alphaloop cancel                     # latest job
+alphaloop cancel RUN_ID
+alphaloop resume                     # latest job after a crash or host sleep
+alphaloop resume RUN_ID
 alphaloop replay RUN_ID              # rewrite report.md; print the five-minute verdict
-alphaloop export CANDIDATE_ID --run-id RUN_ID --output strategy.asb
+alphaloop export CANDIDATE_ID --output strategy.asb
 ```
 
 Export is allowed only for `FOUND`, only after a human confirms, and the
