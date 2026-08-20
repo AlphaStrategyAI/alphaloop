@@ -88,6 +88,26 @@ def test_published_home_is_overnight_lab():
     assert "alphaloop start" in text
 
 
+def test_published_example_yaml_declares_example_dataset():
+    from importlib.resources import files
+
+    from alphaloop.contracts.artifacts import hash_bytes
+
+    digest = hash_bytes(
+        files("alphaloop.runtime.example_dataset")
+        .joinpath("prices.parquet")
+        .read_bytes()
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    home = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    for text in (readme, home):
+        assert "dataset_id: ds_example" in text
+        assert f"sha256: {digest}" in text
+        assert "alphaloop dataset" in text
+    assert "If the spec declares a dataset" not in readme
+    assert "A spec must declare a content-addressed `dataset`" in readme
+
+
 def test_loop_help_is_heritage_not_find_alpha(capsys):
     parser = create_parser()
     try:

@@ -24,7 +24,7 @@
 - Modify: `README.md`, `docs/index.md`
 - Test: `tests/test_package_identity.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/test_package_identity.py`:
 
@@ -52,7 +52,7 @@ def test_published_example_yaml_declares_example_dataset():
 Keep `test_published_home_is_overnight_lab`. It may also assert
 `alphaloop dataset` in `docs/index.md`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/test_package_identity.py::test_published_example_yaml_declares_example_dataset -v
@@ -60,7 +60,7 @@ python3 -m pytest tests/test_package_identity.py::test_published_example_yaml_de
 
 Expected: FAIL (`dataset_id: ds_example` missing).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Append to both YAML fences:
 
@@ -99,13 +99,13 @@ or mismatched snapshots do not synthesize prices.
 Optional one-line note under the YAML: the example `dataset` matches
 Load example; start copies those bytes.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/test_package_identity.py::test_published_example_yaml_declares_example_dataset tests/test_package_identity.py::test_published_home_is_overnight_lab tests/runtime/test_static_console.py::test_packaged_example_dataset_matches_load_example_hash -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "docs: declare ds_example in published getting-started YAML"

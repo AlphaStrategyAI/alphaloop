@@ -76,6 +76,9 @@ hard_gates: [dsr, walk_forward, vs_benchmark]
 seed: 7
 time_budget_s: 3600
 cost_budget_usd: 5.0
+dataset:
+  dataset_id: ds_example
+  sha256: 03796e74d7eed2595bc882cd345ae7967b1622848a618e437e0847d7bc66bc55
 ```
 
 `signal_mechanism` must be a constrained DSL kind (`momentum_12_1`,
@@ -85,11 +88,13 @@ directional signal. `obv_slope` needs volume; first-release snapshots
 are close-only. Markets `us-equity-daily` and `crypto-daily` are
 independent.
 
-If the spec declares a `dataset`, the parquet must exist under
-`datasets/<id>/prices.parquet` and match the recorded SHA-256. Missing
+A spec must declare a content-addressed `dataset`. `alphaloop start`
+installs the packaged `ds_example` snapshot so the example YAML can
+preview. Cache any other parquet with `alphaloop dataset PATH`. Missing
 or mismatched snapshots do not synthesize prices.
 
 ```bash
+alphaloop dataset PATH               # cache a parquet; does not create a job
 alphaloop preview --spec spec.yaml   # review grid; does not create a job
 alphaloop submit --spec spec.yaml    # freeze after preview
 alphaloop status                     # latest job five-minute verdict
@@ -125,7 +130,7 @@ archive contains no Python.
 
 CLI utilities `report`, `fetch`, `backtest`, `optimize`, `loop`, and
 `judge` remain for diagnostics and heritage workflows. The overnight
-product path is `start` → submit → morning review → optional `.asb`
+product path is `start` → optional `dataset` → preview → submit → morning review → optional `.asb`
 export.
 
 ---

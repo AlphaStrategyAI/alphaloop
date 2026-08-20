@@ -32,7 +32,9 @@ alphaloop start --detach
 
 Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/). Paste a research
 spec (YAML) on the packaged morning page, or run
-`alphaloop preview --spec spec.yaml` then `alphaloop submit --spec spec.yaml`. Leave the host awake. Closing the
+`alphaloop dataset PATH` (custom parquet; skip for the packaged
+`ds_example`), then `alphaloop preview --spec spec.yaml` then
+`alphaloop submit --spec spec.yaml`. Leave the host awake. Closing the
 browser or terminal does not stop the job; suspending or powering off
 the host does.
 
@@ -47,6 +49,9 @@ hard_gates: [dsr, walk_forward, vs_benchmark]
 seed: 7
 time_budget_s: 3600
 cost_budget_usd: 5.0
+dataset:
+  dataset_id: ds_example
+  sha256: 03796e74d7eed2595bc882cd345ae7967b1622848a618e437e0847d7bc66bc55
 ```
 
 The morning page shows the conclusion, sealed gate evidence (including
@@ -54,6 +59,7 @@ walk-forward `regime_stable` and median fold Sharpe when present), and
 short help. It does not claim alpha.
 
 ```bash
+alphaloop dataset prices.parquet
 alphaloop preview --spec spec.yaml
 alphaloop submit --spec spec.yaml
 alphaloop status
@@ -82,8 +88,8 @@ or `FOUND`.
 
 `alphaloop loop`, `report`, `fetch`, `backtest`, `optimize`, and `judge`
 remain for diagnostics and the v0.7 hybrid DAG. They are **not** the
-first-release overnight path. The product path is `start` → submit →
-morning review → optional `.asb` export.
+first-release overnight path. The product path is `start` → optional
+`dataset` → preview → submit → morning review → optional `.asb` export.
 
 The Vite + React Quant Lab SPA under `webui/` is frozen heritage. The
 product UI is the packaged static page served by `alphaloop start`.
