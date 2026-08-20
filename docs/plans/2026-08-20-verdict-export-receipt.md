@@ -48,9 +48,9 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_as
 Move `<p id="export-status"></p>` into `#verdict` after `#handoff`.
 `showJob`: clear status when `currentRunId !== runId`. Docs.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): show the export receipt in the morning verdict"
