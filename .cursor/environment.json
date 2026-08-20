@@ -1,4 +1,4 @@
 {
   "name": "alphaloop",
-  "install": "./scripts/cloud-agent-install.sh"
+  "install": "bash -c 'for s in scripts/cloud-agent-install.sh repos/alphaloop/scripts/cloud-agent-install.sh alphaloop/scripts/cloud-agent-install.sh /agent/repos/alphaloop/scripts/cloud-agent-install.sh /workspace/repos/alphaloop/scripts/cloud-agent-install.sh; do if [ -f \"$s\" ]; then exec bash \"$s\"; fi; done; echo \"cloud-agent-install.sh not found from $(pwd)\" >&2; exit 1'"
 }
