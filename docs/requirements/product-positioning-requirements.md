@@ -681,13 +681,19 @@ Implementation must proceed through separate specifications and plans:
 6. **Agent entry:** local Skill and CLI workflow, followed only if needed
    by a thin asynchronous MCP adapter.
 
-The next implementation-design cycle: items 1–6 landed contracts, the
-local runtime, a single-pass protocol, morning review, the `.asb`
-producer, and the Agent Skill. Phase 7 wires the iterative protocol
-loop, method repairs, and multiple-testing `n_trials`. Remaining
-first-release gaps are protocol gate returns, durable artifacts,
-morning submit/progress, and §12 verification (Phases 8–11). MCP remains
-an optional later adapter and must never keep an overnight tool call open.
+Items 1–6 and Phases 7–11 shipped: contracts, the local runtime, the
+constrained protocol, morning review, the `.asb` producer, the Agent
+Skill, the iterative loop with method repairs and unique-ledger
+`n_trials`, protocol gate returns, durable artifacts, morning
+submit/progress, and §12 verification. **Phases 8–11 shipped.** MCP
+remains an optional later adapter and must never keep an overnight
+tool call open.
+
+Current first-release remaining work (not Phases 8–11) matches
+`ROADMAP.md`: overnight soak execution on an awake host (`alphaloop
+soak` prints the checklist and is not CI); do not shrink DSR `N` with
+\(N_{\mathrm{eff}}\) (unique-ledger `n_trials` stays DSR `N`); later
+MCP / cloud workers. None of those is a promise of alpha.
 
 Refactor mapping and file boundaries:
 [`docs/plans/overnight-research-lab-refactor.md`](../plans/overnight-research-lab-refactor.md).
@@ -713,7 +719,7 @@ Phase 6 implementation plan:
 Phase 7 implementation plan:
 [`docs/plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md`](../plans/2026-08-19-overnight-lab-phase7-iterative-protocol.md).
 
-Remaining work (Phases 8–11) technical design:
+Phases 8–11 technical design (historical; those phases shipped):
 [`docs/plans/2026-08-19-overnight-lab-remaining-work.md`](../plans/2026-08-19-overnight-lab-remaining-work.md).
 
 Phase 8 implementation plan:

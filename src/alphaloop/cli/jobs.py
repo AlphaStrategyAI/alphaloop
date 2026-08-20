@@ -93,6 +93,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
     replay = subparsers.add_parser("replay", help="rewrite report.md from sealed artifacts")
     replay.add_argument("run_id")
+    replay.add_argument(
+        "--json",
+        action="store_true",
+        help="print the replay verdict view as JSON",
+    )
     _add_data_dir(replay)
     replay.set_defaults(func=run_replay)
 
@@ -303,7 +308,10 @@ def run_replay(args: argparse.Namespace) -> int:
         STOP_REASON_ALL_GATES_PASSED,
         STOP_REASON_HARD_GATE_FAILED,
         STOP_REASON_INCOMPLETE_EVIDENCE,
+        format_status_verdict,
+        replay_view,
     )
+    from alphaloop.runtime.store import JobStore
 
     layout = RunLayout(Path(args.data_dir) / args.run_id)
     if not layout.run_dir.is_dir():
@@ -349,7 +357,18 @@ def run_replay(args: argparse.Namespace) -> int:
         stop_reason=stop_reason,
         spec=spec,
     )
-    print(f"research_outcome: {outcome.value}")
+    status = ""
+    db = Path(args.data_dir) / ".alphaloop" / "state.db"
+    if db.is_file():
+        try:
+            status = JobStore(db, Path(args.data_dir)).get(args.run_id).status.value
+        except KeyError:
+            status = ""
+    view = replay_view(layout, research_outcome=outcome.value, status=status)
+    if args.json:
+        print(json.dumps(view, sort_keys=True))
+    else:
+        print(format_status_verdict(view), end="")
     return 0
 
 

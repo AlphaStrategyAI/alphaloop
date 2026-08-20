@@ -15,6 +15,7 @@ from alphaloop.runtime.morning import (
     STOP_REASON_INCOMPLETE_EVIDENCE,
     format_status_verdict,
     morning_view,
+    replay_view,
 )
 from alphaloop.runtime.store import JobStore
 from tests.runtime.test_supervisor import _spec
@@ -388,3 +389,16 @@ def test_format_status_verdict_inconclusive_gloss():
     )
     assert "incomplete" in text.splitlines()[1]
     assert "cannot produce FOUND" in text
+
+
+def test_replay_view_uses_artifact_outcome_not_store_token(tmp_path):
+    from alphaloop.contracts.artifacts import RunLayout
+
+    layout = RunLayout(tmp_path / "j_replay")
+    view = replay_view(layout, research_outcome="FOUND", status="completed")
+    assert view["research_outcome"] == "FOUND"
+    assert view["status"] == "completed"
+    assert view["stop_reason"] == STOP_REASON_ALL_GATES_PASSED
+    assert view["primary_evidence"] == "all required hard gates passed"
+    assert view["queued_hypotheses"] == []
+    assert isinstance(view["qualifying_candidates"], list)

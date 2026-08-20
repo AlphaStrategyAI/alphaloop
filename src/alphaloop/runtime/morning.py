@@ -152,6 +152,32 @@ def format_status_verdict(view: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def replay_view(
+    layout: RunLayout,
+    *,
+    research_outcome: str,
+    status: str = "",
+) -> dict[str, Any]:
+    evidence = _load_evidence(layout)
+    funnel = build_funnel(layout)
+    try:
+        outcome = ResearchOutcome(research_outcome)
+    except ValueError:
+        outcome = ResearchOutcome.NONE
+    return {
+        "research_outcome": research_outcome,
+        "primary_evidence": format_primary_evidence(
+            research_outcome,
+            evidence=evidence,
+            dominant_failures=funnel["dominant_failures"],
+        ),
+        "stop_reason": _STOP_REASONS.get(outcome),
+        "status": status,
+        "queued_hypotheses": _load_queued(layout),
+        "qualifying_candidates": build_qualifying_candidates(layout),
+    }
+
+
 def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
     layout = RunLayout(Path(data_dir) / job.run_id)
     evidence = _load_evidence(layout)

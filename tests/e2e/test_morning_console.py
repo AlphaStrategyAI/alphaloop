@@ -579,6 +579,8 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     before = layout.report.read_text(encoding="utf-8") if layout.report.is_file() else ""
     replayed = _cli(real_daemon["data_dir"], "replay", run_id)
     assert replayed.returncode == 0
+    assert replayed.stdout.splitlines()[0] == outcome
+    assert "This status does not claim alpha or future profitability." in replayed.stdout
     assert layout.report.is_file()
     report = layout.report.read_text(encoding="utf-8")
     assert report != "" or before == ""

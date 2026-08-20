@@ -211,18 +211,21 @@ promise alpha.
 
 ## `alphaloop replay <run_id>`
 
-Re-emit the summary from a persisted run.  Reads `runs/<rid>/` and
-writes a fresh `report.md` **without** re-running any backtest.
+Rewrite `report.md` from sealed `gates.json` **without** re-running
+gates or requiring the daemon. Default stdout is the same five-minute
+verdict as `status RUN_ID` (outcome token first). `--json` prints the
+artifact view for agents.
 
 ```
-alphaloop replay <run_id> [--data-dir DIR] [--output DIR]
+alphaloop replay <run_id> [--data-dir DIR] [--json]
 ```
 
 Useful for:
 
 - regenerating the report after a docs / diagnostics change,
-- regenerating a share-link snapshot after a TTL bump,
-- reproducing an internal-review narrative.
+- reading the morning cluster after rewriting `report.md`.
+
+This command does not claim alpha or future profitability.
 
 ## `alphaloop webui`
 

@@ -28,6 +28,7 @@ def test_skill_teaches_submit_and_poll_not_block():
     assert "alphaloop preview" in lowered
     assert "alphaloop status" in lowered
     assert "alphaloop status RUN_ID --json" in text
+    assert "alphaloop replay" in lowered
     assert "latest job" in lowered
     assert "poll" in lowered
     assert "do not block" in lowered or "do not keep" in lowered

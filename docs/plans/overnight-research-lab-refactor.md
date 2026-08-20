@@ -407,9 +407,8 @@ Implementation plan:
 - Queue economic revisions into `recommendations.json`; never execute them in the same run.
 - Stop on `FOUND`, complete hard-gate failure, forbidden continue reasons, or exhausted budget.
 
-Remaining first-release work is specified in
-[`docs/plans/2026-08-19-overnight-lab-remaining-work.md`](2026-08-19-overnight-lab-remaining-work.md)
-(Phases 8–11).
+Phases 8–11 shipped. The remaining-work design is historical:
+[`docs/plans/2026-08-19-overnight-lab-remaining-work.md`](2026-08-19-overnight-lab-remaining-work.md).
 
 ### Phase 8 — Protocol semantics
 

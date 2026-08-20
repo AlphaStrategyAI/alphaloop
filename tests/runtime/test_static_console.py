@@ -307,6 +307,32 @@ def test_packaged_empty_morning_cue():
     assert "override" not in script.lower()
 
 
+def test_prd_section_13_does_not_list_phases_8_11_as_remaining():
+    from pathlib import Path
+
+    text = Path("docs/requirements/product-positioning-requirements.md").read_text(
+        encoding="utf-8"
+    )
+    section = text.split("## 13. Implementation decomposition")[1]
+    assert "Remaining first-release gaps are protocol gate returns" not in section
+    assert "Phases 8–11 shipped" in section
+    assert "soak" in section.lower()
+    assert "N_{\\mathrm{eff}}" in section
+    assert "n_trials" in section
+    assert "MCP" in section
+    assert "historical" in section.lower()
+
+
+def test_refactor_remaining_work_pointer_is_historical():
+    from pathlib import Path
+
+    text = Path("docs/plans/overnight-research-lab-refactor.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Remaining first-release work is specified in" not in text
+    assert "Phases 8–11 shipped" in text
+
+
 def test_roadmap_remaining_does_not_list_shipped_preview_as_unfinished():
     from pathlib import Path
 

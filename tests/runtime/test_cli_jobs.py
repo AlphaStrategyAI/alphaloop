@@ -341,9 +341,41 @@ def test_replay_rewrites_report_without_looprunner(tmp_path, capsys):
     rc = main(["replay", "j_replay", "--data-dir", str(tmp_path)])
     captured = capsys.readouterr()
     assert rc == 0
-    assert "FOUND" in captured.out
+    assert captured.out.splitlines()[0] == "FOUND"
+    assert "FOUND means every required hard gate is present and passed." in captured.out
+    assert "Primary evidence:" in captured.out
+    assert "Stop reason: all_gates_passed" in captured.out
+    assert "Job status:" in captured.out
+    assert STATUS_NO_ALPHA in captured.out
+    assert "research_outcome:" not in captured.out
+    assert "target found" not in captured.out.lower()
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(captured.out)
     assert layout.report.is_file()
     assert "FOUND" in layout.report.read_text(encoding="utf-8")
+
+
+def test_replay_parser_has_json_flag():
+    parser = create_parser()
+    assert parser.parse_args(["replay", "j_x", "--json"]).json is True
+    assert parser.parse_args(["replay", "j_x"]).json is False
+
+
+def test_replay_json_is_artifact_view(tmp_path, capsys):
+    layout = RunLayout(tmp_path / "j_replay")
+    layout.run_dir.mkdir()
+    layout.research_spec.write_text(yaml.safe_dump(_spec().to_dict()), encoding="utf-8")
+    evidence = evaluate_hard_gates(
+        (HardGateName.DSR,),
+        (GateResult(name=HardGateName.DSR, passed=True, detail={}),),
+    )
+    layout.evidence.mkdir()
+    (layout.evidence / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+    rc = main(["replay", "j_replay", "--json", "--data-dir", str(tmp_path)])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["research_outcome"] == "FOUND"
+    assert payload["stop_reason"] == "all_gates_passed"
 
 
 def test_soak_emits_release_plan_without_starting_jobs(capsys):
