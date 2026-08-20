@@ -61,3 +61,15 @@ def test_macd_grid_is_appel_variants():
     frozen = _hypothesis()
     for params in grid:
         assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD
+
+
+def test_bollinger_grid_is_literature_variants():
+    grid = method_parameter_grid("bollinger_zscore")
+    assert grid[0] == {}
+    assert {"window": 20, "num_std": 2.0} in grid
+    assert {"window": 10, "num_std": 1.5} in grid
+    assert len(grid) == 3
+    frozen = _hypothesis()
+    for params in grid:
+        assert "invert" not in params
+        assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD

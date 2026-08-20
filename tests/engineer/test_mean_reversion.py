@@ -72,6 +72,12 @@ def test_bollinger_invert_false_is_momentum():
     assert both_long.sum() < min((w_inv > 0).sum(), (w_mom > 0).sum())
 
 
+def test_bollinger_short_window_weights_in_01():
+    p = _make_prices()
+    w = bollinger_zscore(p, window=10, num_std=1.5)
+    assert w.between(0, 1).all()
+
+
 def test_ohlr_returns_same_index():
     p = _make_prices()
     ohlc = _make_ohlc(p)

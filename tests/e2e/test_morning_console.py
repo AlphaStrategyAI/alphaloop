@@ -368,3 +368,31 @@ def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
     assert "regime_stable" in rows["walk_forward"]["detail"]
     assert isinstance(rows["walk_forward"]["detail"]["regime_stable"], bool)
     assert "target found" not in page.content()
+
+
+def test_bollinger_job_records_method_trials(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"], dataset_id="ds_bb_e2e")
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill(
+        "#spec-yaml",
+        _spec_yaml(
+            dataset,
+            statement="Bollinger mean reversion works in US large caps net of costs",
+            signal_mechanism="bollinger_zscore",
+            time_budget_s=60,
+        ),
+    )
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page, timeout_ms=90000)
+    assert outcome in _OUTCOMES
+    run_id = _first_run_id(page)
+    layout = RunLayout(real_daemon["data_dir"] / run_id)
+    rows = [
+        json.loads(line)
+        for line in layout.trial_ledger.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert rows
+    assert all(row.get("kind") == "bollinger_zscore" for row in rows)
+    assert "target found" not in page.content()

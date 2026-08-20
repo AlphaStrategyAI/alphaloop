@@ -495,3 +495,32 @@ def test_incomplete_evidence_does_not_invent_gates_before_on_trial(tmp_path):
     assert seen["exists"] is False
     assert result.research_outcome is ResearchOutcome.INCONCLUSIVE
     assert not (layout.evidence / "gates.json").exists()
+
+
+def test_bollinger_protocol_walks_three_method_trials(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    seen: list[int] = []
+
+    def runner(required, **kwargs):
+        seen.append(kwargs["n_trials"])
+        if len(seen) < 3:
+            raise IncompleteEvidenceError("missing walk_forward")
+        return _all_pass(required, **kwargs)
+
+    result = run_protocol(
+        _spec(signal_mechanism="bollinger_zscore"),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    ids = [
+        json.loads(line)["trial_id"]
+        for line in layout.trial_ledger.read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(set(ids)) == 3
+    assert seen == [1, 2, 3]
+    assert result.research_outcome is ResearchOutcome.FOUND

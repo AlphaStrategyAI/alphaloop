@@ -67,6 +67,7 @@ nav:
     - Net-of-cost validation plan: plans/2026-08-19-net-of-cost-validation.md
     - OOS DSR and method grids plan: plans/2026-08-19-oos-dsr-method-grids.md
     - Regime stability and MACD grid plan: plans/2026-08-19-regime-stability-macd-grid.md
+    - Bollinger method grid plan: plans/2026-08-19-bollinger-method-grid.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md
@@ -76,6 +77,7 @@ nav:
     - Net-of-cost validation: requirements/2026-08-19-net-of-cost-validation.md
     - OOS DSR and method grids: requirements/2026-08-19-oos-dsr-method-grids.md
     - Regime stability and MACD grid: requirements/2026-08-19-regime-stability-macd-grid.md
+    - Bollinger method grid: requirements/2026-08-19-bollinger-method-grid.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 

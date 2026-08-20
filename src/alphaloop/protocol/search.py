@@ -13,6 +13,11 @@ _GRIDS: dict[str, tuple[dict[str, object], ...]] = {
         {"fast": 8, "slow": 17, "signal_period": 9},
         {"fast": 12, "slow": 25, "signal_period": 9},
     ),
+    "bollinger_zscore": (
+        {},
+        {"window": 20, "num_std": 2.0},
+        {"window": 10, "num_std": 1.5},
+    ),
 }
 
 
