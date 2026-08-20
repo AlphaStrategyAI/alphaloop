@@ -55,16 +55,15 @@ What this release is **not**:
 
 Honest follow-ons, in product order:
 
-1. **Overnight soak (release process, not CI).** PRD §3.4 asks that a
-   fixed overnight benchmark complete without operator intervention on
-   every supported platform. Print the checklist with `alphaloop soak`.
-   That command does not start jobs and is not a pytest gate.
-2. **Protocol preview before freeze.** PRD §4.1 step 4: review the
-   research protocol in the console before the job is frozen.
-3. **Richer five-minute evidence.** Qualifying-candidate tables and
-   funnel visualization beyond today's gate list, still without claiming
-   alpha.
-4. **Optional later surfaces.** Short MCP job-control; cloud workers for
+1. **Overnight soak execution (release process, not CI).** PRD §3.4 asks
+   that a fixed overnight benchmark complete without operator
+   intervention on every supported platform. Print the checklist with
+   `alphaloop soak`. That command does not start jobs and is not a
+   pytest gate. Completing the soak is operator-recorded on an awake
+   host.
+2. **Do not shrink DSR N with \(N_{\mathrm{eff}}\).** Correlation-adjusted
+   trial counts must not replace unique-ledger `n_trials` as DSR `N`.
+3. **Optional later surfaces.** Short MCP job-control; cloud workers for
    hosts that cannot stay awake. Neither replaces the local Job API.
 
 Out of scope until a later positioning change: team permissions, broker
