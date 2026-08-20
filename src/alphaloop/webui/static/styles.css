@@ -93,3 +93,7 @@ section {
   width: 100%;
   font-family: monospace;
 }
+
+#help p {
+  color: var(--muted);
+}

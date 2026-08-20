@@ -11,6 +11,7 @@ import pytest
 from alphaloop.runtime.api import JobAPI
 from alphaloop.runtime.client import JobClient
 from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server
+from alphaloop.runtime.preflight import HOST_CONSTRAINT
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
 from tests.runtime.test_supervisor import FakeWorker, _spec
@@ -35,6 +36,29 @@ def test_packaged_assets_are_read_only_morning_copy():
     assert "/v1/jobs" in script
     assert "override" not in script.lower()
     assert "hard_gates=" not in script
+
+
+def test_packaged_help_and_evidence_lines():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    assert 'id="help"' in html
+    assert 'id="help-no-alpha"' in html
+    assert "This console does not claim alpha or future profitability." in html
+    assert 'id="help-status"' in html
+    assert (
+        "Job status (queued, running, completed, failed, cancelled) is not the research conclusion."
+        in html
+    )
+    assert 'id="help-host"' in html
+    assert HOST_CONSTRAINT in html
+    assert 'id="help-found"' in html
+    assert (
+        "FOUND means every required hard gate is present and passed. It is not a promise of alpha."
+        in html
+    )
+    assert "job.evidence_lines" in script
+    assert "override" not in script.lower()
 
 
 def test_static_package_loads_without_fastapi():
@@ -92,6 +116,8 @@ def test_root_serves_packaged_html(tmp_path):
         assert "INCONCLUSIVE" in body
         assert "/app.js" in body
         assert "spec-yaml" in body
+        assert 'id="help"' in body
+        assert HOST_CONSTRAINT in body
     finally:
         server.shutdown()
 
@@ -122,6 +148,7 @@ def test_list_jobs_http(tmp_path):
         listed = client.list_jobs()
         assert listed["jobs"][0]["run_id"] == created["run_id"]
         assert "research_outcome" in listed["jobs"][0]
+        assert listed["jobs"][0]["evidence_lines"] == []
     finally:
         server.shutdown()
 

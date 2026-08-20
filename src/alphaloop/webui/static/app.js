@@ -36,7 +36,14 @@ async function showJob(runId) {
     ? "Stop reason: " + job.stop_reason
     : "Stop reason: (running or not yet terminal)";
   const results = (job.evidence && job.evidence.results) || [];
-  fillList(document.getElementById("evidence"), results, function (row) {
+  const evidenceItems =
+    job.evidence_lines && job.evidence_lines.length
+      ? job.evidence_lines
+      : results;
+  fillList(document.getElementById("evidence"), evidenceItems, function (row) {
+    if (typeof row === "string") {
+      return row;
+    }
     return row.name + ": " + (row.passed ? "pass" : "fail");
   });
   fillList(
