@@ -11,7 +11,9 @@ shows the same four-line receipt as `alphaloop export` (`FOUND`,
 qualifying id, path, no-alpha) in the morning verdict cluster next to
 the export button. Switching jobs clears a stale receipt. The verdict
 Export control uses the same designed chrome as the qualifying list,
-with FOUND accent color. Leave the host awake, and review `FOUND` /
+with FOUND accent color. The verdict Load into editor control uses the
+same designed chrome as the queued list, with NO_EVIDENCE warn color
+(not FOUND green). Leave the host awake, and review `FOUND` /
 `NO_EVIDENCE` / `INCONCLUSIVE` in the morning — job cards show the
 frozen statement and `n_trials`; the detail funnel shows how many
 frozen trials were evaluated, passed, and failed. A running job card

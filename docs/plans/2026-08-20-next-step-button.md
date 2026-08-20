@@ -26,7 +26,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 assert "#next-step .load-queued" in css
@@ -42,20 +42,20 @@ if page.locator("#verdict").get_attribute("data-outcome") == "NO_EVIDENCE":
     assert button.evaluate("el => getComputedStyle(el).color") == "rgb(255, 176, 32)"
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_morning_verdict_stage -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Add `#next-step .load-queued` to the designed-button group.
 Add `#verdict[data-outcome="NO_EVIDENCE"] #next-step .load-queued` warn rule.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): style the verdict Load control as a next-run handoff"

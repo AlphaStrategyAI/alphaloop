@@ -439,7 +439,15 @@ def test_load_queued_fills_editor_without_submitting(real_daemon, browser_page):
     page.wait_for_selector("#job-list button[data-run-id]", timeout=15000)
     _open_job_detail(page)
     page.wait_for_selector("#verdict #next-step button.load-queued", timeout=10000)
-    page.locator("#verdict #next-step button.load-queued").click()
+    button = page.locator("#verdict #next-step button.load-queued")
+    assert button.evaluate("el => getComputedStyle(el).backgroundColor") == "rgb(11, 15, 22)"
+    if page.locator("#verdict").get_attribute("data-outcome") == "NO_EVIDENCE":
+        assert button.evaluate("el => getComputedStyle(el).color") == "rgb(255, 176, 32)"
+        assert (
+            button.evaluate("el => getComputedStyle(el).borderTopColor")
+            == "rgb(255, 176, 32)"
+        )
+    button.click()
     assert page.locator("#field-signal-mechanism").input_value() == "rsi"
     assert "signal_mechanism: rsi" in page.locator("#spec-yaml").input_value()
     page.wait_for_function(

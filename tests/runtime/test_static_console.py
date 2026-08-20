@@ -468,6 +468,15 @@ def test_packaged_console_morning_verdict_stage():
     assert "repeating-linear-gradient" in css
     assert "font-variant-numeric" in css
     assert "clamp(" in css
+    assert "#next-step .load-queued" in css
+    no_evidence_load = (
+        '#verdict[data-outcome="NO_EVIDENCE"] #next-step .load-queued'
+    )
+    assert no_evidence_load in css
+    block_start = css.find(no_evidence_load)
+    block = css[block_start : css.find("}", block_start)]
+    assert "var(--warn)" in block
+    assert "var(--accent)" not in block
     assert "http" not in css.lower()
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()

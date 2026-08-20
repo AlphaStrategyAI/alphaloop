@@ -462,6 +462,7 @@ h3 {
 }
 
 #queued .load-queued,
+#next-step .load-queued,
 #qualifying .export-asb,
 #handoff .export-asb {
   justify-self: start;
@@ -477,6 +478,11 @@ h3 {
 #verdict[data-outcome="FOUND"] #handoff .export-asb {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+#verdict[data-outcome="NO_EVIDENCE"] #next-step .load-queued {
+  border-color: var(--warn);
+  color: var(--warn);
 }
 
 .funnel-stack {
