@@ -159,6 +159,21 @@ h3 {
   line-height: 1.4;
 }
 
+#next-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  margin: 0.75rem 0 0;
+}
+
+#next-step span {
+  flex: 1 1 16rem;
+  color: var(--fg);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
 #job-status,
 #hypothesis-statement,
 #spec-meta,

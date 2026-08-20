@@ -292,8 +292,8 @@ def test_load_queued_fills_editor_without_submitting(real_daemon, browser_page):
     page.reload(wait_until="domcontentloaded")
     page.wait_for_selector("#job-list button[data-run-id]", timeout=15000)
     _open_job_detail(page)
-    page.wait_for_selector("#queued button.load-queued", timeout=10000)
-    page.locator("#queued button.load-queued").click()
+    page.wait_for_selector("#verdict #next-step button.load-queued", timeout=10000)
+    page.locator("#verdict #next-step button.load-queued").click()
     assert page.locator("#field-signal-mechanism").input_value() == "rsi"
     assert "signal_mechanism: rsi" in page.locator("#spec-yaml").input_value()
     page.wait_for_function(

@@ -198,6 +198,27 @@ function fillQueued(job) {
   });
 }
 
+function fillNextStep(job) {
+  const node = document.getElementById("next-step");
+  node.innerHTML = "";
+  const items = job.queued_hypotheses || [];
+  if (!items.length) {
+    return;
+  }
+  const row = items[0];
+  const text = document.createElement("span");
+  text.textContent = "Next run: " + (row.statement || "");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "load-queued";
+  button.textContent = "Load into editor";
+  button.addEventListener("click", function () {
+    loadQueuedHypothesis(row, job);
+  });
+  node.appendChild(text);
+  node.appendChild(button);
+}
+
 function datasetYaml(job) {
   const ds = job && job.dataset;
   if (!ds || !ds.dataset_id || !ds.sha256) {
@@ -505,6 +526,7 @@ async function showJob(runId) {
   outcome.textContent = job.research_outcome;
   fillOutcomeGloss(job.research_outcome);
   fillPrimaryEvidence(job);
+  fillNextStep(job);
   document.getElementById("job-status").textContent = "Job status: " + job.status;
   const statement =
     job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";
