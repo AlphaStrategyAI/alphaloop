@@ -76,8 +76,18 @@ def _append_ledger(layout: RunLayout, payload: Mapping[str, Any]) -> None:
 def _ledger_rows(layout: RunLayout) -> list[dict[str, Any]]:
     if not layout.trial_ledger.exists():
         return []
-    lines = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
-    return [json.loads(line) for line in lines if line.strip()]
+    rows: list[dict[str, Any]] = []
+    for line in layout.trial_ledger.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            rows.append(payload)
+    return rows
 
 
 def _ledger_ids(rows: list[Mapping[str, Any]]) -> list[str]:
