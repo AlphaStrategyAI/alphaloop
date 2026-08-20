@@ -197,16 +197,18 @@ def test_dataset_file_picker_fills_identity_without_creating_a_job(real_daemon, 
     _open_morning(page, real_daemon["base_url"])
     page.click("#load-example")
     page.set_input_files("#field-dataset-file", str(parquet))
+    expected_id = "ds_" + dataset["sha256"][:16]
     page.wait_for_function(
-        """() => {
+        """(expectedId) => {
             const id = document.getElementById('field-dataset-id');
             const sha = document.getElementById('field-dataset-sha256');
-            return id && sha && id.value.indexOf('ds_') === 0 && sha.value.length === 64;
+            return id && sha && id.value === expectedId && sha.value.length === 64;
         }""",
+        expected_id,
         timeout=10000,
     )
     assert page.locator("#field-dataset-sha256").input_value() == dataset["sha256"]
-    assert page.locator("#field-dataset-id").input_value() == "ds_" + dataset["sha256"][:16]
+    assert page.locator("#field-dataset-id").input_value() == expected_id
     assert page.locator("#job-list button").count() == 0
     page.click("#preview-protocol")
     page.wait_for_function(
