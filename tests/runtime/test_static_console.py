@@ -172,6 +172,23 @@ def test_packaged_signal_select_groups_economic_families():
     assert 'value="obv_slope"' not in select
 
 
+def test_packaged_hard_gates_keep_token_and_human_gloss():
+    html = files("alphaloop.webui.static").joinpath("index.html").read_text(
+        encoding="utf-8"
+    )
+    start = html.find('id="field-hard-gates"')
+    fieldset = html[start : html.find("</fieldset>", start)]
+    for gate in HardGateName:
+        assert f'value="{gate.value}"' in fieldset
+    assert "dsr — Deflated Sharpe Ratio" in fieldset
+    assert "walk_forward — walk-forward OOS" in fieldset
+    assert "vs_random — versus random" in fieldset
+    assert "vs_buy_hold — versus buy-and-hold" in fieldset
+    assert "vs_benchmark — versus benchmark" in fieldset
+    assert "data_consistency — data consistency" in fieldset
+    assert fieldset.count('type="checkbox"') == len(HardGateName)
+
+
 def test_packaged_console_dataset_csv_accept():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")
