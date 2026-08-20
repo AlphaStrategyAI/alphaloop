@@ -25,13 +25,13 @@
 - Modify: `tests/e2e/test_morning_console.py` (`_preview_yaml`, first-open assert)
 - Test: `tests/runtime/test_static_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Static: `id="group-hypothesis"` … `group-dataset` in order; `id="spec-yaml-fold"` before `id="spec-yaml"`; `.form-group` in CSS; `http` not in CSS.
 
 E2E `test_home_shows_promise_and_submit_form`: `#spec-yaml-fold` exists and is not open.
 
-- [ ] **Step 2: FAIL then implement** (open fold in `_preview_yaml` before fill)
+- [x] **Step 2: FAIL then implement** (open fold in `_preview_yaml` before fill)
 
 - [ ] **Step 3: Unit + e2e**
 
