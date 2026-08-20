@@ -1,5 +1,7 @@
 # alphaloop
 
+> Heritage v0.7.2 copy. The published product site is MkDocs `docs/`.
+
 > **Open-source quantitative investment framework** — a hybrid DAG loop
 > that plans, executes, diagnoses, and reports alpha strategies
 > autonomously. Ships with a self-hosted WebUI for browsing top-5 picks

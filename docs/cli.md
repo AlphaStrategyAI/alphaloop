@@ -1,7 +1,11 @@
 # CLI reference
 
-The full CLI reference for `alphaloop` v0.7.2.  Run `alphaloop --help`
-for the live version (it's the source of truth — this page mirrors it).
+Overnight-lab commands are `start`, `submit`, `status`, `cancel`,
+`resume`, `replay`, and `export`. Run `alphaloop --help` for the live
+parser (it is the source of truth — this page mirrors it).
+
+`alphaloop loop` is **heritage** v0.7 hybrid DAG. It is not the
+overnight research lab. Do not treat it as a command that finds alpha.
 
 ## Global usage
 
@@ -126,17 +130,21 @@ The five-minute sanity check:
 alphaloop report --strategy buy_hold --start 2020 --end 2025
 ```
 
-## `alphaloop loop "<goal>"`
+## `alphaloop loop` (heritage v0.7 DAG)
 
-The autonomous hybrid DAG loop.  Default form (alias for `loop run`):
+Heritage hybrid DAG. Not the overnight-lab path. Use `alphaloop start`
+and `alphaloop submit` for first-release research jobs.
+
+Default form (alias for `loop run`):
 
 ```
 alphaloop loop "<goal>" [flags]
 ```
 
-The DAG: **N1 load → N2 plan → N3 execute → N4 diagnose → N5 aggregate →
-N6 commit**.  Termination gates run between nodes; a single hard fail
-stops the loop and writes a sealed partial report.
+The DAG is **N1 load → N2 plan → N3 execute → N4 diagnose → N5 aggregate →
+N6 commit**. Termination gates run between nodes; a single hard fail
+stops the loop and writes a sealed partial report. This path does not
+promise alpha.
 
 | Flag | Description |
 |------|-------------|
@@ -149,7 +157,7 @@ stops the loop and writes a sealed partial report.
 | `--data-dir`     | `runs/` output root (default `./runs`). |
 | `--max-tasks`    | Hard cap on N2 planned tasks. |
 | `--dry-run`      | Only run N1 + N2; skip N3–N6. |
-| `--no-launch`    | **v0.7.2.** Do not auto-open the WebUI after the loop. |
+| `--no-launch`    | Do not auto-open the heritage WebUI after the loop. |
 | `--git-repo-dir` | Git rev-parse HEAD capture root. |
 
 ## `alphaloop replay <run_id>`

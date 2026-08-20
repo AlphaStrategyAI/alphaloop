@@ -76,3 +76,31 @@ def test_cli_help_lists_start(capsys):
     out = capsys.readouterr().out
     assert "start" in out
     assert "submit" in out
+
+
+def test_published_home_is_overnight_lab():
+    text = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    assert "find alpha with DSR > 1.0" not in text
+    assert "does not promise alpha" in text.lower() or "does **not** promise alpha" in text
+    assert "FOUND" in text
+    assert "NO_EVIDENCE" in text
+    assert "INCONCLUSIVE" in text
+    assert "alphaloop start" in text
+
+
+def test_loop_help_is_heritage_not_find_alpha(capsys):
+    parser = create_parser()
+    try:
+        parser.parse_args(["loop", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    out = capsys.readouterr().out
+    assert "find alpha with DSR > 1.0" not in out
+    assert "heritage" in out.lower()
+    try:
+        parser.parse_args(["loop", "run", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    run_out = capsys.readouterr().out
+    assert "find alpha with DSR > 1.0" not in run_out
+    assert "heritage" in run_out.lower()

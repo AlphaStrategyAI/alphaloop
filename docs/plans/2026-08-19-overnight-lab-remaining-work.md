@@ -6,6 +6,9 @@ related_requirements: "docs/requirements/product-positioning-requirements.md"
 related_architecture: "docs/plans/overnight-research-lab-refactor.md"
 ---
 
+> **Status (2026-08-20):** Historical design for Phases 8–11. Those
+> phases shipped. Section 1 is **not** a current gap list.
+
 # Overnight Lab Remaining Work — Technical Design
 
 This document maps **unfinished first-release Included items** in

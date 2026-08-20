@@ -29,7 +29,11 @@ def _register_loop(subparsers: argparse._SubParsersAction) -> None:
     """
     loop_p = subparsers.add_parser(
         "loop",
-        help="v0.7 hybrid loop: end-to-end autonomous research",
+        help="heritage v0.7 hybrid DAG (not the overnight lab)",
+        description=(
+            "Heritage v0.7 hybrid DAG. Not the overnight-lab path; "
+            "use alphaloop start / submit."
+        ),
     )
     loop_p.add_argument(
         "--no-launch",
@@ -39,8 +43,8 @@ def _register_loop(subparsers: argparse._SubParsersAction) -> None:
     loop_sub = loop_p.add_subparsers(dest="loop_command", help="loop 子命令")
 
     # --- run (default) ---
-    run_p = loop_sub.add_parser("run", help="运行一次 hybrid loop")
-    run_p.add_argument("goal", help="研究目标 (e.g. 'find alpha with DSR > 1.0')")
+    run_p = loop_sub.add_parser("run", help="heritage DAG run (not overnight-lab submit)")
+    run_p.add_argument("goal", help="research goal (heritage DAG; not overnight-lab submit)")
     run_p.add_argument("--run-id", help="显式 run_id (默认自动生成)")
     run_p.add_argument("--seed", type=int, help="随机种子")
     run_p.add_argument("--budget", type=float, default=5.0, help="成本上限 USD")
