@@ -38,6 +38,7 @@ def test_missing_gates_is_inconclusive(tmp_path):
     assert view["stop_reason"] == STOP_REASON_INCOMPLETE_EVIDENCE
     assert view["funnel"]["dominant_failures"] == []
     assert view["queued_hypotheses"] == []
+    assert view["primary_evidence"] == "no sealed gates.json"
 
 
 def test_passing_gates_found(tmp_path):
@@ -60,6 +61,7 @@ def test_passing_gates_found(tmp_path):
     assert view["qualifying_candidates"] == [
         {"trial_id": "gates.json", "kind": None, "parameters": {}}
     ]
+    assert view["primary_evidence"] == "all required hard gates passed"
 
 
 def test_failed_gate_is_no_evidence(tmp_path):
@@ -75,6 +77,7 @@ def test_failed_gate_is_no_evidence(tmp_path):
     assert view["stop_reason"] == STOP_REASON_HARD_GATE_FAILED
     assert view["funnel"]["dominant_failures"] == [job.spec.success_criteria.hard_gates[0]]
     assert view["qualifying_candidates"] == []
+    assert view["primary_evidence"] == "dsr failed"
 
 
 def test_corrupt_gates_does_not_claim_found(tmp_path):
@@ -106,6 +109,7 @@ def test_revisions_and_queued_hypotheses(tmp_path):
     assert view["queued_hypotheses"][0]["statement"] == "try mean reversion"
     assert view["research_outcome"] == ResearchOutcome.NONE.value
     assert view["stop_reason"] is None
+    assert view["primary_evidence"] is None
 
 
 def test_morning_view_exposes_seed_and_unique_n_trials(tmp_path):

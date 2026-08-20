@@ -9,7 +9,12 @@ from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import evidence_from_dict, evidence_to_dict
 from alphaloop.contracts.status import ResearchOutcome
 from alphaloop.protocol.search import method_parameter_grid
-from alphaloop.runtime.artifacts_io import build_funnel, build_qualifying_candidates, format_gate_line
+from alphaloop.runtime.artifacts_io import (
+    build_funnel,
+    build_qualifying_candidates,
+    format_gate_line,
+    format_primary_evidence,
+)
 from alphaloop.runtime.store import JobRecord
 
 STOP_REASON_ALL_GATES_PASSED = "all_gates_passed"
@@ -96,6 +101,7 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
     evidence_lines = [
         format_gate_line(row) for row in results if isinstance(row, dict)
     ]
+    funnel = build_funnel(layout)
     return {
         "run_id": job.run_id,
         "status": job.status.value,
@@ -111,7 +117,12 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "hypothesis": asdict(job.spec.hypothesis),
         "evidence": evidence,
         "evidence_lines": evidence_lines,
-        "funnel": build_funnel(layout),
+        "funnel": funnel,
+        "primary_evidence": format_primary_evidence(
+            job.research_outcome.value,
+            evidence=evidence,
+            dominant_failures=funnel["dominant_failures"],
+        ),
         "qualifying_candidates": build_qualifying_candidates(layout),
         "revisions": _load_revisions(layout),
         "queued_hypotheses": _load_queued(layout),

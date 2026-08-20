@@ -10,6 +10,7 @@ from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict, evaluate_hard_gates
 from alphaloop.runtime.artifacts_io import (
     format_gate_line,
+    format_primary_evidence,
     write_candidates_parquet,
     write_manifest,
     write_report,
@@ -82,6 +83,7 @@ def test_report_includes_elimination_funnel(tmp_path):
     )
     write_report(layout, research_outcome="NO_EVIDENCE", stop_reason="hard_gate_failed")
     text = layout.report.read_text(encoding="utf-8")
+    assert "primary_evidence: dsr failed" in text
     assert "## Elimination funnel" in text
     assert "evaluated: 1" in text
     assert "failed: 1" in text
@@ -143,6 +145,48 @@ def test_report_includes_walk_forward_detail_keys(tmp_path):
     assert "regime_stable=false" in text
     assert "returns_scope=oos_walk_forward" in text
     assert "oos_sharpe_median=-0.2" in text
+
+
+def test_format_primary_evidence_follows_sealed_outcome():
+    failed = {"required": ["dsr"], "results": [{"name": "dsr", "passed": False, "detail": {}}]}
+    assert (
+        format_primary_evidence("FOUND", evidence=failed, dominant_failures=("dsr",))
+        == "all required hard gates passed"
+    )
+    assert (
+        format_primary_evidence(
+            "NO_EVIDENCE", evidence=failed, dominant_failures=("dsr", "walk_forward")
+        )
+        == "dsr failed"
+    )
+    assert (
+        format_primary_evidence("NO_EVIDENCE", evidence=failed, dominant_failures=())
+        == "a required hard gate failed"
+    )
+    assert (
+        format_primary_evidence("INCONCLUSIVE", evidence=None, dominant_failures=())
+        == "no sealed gates.json"
+    )
+    assert (
+        format_primary_evidence(
+            "INCONCLUSIVE",
+            evidence={
+                "required": ["dsr", "walk_forward"],
+                "results": [{"name": "dsr", "passed": True, "detail": {}}],
+            },
+            dominant_failures=(),
+        )
+        == "missing walk_forward"
+    )
+    assert (
+        format_primary_evidence(
+            "INCONCLUSIVE",
+            evidence={"required": ["dsr"], "results": [{"name": "dsr", "passed": True, "detail": {}}]},
+            dominant_failures=(),
+        )
+        == "incomplete evidence set"
+    )
+    assert format_primary_evidence("NONE", evidence=None, dominant_failures=()) is None
 
 
 def test_format_gate_line_empty_detail():

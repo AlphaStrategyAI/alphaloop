@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import pandas as pd
 import yaml
@@ -179,6 +179,37 @@ def _load_trial_evidence(layout: RunLayout) -> list[GateEvidence]:
         return []
 
 
+def format_primary_evidence(
+    research_outcome: str,
+    *,
+    evidence: Mapping[str, Any] | None,
+    dominant_failures: Sequence[str],
+) -> str | None:
+    if research_outcome == "FOUND":
+        return "all required hard gates passed"
+    if research_outcome == "NO_EVIDENCE":
+        if dominant_failures:
+            return f"{dominant_failures[0]} failed"
+        return "a required hard gate failed"
+    if research_outcome != "INCONCLUSIVE":
+        return None
+    missing: list[str] = []
+    if evidence:
+        present = {
+            row.get("name")
+            for row in (evidence.get("results") or [])
+            if isinstance(row, dict)
+        }
+        missing = [
+            name for name in (evidence.get("required") or []) if name not in present
+        ]
+    if missing:
+        return "missing " + ", ".join(str(name) for name in missing)
+    if evidence is None:
+        return "no sealed gates.json"
+    return "incomplete evidence set"
+
+
 def build_funnel(layout: RunLayout) -> dict[str, Any]:
     trials = _load_trial_evidence(layout)
     n_complete = sum(1 for item in trials if item.complete)
@@ -277,6 +308,14 @@ def write_report(
     lines.append(f"research_outcome: {research_outcome}")
     if stop_reason is not None:
         lines.append(f"stop_reason: {stop_reason}")
+    funnel = build_funnel(layout)
+    primary = format_primary_evidence(
+        research_outcome,
+        evidence=_read_json_object(layout.evidence / "gates.json"),
+        dominant_failures=funnel["dominant_failures"],
+    )
+    if primary is not None:
+        lines.append(f"primary_evidence: {primary}")
     if spec is not None:
         lines.append(f"spec_id: {spec.spec_id}")
         lines.append(f"seed: {spec.seed}")
@@ -299,7 +338,6 @@ def write_report(
     if gate_lines:
         lines.extend(["", "## Gates", ""])
         lines.extend(gate_lines)
-    funnel = build_funnel(layout)
     if funnel["n_evaluated"] or funnel["n_complete"]:
         lines.extend(["", "## Elimination funnel", ""])
         lines.append(f"evaluated: {funnel['n_evaluated']}")
