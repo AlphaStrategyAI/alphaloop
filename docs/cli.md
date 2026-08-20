@@ -224,7 +224,7 @@ promise alpha.
 | `--no-launch`    | Do not auto-open the heritage WebUI after the loop. |
 | `--git-repo-dir` | Git rev-parse HEAD capture root. |
 
-## `alphaloop replay <run_id>`
+## `alphaloop replay`
 
 Rewrite `report.md` from sealed `gates.json` **without** re-running
 gates or requiring the daemon. Default stdout is the same five-minute
@@ -232,8 +232,17 @@ verdict as `status RUN_ID` (outcome token first). `--json` prints the
 artifact view for agents.
 
 ```
-alphaloop replay <run_id> [--data-dir DIR] [--json]
+alphaloop replay [RUN_ID] [--data-dir DIR] [--json]
 ```
+
+With no `RUN_ID`, replays the **latest** job (newest `created_at`) and
+prefixes human stdout with `run_id:`. `--json` includes `run_id` in the
+artifact view. If there is no job yet, stderr is
+`error: no overnight job yet` and the command exits 2 (does not claim
+alpha).
+
+With a `RUN_ID`, default stdout is the five-minute verdict cluster and
+does not prefix `run_id:`.
 
 Useful for:
 

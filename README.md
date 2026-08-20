@@ -99,6 +99,7 @@ alphaloop cancel                     # latest job
 alphaloop cancel RUN_ID
 alphaloop resume                     # latest job after a crash or host sleep
 alphaloop resume RUN_ID
+alphaloop replay                     # latest job; rewrite report.md
 alphaloop replay RUN_ID              # rewrite report.md; print the five-minute verdict
 alphaloop export CANDIDATE_ID --output strategy.asb
 ```

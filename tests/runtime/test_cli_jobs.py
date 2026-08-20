@@ -436,10 +436,66 @@ def test_replay_rewrites_report_without_looprunner(tmp_path, capsys):
     assert "FOUND" in layout.report.read_text(encoding="utf-8")
 
 
+def _seal_found(layout: RunLayout) -> None:
+    evidence = evaluate_hard_gates(
+        (HardGateName.DSR,),
+        (GateResult(name=HardGateName.DSR, passed=True, detail={}),),
+    )
+    layout.evidence.mkdir(exist_ok=True)
+    (layout.evidence / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+
+
+def test_replay_without_run_id_uses_latest(tmp_path, capsys):
+    from alphaloop.runtime.store import JobStore
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    store.create(_spec())
+    newest = store.create(_spec())
+    _seal_found(RunLayout(tmp_path / newest.run_id))
+    rc = main(["replay", "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert captured.out.splitlines()[0] == f"run_id: {newest.run_id}"
+    assert captured.out.splitlines()[1] == "FOUND"
+    assert STATUS_NO_ALPHA in captured.out
+    assert "target found" not in captured.out.lower()
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(captured.out)
+    assert (tmp_path / newest.run_id / "report.md").is_file()
+
+
+def test_replay_without_run_id_empty_store(tmp_path, capsys):
+    from alphaloop.runtime.store import JobStore
+
+    JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    rc = main(["replay", "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert captured.err == "error: no overnight job yet\n"
+    assert "FOUND" not in captured.out
+    assert "target found" not in captured.err.lower()
+
+
+def test_replay_without_run_id_json_includes_run_id(tmp_path, capsys):
+    from alphaloop.runtime.store import JobStore
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    store.create(_spec())
+    newest = store.create(_spec())
+    _seal_found(RunLayout(tmp_path / newest.run_id))
+    rc = main(["replay", "--json", "--data-dir", str(tmp_path)])
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["run_id"] == newest.run_id
+    assert payload["research_outcome"] == "FOUND"
+    assert payload["stop_reason"] == "all_gates_passed"
+
+
 def test_replay_parser_has_json_flag():
     parser = create_parser()
     assert parser.parse_args(["replay", "j_x", "--json"]).json is True
     assert parser.parse_args(["replay", "j_x"]).json is False
+    assert parser.parse_args(["replay"]).run_id is None
 
 
 def test_replay_json_is_artifact_view(tmp_path, capsys):

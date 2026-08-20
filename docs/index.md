@@ -59,7 +59,11 @@ alphaloop submit --spec spec.yaml
 alphaloop status
 alphaloop status RUN_ID
 alphaloop status RUN_ID --json
+alphaloop cancel
+alphaloop cancel RUN_ID
+alphaloop resume
 alphaloop resume RUN_ID
+alphaloop replay
 alphaloop replay RUN_ID
 ```
 

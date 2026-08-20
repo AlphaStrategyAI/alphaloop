@@ -92,7 +92,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     resume.set_defaults(func=run_resume)
 
     replay = subparsers.add_parser("replay", help="rewrite report.md from sealed artifacts")
-    replay.add_argument("run_id")
+    replay.add_argument("run_id", nargs="?")
     replay.add_argument(
         "--json",
         action="store_true",
@@ -326,7 +326,17 @@ def run_replay(args: argparse.Namespace) -> int:
     )
     from alphaloop.runtime.store import JobStore
 
-    layout = RunLayout(Path(args.data_dir) / args.run_id)
+    named_latest = False
+    data_dir = Path(args.data_dir)
+    if not args.run_id:
+        jobs = JobStore(data_dir / ".alphaloop" / "state.db", data_dir).list_jobs()
+        if not jobs:
+            print("error: no overnight job yet", file=sys.stderr)
+            return 2
+        args.run_id = jobs[0].run_id
+        named_latest = True
+
+    layout = RunLayout(data_dir / args.run_id)
     if not layout.run_dir.is_dir():
         print(f"error: run directory not found: {layout.run_dir}", file=sys.stderr)
         return 2
@@ -371,16 +381,20 @@ def run_replay(args: argparse.Namespace) -> int:
         spec=spec,
     )
     status = ""
-    db = Path(args.data_dir) / ".alphaloop" / "state.db"
+    db = data_dir / ".alphaloop" / "state.db"
     if db.is_file():
         try:
-            status = JobStore(db, Path(args.data_dir)).get(args.run_id).status.value
+            status = JobStore(db, data_dir).get(args.run_id).status.value
         except KeyError:
             status = ""
     view = replay_view(layout, research_outcome=outcome.value, status=status)
+    if named_latest:
+        view = {**view, "run_id": args.run_id}
     if args.json:
         print(json.dumps(view, sort_keys=True))
     else:
+        if named_latest:
+            print(f"run_id: {args.run_id}")
         print(format_status_verdict(view), end="")
     return 0
 
