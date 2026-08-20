@@ -33,19 +33,19 @@ HTTP: POST `/v1/jobs/{id}/replay` writes `report.md` and returns `run_id`.
 
 Static: `#replay-job` in HTML after `#resume-job` and before `#report`; `/replay` in JS.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_http.py::test_http_replay_rewrites_report -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Shared rewrite, JobAPI.replay_run, daemon route, console button + click.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): replay report.md from the morning console"
