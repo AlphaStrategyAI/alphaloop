@@ -63,6 +63,20 @@ def test_unknown_dsl_kind_rejected(tmp_path):
     assert result.host_constraint == HOST_CONSTRAINT
 
 
+def test_parkinson_is_rejected_as_signal_mechanism(tmp_path):
+    result = preflight(_spec(signal_mechanism="parkinson_hist_vol"), tmp_path)
+    assert result.ok is False
+    assert any("feature" in err.lower() for err in result.errors)
+    assert result.host_constraint == HOST_CONSTRAINT
+
+
+def test_obv_slope_is_rejected_without_volume(tmp_path):
+    result = preflight(_spec(signal_mechanism="obv_slope"), tmp_path)
+    assert result.ok is False
+    assert any("volume" in err.lower() for err in result.errors)
+    assert result.host_constraint == HOST_CONSTRAINT
+
+
 def test_data_dir_that_is_a_file_rejected(tmp_path):
     target = tmp_path / "blocked"
     target.write_text("not-a-directory", encoding="utf-8")

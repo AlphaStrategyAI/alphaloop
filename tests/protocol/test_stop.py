@@ -66,6 +66,37 @@ def test_failed_gate_does_not_justify_more_search():
     assert decision.reason == "hard_gate_failed"
 
 
+def test_frozen_grid_remaining_continues_after_complete_fail():
+    evidence = GateEvidence(
+        results=(GateResult(name=HardGateName.DSR, passed=False, detail={}),),
+        required=(HardGateName.DSR,),
+    )
+    decision = should_continue(
+        remaining_time_s=100,
+        remaining_cost_usd=1.0,
+        last_evidence=evidence,
+        proposed_kind=RevisionKind.METHOD,
+        stop_reason=None,
+        frozen_grid_remaining=2,
+    )
+    assert decision.continue_search is True
+    assert decision.queue_for_human is False
+    assert decision.reason == "frozen_grid"
+
+
+def test_explicit_hard_gate_failed_stops_even_with_remaining():
+    decision = should_continue(
+        remaining_time_s=100,
+        remaining_cost_usd=1.0,
+        last_evidence=None,
+        proposed_kind=RevisionKind.METHOD,
+        stop_reason="hard_gate_failed",
+        frozen_grid_remaining=2,
+    )
+    assert decision.continue_search is False
+    assert decision.reason == "hard_gate_failed"
+
+
 def test_explicit_negative_oos_stops():
     decision = should_continue(
         remaining_time_s=100,

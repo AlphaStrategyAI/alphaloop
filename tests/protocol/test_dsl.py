@@ -5,7 +5,10 @@ import pytest
 
 from alphaloop.protocol.dsl import (
     ALLOWED_KINDS,
+    DIRECTIONAL_SIGNAL_KINDS,
     DSL_SCHEMA_VERSION,
+    FEATURE_KINDS,
+    VOLUME_KINDS,
     StrategyDocument,
     UnsupportedDslError,
     parse_strategy_document,
@@ -57,6 +60,21 @@ def test_allowed_kinds_are_engineer_factors():
     assert "momentum_12_1" in ALLOWED_KINDS
     assert "rsi" in ALLOWED_KINDS
     assert len(ALLOWED_KINDS) == 10
+
+
+def test_directional_signal_kinds_exclude_feature_and_volume():
+    assert FEATURE_KINDS == ("parkinson_hist_vol",)
+    assert VOLUME_KINDS == ("obv_slope",)
+    assert "parkinson_hist_vol" in ALLOWED_KINDS
+    assert "obv_slope" in ALLOWED_KINDS
+    assert "parkinson_hist_vol" not in DIRECTIONAL_SIGNAL_KINDS
+    assert "obv_slope" not in DIRECTIONAL_SIGNAL_KINDS
+    assert len(DIRECTIONAL_SIGNAL_KINDS) == 8
+    assert DIRECTIONAL_SIGNAL_KINDS == tuple(
+        kind
+        for kind in ALLOWED_KINDS
+        if kind not in FEATURE_KINDS and kind not in VOLUME_KINDS
+    )
 
 
 def test_momentum_weights_sum_to_one_on_rising_series():

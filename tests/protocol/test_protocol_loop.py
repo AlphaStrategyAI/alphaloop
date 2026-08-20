@@ -109,7 +109,7 @@ def test_found_stops_after_first_passing_trial(tmp_path):
     assert len(ledger) == 1
 
 
-def test_failed_gate_does_not_walk_the_parameter_grid(tmp_path):
+def test_complete_fail_walks_the_frozen_parameter_grid(tmp_path):
     layout = RunLayout(tmp_path / "run")
     layout.run_dir.mkdir()
     calls = {"n": 0}
@@ -127,7 +127,59 @@ def test_failed_gate_does_not_walk_the_parameter_grid(tmp_path):
         gate_runner=runner,
     )
     assert result.research_outcome is ResearchOutcome.NO_EVIDENCE
-    assert calls["n"] == 1
+    assert calls["n"] == 3
+    ledger = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
+    assert len(ledger) == 3
+
+
+def test_later_frozen_grid_point_can_found(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    calls = {"n": 0}
+
+    def runner(required, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return _one_fail(required, **kwargs)
+        return _all_pass(required, **kwargs)
+
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    assert result.research_outcome is ResearchOutcome.FOUND
+    assert calls["n"] == 2
+
+
+def test_frozen_grid_does_not_call_revision_proposer(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    calls = {"n": 0}
+
+    def runner(required, **kwargs):
+        calls["n"] += 1
+        return _one_fail(required, **kwargs)
+
+    def proposer(spec, doc):
+        return {"signal_mechanism": "rsi"}
+
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+        revision_proposer=proposer,
+    )
+    rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
+    assert rec["queued_hypotheses"] == []
+    assert result.research_outcome is ResearchOutcome.NO_EVIDENCE
+    assert calls["n"] == 3
 
 
 class _IncompleteThenPass:

@@ -190,6 +190,20 @@ def test_invalid_yaml_shows_preflight_errors_without_job(real_daemon, browser_pa
     assert page.locator("#job-list button").count() == 0
 
 
+def test_parkinson_preview_shows_feature_error_without_job(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    _preview_yaml(page, _spec_yaml(dataset, signal_mechanism="parkinson_hist_vol"))
+    page.wait_for_function(
+        "() => (document.getElementById('preflight-errors').textContent || '').length > 0",
+        timeout=10000,
+    )
+    text = page.locator("#preflight-errors").inner_text().lower()
+    assert "feature" in text
+    assert page.locator("#job-list button").count() == 0
+
+
 def test_preview_does_not_create_a_job(real_daemon, browser_page):
     dataset = _write_dataset(real_daemon["data_dir"])
     page = browser_page

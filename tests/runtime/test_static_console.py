@@ -10,7 +10,7 @@ import pytest
 
 from alphaloop.contracts.gates import HardGateName
 from alphaloop.contracts.research_spec import ALLOWED_PROFILES
-from alphaloop.protocol.dsl import ALLOWED_KINDS
+from alphaloop.protocol.dsl import DIRECTIONAL_SIGNAL_KINDS
 from alphaloop.runtime.api import JobAPI
 from alphaloop.runtime.client import JobClient
 from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server
@@ -100,8 +100,10 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert 'id="field-seed"' in html
     assert 'id="field-time-budget"' in html
     assert 'id="field-cost-budget"' in html
-    for kind in ALLOWED_KINDS:
+    for kind in DIRECTIONAL_SIGNAL_KINDS:
         assert f'value="{kind}"' in html
+    assert 'value="parkinson_hist_vol"' not in html
+    assert 'value="obv_slope"' not in html
     for profile in ALLOWED_PROFILES:
         assert f'value="{profile}"' in html
     for gate in HardGateName:

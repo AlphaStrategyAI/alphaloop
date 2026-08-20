@@ -217,5 +217,25 @@ def test_preview_run_preflight_failure_is_not_ok(tmp_path):
     preview = api.preview_run(spec)
     assert preview["ok"] is False
     assert preview["errors"]
+
+
+def test_preview_run_rejects_parkinson_signal(tmp_path):
+    api = _api(tmp_path)
+    spec = new_research_spec(
+        statement="x",
+        economic_logic="x",
+        signal_mechanism="parkinson_hist_vol",
+        market_scope="AAPL",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr",),
+        seed=1,
+        time_budget_s=10,
+        cost_budget_usd=1.0,
+    )
+    preview = api.preview_run(spec)
+    assert preview["ok"] is False
+    assert any("feature" in err.lower() for err in preview["errors"])
+    assert api.list_jobs()["jobs"] == []
     assert "run_id" not in preview
     assert api.list_jobs()["jobs"] == []
