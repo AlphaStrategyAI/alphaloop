@@ -131,6 +131,14 @@ def test_morning_view_n_trials_zero_without_ledger(tmp_path):
     assert view["seed"] == 7
 
 
+def test_morning_view_exposes_planned_n_trials(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    view = morning_view(store.get(job.run_id), tmp_path)
+    assert view["planned_n_trials"] == 3
+    assert view["n_trials"] == 0
+
+
 def test_funnel_aggregates_trial_files_not_only_last_gates(tmp_path):
     store = JobStore(tmp_path / "state.db", tmp_path)
     job = store.create(_spec())

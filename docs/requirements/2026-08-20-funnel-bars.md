@@ -105,5 +105,8 @@ No invented `FOUND`. Packaged page only (`src/alphaloop/webui/static/`).
 
 Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
 (release process, not CI), correlation-adjusted \(N_{\mathrm{eff}}\).
-Remaining product: job-list mini-funnel, live in-run progress,
-MCP / cloud workers.
+Remaining product after this cycle shipped: overnight search
+progress (`docs/requirements/2026-08-20-search-progress.md`).
+Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
+(release process, not CI), correlation-adjusted \(N_{\mathrm{eff}}\).
+Remaining later: job-list mini-funnel, MCP / cloud workers.

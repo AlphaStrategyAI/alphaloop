@@ -153,6 +153,32 @@ h3 {
   font-size: 0.85rem;
 }
 
+#search-progress,
+.job-search-progress {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+.search-progress-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.search-progress {
+  display: block;
+  height: 0.45rem;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.search-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--focus);
+}
+
 #job-list button[data-outcome="FOUND"] .job-outcome {
   color: var(--accent);
 }

@@ -248,6 +248,9 @@ def test_job_card_shows_hypothesis_and_n_trials(real_daemon, browser_page):
     card = page.locator("#job-list button").first
     assert "12-1 momentum works in US large caps net of costs" in card.inner_text()
     assert "n_trials" in card.inner_text()
+    assert "search:" in card.inner_text()
+    assert "/ 3" in card.inner_text()
+    assert card.locator(".search-progress-fill").count() == 1
     assert card.get_attribute("data-run-id").startswith("j_")
 
 
@@ -307,6 +310,10 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     assert "spec_id:" in meta
     assert "seed:" in meta
     assert "n_trials:" in meta
+    assert "planned_n_trials:" in meta
+    fill = page.locator("#search-progress .search-progress-fill")
+    assert fill.count() == 1
+    assert fill.get_attribute("data-pct") is not None
     assert "Stop reason:" in page.locator("#stop-reason").inner_text()
     assert "evaluated:" in page.locator("#funnel-summary").inner_text()
     assert page.locator("#funnel-bars").count() == 1

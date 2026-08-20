@@ -141,6 +141,20 @@ def test_packaged_funnel_bars():
     assert "override" not in script.lower()
 
 
+def test_packaged_search_progress():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="search-progress"' in html
+    assert "search: " in script
+    assert "search-progress-fill" in script
+    assert "planned_n_trials" in script
+    assert ".search-progress" in css
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_static_package_loads_without_fastapi():
     """Morning assets must load even when FastAPI is not installed."""
     code = r"""

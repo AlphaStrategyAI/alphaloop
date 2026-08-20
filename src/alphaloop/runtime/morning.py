@@ -8,6 +8,7 @@ from typing import Any, Optional
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import evidence_from_dict, evidence_to_dict
 from alphaloop.contracts.status import ResearchOutcome
+from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.artifacts_io import build_funnel, format_gate_line
 from alphaloop.runtime.store import JobRecord
 
@@ -93,6 +94,9 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "spec_id": job.spec.spec_id,
         "seed": job.spec.seed,
         "n_trials": _n_trials(layout),
+        "planned_n_trials": len(
+            method_parameter_grid(job.spec.hypothesis.signal_mechanism)
+        ),
         "error": job.error,
         "recovery_attempts": job.recovery_attempts,
         "hypothesis": asdict(job.spec.hypothesis),

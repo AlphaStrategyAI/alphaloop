@@ -25,6 +25,25 @@ function funnelPct(part, whole) {
   return pct;
 }
 
+function fillSearchProgress(host, nTrials, planned) {
+  host.innerHTML = "";
+  const n = Number(nTrials) || 0;
+  const plan = Number(planned) || 0;
+  const label = document.createElement("span");
+  label.className = "search-progress-label";
+  label.textContent = "search: " + n + " / " + plan;
+  const track = document.createElement("span");
+  track.className = "search-progress";
+  const fill = document.createElement("span");
+  fill.className = "search-progress-fill";
+  const pct = funnelPct(n, plan);
+  fill.dataset.pct = String(pct);
+  fill.style.width = pct + "%";
+  track.appendChild(fill);
+  host.appendChild(label);
+  host.appendChild(track);
+}
+
 function appendFunnelSeg(stack, key, count, whole) {
   const seg = document.createElement("span");
   seg.className = "funnel-seg";
@@ -365,7 +384,14 @@ async function showJob(runId) {
     " · seed: " +
     job.seed +
     " · n_trials: " +
-    job.n_trials;
+    job.n_trials +
+    " · planned_n_trials: " +
+    job.planned_n_trials;
+  fillSearchProgress(
+    document.getElementById("search-progress"),
+    job.n_trials,
+    job.planned_n_trials
+  );
   document.getElementById("stop-reason").textContent = job.stop_reason
     ? "Stop reason: " + job.stop_reason
     : "Stop reason: (running or not yet terminal)";
@@ -431,6 +457,10 @@ async function loadJobs() {
     button.appendChild(meta);
     addJobSpan(button, "job-statement", statement);
     addJobSpan(button, "job-trials", "n_trials: " + job.n_trials);
+    const progress = document.createElement("span");
+    progress.className = "job-search-progress";
+    fillSearchProgress(progress, job.n_trials, job.planned_n_trials);
+    button.appendChild(progress);
     button.addEventListener("click", function () {
       showJob(job.run_id);
     });
