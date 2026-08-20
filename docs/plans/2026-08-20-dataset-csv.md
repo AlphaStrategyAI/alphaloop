@@ -93,7 +93,7 @@ def test_dataset_rejects_unreadable_csv(tmp_path, capsys):
 
 Existing `test_dataset_rejects_non_parquet` must still pass (`parquet` in stderr).
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_dataset_cache.py::test_cache_dataset_file_converts_wide_csv tests/runtime/test_cli_jobs.py::test_dataset_caches_wide_csv_without_daemon -v
@@ -101,7 +101,7 @@ python3 -m pytest tests/runtime/test_dataset_cache.py::test_cache_dataset_file_c
 
 Expected: FAIL (`cache_dataset_file` not defined / CSV rejected as parquet).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `dataset_cache.py`:
 
@@ -145,13 +145,13 @@ Docs: `docs/cli.md` — PATH may be parquet or a wide close-only CSV
 (DatetimeIndex, columns = asset ids). Skill: `alphaloop dataset PATH`
 accepts that CSV shape; does not create a job.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_dataset_cache.py tests/runtime/test_cli_jobs.py::test_dataset_caches_parquet_without_daemon tests/runtime/test_cli_jobs.py::test_dataset_caches_wide_csv_without_daemon tests/runtime/test_cli_jobs.py::test_dataset_rejects_non_parquet tests/runtime/test_cli_jobs.py::test_dataset_rejects_unreadable_csv tests/runtime/test_dataset_upload.py -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(cli): cache wide close-only CSV via alphaloop dataset"
