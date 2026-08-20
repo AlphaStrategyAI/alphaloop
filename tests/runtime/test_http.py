@@ -303,3 +303,40 @@ def test_http_dataset_upload_caches_csv_without_a_job(tmp_path):
         assert api.list_jobs()["jobs"] == []
     finally:
         server.shutdown()
+
+
+def test_http_dataset_upload_rejects_ohlcv_without_a_job(tmp_path):
+    import pandas as pd
+
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    idx = pd.bdate_range("2018-01-01", periods=5)
+    frame = pd.DataFrame(
+        {
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.5,
+            "volume": 1_000_000,
+        },
+        index=idx,
+    )
+    blob = frame.to_csv().encode("utf-8")
+    try:
+        req = Request(
+            f"http://{host}:{port}/v1/datasets",
+            data=blob,
+            headers={"Content-Type": "text/csv"},
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as exc:
+            urlopen(req)
+        assert exc.value.code == 400
+        err = exc.value.read().decode("utf-8").lower()
+        assert "ohlcv" in err
+        assert "found" not in err
+        assert api.list_jobs()["jobs"] == []
+    finally:
+        server.shutdown()

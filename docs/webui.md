@@ -5,7 +5,7 @@ The **first-release** morning UI is the packaged static page at
 Fill the guided hypothesis form (or load the example, or paste YAML),
 preview the compiled protocol (readable method grid and planned trial
 count), then freeze it. The dataset file picker accepts parquet or a
-wide close-only CSV. Load example uses designed secondary chrome
+wide close-only CSV. Per-symbol OHLCV is rejected. Load example uses designed secondary chrome
 (not FOUND green). Preview protocol uses focus-blue chrome (not
 FOUND green). Ctrl/Cmd+Enter previews, then freezes. j/k or arrows move between morning
 jobs. Cancel or resume from the job detail without

@@ -53,3 +53,11 @@ def test_skill_discloses_host_constraint_and_rejects_overnight_mcp():
     assert "mcp" in lowered
     assert "overnight" in lowered
     assert "must not" in lowered or "do not" in lowered
+
+
+def test_skill_forbids_fetch_as_overnight_ingest():
+    text = _skill_text().lower()
+    assert "alphaloop fetch" in text
+    assert "heritage" in text
+    assert "ohlcv" in text
+    assert "alphaloop dataset" in text

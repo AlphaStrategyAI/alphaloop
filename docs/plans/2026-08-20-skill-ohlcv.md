@@ -25,7 +25,7 @@
 - Modify: `docs/webui.md` (one sentence)
 - Test: `tests/skills/test_overnight_lab_skill.py`, `tests/runtime/test_http.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/skills/test_overnight_lab_skill.py`:
 
@@ -78,7 +78,7 @@ def test_http_dataset_upload_rejects_ohlcv_without_a_job(tmp_path):
         server.shutdown()
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/skills/test_overnight_lab_skill.py::test_skill_forbids_fetch_as_overnight_ingest tests/runtime/test_http.py::test_http_dataset_upload_rejects_ohlcv_without_a_job -v
@@ -86,7 +86,7 @@ python3 -m pytest tests/skills/test_overnight_lab_skill.py::test_skill_forbids_f
 
 Expected: FAIL (skill missing fetch/ohlcv). HTTP may already pass if ingest is wired.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Skill Forbidden (or Workflow step 3): do not use `alphaloop fetch` as
 overnight ingest; it is heritage per-symbol OHLCV; cache parquet or
@@ -96,13 +96,13 @@ wide close-only CSV with `alphaloop dataset`.
 
 If HTTP test fails, fix only the error path (should already propagate).
 
-- [ ] **Step 4: PASS**
+- [x] **Step 4: PASS**
 
 ```bash
 python3 -m pytest tests/skills/test_overnight_lab_skill.py tests/runtime/test_http.py::test_http_dataset_upload_caches_csv_without_a_job tests/runtime/test_http.py::test_http_dataset_upload_rejects_ohlcv_without_a_job tests/runtime/test_cli_jobs.py::test_dataset_rejects_ohlcv_csv -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/alphaloop/skills/overnight-lab/SKILL.md docs/webui.md tests/skills/test_overnight_lab_skill.py tests/runtime/test_http.py docs/plans/2026-08-20-skill-ohlcv.md
