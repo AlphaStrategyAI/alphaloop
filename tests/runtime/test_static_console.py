@@ -350,6 +350,31 @@ def test_packaged_console_freeze_chrome():
     assert HOST_CONSTRAINT in html
 
 
+def test_packaged_console_preview_card():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="protocol-preview"' in html
+    assert "preview-n-trials" in script
+    assert "seed:" in script
+    assert "time_budget_s:" in script
+    assert "cost_budget_usd:" in script
+    card = css.find("#protocol-preview:not(:empty)")
+    assert card != -1
+    card_block = css[card : css.find("}", card)]
+    assert "var(--ink)" in card_block
+    assert "var(--focus)" in card_block
+    assert "var(--accent)" not in card_block
+    n_rule = css.find("#preview-n-trials")
+    assert n_rule != -1
+    n_block = css[n_rule : css.find("}", n_rule)]
+    assert "var(--focus)" in n_block
+    assert "var(--accent)" not in n_block
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_packaged_console_load_chrome():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

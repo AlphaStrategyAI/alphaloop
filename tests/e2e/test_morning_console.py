@@ -416,7 +416,18 @@ def test_preview_does_not_create_a_job(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
     _preview_yaml(page, _spec_yaml(dataset))
-    assert "planned_n_trials" in page.locator("#protocol-preview").inner_text()
+    text = page.locator("#protocol-preview").inner_text()
+    assert "planned_n_trials" in text
+    assert "seed:" in text
+    assert "time_budget_s:" in text
+    page.wait_for_function(
+        """() => {
+          const el = document.getElementById('preview-n-trials');
+          if (!el) return false;
+          return getComputedStyle(el).color === 'rgb(126, 184, 255)';
+        }""",
+        timeout=10000,
+    )
     assert page.locator("#protocol-grid li").count() >= 1
     assert page.locator("#job-list button").count() == 0
     assert not page.locator("#submit-job").is_disabled()

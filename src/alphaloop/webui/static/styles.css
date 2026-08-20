@@ -553,6 +553,31 @@ h3 {
   background: var(--warn);
 }
 
+#protocol-preview:not(:empty) {
+  border: 1px solid var(--focus);
+  background: var(--ink);
+  border-radius: 1rem;
+  padding: 1rem 1.15rem 1.05rem;
+  margin: 0.85rem 0 0;
+  color: var(--fg);
+}
+
+#preview-n-trials {
+  margin: 0 0 0.65rem;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: var(--focus);
+}
+
+#preview-summary {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--fg);
+}
+
 #protocol-grid {
   list-style: none;
   padding: 0.4rem 0 0;

@@ -544,14 +544,20 @@ function formatGridRow(row) {
 function renderPreview(body) {
   const preview = document.getElementById("protocol-preview");
   preview.textContent = "";
+  const nTrials = document.createElement("p");
+  nTrials.id = "preview-n-trials";
+  nTrials.textContent = "planned_n_trials: " + body.planned_n_trials;
+  preview.appendChild(nTrials);
   const summary = document.createElement("div");
+  summary.id = "preview-summary";
   summary.textContent = [
     "spec_id: " + body.spec_id,
     "statement: " + body.statement,
     "signal_mechanism: " + body.signal_mechanism,
     "hard_gates: " + (body.hard_gates || []).join(", "),
-    "planned_n_trials: " + body.planned_n_trials,
-    "grid:",
+    "seed: " + body.seed,
+    "time_budget_s: " + body.time_budget_s,
+    "cost_budget_usd: " + body.cost_budget_usd,
   ].join("\n");
   preview.appendChild(summary);
   const grid = document.createElement("ul");

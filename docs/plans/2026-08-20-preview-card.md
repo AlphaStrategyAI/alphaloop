@@ -27,7 +27,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add:
 
@@ -74,7 +74,7 @@ In `test_preview_does_not_create_a_job`, after preview:
     )
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_preview_card -v
@@ -82,7 +82,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_pr
 
 Expected: FAIL (`preview-n-trials` missing).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `renderPreview`: first child `#preview-n-trials` with
 `planned_n_trials: {n}`; summary includes seed and budgets; keep
@@ -93,9 +93,9 @@ CSS: `#protocol-preview:not(:empty)` ink + focus border;
 
 `docs/webui.md`: preview card leads with planned trial count.
 
-- [ ] **Step 4: PASS** targeted static + `test_preview_does_not_create_a_job`
+- [x] **Step 4: PASS** targeted static + `test_preview_does_not_create_a_job`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): show seed, budgets, and N on the protocol preview card"

@@ -3,8 +3,8 @@
 The **first-release** morning UI is the packaged static page at
 `src/alphaloop/webui/static/`, served by `alphaloop start` on loopback.
 Fill the guided hypothesis form (or load the example, or paste YAML),
-preview the compiled protocol (readable method grid and planned trial
-count), then freeze it. The dataset file picker accepts parquet or a
+preview the compiled protocol (readable method grid, planned trial
+count leading the preview card, seed, and budgets), then freeze it. The dataset file picker accepts parquet or a
 wide close-only CSV. Per-symbol OHLCV is rejected. Load example uses designed secondary chrome
 (not FOUND green). Preview protocol uses focus-blue chrome (not
 FOUND green). Freeze and submit uses ink background and FOUND accent
