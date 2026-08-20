@@ -248,6 +248,13 @@ promise alpha.
 | `--no-launch`    | Do not auto-open the heritage WebUI after the loop. |
 | `--git-repo-dir` | Git rev-parse HEAD capture root. |
 
+## `alphaloop fetch` (heritage)
+
+Heritage per-symbol OHLCV download. It is **not** the overnight-lab
+snapshot path. Cache parquet or a wide close-only CSV with
+`alphaloop dataset`. Fetch CSV is OHLCV and dataset ingest rejects it.
+This command does not claim alpha.
+
 ## `alphaloop replay`
 
 Rewrite `report.md` from sealed `gates.json` **without** re-running

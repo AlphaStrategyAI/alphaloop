@@ -25,7 +25,7 @@
 - Modify: `docs/cli.md`
 - Test: `tests/test_package_identity.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/test_package_identity.py`:
 
@@ -86,7 +86,7 @@ def test_fetch_help_is_heritage_not_overnight_dataset(capsys):
     assert "heritage per-symbol ohlcv" in parent
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/test_package_identity.py::test_fetch_help_is_heritage_not_overnight_dataset -v
@@ -94,7 +94,7 @@ python3 -m pytest tests/test_package_identity.py::test_fetch_help_is_heritage_no
 
 Expected: FAIL (`heritage` missing).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/alphaloop/cli/main.py`:
 
@@ -115,13 +115,13 @@ Leave fetch flags and `fetch_data` unchanged.
 `docs/cli.md`: add `## alphaloop fetch (heritage)` after the loop
 section. Overnight-lab lead list unchanged.
 
-- [ ] **Step 4: PASS**
+- [x] **Step 4: PASS**
 
 ```bash
 python3 -m pytest tests/test_package_identity.py::test_fetch_help_is_heritage_not_overnight_dataset tests/test_package_identity.py::test_loop_help_is_heritage_not_find_alpha tests/test_cli.py::test_cli_fetch_calls_yahoo tests/test_cli.py::test_cli_help_exits_cleanly -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/alphaloop/cli/main.py docs/cli.md tests/test_package_identity.py docs/plans/2026-08-20-fetch-heritage.md

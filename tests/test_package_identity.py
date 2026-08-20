@@ -134,3 +134,19 @@ def test_loop_help_is_heritage_not_find_alpha(capsys):
     run_out = capsys.readouterr().out
     assert "find alpha with DSR > 1.0" not in run_out
     assert "heritage" in run_out.lower()
+
+
+def test_fetch_help_is_heritage_not_overnight_dataset(capsys):
+    parser = create_parser()
+    try:
+        parser.parse_args(["fetch", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    out = capsys.readouterr().out.lower()
+    assert "heritage" in out
+    assert "ohlcv" in out
+    assert "dataset" in out
+    assert "获取数据" not in out
+    assert "found" not in out
+    parent = parser.format_help().lower()
+    assert "heritage per-symbol ohlcv" in parent

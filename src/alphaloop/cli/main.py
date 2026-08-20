@@ -172,7 +172,15 @@ def create_parser() -> argparse.ArgumentParser:
     optimize_parser.add_argument("--max-eval", type=int, default=100, help="最大评估次数")
 
     # fetch 命令
-    fetch_parser = subparsers.add_parser("fetch", help="获取数据")
+    fetch_parser = subparsers.add_parser(
+        "fetch",
+        help="heritage per-symbol OHLCV download (not overnight dataset ingest)",
+        description=(
+            "Heritage per-symbol OHLCV download. Not the overnight-lab "
+            "snapshot path; use alphaloop dataset with parquet or wide "
+            "close-only CSV. Does not claim alpha."
+        ),
+    )
     fetch_parser.add_argument("--symbol", required=True, help="资产代码")
     fetch_parser.add_argument(
         "--source",
