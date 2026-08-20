@@ -86,7 +86,7 @@ and must not reduce DSR `n_trials` in this cycle.
 
 ## 6. Loop exit
 
-Remaining validation: soak / 95% overnight (not CI),
-correlation-adjusted \(N_{\mathrm{eff}}\) (must not make `FOUND`
-easier by shrinking N). Later: MCP / cloud workers. Packaged console
-visual presence remains a product gap versus the overnight-lab goal.
+Remaining product after this cycle shipped: morning verdict stage
+(`docs/requirements/2026-08-20-morning-verdict.md`). Remaining
+validation: soak / 95% overnight (not CI), correlation-adjusted
+\(N_{\mathrm{eff}}\). Later: MCP / cloud workers.

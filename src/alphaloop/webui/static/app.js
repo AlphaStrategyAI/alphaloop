@@ -467,6 +467,18 @@ function addJobSpan(button, className, text) {
   button.appendChild(span);
 }
 
+function fillOutcomeGloss(outcome) {
+  const sources = {
+    FOUND: "help-found",
+    NO_EVIDENCE: "help-no-evidence",
+    INCONCLUSIVE: "help-inconclusive",
+    NONE: "help-status",
+  };
+  const src = document.getElementById(sources[outcome] || "help-status");
+  const gloss = document.getElementById("outcome-gloss");
+  gloss.textContent = src ? src.textContent : "";
+}
+
 function fillReport(job) {
   const node = document.getElementById("report");
   node.textContent = job.report_markdown || "";
@@ -478,9 +490,12 @@ async function showJob(runId) {
   const job = await response.json();
   const detail = document.getElementById("detail");
   detail.hidden = false;
+  const verdict = document.getElementById("verdict");
   const outcome = document.getElementById("outcome");
+  verdict.dataset.outcome = job.research_outcome;
   outcome.dataset.outcome = job.research_outcome;
   outcome.textContent = job.research_outcome;
+  fillOutcomeGloss(job.research_outcome);
   document.getElementById("job-status").textContent = "Job status: " + job.status;
   const statement =
     job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";

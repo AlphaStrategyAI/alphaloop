@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header>
+    <header id="masthead">
       <p class="kicker">local overnight lab</p>
       <h1>alphaloop</h1>
       <p class="promise">
@@ -90,7 +90,10 @@
           <ul id="job-list"></ul>
         </section>
         <section id="detail" hidden>
-          <p id="outcome" data-outcome></p>
+          <div id="verdict" data-outcome>
+            <p id="outcome" data-outcome></p>
+            <p id="outcome-gloss"></p>
+          </div>
           <p id="job-status"></p>
           <p id="hypothesis-statement"></p>
           <p id="spec-meta"></p>
@@ -122,6 +125,8 @@
         <p id="help-status">Job status (queued, running, completed, failed, cancelled) is not the research conclusion.</p>
         <p id="help-host">The host must remain awake while a local worker is running. Closing the browser or terminal does not stop a job, but suspending or powering off the host stops computation.</p>
         <p id="help-found">FOUND means every required hard gate is present and passed. It is not a promise of alpha.</p>
+        <p id="help-no-evidence">NO_EVIDENCE means a required hard gate failed. It is not a promise that alpha does not exist.</p>
+        <p id="help-inconclusive">INCONCLUSIVE means the evidence set is incomplete. Missing diagnostics cannot produce FOUND.</p>
       </section>
     </main>
     <script src="/app.js"></script>

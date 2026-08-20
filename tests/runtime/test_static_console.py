@@ -224,6 +224,35 @@ def test_packaged_console_morning_report():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_morning_verdict_stage():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="verdict"' in html
+    assert 'id="outcome-gloss"' in html
+    assert html.find('id="outcome"') < html.find('id="outcome-gloss"')
+    assert html.find('id="outcome-gloss"') < html.find('id="job-status"')
+    assert 'id="help-no-evidence"' in html
+    assert 'id="help-inconclusive"' in html
+    assert (
+        "NO_EVIDENCE means a required hard gate failed. It is not a promise that alpha does not exist."
+        in html
+    )
+    assert (
+        "INCONCLUSIVE means the evidence set is incomplete. Missing diagnostics cannot produce FOUND."
+        in html
+    )
+    assert "fillOutcomeGloss" in script
+    assert "help-found" in script
+    assert "repeating-linear-gradient" in css
+    assert "font-variant-numeric" in css
+    assert "clamp(" in css
+    assert "http" not in css.lower()
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_static_package_loads_without_fastapi():
     """Morning assets must load even when FastAPI is not installed."""
     code = r"""

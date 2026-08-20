@@ -330,6 +330,15 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     assert page.locator("#funnel-bars").count() == 1
     assert page.locator("#qualifying").count() == 1
     assert page.locator("#report").count() == 1
+    assert page.locator("#verdict").count() == 1
+    gloss = page.locator("#outcome-gloss").inner_text().strip()
+    assert gloss != ""
+    if outcome == "FOUND":
+        assert "not a promise of alpha" in gloss
+    elif outcome == "NO_EVIDENCE":
+        assert "required hard gate failed" in gloss
+    elif outcome == "INCONCLUSIVE":
+        assert "incomplete" in gloss
     assert "target found" not in page.content()
 
 
@@ -370,6 +379,7 @@ def test_missing_columns_are_inconclusive_without_gates(real_daemon, browser_pag
     assert not (layout.evidence / "gates.json").exists()
     _open_job_detail(page)
     assert page.locator("#outcome").inner_text().strip() == "INCONCLUSIVE"
+    assert "incomplete" in page.locator("#outcome-gloss").inner_text()
     evidence = page.locator("#evidence").inner_text()
     assert "none" in evidence or evidence.strip() == "none"
 
@@ -429,6 +439,7 @@ def test_cancel_keeps_found_when_already_sealed(real_daemon, browser_page):
     page.wait_for_timeout(2500)
     _open_job_detail(page)
     assert page.locator("#outcome").inner_text().strip() == "FOUND"
+    assert "not a promise of alpha" in page.locator("#outcome-gloss").inner_text()
 
 
 def test_kill_worker_then_resume_shows_queued_or_running(real_daemon, browser_page):
