@@ -57,6 +57,7 @@ def should_continue(
     last_evidence: Optional[GateEvidence],
     proposed_kind: RevisionKind,
     stop_reason: Optional[str],
+    frozen_grid_remaining: int = 0,
 ) -> StopDecision:
     if proposed_kind is RevisionKind.ECONOMIC:
         return StopDecision(
@@ -89,6 +90,12 @@ def should_continue(
         and proposed_kind is RevisionKind.METHOD
         and stop_reason is None
     ):
+        if frozen_grid_remaining > 0:
+            return StopDecision(
+                continue_search=True,
+                queue_for_human=False,
+                reason="frozen_grid",
+            )
         return StopDecision(
             continue_search=False,
             queue_for_human=False,

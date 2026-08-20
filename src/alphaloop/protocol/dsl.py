@@ -36,6 +36,11 @@ _FACTORS = {
 }
 
 ALLOWED_KINDS = tuple(_FACTORS)
+FEATURE_KINDS = ("parkinson_hist_vol",)
+VOLUME_KINDS = ("obv_slope",)
+DIRECTIONAL_SIGNAL_KINDS = tuple(
+    kind for kind in ALLOWED_KINDS if kind not in FEATURE_KINDS and kind not in VOLUME_KINDS
+)
 
 
 class UnsupportedDslError(ValueError):

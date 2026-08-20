@@ -8,7 +8,7 @@ from pathlib import Path
 
 from alphaloop.contracts.artifacts import DatasetMismatchError, require_dataset
 from alphaloop.contracts.research_spec import ResearchSpec
-from alphaloop.protocol.dsl import ALLOWED_KINDS
+from alphaloop.protocol.dsl import ALLOWED_KINDS, FEATURE_KINDS, VOLUME_KINDS
 
 HOST_CONSTRAINT = (
     "The host must remain awake while a local worker is running. "
@@ -62,7 +62,15 @@ def preflight(
 ) -> PreflightResult:
     errors: list[str] = []
 
-    if spec.hypothesis.signal_mechanism not in ALLOWED_KINDS:
+    if spec.hypothesis.signal_mechanism in FEATURE_KINDS:
+        errors.append(
+            "parkinson_hist_vol is a volatility feature, not a directional signal_mechanism"
+        )
+    elif spec.hypothesis.signal_mechanism in VOLUME_KINDS:
+        errors.append(
+            "obv_slope requires a volume series; first-release snapshots are close-only"
+        )
+    elif spec.hypothesis.signal_mechanism not in ALLOWED_KINDS:
         errors.append(
             "unsupported signal_mechanism: "
             f"{spec.hypothesis.signal_mechanism}"

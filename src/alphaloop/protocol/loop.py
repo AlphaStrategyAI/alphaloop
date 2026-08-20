@@ -190,8 +190,9 @@ def run_protocol(
     completed_skip = set(completed_trial_ids)
     finished_ids: list[str] = list(completed_trial_ids)
     trial_returns: list[pd.Series] = []
+    grid = method_parameter_grid(doc.kind)
 
-    for index, parameters in enumerate(method_parameter_grid(doc.kind)):
+    for index, parameters in enumerate(grid):
         remaining_time = float(
             spec.time_budget_s if clock is None else spec.time_budget_s - clock()
         )
@@ -272,12 +273,18 @@ def run_protocol(
 
         if clock is not None:
             remaining_time = float(spec.time_budget_s - clock())
+        remaining = sum(
+            1
+            for later in grid[index + 1 :]
+            if _candidate_id(doc.kind, later) not in completed_skip
+        )
         decision = should_continue(
             remaining_time_s=remaining_time,
             remaining_cost_usd=remaining_cost,
             last_evidence=stop_evidence,
             proposed_kind=RevisionKind.METHOD,
             stop_reason=None,
+            frozen_grid_remaining=remaining,
         )
         if decision.reason == "found":
             if last_evidence is not None and len(trial_returns) >= 2:
@@ -314,7 +321,7 @@ def run_protocol(
                 evidence=last_evidence,
             )
         if decision.continue_search:
-            if revision_proposer is not None:
+            if decision.reason == "method_repair" and revision_proposer is not None:
                 proposed = revision_proposer(spec, trial_doc)
                 if proposed:
                     kind = classify_revision(

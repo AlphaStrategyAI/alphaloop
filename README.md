@@ -80,8 +80,10 @@ cost_budget_usd: 5.0
 
 `signal_mechanism` must be a constrained DSL kind (`momentum_12_1`,
 `rsi`, `macd`, `roc`, `bollinger_zscore`, `ohlr_4_pct`, `pairs_spread`,
-`atr_breakout`, `parkinson_hist_vol`, `obv_slope`). Markets
-`us-equity-daily` and `crypto-daily` are independent.
+`atr_breakout`). `parkinson_hist_vol` is a volatility feature, not a
+directional signal. `obv_slope` needs volume; first-release snapshots
+are close-only. Markets `us-equity-daily` and `crypto-daily` are
+independent.
 
 If the spec declares a `dataset`, the parquet must exist under
 `datasets/<id>/prices.parquet` and match the recorded SHA-256. Missing
