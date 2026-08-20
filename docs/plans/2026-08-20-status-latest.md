@@ -33,7 +33,7 @@
 - Consumes: `JobClient.list_jobs() -> {"jobs": [morning_view, ...]}`
 - Produces: `EMPTY_STATUS_CUE: str` (locked, trailing newline)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_cli_jobs.py`:
 
@@ -102,9 +102,9 @@ assert latest.stdout.splitlines()[0] == f"run_id: {run_id}"
 assert latest.stdout.splitlines()[1] == payload["research_outcome"]
 ```
 
-- [ ] **Step 2: Run tests to FAIL** (`run_id` still required)
+- [x] **Step 2: Run tests to FAIL** (`run_id` still required)
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `EMPTY_STATUS_CUE` in `morning.py` (verbatim spec sentence + `"\n"`).
 
@@ -114,11 +114,11 @@ assert latest.stdout.splitlines()[1] == payload["research_outcome"]
 
 Docs + Skill as in spec R4.
 
-- [ ] **Step 4: Full unit + e2e**
+- [x] **Step 4: Full unit + e2e**
 
 ```bash
 python3 -m pytest -m "not e2e and not llm" --ignore=tests/integration
 python3 -m pytest tests/e2e -m e2e
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
