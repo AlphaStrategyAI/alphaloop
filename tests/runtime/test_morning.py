@@ -103,7 +103,19 @@ def test_revisions_and_queued_hypotheses(tmp_path):
     job = store.create(_spec())
     run_dir = tmp_path / job.run_id
     (run_dir / "trial-ledger.jsonl").write_text(
-        json.dumps({"trial_id": "c_1", "revision": "none"}) + "\n",
+        "\n".join(
+            [
+                json.dumps({"trial_id": "c_1", "revision": "none", "parameters": {}}),
+                json.dumps(
+                    {
+                        "trial_id": "c_2",
+                        "revision": "method",
+                        "parameters": {"window": 21},
+                    }
+                ),
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
     (run_dir / "recommendations.json").write_text(
@@ -111,11 +123,26 @@ def test_revisions_and_queued_hypotheses(tmp_path):
         encoding="utf-8",
     )
     view = morning_view(store.get(job.run_id), tmp_path)
-    assert view["revisions"][0]["trial_id"] == "c_1"
+    assert [row["trial_id"] for row in view["revisions"]] == ["c_2"]
+    assert view["revisions"][0]["revision"] == "method"
+    assert view["n_trials"] == 2
     assert view["queued_hypotheses"][0]["statement"] == "try mean reversion"
     assert view["research_outcome"] == ResearchOutcome.NONE.value
     assert view["stop_reason"] is None
     assert view["primary_evidence"] is None
+
+
+def test_revisions_omit_first_frozen_grid_point(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    run_dir = tmp_path / job.run_id
+    (run_dir / "trial-ledger.jsonl").write_text(
+        json.dumps({"trial_id": "c_1", "revision": "none"}) + "\n",
+        encoding="utf-8",
+    )
+    view = morning_view(store.get(job.run_id), tmp_path)
+    assert view["revisions"] == []
+    assert view["n_trials"] == 1
 
 
 def test_morning_view_exposes_seed_and_unique_n_trials(tmp_path):

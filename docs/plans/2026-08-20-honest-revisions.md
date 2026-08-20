@@ -30,7 +30,7 @@
 - Produces: `morning_view(...)["revisions"]` = rows with `revision == "method"`
 - Produces: `morning_view(...)["n_trials"]` = unique ids over **all** ledger rows
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Replace `test_revisions_and_queued_hypotheses` in `tests/runtime/test_morning.py` with:
 
@@ -84,7 +84,7 @@ def test_revisions_omit_first_frozen_grid_point(tmp_path):
 
 Keep `test_morning_view_exposes_seed_and_unique_n_trials`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_revisions_and_queued_hypotheses tests/runtime/test_morning.py::test_revisions_omit_first_frozen_grid_point -v
@@ -92,7 +92,7 @@ python3 -m pytest tests/runtime/test_morning.py::test_revisions_and_queued_hypot
 
 Expected: FAIL (`revisions` still includes `c_1` / `none`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/alphaloop/runtime/morning.py`:
 
@@ -101,13 +101,13 @@ In `src/alphaloop/runtime/morning.py`:
 
 In `docs/webui.md`, one sentence: methodological revisions are in-run method repairs, not the first frozen grid point.
 
-- [ ] **Step 4: PASS** plus unique-`n_trials` test
+- [x] **Step 4: PASS** plus unique-`n_trials` test
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_revisions_and_queued_hypotheses tests/runtime/test_morning.py::test_revisions_omit_first_frozen_grid_point tests/runtime/test_morning.py::test_morning_view_exposes_seed_and_unique_n_trials -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(runtime): list only in-run method repairs as revisions"

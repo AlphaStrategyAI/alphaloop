@@ -74,7 +74,7 @@ def _load_evidence(layout: RunLayout) -> Optional[dict[str, Any]]:
     return body
 
 
-def _load_revisions(layout: RunLayout) -> list[dict[str, Any]]:
+def _load_ledger(layout: RunLayout) -> list[dict[str, Any]]:
     if not layout.trial_ledger.is_file():
         return []
     rows: list[dict[str, Any]] = []
@@ -89,6 +89,10 @@ def _load_revisions(layout: RunLayout) -> list[dict[str, Any]]:
         if isinstance(payload, dict):
             rows.append(payload)
     return rows
+
+
+def _load_revisions(layout: RunLayout) -> list[dict[str, Any]]:
+    return [row for row in _load_ledger(layout) if row.get("revision") == "method"]
 
 
 def _load_queued(layout: RunLayout) -> list[Any]:
@@ -106,7 +110,7 @@ def _load_queued(layout: RunLayout) -> list[Any]:
 
 def _n_trials(layout: RunLayout) -> int:
     ids: list[str] = []
-    for row in _load_revisions(layout):
+    for row in _load_ledger(layout):
         trial_id = row.get("trial_id")
         if trial_id:
             ids.append(str(trial_id))
