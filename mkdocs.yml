@@ -109,6 +109,7 @@ nav:
     - Replay latest plan: plans/2026-08-20-replay-latest.md
     - Lifecycle chrome plan: plans/2026-08-20-lifecycle-chrome.md
     - Preview chrome plan: plans/2026-08-20-preview-chrome.md
+    - Load chrome plan: plans/2026-08-20-load-chrome.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md
@@ -160,6 +161,7 @@ nav:
     - Replay latest: requirements/2026-08-20-replay-latest.md
     - Lifecycle chrome: requirements/2026-08-20-lifecycle-chrome.md
     - Preview chrome: requirements/2026-08-20-preview-chrome.md
+    - Load chrome: requirements/2026-08-20-load-chrome.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 
