@@ -895,7 +895,7 @@ def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
     _open_job_detail(page)
     page.wait_for_selector("#evidence li")
     evidence_text = page.locator("#evidence").inner_text()
-    assert "walk_forward:" in evidence_text
+    assert "walk-forward OOS" in evidence_text
     assert "regime_stable=" in evidence_text
 
 

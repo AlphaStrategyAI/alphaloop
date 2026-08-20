@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from alphaloop.contracts.gates import HardGateName
+from alphaloop.contracts.gates import HARD_GATE_GLOSS, HardGateName
 from alphaloop.contracts.research_spec import ALLOWED_PROFILES
 from alphaloop.protocol.dsl import DIRECTIONAL_SIGNAL_KINDS
 from alphaloop.runtime.api import JobAPI
@@ -180,12 +180,15 @@ def test_packaged_hard_gates_keep_token_and_human_gloss():
     fieldset = html[start : html.find("</fieldset>", start)]
     for gate in HardGateName:
         assert f'value="{gate.value}"' in fieldset
+    assert set(HARD_GATE_GLOSS) == {gate.value for gate in HardGateName}
     assert "dsr — Deflated Sharpe Ratio" in fieldset
     assert "walk_forward — walk-forward OOS" in fieldset
     assert "vs_random — versus random" in fieldset
     assert "vs_buy_hold — versus buy-and-hold" in fieldset
     assert "vs_benchmark — versus benchmark" in fieldset
     assert "data_consistency — data consistency" in fieldset
+    for gloss in HARD_GATE_GLOSS.values():
+        assert gloss in fieldset
     assert fieldset.count('type="checkbox"') == len(HardGateName)
 
 

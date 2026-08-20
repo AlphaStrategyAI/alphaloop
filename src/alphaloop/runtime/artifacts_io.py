@@ -8,7 +8,7 @@ import pandas as pd
 import yaml
 
 from alphaloop.contracts.artifacts import RunLayout
-from alphaloop.contracts.gates import GateEvidence, evidence_from_dict
+from alphaloop.contracts.gates import GateEvidence, evidence_from_dict, gloss_hard_gate
 from alphaloop.contracts.research_spec import ResearchSpec
 
 _CANDIDATE_COLUMNS = ("trial_id", "kind", "parameters", "revision")
@@ -107,7 +107,7 @@ def _format_detail_value(value: object) -> str:
 def format_gate_line(row: Mapping[str, Any]) -> str:
     name = str(row.get("name") or "")
     verdict = "pass" if row.get("passed") else "fail"
-    parts = [f"{name}: {verdict}"]
+    parts = [f"{gloss_hard_gate(name)}: {verdict}"]
     detail = row.get("detail") or {}
     if isinstance(detail, Mapping):
         for key in MORNING_DETAIL_KEYS:
@@ -189,7 +189,7 @@ def format_primary_evidence(
         return "all required hard gates passed"
     if research_outcome == "NO_EVIDENCE":
         if dominant_failures:
-            return f"{dominant_failures[0]} failed"
+            return f"{gloss_hard_gate(dominant_failures[0])} failed"
         return "a required hard gate failed"
     if research_outcome != "INCONCLUSIVE":
         return None
@@ -204,7 +204,7 @@ def format_primary_evidence(
             name for name in (evidence.get("required") or []) if name not in present
         ]
     if missing:
-        return "missing " + ", ".join(str(name) for name in missing)
+        return "missing " + ", ".join(gloss_hard_gate(str(name)) for name in missing)
     if evidence is None:
         return "no sealed gates.json"
     return "incomplete evidence set"

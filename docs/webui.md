@@ -25,7 +25,8 @@ same designed chrome as the queued list, with NO_EVIDENCE warn color
 `NO_EVIDENCE` / `INCONCLUSIVE` in the morning — job cards show the
 frozen statement and `n_trials`; the detail funnel shows how many
 frozen trials were evaluated, passed, and failed. Methodological revisions
-list in-run method repairs, not the first frozen grid point. A running job card
+list in-run method repairs, not the first frozen grid point. Morning evidence
+lines use the same hard-gate gloss as the form. A running job card
 and verdict pulse (focus blue, not FOUND green); the detail shows
 `Worker heartbeat:` when the supervisor has a timestamp. A failed job
 shows the stored worker error, recovery count, and Resume above the

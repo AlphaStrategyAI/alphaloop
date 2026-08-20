@@ -83,7 +83,7 @@ def test_failed_gate_is_no_evidence(tmp_path):
     assert view["stop_reason"] == STOP_REASON_HARD_GATE_FAILED
     assert view["funnel"]["dominant_failures"] == [job.spec.success_criteria.hard_gates[0]]
     assert view["qualifying_candidates"] == []
-    assert view["primary_evidence"] == "dsr failed"
+    assert view["primary_evidence"] == "dsr — Deflated Sharpe Ratio failed"
 
 
 def test_corrupt_gates_does_not_claim_found(tmp_path):
@@ -330,7 +330,7 @@ def test_morning_view_evidence_lines_include_walk_forward_detail(tmp_path):
     view = morning_view(store.complete_from_artifacts(job.run_id), tmp_path)
     assert view["evidence_lines"]
     line = view["evidence_lines"][0]
-    assert line.startswith("walk_forward: fail")
+    assert line.startswith("walk_forward — walk-forward OOS: fail")
     assert "regime_stable=false" in line
     assert "returns_scope=oos_walk_forward" in line
     assert "oos_sharpe_median=-0.2" in line
@@ -421,7 +421,7 @@ def test_format_status_verdict_queued_next_run():
     text = format_status_verdict(
         {
             "research_outcome": "NO_EVIDENCE",
-            "primary_evidence": "dsr failed",
+            "primary_evidence": "dsr — Deflated Sharpe Ratio failed",
             "stop_reason": "hard_gate_failed",
             "status": "completed",
             "queued_hypotheses": [

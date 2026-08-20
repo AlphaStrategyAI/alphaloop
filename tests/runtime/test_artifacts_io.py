@@ -83,7 +83,7 @@ def test_report_includes_elimination_funnel(tmp_path):
     )
     write_report(layout, research_outcome="NO_EVIDENCE", stop_reason="hard_gate_failed")
     text = layout.report.read_text(encoding="utf-8")
-    assert "primary_evidence: dsr failed" in text
+    assert "primary_evidence: dsr — Deflated Sharpe Ratio failed" in text
     assert "## Elimination funnel" in text
     assert "evaluated: 1" in text
     assert "failed: 1" in text
@@ -141,7 +141,7 @@ def test_report_includes_walk_forward_detail_keys(tmp_path):
     (layout.evidence / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
     write_report(layout, research_outcome="NO_EVIDENCE", stop_reason="hard_gate_failed")
     text = layout.report.read_text(encoding="utf-8")
-    assert "walk_forward: fail" in text
+    assert "walk_forward — walk-forward OOS: fail" in text
     assert "regime_stable=false" in text
     assert "returns_scope=oos_walk_forward" in text
     assert "oos_sharpe_median=-0.2" in text
@@ -157,7 +157,7 @@ def test_format_primary_evidence_follows_sealed_outcome():
         format_primary_evidence(
             "NO_EVIDENCE", evidence=failed, dominant_failures=("dsr", "walk_forward")
         )
-        == "dsr failed"
+        == "dsr — Deflated Sharpe Ratio failed"
     )
     assert (
         format_primary_evidence("NO_EVIDENCE", evidence=failed, dominant_failures=())
@@ -176,7 +176,7 @@ def test_format_primary_evidence_follows_sealed_outcome():
             },
             dominant_failures=(),
         )
-        == "missing walk_forward"
+        == "missing walk_forward — walk-forward OOS"
     )
     assert (
         format_primary_evidence(
@@ -189,8 +189,37 @@ def test_format_primary_evidence_follows_sealed_outcome():
     assert format_primary_evidence("NONE", evidence=None, dominant_failures=()) is None
 
 
+def test_format_gate_line_uses_hard_gate_gloss():
+    assert (
+        format_gate_line({"name": "dsr", "passed": True, "detail": {}})
+        == "dsr — Deflated Sharpe Ratio: pass"
+    )
+    assert format_gate_line({"name": "custom", "passed": True, "detail": {}}) == "custom: pass"
+
+
+def test_format_primary_evidence_glosses_gate_names():
+    failed = {"required": ["dsr"], "results": [{"name": "dsr", "passed": False, "detail": {}}]}
+    assert (
+        format_primary_evidence(
+            "NO_EVIDENCE", evidence=failed, dominant_failures=("dsr",)
+        )
+        == "dsr — Deflated Sharpe Ratio failed"
+    )
+    assert (
+        format_primary_evidence(
+            "INCONCLUSIVE",
+            evidence={
+                "required": ["dsr", "walk_forward"],
+                "results": [{"name": "dsr", "passed": True, "detail": {}}],
+            },
+            dominant_failures=(),
+        )
+        == "missing walk_forward — walk-forward OOS"
+    )
+
+
 def test_format_gate_line_empty_detail():
-    assert format_gate_line({"name": "dsr", "passed": True, "detail": {}}) == "dsr: pass"
+    assert format_gate_line({"name": "dsr", "passed": True, "detail": {}}) == "dsr — Deflated Sharpe Ratio: pass"
 
 
 def test_format_gate_line_walk_forward_order_and_bools():
@@ -209,10 +238,10 @@ def test_format_gate_line_walk_forward_order_and_bools():
             },
         }
     )
-    assert line.startswith("walk_forward: fail · ")
+    assert line.startswith("walk_forward — walk-forward OOS: fail · ")
     assert "ignored=" not in line
     assert line == (
-        "walk_forward: fail · returns_scope=oos_walk_forward · "
+        "walk_forward — walk-forward OOS: fail · returns_scope=oos_walk_forward · "
         "oos_sharpe_mean=0.25 · oos_sharpe_median=0.123457 · "
         "first_half_sharpe=1 · second_half_sharpe=-0.5 · regime_stable=false"
     )
@@ -227,7 +256,7 @@ def test_format_gate_line_dsr_n_trials():
         }
     )
     assert line == (
-        "dsr: pass · returns_scope=oos_walk_forward · n_trials=3 · dsr=0.9"
+        "dsr — Deflated Sharpe Ratio: pass · returns_scope=oos_walk_forward · n_trials=3 · dsr=0.9"
     )
 
 

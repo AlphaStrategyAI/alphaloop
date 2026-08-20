@@ -29,7 +29,7 @@
 - Modify: `tests/runtime/test_static_console.py`
 - Modify: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/runtime/test_artifacts_io.py`:
 
@@ -65,7 +65,7 @@ def test_format_primary_evidence_glosses_gate_names():
 
 Keep existing tests; they will fail after implementation until their expected strings gain the gloss.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_gate_line_uses_hard_gate_gloss tests/runtime/test_artifacts_io.py::test_format_primary_evidence_glosses_gate_names -v
@@ -73,7 +73,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_gate_line_uses
 
 Expected: FAIL (`dsr: pass` / `dsr failed`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/alphaloop/contracts/gates.py` after `HardGateName`:
 
@@ -101,13 +101,13 @@ In `test_packaged_hard_gates_keep_token_and_human_gloss`, also assert each `HARD
 
 `docs/webui.md`: morning evidence lines use the same hard-gate gloss as the form.
 
-- [ ] **Step 4: PASS**
+- [x] **Step 4: PASS**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py tests/runtime/test_morning.py tests/runtime/test_static_console.py::test_packaged_hard_gates_keep_token_and_human_gloss -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(runtime): gloss hard-gate names on morning evidence lines"

@@ -20,6 +20,21 @@ class HardGateName(str, Enum):
     DATA_CONSISTENCY = "data_consistency"
 
 
+HARD_GATE_GLOSS = {
+    HardGateName.DSR.value: "dsr — Deflated Sharpe Ratio",
+    HardGateName.WALK_FORWARD.value: "walk_forward — walk-forward OOS",
+    HardGateName.VS_RANDOM.value: "vs_random — versus random",
+    HardGateName.VS_BUY_HOLD.value: "vs_buy_hold — versus buy-and-hold",
+    HardGateName.VS_BENCHMARK.value: "vs_benchmark — versus benchmark",
+    HardGateName.DATA_CONSISTENCY.value: "data_consistency — data consistency",
+}
+
+
+def gloss_hard_gate(name: str) -> str:
+    key = str(name)
+    return HARD_GATE_GLOSS.get(key, key)
+
+
 @dataclass(frozen=True)
 class GateResult:
     name: HardGateName
