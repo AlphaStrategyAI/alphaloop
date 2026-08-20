@@ -177,6 +177,9 @@ def test_export_without_run_id_empty_store(tmp_path, capsys):
     assert captured.err == "error: no overnight job yet\n"
     assert "FOUND" not in captured.out
     assert "target found" not in captured.err.lower()
+
+
+def test_export_without_found_returns_nonzero(tmp_path, capsys):
     store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
     job = store.create(_spec())
     rc = main(
