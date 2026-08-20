@@ -80,8 +80,9 @@ errors exit 2 and still create no job. When `ok`, the last line is
 Cache a local parquet file or a wide close-only CSV into
 `{data-dir}/datasets/<dataset_id>/prices.parquet` using the same hash
 identity as the morning console picker. CSV columns are asset ids; the
-first column is the date index. Does **not** create a job and does not
-require the daemon.
+first column is the date index. Per-symbol OHLCV (open / high / low /
+close) is rejected. Does **not** create a job and does not require the
+daemon.
 
 ```
 alphaloop dataset PATH [--data-dir DIR] [--json]

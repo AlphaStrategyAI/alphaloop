@@ -93,6 +93,35 @@ def test_cache_dataset_bytes_rejects_plain_text(tmp_path):
         cache_dataset_bytes(tmp_path, b"not parquet")
 
 
+def _ohlcv_csv_bytes():
+    idx = pd.bdate_range("2018-01-01", periods=5)
+    frame = pd.DataFrame(
+        {
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.5,
+            "volume": 1_000_000,
+        },
+        index=idx,
+    )
+    return frame.to_csv().encode("utf-8")
+
+
+def test_parquet_bytes_from_csv_rejects_ohlcv():
+    from alphaloop.runtime.dataset_cache import DatasetRejected, parquet_bytes_from_csv
+
+    with pytest.raises(DatasetRejected, match="ohlcv"):
+        parquet_bytes_from_csv(_ohlcv_csv_bytes())
+
+
+def test_cache_dataset_bytes_preserves_ohlcv_rejection(tmp_path):
+    from alphaloop.runtime.dataset_cache import DatasetRejected, cache_dataset_bytes
+
+    with pytest.raises(DatasetRejected, match="ohlcv"):
+        cache_dataset_bytes(tmp_path, _ohlcv_csv_bytes())
+
+
 def test_format_dataset_receipt_is_pasteable_yaml():
     from alphaloop.runtime.dataset_cache import DATASET_NO_ALPHA, format_dataset_receipt
 

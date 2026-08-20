@@ -69,6 +69,11 @@ def parquet_bytes_from_csv(blob: bytes) -> bytes:
         frame = pd.read_csv(io.BytesIO(blob), index_col=0)
         if frame.empty or frame.shape[1] == 0:
             raise DatasetRejected("dataset snapshot is empty")
+        names = {str(col).strip().lower() for col in frame.columns}
+        if {"open", "high", "low", "close"} <= names:
+            raise DatasetRejected(
+                "dataset snapshot csv must be wide close-only, not ohlcv"
+            )
         frame.index = pd.to_datetime(frame.index)
         frame = frame.apply(pd.to_numeric)
         buf = io.BytesIO()
@@ -98,6 +103,8 @@ def cache_dataset_bytes(data_dir: Path, blob: bytes) -> DatasetRef:
     try:
         converted = parquet_bytes_from_csv(blob)
     except DatasetRejected as exc:
+        if "ohlcv" in str(exc).lower():
+            raise
         raise DatasetRejected("dataset snapshot must be parquet or csv") from exc
     return put_dataset_bytes(data_dir, converted)
 

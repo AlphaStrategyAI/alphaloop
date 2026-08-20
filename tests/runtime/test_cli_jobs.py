@@ -656,3 +656,26 @@ def test_dataset_rejects_unreadable_csv(tmp_path, capsys):
     assert rc == 2
     assert "csv" in captured.err
     assert "FOUND" not in captured.out
+
+
+def test_dataset_rejects_ohlcv_csv(tmp_path, capsys):
+    import pandas as pd
+
+    idx = pd.bdate_range("2018-01-01", periods=5)
+    frame = pd.DataFrame(
+        {
+            "Open": 100.0,
+            "High": 101.0,
+            "Low": 99.0,
+            "Close": 100.5,
+            "Volume": 1_000_000,
+        },
+        index=idx,
+    )
+    src = tmp_path / "aapl.csv"
+    frame.to_csv(src)
+    rc = main(["dataset", str(src), "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "ohlcv" in captured.err.lower()
+    assert "FOUND" not in captured.out
