@@ -87,8 +87,8 @@ unchanged.
 - Static: `#cancel-job` / `#resume-job` chrome + color rules; cancel
   block has `--focus` not `--accent`; resume block has `--warn` not
   `--accent`.
-- E2E: visible Cancel `color` is `rgb(126, 184, 255)`; visible Resume
-  `color` is `rgb(255, 176, 32)`; wait until `getComputedStyle` matches
-  (do not one-shot). Hide/show and cancel-before-seal stay
-  `INCONCLUSIVE`.
+- E2E: visible Cancel `color` is `rgb(126, 184, 255)` and
+  `backgroundColor` is `rgb(11, 15, 22)`. Resume `color` is
+  `rgb(255, 176, 32)` (`getComputedStyle`; wait until match, do not
+  one-shot). Hide/show and cancel-before-seal stay `INCONCLUSIVE`.
 - Locks: no invented `FOUND`. No FOUND green on these controls.

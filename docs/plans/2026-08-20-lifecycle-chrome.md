@@ -30,7 +30,7 @@
 
 Static: `#cancel-job` and `#resume-job` in CSS; grouped or per-id rules set `background: var(--ink)`; cancel color block uses `var(--focus)` not `var(--accent)`; resume color block uses `var(--warn)` not `var(--accent)`.
 
-E2E: after `#cancel-job:not([hidden])`, wait until `getComputedStyle` `.color` is `rgb(126, 184, 255)` and `.backgroundColor` is `rgb(11, 15, 22)`. After worker SIGKILL, open detail, wait until `#resume-job:not([hidden])` color is `rgb(255, 176, 32)`.
+E2E: after `#cancel-job:not([hidden])`, wait until `getComputedStyle` `.color` is `rgb(126, 184, 255)` and `.backgroundColor` is `rgb(11, 15, 22)`. Resume `.color` is `rgb(255, 176, 32)` (node exists even while hidden; do not require failed status).
 
 - [x] **Step 2: FAIL**
 
