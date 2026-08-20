@@ -41,6 +41,7 @@ def bollinger_zscore(
 def ohlr_4_pct(
     ohlc: pd.DataFrame,
     threshold: float = 0.0,
+    period: int = 14,
 ) -> pd.Series:
     """Larry Williams' %R (Williams Percent Range).
 
@@ -48,12 +49,11 @@ def ohlr_4_pct(
     Long when %R < -threshold (default 0 means %R < 0, i.e. close is
     below the recent high, a "near-bottom" mean reversion setup).
     """
-    if ohlc.empty or len(ohlc) < 14:
+    if ohlc.empty or len(ohlc) < period:
         return pd.Series(0.0, index=ohlc.index, dtype=float)
     high = ohlc["high"]
     low = ohlc["low"]
     close = ohlc["close"]
-    period = 14
     hh = high.rolling(period).max()
     ll = low.rolling(period).min()
     denom = (hh - ll).replace(0.0, np.nan)

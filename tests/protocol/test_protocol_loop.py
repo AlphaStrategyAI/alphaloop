@@ -524,3 +524,32 @@ def test_bollinger_protocol_walks_three_method_trials(tmp_path):
     assert len(set(ids)) == 3
     assert seen == [1, 2, 3]
     assert result.research_outcome is ResearchOutcome.FOUND
+
+
+def test_ohlr_protocol_walks_three_method_trials(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    seen: list[int] = []
+
+    def runner(required, **kwargs):
+        seen.append(kwargs["n_trials"])
+        if len(seen) < 3:
+            raise IncompleteEvidenceError("missing walk_forward")
+        return _all_pass(required, **kwargs)
+
+    result = run_protocol(
+        _spec(signal_mechanism="ohlr_4_pct"),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    ids = [
+        json.loads(line)["trial_id"]
+        for line in layout.trial_ledger.read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(set(ids)) == 3
+    assert seen == [1, 2, 3]
+    assert result.research_outcome is ResearchOutcome.FOUND

@@ -103,6 +103,23 @@ def test_ohlr_pure_downtrend_signals_long():
     assert w.iloc[20:].sum() > 100
 
 
+def test_ohlr_period_changes_signal():
+    p = _make_prices(n=80, seed=1)
+    ohlc = _make_ohlc(p)
+    fast = ohlr_4_pct(ohlc, period=10, threshold=80.0)
+    slow = ohlr_4_pct(ohlc, period=21, threshold=80.0)
+    assert fast.between(0, 1).all()
+    assert slow.between(0, 1).all()
+    assert not fast.equals(slow)
+
+
+def test_ohlr_oversold_threshold_longs_downtrend():
+    idx = pd.date_range("2020-01-01", periods=200, freq="B")
+    p = pd.Series(np.linspace(200, 100, 200), index=idx)
+    w = ohlr_4_pct(_make_ohlc(p), period=14, threshold=80.0)
+    assert w.iloc[20:].sum() > 100
+
+
 def test_pairs_spread_returns_same_index():
     p1 = _make_prices(seed=1)
     p2 = _make_prices(seed=2)

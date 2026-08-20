@@ -76,3 +76,10 @@ def test_missing_bar_yields_zero_for_that_asset():
     weights = target_weights(doc, {"AAPL": aapl, "MSFT": msft}, aapl.index[-1])
     assert weights["MSFT"] == 0.0
     assert weights["AAPL"] >= 0.0
+
+
+def test_ohlr_close_only_target_weights_do_not_raise():
+    doc = parse_strategy_document(_payload(kind="ohlr_4_pct", universe=["AAPL"]))
+    prices = _rising_prices(40)
+    weights = target_weights(doc, {"AAPL": prices}, prices.index[-1])
+    assert weights["AAPL"] >= 0.0

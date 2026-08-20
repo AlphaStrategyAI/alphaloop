@@ -73,3 +73,14 @@ def test_bollinger_grid_is_literature_variants():
     for params in grid:
         assert "invert" not in params
         assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD
+
+
+def test_ohlr_grid_is_williams_oversold_variants():
+    grid = method_parameter_grid("ohlr_4_pct")
+    assert grid[0] == {}
+    assert {"threshold": 80.0} in grid
+    assert {"period": 10, "threshold": 80.0} in grid
+    assert len(grid) == 3
+    frozen = _hypothesis()
+    for params in grid:
+        assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD

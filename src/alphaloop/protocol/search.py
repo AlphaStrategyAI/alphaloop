@@ -18,6 +18,11 @@ _GRIDS: dict[str, tuple[dict[str, object], ...]] = {
         {"window": 20, "num_std": 2.0},
         {"window": 10, "num_std": 1.5},
     ),
+    "ohlr_4_pct": (
+        {},
+        {"threshold": 80.0},
+        {"period": 10, "threshold": 80.0},
+    ),
 }
 
 

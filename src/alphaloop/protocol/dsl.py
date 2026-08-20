@@ -108,7 +108,7 @@ def _call_factor(
         return fn(primary, prices[str(hedge)], **kwargs)
     if kind == "obv_slope":
         raise UnsupportedDslError("obv_slope requires a volume series")
-    if kind == "atr_breakout":
+    if kind in {"atr_breakout", "ohlr_4_pct"}:
         ohlc = pd.DataFrame({"high": primary, "low": primary, "close": primary})
         return fn(ohlc, **kwargs)
     return fn(primary, **kwargs)
