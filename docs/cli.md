@@ -102,10 +102,13 @@ conclusion.
 Request cancellation of a running job.
 
 ```
-alphaloop cancel RUN_ID [--data-dir DIR]
+alphaloop cancel RUN_ID [--data-dir DIR] [--json]
 ```
 
-Prints the updated job record as JSON.
+Default stdout is the five-minute verdict cluster (same as
+`alphaloop status RUN_ID`). `--json` prints the full `morning_view`
+payload. Cancel before a sealed `FOUND` is `INCONCLUSIVE`. A sealed
+`FOUND` stays `FOUND`.
 
 ## `alphaloop resume`
 
@@ -113,10 +116,11 @@ Resume a job from its last checkpoint after a supervisor restart or
 host wake.
 
 ```
-alphaloop resume RUN_ID [--data-dir DIR]
+alphaloop resume RUN_ID [--data-dir DIR] [--json]
 ```
 
-Prints the updated job record as JSON.
+Default stdout is the five-minute verdict cluster. `--json` prints the
+full `morning_view` payload. Job status is not the research conclusion.
 
 ## `alphaloop export`
 

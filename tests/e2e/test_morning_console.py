@@ -489,7 +489,8 @@ def test_cancel_before_seal_is_inconclusive(real_daemon, browser_page):
     run_id = _first_run_id(page)
     cancelled = _cli(real_daemon["data_dir"], "cancel", run_id)
     assert cancelled.returncode == 0
-    payload = json.loads(cancelled.stdout)
+    assert cancelled.stdout.splitlines()[0] == "INCONCLUSIVE"
+    payload = json.loads(_cli(real_daemon["data_dir"], "status", "--json", run_id).stdout)
     assert payload["status"] == "cancelled"
     assert payload["research_outcome"] == "INCONCLUSIVE"
     page.wait_for_function(
@@ -555,7 +556,7 @@ def test_kill_worker_then_resume_shows_queued_or_running(real_daemon, browser_pa
     if pid is None:
         pytest.skip("worker pid never appeared")
     os.kill(pid, signal.SIGKILL)
-    resumed = _cli(real_daemon["data_dir"], "resume", run_id)
+    resumed = _cli(real_daemon["data_dir"], "resume", "--json", run_id)
     assert resumed.returncode == 0
     payload = json.loads(resumed.stdout)
     assert payload["status"] in {"queued", "running"}

@@ -73,11 +73,21 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
     cancel = subparsers.add_parser("cancel", help="cancel a research job")
     cancel.add_argument("run_id")
+    cancel.add_argument(
+        "--json",
+        action="store_true",
+        help="print the full morning_view JSON",
+    )
     _add_data_dir(cancel)
     cancel.set_defaults(func=run_cancel)
 
     resume = subparsers.add_parser("resume", help="resume a research job")
     resume.add_argument("run_id")
+    resume.add_argument(
+        "--json",
+        action="store_true",
+        help="print the full morning_view JSON",
+    )
     _add_data_dir(resume)
     resume.set_defaults(func=run_resume)
 
@@ -227,6 +237,16 @@ def run_preview(args: argparse.Namespace) -> int:
     return 0 if result.get("ok") else 2
 
 
+def _print_view(result: dict[str, Any], as_json: bool) -> int:
+    from alphaloop.runtime.morning import format_status_verdict
+
+    if as_json:
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    print(format_status_verdict(result), end="")
+    return 0
+
+
 def _run_action(
     args: argparse.Namespace,
     operation: Callable[[JobClient, str], dict[str, Any]],
@@ -237,12 +257,11 @@ def _run_action(
     )
     if result is None:
         return 2
-    print(json.dumps(result, sort_keys=True))
-    return 0
+    return _print_view(result, bool(getattr(args, "json", False)))
 
 
 def run_status(args: argparse.Namespace) -> int:
-    from alphaloop.runtime.morning import EMPTY_STATUS_CUE, format_status_verdict
+    from alphaloop.runtime.morning import EMPTY_STATUS_CUE
 
     if args.run_id:
         result = _invoke(
@@ -251,11 +270,7 @@ def run_status(args: argparse.Namespace) -> int:
         )
         if result is None:
             return 2
-        if args.json:
-            print(json.dumps(result, sort_keys=True))
-            return 0
-        print(format_status_verdict(result), end="")
-        return 0
+        return _print_view(result, args.json)
 
     listed = _invoke(args.data_dir, lambda client: client.list_jobs())
     if listed is None:
@@ -269,11 +284,9 @@ def run_status(args: argparse.Namespace) -> int:
         return 0
     latest = jobs[0]
     if args.json:
-        print(json.dumps(latest, sort_keys=True))
-        return 0
+        return _print_view(latest, True)
     print(f"run_id: {latest.get('run_id', '')}")
-    print(format_status_verdict(latest), end="")
-    return 0
+    return _print_view(latest, False)
 
 
 def run_cancel(args: argparse.Namespace) -> int:
