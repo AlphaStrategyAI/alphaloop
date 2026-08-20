@@ -36,8 +36,9 @@ def format_dataset_receipt(
     return (
         "\n".join(
             [
-                f"dataset_id: {dataset_id}",
-                f"sha256: {sha256}",
+                "dataset:",
+                f"  dataset_id: {dataset_id}",
+                f"  sha256: {sha256}",
                 f"Cached: {cached_path}",
                 DATASET_NO_ALPHA,
             ]

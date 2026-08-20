@@ -25,7 +25,7 @@
 - Modify: `docs/cli.md`, `src/alphaloop/skills/overnight-lab/SKILL.md`
 - Test: `tests/runtime/test_cli_jobs.py`, `tests/runtime/test_dataset_cache.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Update `test_dataset_caches_parquet_without_daemon` expected lines:
 
@@ -62,13 +62,13 @@ def test_format_dataset_receipt_is_pasteable_yaml():
 
 CSV CLI test: `assert "dataset_id: ds_" in captured.out` (replace startswith if needed).
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_dataset_caches_parquet_without_daemon tests/runtime/test_dataset_cache.py::test_format_dataset_receipt_is_pasteable_yaml -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```python
 def format_dataset_receipt(
@@ -90,13 +90,13 @@ def format_dataset_receipt(
 
 Docs: default stdout is pasteable `dataset:` YAML, then `Cached:`, then the no-alpha sentence. Skill: paste that block into the spec.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_dataset_caches_parquet_without_daemon tests/runtime/test_cli_jobs.py::test_dataset_json_payload tests/runtime/test_cli_jobs.py::test_dataset_caches_wide_csv_without_daemon tests/runtime/test_dataset_cache.py::test_format_dataset_receipt_is_pasteable_yaml -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(cli): print pasteable dataset YAML from alphaloop dataset"

@@ -93,8 +93,8 @@ alphaloop dataset PATH [--data-dir DIR] [--json]
 | `--data-dir` | Runs output root (default: `./runs`). |
 | `--json`     | Print `{cached_path, dataset_id, sha256}` as JSON. |
 
-Default stdout is a four-line receipt: `dataset_id:`, `sha256:`,
-`Cached:`, and `This cache does not claim alpha or future profitability.`
+Default stdout is pasteable `dataset:` YAML (`dataset_id` / `sha256`),
+then `Cached:`, then `This cache does not claim alpha or future profitability.`
 `--json` is for agents. Missing or invalid files exit 2 on stderr.
 The command does not claim alpha.
 

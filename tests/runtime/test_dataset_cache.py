@@ -91,3 +91,21 @@ def test_cache_dataset_bytes_rejects_plain_text(tmp_path):
 
     with pytest.raises(DatasetRejected, match="parquet or csv"):
         cache_dataset_bytes(tmp_path, b"not parquet")
+
+
+def test_format_dataset_receipt_is_pasteable_yaml():
+    from alphaloop.runtime.dataset_cache import DATASET_NO_ALPHA, format_dataset_receipt
+
+    text = format_dataset_receipt(
+        dataset_id="ds_abc",
+        sha256="deadbeef",
+        cached_path="/tmp/prices.parquet",
+    )
+    assert text.splitlines() == [
+        "dataset:",
+        "  dataset_id: ds_abc",
+        "  sha256: deadbeef",
+        "Cached: /tmp/prices.parquet",
+        DATASET_NO_ALPHA,
+    ]
+    assert "FOUND" not in text

@@ -564,8 +564,9 @@ def test_dataset_caches_parquet_without_daemon(tmp_path, capsys):
     cached = dataset_parquet_path(tmp_path, dataset_id)
     assert cached.read_bytes() == blob
     assert captured.out.splitlines() == [
-        f"dataset_id: {dataset_id}",
-        f"sha256: {digest}",
+        "dataset:",
+        f"  dataset_id: {dataset_id}",
+        f"  sha256: {digest}",
         f"Cached: {cached}",
         DATASET_NO_ALPHA,
     ]
@@ -629,7 +630,8 @@ def test_dataset_caches_wide_csv_without_daemon(tmp_path, capsys):
     rc = main(["dataset", str(src), "--data-dir", str(tmp_path)])
     captured = capsys.readouterr()
     assert rc == 0
-    assert captured.out.startswith("dataset_id: ds_")
+    assert captured.out.startswith("dataset:")
+    assert "  dataset_id: ds_" in captured.out
     assert "FOUND" not in captured.out
     assert captured.err == ""
 
