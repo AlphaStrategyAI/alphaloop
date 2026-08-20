@@ -219,6 +219,36 @@ function fillNextStep(job) {
   node.appendChild(button);
 }
 
+function fillHandoff(job) {
+  const node = document.getElementById("handoff");
+  node.innerHTML = "";
+  const rows = job.qualifying_candidates || [];
+  if (job.research_outcome !== "FOUND" || !rows.length) {
+    return;
+  }
+  const row = rows[0];
+  const trial = row.trial_id || "gates.json";
+  const text = document.createElement("span");
+  text.textContent =
+    "Qualifying: " +
+    trial +
+    " · " +
+    (row.kind || "") +
+    " · " +
+    formatGridRow(row.parameters);
+  node.appendChild(text);
+  if (trial.indexOf("c_") === 0) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "export-asb";
+    button.textContent = "Export .asb";
+    button.addEventListener("click", function () {
+      exportCandidate(trial);
+    });
+    node.appendChild(button);
+  }
+}
+
 function datasetYaml(job) {
   const ds = job && job.dataset;
   if (!ds || !ds.dataset_id || !ds.sha256) {
@@ -527,6 +557,7 @@ async function showJob(runId) {
   fillOutcomeGloss(job.research_outcome);
   fillPrimaryEvidence(job);
   fillNextStep(job);
+  fillHandoff(job);
   document.getElementById("job-status").textContent = "Job status: " + job.status;
   const statement =
     job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";

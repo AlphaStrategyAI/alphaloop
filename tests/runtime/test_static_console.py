@@ -237,6 +237,10 @@ def test_packaged_console_morning_verdict_stage():
     assert html.find('id="stop-reason"') < html.find('id="job-status"')
     assert html.find('id="stop-reason"') < html.find('id="next-step"')
     assert html.find('id="next-step"') < html.find('id="job-status"')
+    assert html.find('id="next-step"') < html.find('id="handoff"')
+    assert html.find('id="handoff"') < html.find('id="job-status"')
+    assert "fillHandoff" in script
+    assert "Qualifying:" in script
     assert "fillNextStep" in script
     assert "Next run:" in script
     assert "fillPrimaryEvidence" in script

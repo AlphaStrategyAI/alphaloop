@@ -533,8 +533,8 @@ def test_export_found_only(real_daemon, browser_page, tmp_path):
         assert exported.returncode == 0
         assert dest.is_file()
         _open_job_detail(page)
-        page.wait_for_selector("#qualifying button.export-asb", timeout=10000)
-        page.locator("#qualifying button.export-asb").first.click()
+        page.wait_for_selector("#verdict #handoff button.export-asb", timeout=10000)
+        page.locator("#verdict #handoff button.export-asb").first.click()
         page.wait_for_function(
             """() => (document.getElementById('export-status').textContent || '').indexOf('.asb') !== -1""",
             timeout=10000,
@@ -545,6 +545,7 @@ def test_export_found_only(real_daemon, browser_page, tmp_path):
         assert not dest.exists()
         _open_job_detail(page)
         assert page.locator("#qualifying button.export-asb").count() == 0
+        assert page.locator("#handoff button.export-asb").count() == 0
 
 
 def test_no_gate_override_in_page_or_http(real_daemon, browser_page):
