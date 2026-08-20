@@ -204,6 +204,60 @@ def build_funnel(layout: RunLayout) -> dict[str, Any]:
     }
 
 
+def _qualifying_entry(
+    trial_id: str, row: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    payload = row or {}
+    parameters = payload.get("parameters") or {}
+    if not isinstance(parameters, dict):
+        parameters = {}
+    kind = payload.get("kind")
+    return {
+        "trial_id": trial_id,
+        "kind": str(kind) if kind else None,
+        "parameters": parameters,
+    }
+
+
+def build_qualifying_candidates(layout: RunLayout) -> list[dict[str, Any]]:
+    ledger_by_id: dict[str, dict[str, object]] = {}
+    for row in _ledger_rows(layout):
+        trial_id = row.get("trial_id")
+        if trial_id:
+            ledger_by_id[str(trial_id)] = row
+
+    trials_dir = layout.evidence / "trials"
+    if trials_dir.is_dir():
+        rows: list[dict[str, Any]] = []
+        for path in sorted(trials_dir.glob("*.json")):
+            payload = _read_json_object(path)
+            if payload is None:
+                continue
+            try:
+                evidence = evidence_from_dict(payload)
+            except (KeyError, TypeError, ValueError):
+                continue
+            if evidence.complete and evidence.all_passed:
+                tid = path.stem
+                rows.append(_qualifying_entry(tid, ledger_by_id.get(tid)))
+        return rows
+
+    payload = _read_json_object(layout.evidence / "gates.json")
+    if payload is None:
+        return []
+    try:
+        evidence = evidence_from_dict(payload)
+    except (KeyError, TypeError, ValueError):
+        return []
+    if not (evidence.complete and evidence.all_passed):
+        return []
+    ids = list(ledger_by_id)
+    if ids:
+        tid = ids[-1]
+        return [_qualifying_entry(tid, ledger_by_id.get(tid))]
+    return [_qualifying_entry("gates.json", None)]
+
+
 def write_report(
     layout: RunLayout,
     *,
@@ -249,5 +303,14 @@ def write_report(
         lines.append(f"failed: {funnel['n_failed']}")
         for name in funnel["dominant_failures"]:
             lines.append(f"{name}: {funnel['failure_counts'][name]}")
+    qualifying = build_qualifying_candidates(layout)
+    lines.extend(["", "## Qualifying candidates", ""])
+    if not qualifying:
+        lines.append("none")
+    else:
+        for row in qualifying:
+            kind = row.get("kind") or ""
+            parameters = row.get("parameters") or {}
+            lines.append(f"{row['trial_id']} · {kind} · {parameters}")
     layout.report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return layout.report

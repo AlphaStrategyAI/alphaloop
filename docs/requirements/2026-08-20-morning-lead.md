@@ -97,6 +97,7 @@ unchanged. No `FakeWorker` in morning e2e. Packaged page only.
 
 ## 6. Loop exit
 
-Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
-(not CI), correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP /
-cloud workers.
+Remaining product after this cycle shipped: qualifying candidates
+(`docs/requirements/2026-08-20-qualifying-candidates.md`). Remaining
+validation: textbook `S=16` CPCV, soak / 95% overnight (not CI),
+correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP / cloud workers.

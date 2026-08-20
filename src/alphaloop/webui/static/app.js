@@ -412,6 +412,19 @@ async function showJob(runId) {
     job.evidence_lines && job.evidence_lines.length
       ? job.evidence_lines
       : results;
+  fillList(
+    document.getElementById("qualifying"),
+    job.qualifying_candidates,
+    function (row) {
+      return (
+        (row.trial_id || "gates.json") +
+        " · " +
+        (row.kind || "") +
+        " · " +
+        formatGridRow(row.parameters)
+      );
+    }
+  );
   fillList(document.getElementById("evidence"), evidenceItems, function (row) {
     if (typeof row === "string") {
       return row;

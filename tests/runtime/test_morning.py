@@ -54,6 +54,9 @@ def test_passing_gates_found(tmp_path):
     assert view["evidence"]["all_passed"] is True
     assert view["funnel"]["dominant_failures"] == []
     assert view["hypothesis"]["signal_mechanism"] == "momentum_12_1"
+    assert view["qualifying_candidates"] == [
+        {"trial_id": "gates.json", "kind": None, "parameters": {}}
+    ]
 
 
 def test_failed_gate_is_no_evidence(tmp_path):
@@ -68,6 +71,7 @@ def test_failed_gate_is_no_evidence(tmp_path):
     assert view["research_outcome"] == ResearchOutcome.NO_EVIDENCE.value
     assert view["stop_reason"] == STOP_REASON_HARD_GATE_FAILED
     assert view["funnel"]["dominant_failures"] == [job.spec.success_criteria.hard_gates[0]]
+    assert view["qualifying_candidates"] == []
 
 
 def test_corrupt_gates_does_not_claim_found(tmp_path):
@@ -181,6 +185,53 @@ def test_funnel_aggregates_trial_files_not_only_last_gates(tmp_path):
     assert view["funnel"]["n_incomplete"] == 0
     assert view["funnel"]["failure_counts"]["dsr"] == 3
     assert view["funnel"]["dominant_failures"][0] == "dsr"
+    assert view["qualifying_candidates"] == []
+
+
+def test_qualifying_candidates_only_all_passed_trial_files(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    run_dir = tmp_path / job.run_id
+    (run_dir / "trial-ledger.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "trial_id": "c_pass",
+                        "kind": "momentum_12_1",
+                        "parameters": {"lookback": 126},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "trial_id": "c_fail",
+                        "kind": "momentum_12_1",
+                        "parameters": {},
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    required = tuple(HardGateName(name) for name in job.spec.success_criteria.hard_gates)
+    passed = _gates_for(job.spec)
+    failed = _gates_for(job.spec, fail_first=True)
+    evidence_dir = run_dir / "evidence"
+    trials = evidence_dir / "trials"
+    trials.mkdir(parents=True)
+    (trials / "c_fail.json").write_text(json.dumps(evidence_to_dict(failed)))
+    (trials / "c_pass.json").write_text(json.dumps(evidence_to_dict(passed)))
+    (evidence_dir / "gates.json").write_text(json.dumps(evidence_to_dict(failed)))
+    view = morning_view(store.complete_from_artifacts(job.run_id), tmp_path)
+    assert view["research_outcome"] == ResearchOutcome.NO_EVIDENCE.value
+    assert view["qualifying_candidates"] == [
+        {
+            "trial_id": "c_pass",
+            "kind": "momentum_12_1",
+            "parameters": {"lookback": 126},
+        }
+    ]
 
 
 def test_morning_view_evidence_lines_include_walk_forward_detail(tmp_path):

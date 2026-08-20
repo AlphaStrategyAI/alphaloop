@@ -9,7 +9,7 @@ from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import evidence_from_dict, evidence_to_dict
 from alphaloop.contracts.status import ResearchOutcome
 from alphaloop.protocol.search import method_parameter_grid
-from alphaloop.runtime.artifacts_io import build_funnel, format_gate_line
+from alphaloop.runtime.artifacts_io import build_funnel, build_qualifying_candidates, format_gate_line
 from alphaloop.runtime.store import JobRecord
 
 STOP_REASON_ALL_GATES_PASSED = "all_gates_passed"
@@ -103,6 +103,7 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "evidence": evidence,
         "evidence_lines": evidence_lines,
         "funnel": build_funnel(layout),
+        "qualifying_candidates": build_qualifying_candidates(layout),
         "revisions": _load_revisions(layout),
         "queued_hypotheses": _load_queued(layout),
         "stop_reason": _STOP_REASONS[job.research_outcome],

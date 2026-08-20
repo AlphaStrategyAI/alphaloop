@@ -325,6 +325,7 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     assert "Stop reason:" in page.locator("#stop-reason").inner_text()
     assert "evaluated:" in page.locator("#funnel-summary").inner_text()
     assert page.locator("#funnel-bars").count() == 1
+    assert page.locator("#qualifying").count() == 1
     assert "target found" not in page.content()
 
 
