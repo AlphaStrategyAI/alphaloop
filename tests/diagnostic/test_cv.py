@@ -228,3 +228,41 @@ def test_walk_forward_fails_when_median_fold_sharpe_is_negative():
     assert result.regime_stable is True
     assert result.oos_sharpe_median < 0
     assert result.passes is False
+
+
+def test_cpcv_not_evaluated_when_series_is_short():
+    from math import comb
+
+    from alphaloop.diagnostic.cv import combinatorial_purged_cv
+
+    prices = _make_prices(80, drift=0.001)
+    result = combinatorial_purged_cv(prices, _buy_and_hold)
+    assert result.evaluated is False
+    assert result.n_paths == 0
+    assert comb(6, 2) == 15
+
+
+def test_cpcv_positive_drift_buy_and_hold_passes():
+    from math import comb
+
+    from alphaloop.diagnostic.cv import combinatorial_purged_cv
+
+    prices = _make_prices(180, drift=0.003)
+    result = combinatorial_purged_cv(prices, _buy_and_hold, embargo_size=1)
+    assert result.evaluated is True
+    assert result.n_groups == 6
+    assert result.n_test_groups == 2
+    assert result.n_paths == comb(6, 2)
+    assert result.oos_sharpe_mean > 0
+    assert result.oos_sharpe_median > 0
+    assert result.passes is True
+
+
+def test_cpcv_negative_drift_fails():
+    from alphaloop.diagnostic.cv import combinatorial_purged_cv
+
+    prices = _make_prices(180, drift=-0.003)
+    result = combinatorial_purged_cv(prices, _buy_and_hold, embargo_size=1)
+    assert result.evaluated is True
+    assert result.oos_sharpe_mean < 0
+    assert result.passes is False

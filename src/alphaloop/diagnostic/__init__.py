@@ -23,7 +23,13 @@ from .benchmarks import (
     vs_spy_buyhold,
 )
 from .consistency import ConsistencyResult, data_source_consistency
-from .cv import WalkForwardFold, WalkForwardResult, walk_forward_cv
+from .cv import (
+    CombinatorialPurgedResult,
+    WalkForwardFold,
+    WalkForwardResult,
+    combinatorial_purged_cv,
+    walk_forward_cv,
+)
 from .dsr import DeflatedSharpeResult, deflated_sharpe, expected_max_sharpe
 from .judge import DimensionScore, LLMJudgeResult, llm_judge
 
@@ -36,6 +42,8 @@ __all__ = [
     "walk_forward_cv",
     "WalkForwardResult",
     "WalkForwardFold",
+    "combinatorial_purged_cv",
+    "CombinatorialPurgedResult",
     # Cross-source consistency
     "data_source_consistency",
     "ConsistencyResult",

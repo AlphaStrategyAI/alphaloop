@@ -19,6 +19,7 @@ from alphaloop.diagnostic import (
     vs_spy_buyhold,
     walk_forward_cv,
 )
+from alphaloop.diagnostic.cv import combinatorial_purged_cv
 from alphaloop.protocol.profiles import MarketProfile
 
 
@@ -43,6 +44,7 @@ def _detail(result: object) -> dict:
         "second_half_sharpe",
         "regime_stable",
         "oos_sharpe_median",
+        "n_folds",
     ):
         if hasattr(result, name):
             value = getattr(result, name)
@@ -102,11 +104,26 @@ def run_hard_gates(
     strategy_fn: Callable[[pd.Series], pd.Series],
 ) -> GateEvidence:
     wf_result = None
+    cpcv_result = None
     if HardGateName.WALK_FORWARD in required:
         try:
             wf_result = _compute_walk_forward(prices, strategy_fn, profile)
         except Exception:
             wf_result = None
+        if wf_result is not None:
+            try:
+                _train, _test, embargo = _walk_forward_windows(
+                    len(prices), profile.periods_per_year
+                )
+                cpcv_result = combinatorial_purged_cv(
+                    prices,
+                    strategy_fn,
+                    embargo_size=embargo,
+                    cost_bps=profile.cost_bps,
+                    periods_per_year=profile.periods_per_year,
+                )
+            except Exception:
+                cpcv_result = None
     oos = wf_result.oos_returns if wf_result is not None else None
     wf_required = HardGateName.WALK_FORWARD in required
     oos_ok = isinstance(oos, pd.Series) and len(oos) > 0
@@ -145,7 +162,18 @@ def run_hard_gates(
             detail["returns_scope"] = (
                 "oos_walk_forward" if name is HardGateName.WALK_FORWARD else scope
             )
-        rows.append(GateResult(name=row.name, passed=row.passed, detail=detail))
+        passed = row.passed
+        if (
+            name is HardGateName.WALK_FORWARD
+            and cpcv_result is not None
+            and cpcv_result.evaluated
+        ):
+            detail["cpcv_n_paths"] = cpcv_result.n_paths
+            detail["cpcv_oos_sharpe_mean"] = cpcv_result.oos_sharpe_mean
+            detail["cpcv_oos_sharpe_median"] = cpcv_result.oos_sharpe_median
+            detail["cpcv_passes"] = bool(cpcv_result.passes)
+            passed = bool(row.passed and cpcv_result.passes)
+        rows.append(GateResult(name=row.name, passed=passed, detail=detail))
     return evaluate_hard_gates(required, rows)
 
 

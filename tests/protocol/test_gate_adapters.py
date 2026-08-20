@@ -179,6 +179,74 @@ def test_walk_forward_detail_includes_regime_fields():
     assert "oos_sharpe_median" in detail
     assert isinstance(detail["regime_stable"], bool)
     assert isinstance(detail["oos_sharpe_median"], float)
+    assert isinstance(detail["n_folds"], int)
+    assert detail["n_folds"] >= 1
+    assert detail["cpcv_n_paths"] == 15
+    assert detail["cpcv_passes"] is True
+    assert isinstance(detail["cpcv_oos_sharpe_mean"], float)
+    assert isinstance(detail["cpcv_oos_sharpe_median"], float)
+
+
+def test_walk_forward_skips_cpcv_on_short_sample():
+    prices = _prices(80)
+    evidence = run_hard_gates(
+        (HardGateName.WALK_FORWARD,),
+        prices=prices,
+        strategy_returns=_returns(prices),
+        buy_hold_prices=prices,
+        benchmark_prices=prices,
+        secondary_frames=None,
+        n_trials=1,
+        profile=get_profile("us-equity-daily"),
+        seed=1,
+        strategy_fn=_strategy_fn,
+    )
+    detail = evidence.results[0].detail
+    assert "n_folds" in detail
+    assert "cpcv_passes" not in detail
+
+
+def test_walk_forward_gate_fails_when_cpcv_fails():
+    prices = _prices(180)
+    oos = pd.Series([0.001] * 40, dtype=float)
+    with mock.patch("alphaloop.protocol.gates.walk_forward_cv") as wf, mock.patch(
+        "alphaloop.protocol.gates.combinatorial_purged_cv"
+    ) as cpcv:
+        wf.return_value = mock.Mock(
+            passes=True,
+            oos_sharpe_mean=0.1,
+            oos_returns=oos,
+            n_folds=3,
+            oos_sharpe_median=0.1,
+            first_half_sharpe=0.1,
+            second_half_sharpe=0.1,
+            regime_stable=True,
+        )
+        cpcv.return_value = mock.Mock(
+            evaluated=True,
+            passes=False,
+            n_paths=15,
+            n_groups=6,
+            n_test_groups=2,
+            oos_sharpe_mean=-0.2,
+            oos_sharpe_median=-0.2,
+        )
+        evidence = run_hard_gates(
+            (HardGateName.WALK_FORWARD,),
+            prices=prices,
+            strategy_returns=_returns(prices),
+            buy_hold_prices=prices,
+            benchmark_prices=prices,
+            secondary_frames=None,
+            n_trials=1,
+            profile=get_profile("us-equity-daily"),
+            seed=1,
+            strategy_fn=_strategy_fn,
+        )
+    row = evidence.results[0]
+    assert row.passed is False
+    assert row.detail["cpcv_passes"] is False
+    assert row.detail["cpcv_n_paths"] == 15
 
 
 def test_dsr_detail_records_cost_bps():

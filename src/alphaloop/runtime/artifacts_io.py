@@ -21,6 +21,11 @@ MORNING_DETAIL_KEYS = (
     "first_half_sharpe",
     "second_half_sharpe",
     "regime_stable",
+    "n_folds",
+    "cpcv_n_paths",
+    "cpcv_oos_sharpe_mean",
+    "cpcv_oos_sharpe_median",
+    "cpcv_passes",
 )
 
 

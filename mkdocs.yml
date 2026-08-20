@@ -76,6 +76,7 @@ nav:
     - Protocol preview plan: plans/2026-08-20-protocol-preview.md
     - Morning console UI plan: plans/2026-08-20-morning-console-ui.md
     - Guided spec form plan: plans/2026-08-20-guided-spec-form.md
+    - CPCV walk-forward plan: plans/2026-08-20-cpcv-walk-forward.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md
@@ -94,6 +95,7 @@ nav:
     - Protocol preview: requirements/2026-08-20-protocol-preview.md
     - Morning console UI: requirements/2026-08-20-morning-console-ui.md
     - Guided spec form: requirements/2026-08-20-guided-spec-form.md
+    - CPCV walk-forward: requirements/2026-08-20-cpcv-walk-forward.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 

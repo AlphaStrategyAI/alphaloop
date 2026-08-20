@@ -27,6 +27,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from itertools import combinations
 from typing import Any, Callable, List, Optional
 
 import numpy as np
@@ -242,4 +243,120 @@ def walk_forward_cv(
         first_half_sharpe=first,
         second_half_sharpe=second,
         regime_stable=regime_stable,
+    )
+
+
+DEFAULT_CPCV_GROUPS = 6
+DEFAULT_CPCV_TEST_GROUPS = 2
+MIN_CPCV_GROUP_BARS = 20
+
+
+@dataclass
+class CombinatorialPurgedResult:
+    """First-release combinatorial purged CV (AFML Ch. 12, bounded S=6 k=2)."""
+
+    evaluated: bool
+    n_groups: int
+    n_test_groups: int
+    n_paths: int
+    oos_sharpe_mean: float
+    oos_sharpe_median: float
+    passes: bool
+    path_sharpes: tuple[float, ...] = ()
+
+
+def _cpcv_group_ranges(n: int, n_groups: int) -> list[tuple[int, int]]:
+    edges = np.linspace(0, n, n_groups + 1, dtype=int)
+    return [(int(edges[i]), int(edges[i + 1])) for i in range(n_groups)]
+
+
+def _cpcv_contiguous_spans(
+    ranges: list[tuple[int, int]], test_groups: tuple[int, ...]
+) -> list[tuple[int, int]]:
+    ordered = sorted(test_groups)
+    start, end = ranges[ordered[0]]
+    prev = ordered[0]
+    spans: list[tuple[int, int]] = []
+    for group in ordered[1:]:
+        group_start, group_end = ranges[group]
+        if group == prev + 1:
+            end = group_end
+        else:
+            spans.append((start, end))
+            start, end = group_start, group_end
+        prev = group
+    spans.append((start, end))
+    return spans
+
+
+def combinatorial_purged_cv(
+    prices: pd.Series,
+    strategy_fn: Callable[[pd.Series], pd.Series],
+    *,
+    n_groups: int = DEFAULT_CPCV_GROUPS,
+    n_test_groups: int = DEFAULT_CPCV_TEST_GROUPS,
+    min_group_bars: int = MIN_CPCV_GROUP_BARS,
+    embargo_size: int = 0,
+    cost_bps: float = 0.0,
+    periods_per_year: int = 252,
+    min_oos_sharpe: float = 0.0,
+) -> CombinatorialPurgedResult:
+    """Combinatorial purged CV with a first-release path bound.
+
+    Splits *prices* into ``n_groups`` contiguous groups and treats every
+    combination of ``n_test_groups`` groups as an OOS path. ``strategy_fn``
+    sees prices only through the end of each contiguous test span.
+    ``embargo_size`` bars are dropped from the start of each span.
+    """
+    empty = CombinatorialPurgedResult(
+        evaluated=False,
+        n_groups=n_groups,
+        n_test_groups=n_test_groups,
+        n_paths=0,
+        oos_sharpe_mean=0.0,
+        oos_sharpe_median=0.0,
+        passes=False,
+    )
+    if embargo_size < 0:
+        raise ValueError(f"embargo_size must be >= 0, got {embargo_size}")
+    if n_groups < 2 or n_test_groups < 1 or n_test_groups >= n_groups:
+        raise ValueError("need 1 <= n_test_groups < n_groups")
+    if not isinstance(prices, pd.Series):
+        raise TypeError(f"prices must be a pandas Series, got {type(prices)}")
+    if len(prices) < n_groups * min_group_bars:
+        return empty
+
+    ranges = _cpcv_group_ranges(len(prices), n_groups)
+    if any(end - start < 1 for start, end in ranges):
+        return empty
+
+    path_sharpes: list[float] = []
+    for combo in combinations(range(n_groups), n_test_groups):
+        oos_parts: list[pd.Series] = []
+        for span_start, span_end in _cpcv_contiguous_spans(ranges, combo):
+            scored_start = span_start + max(0, embargo_size)
+            if scored_start >= span_end:
+                continue
+            history = prices.iloc[:span_end]
+            weights = strategy_fn(history)
+            net = compute_strategy_returns(history, weights, cost_bps=cost_bps)
+            oos_parts.append(net.iloc[scored_start:span_end])
+        if not oos_parts:
+            path_sharpes.append(0.0)
+            continue
+        concat = pd.concat(oos_parts)
+        path_sharpes.append(_annualized_sharpe(concat, periods_per_year))
+
+    arr = np.array(path_sharpes, dtype=float)
+    mean = float(arr.mean()) if len(arr) else 0.0
+    median = float(np.median(arr)) if len(arr) else 0.0
+    return CombinatorialPurgedResult(
+        evaluated=True,
+        n_groups=n_groups,
+        n_test_groups=n_test_groups,
+        n_paths=len(path_sharpes),
+        oos_sharpe_mean=mean,
+        oos_sharpe_median=median,
+        passes=bool(mean > min_oos_sharpe and median > min_oos_sharpe),
+        path_sharpes=tuple(float(value) for value in path_sharpes),
     )
