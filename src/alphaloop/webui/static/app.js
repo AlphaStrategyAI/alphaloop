@@ -617,6 +617,11 @@ async function showJob(runId) {
   beat.textContent = job.heartbeat_at
     ? "Worker heartbeat: " + job.heartbeat_at
     : "";
+  const err = document.getElementById("job-error");
+  err.textContent = job.error ? "Worker error: " + job.error : "";
+  const recovery = document.getElementById("recovery-attempts");
+  const attempts = Number(job.recovery_attempts) || 0;
+  recovery.textContent = attempts > 0 ? "Recovery attempts: " + attempts : "";
   const statement =
     job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";
   document.getElementById("hypothesis-statement").textContent = statement;
@@ -712,6 +717,10 @@ async function loadJobs() {
     button.appendChild(meta);
     addJobSpan(button, "job-statement", statement);
     addJobSpan(button, "job-trials", "n_trials: " + job.n_trials);
+    const attempts = Number(job.recovery_attempts) || 0;
+    if (attempts > 0) {
+      addJobSpan(button, "job-recovery", "recovery: " + attempts);
+    }
     const progress = document.createElement("span");
     progress.className = "job-search-progress";
     fillSearchProgress(progress, job.n_trials, job.planned_n_trials);

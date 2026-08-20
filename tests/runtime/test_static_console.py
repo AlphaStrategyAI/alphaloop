@@ -365,6 +365,26 @@ def test_packaged_console_overnight_liveness():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_failed_recovery_surface():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="job-error"' in html
+    assert html.find('id="worker-heartbeat"') < html.find('id="job-error"')
+    assert html.find('id="job-error"') < html.find('id="recovery-attempts"')
+    assert "Worker error:" in script
+    assert "Recovery attempts:" in script
+    assert "job-recovery" in script
+    assert "recovery: " in script
+    assert 'data-status="failed"' in css
+    assert "overnight-pulse" in css
+    failed = css[css.find('data-status="failed"') :]
+    assert "overnight-pulse" not in failed.split("@")[0]
+    assert "http" not in css
+    assert "override" not in script.lower()
+
+
 def test_packaged_console_morning_verdict_stage():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

@@ -178,6 +178,8 @@ h3 {
 
 #job-status,
 #worker-heartbeat,
+#job-error,
+#recovery-attempts,
 #hypothesis-statement,
 #spec-meta,
 #funnel-summary,
@@ -283,6 +285,11 @@ h3 {
   }
 }
 
+#job-list button[data-status="failed"],
+#verdict[data-status="failed"] {
+  border-color: rgba(255, 176, 32, 0.55);
+}
+
 .job-funnel .funnel-stack {
   height: 0.45rem;
   margin: 0.4rem 0 0;
@@ -301,7 +308,8 @@ h3 {
 }
 
 .job-statement,
-.job-trials {
+.job-trials,
+.job-recovery {
   color: var(--muted);
   font-size: 0.85rem;
 }

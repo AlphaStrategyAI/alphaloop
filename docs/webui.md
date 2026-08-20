@@ -10,7 +10,8 @@ leaving the page. Leave the host awake, and review `FOUND` /
 frozen statement and `n_trials`; the detail funnel shows how many
 frozen trials were evaluated, passed, and failed. A running job card
 and verdict pulse (focus blue, not FOUND green); the detail shows
-`Worker heartbeat:` when the supervisor has a timestamp. Job status and
+`Worker heartbeat:` when the supervisor has a timestamp. A failed job
+shows the stored worker error, recovery count, and Resume. Job status and
 research outcome stay separate. The page does not promise alpha.
 
 The Vite + React + TypeScript Quant Lab SPA under `webui/` is **frozen
