@@ -76,6 +76,7 @@ until the human clicks Freeze and submit.
 
 ## 6. Loop exit
 
-Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
-(not CI), correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP /
-cloud workers.
+Remaining product after this cycle shipped: textbook `S=16` CPCV
+(`docs/requirements/2026-08-20-textbook-cpcv.md`). Remaining
+validation: soak / 95% overnight (not CI), correlation-adjusted
+\(N_{\mathrm{eff}}\). Later: MCP / cloud workers.

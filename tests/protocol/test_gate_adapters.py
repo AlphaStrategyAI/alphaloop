@@ -184,7 +184,10 @@ def test_walk_forward_detail_includes_regime_fields():
     assert isinstance(detail["n_positive_folds"], int)
     assert detail["n_positive_folds"] >= 0
     assert isinstance(detail["majority_stable"], bool)
-    assert detail["cpcv_n_paths"] == 15
+    assert detail["cpcv_n_groups"] == 16
+    assert detail["cpcv_n_test_groups"] == 8
+    assert detail["cpcv_n_paths"] == 12870
+    assert detail["cpcv_n_positive_paths"] >= 1
     assert detail["cpcv_passes"] is True
     assert isinstance(detail["cpcv_oos_sharpe_mean"], float)
     assert isinstance(detail["cpcv_oos_sharpe_median"], float)
@@ -260,6 +263,7 @@ def test_walk_forward_gate_fails_when_cpcv_fails():
             n_paths=15,
             n_groups=6,
             n_test_groups=2,
+            n_positive_paths=0,
             oos_sharpe_mean=-0.2,
             oos_sharpe_median=-0.2,
         )

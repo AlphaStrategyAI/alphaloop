@@ -225,6 +225,9 @@ def run_hard_gates(
             and cpcv_result.evaluated
         ):
             detail["cpcv_n_paths"] = cpcv_result.n_paths
+            detail["cpcv_n_groups"] = cpcv_result.n_groups
+            detail["cpcv_n_test_groups"] = cpcv_result.n_test_groups
+            detail["cpcv_n_positive_paths"] = cpcv_result.n_positive_paths
             detail["cpcv_oos_sharpe_mean"] = cpcv_result.oos_sharpe_mean
             detail["cpcv_oos_sharpe_median"] = cpcv_result.oos_sharpe_median
             detail["cpcv_passes"] = bool(cpcv_result.passes)

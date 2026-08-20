@@ -305,6 +305,7 @@ def test_cpcv_positive_drift_buy_and_hold_passes():
     assert result.n_paths == comb(6, 2)
     assert result.oos_sharpe_mean > 0
     assert result.oos_sharpe_median > 0
+    assert result.majority_stable is True
     assert result.passes is True
 
 
@@ -316,3 +317,48 @@ def test_cpcv_negative_drift_fails():
     assert result.evaluated is True
     assert result.oos_sharpe_mean < 0
     assert result.passes is False
+
+
+def test_select_cpcv_shape_prefers_textbook_when_long_enough():
+    from alphaloop.diagnostic.cv import select_cpcv_shape
+
+    assert select_cpcv_shape(80) is None
+    assert select_cpcv_shape(180) == (6, 2)
+    assert select_cpcv_shape(319) == (6, 2)
+    assert select_cpcv_shape(320) == (16, 8)
+
+
+def test_cpcv_textbook_partition_when_sample_is_long():
+    from math import comb
+
+    from alphaloop.diagnostic.cv import combinatorial_purged_cv
+
+    prices = _make_prices(320, drift=0.003)
+    result = combinatorial_purged_cv(prices, _buy_and_hold, embargo_size=1)
+    assert result.evaluated is True
+    assert result.n_groups == 16
+    assert result.n_test_groups == 8
+    assert result.n_paths == comb(16, 8)
+    assert result.n_positive_paths * 2 > result.n_paths
+    assert result.majority_stable is True
+    assert result.oos_sharpe_mean > 0
+    assert result.oos_sharpe_median > 0
+    assert result.passes is True
+
+
+def test_cpcv_explicit_groups_override_auto_shape():
+    from math import comb
+
+    from alphaloop.diagnostic.cv import combinatorial_purged_cv
+
+    prices = _make_prices(320, drift=0.003)
+    result = combinatorial_purged_cv(
+        prices,
+        _buy_and_hold,
+        n_groups=6,
+        n_test_groups=2,
+        embargo_size=1,
+    )
+    assert result.n_groups == 6
+    assert result.n_paths == comb(6, 2)
+    assert result.passes is True

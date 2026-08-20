@@ -28,6 +28,7 @@ from .cv import (
     WalkForwardFold,
     WalkForwardResult,
     combinatorial_purged_cv,
+    select_cpcv_shape,
     walk_forward_cv,
 )
 from .holdout import nested_holdout_bounds
@@ -45,6 +46,7 @@ __all__ = [
     "WalkForwardResult",
     "WalkForwardFold",
     "combinatorial_purged_cv",
+    "select_cpcv_shape",
     "CombinatorialPurgedResult",
     "probability_of_backtest_overfitting",
     "PBOResult",
