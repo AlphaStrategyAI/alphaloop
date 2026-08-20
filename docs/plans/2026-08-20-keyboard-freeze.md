@@ -28,7 +28,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Static:
 
@@ -74,19 +74,19 @@ def test_ctrl_enter_previews_then_freezes(real_daemon, browser_page):
 
 Use the same YAML fill helper as `_preview_then_submit` but skip the clicks.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_keyboard_preview_then_freeze -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 HTML hint. Window keydown as specified. CSS muted hint. `docs/webui.md` one sentence. mkdocs nav.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): Ctrl/Cmd+Enter previews then freezes"
