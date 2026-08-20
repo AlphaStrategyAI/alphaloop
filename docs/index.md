@@ -54,6 +54,7 @@ walk-forward `regime_stable` and median fold Sharpe when present), and
 short help. It does not claim alpha.
 
 ```bash
+alphaloop status
 alphaloop status RUN_ID
 alphaloop status RUN_ID --json
 alphaloop resume RUN_ID

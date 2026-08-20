@@ -49,7 +49,7 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     submit.set_defaults(func=run_submit)
 
     status = subparsers.add_parser("status", help="show research job status")
-    status.add_argument("run_id")
+    status.add_argument("run_id", nargs="?")
     status.add_argument(
         "--json",
         action="store_true",
@@ -173,18 +173,37 @@ def _run_action(
 
 
 def run_status(args: argparse.Namespace) -> int:
-    from alphaloop.runtime.morning import format_status_verdict
+    from alphaloop.runtime.morning import EMPTY_STATUS_CUE, format_status_verdict
 
-    result = _invoke(
-        args.data_dir,
-        lambda client: JobClient.get_run(client, args.run_id),
-    )
-    if result is None:
-        return 2
-    if args.json:
-        print(json.dumps(result, sort_keys=True))
+    if args.run_id:
+        result = _invoke(
+            args.data_dir,
+            lambda client: JobClient.get_run(client, args.run_id),
+        )
+        if result is None:
+            return 2
+        if args.json:
+            print(json.dumps(result, sort_keys=True))
+            return 0
+        print(format_status_verdict(result), end="")
         return 0
-    print(format_status_verdict(result), end="")
+
+    listed = _invoke(args.data_dir, lambda client: client.list_jobs())
+    if listed is None:
+        return 2
+    jobs = listed.get("jobs") or []
+    if not jobs:
+        if args.json:
+            print(json.dumps({"jobs": []}, sort_keys=True))
+            return 0
+        print(EMPTY_STATUS_CUE, end="")
+        return 0
+    latest = jobs[0]
+    if args.json:
+        print(json.dumps(latest, sort_keys=True))
+        return 0
+    print(f"run_id: {latest.get('run_id', '')}")
+    print(format_status_verdict(latest), end="")
     return 0
 
 

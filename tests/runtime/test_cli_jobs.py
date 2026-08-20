@@ -9,6 +9,7 @@ import yaml
 from alphaloop.cli.main import create_parser, main
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict, evaluate_hard_gates
+from alphaloop.runtime.morning import EMPTY_STATUS_CUE, STATUS_NO_ALPHA
 from alphaloop.runtime.preflight import HOST_CONSTRAINT
 from tests.runtime.test_supervisor import _cached_spec, _spec
 
@@ -58,6 +59,57 @@ def test_status_parser_has_json_flag():
     args = parser.parse_args(["status", "j_x", "--json"])
     assert args.json is True
     assert parser.parse_args(["status", "j_x"]).json is False
+
+
+def test_status_parser_run_id_optional():
+    parser = create_parser()
+    args = parser.parse_args(["status", "--json"])
+    assert args.run_id is None
+    assert args.json is True
+    assert parser.parse_args(["status", "j_x"]).run_id == "j_x"
+
+
+def test_status_without_run_id_leads_with_latest_or_empty(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    try:
+        rc = main(["status", "--data-dir", str(tmp_path)])
+        empty = capsys.readouterr()
+        assert rc == 0
+        assert empty.out == EMPTY_STATUS_CUE
+        assert "target found" not in empty.out.lower()
+        assert STATUS_NO_ALPHA in empty.out
+
+        rc = main(["status", "--json", "--data-dir", str(tmp_path)])
+        empty_json = capsys.readouterr()
+        assert rc == 0
+        assert json.loads(empty_json.out) == {"jobs": []}
+
+        store.create(_spec(), run_id="j_aaa")
+        newest = store.create(_spec(), run_id="j_zzz")
+        rc = main(["status", "--data-dir", str(tmp_path)])
+        human = capsys.readouterr()
+        assert rc == 0
+        assert human.out.splitlines()[0] == f"run_id: {newest.run_id}"
+        assert human.out.splitlines()[1] == "NONE"
+        assert STATUS_NO_ALPHA in human.out
+
+        rc = main(["status", "--json", "--data-dir", str(tmp_path)])
+        machine = capsys.readouterr()
+        payload = json.loads(machine.out)
+        assert payload["run_id"] == newest.run_id
+        assert payload["research_outcome"] == "NONE"
+    finally:
+        server.shutdown()
 
 
 def test_status_default_is_verdict_json_is_payload(tmp_path, capsys):
