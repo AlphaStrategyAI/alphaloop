@@ -107,7 +107,8 @@ h3 {
 }
 
 #job-list button {
-  display: block;
+  display: grid;
+  gap: 0.25rem;
   width: 100%;
   text-align: left;
   background: var(--card);
@@ -133,12 +134,106 @@ h3 {
   border-left-color: var(--inconclusive);
 }
 
+.job-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+}
+
+.job-id {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+
+.job-statement,
+.job-trials {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+#job-list button[data-outcome="FOUND"] .job-outcome {
+  color: var(--accent);
+}
+
+#job-list button[data-outcome="NO_EVIDENCE"] .job-outcome {
+  color: var(--warn);
+}
+
+#job-list button[data-outcome="INCONCLUSIVE"] .job-outcome {
+  color: var(--inconclusive);
+}
+
+#hypothesis-form {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0 0 1rem;
+}
+
+#hypothesis-form .form-grid {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr);
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+}
+
+#hypothesis-form label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+#hypothesis-form input,
+#hypothesis-form select {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0e121a;
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+}
+
+#field-hard-gates {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+}
+
+#field-hard-gates legend {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+#field-hard-gates label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.2rem 0.85rem 0.2rem 0;
+  color: var(--fg);
+}
+
+#field-hard-gates input {
+  width: auto;
+}
+
+#protocol-grid {
+  list-style: none;
+  padding: 0.4rem 0 0;
+  margin: 0;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
 #job-list button:hover,
 button:hover {
   filter: brightness(1.08);
 }
 
 button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
 #spec-yaml:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;

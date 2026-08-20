@@ -92,14 +92,11 @@ def _preview_then_submit(page, yaml_text: str) -> None:
     page.click("#submit-job")
 
 
-def _list_research_outcome(text: str) -> str:
-    return text.split(" — ")[-1].strip()
-
-
 def _first_run_id(page) -> str:
-    page.wait_for_selector("#job-list button", timeout=15000)
-    text = page.locator("#job-list button").first.inner_text()
-    return text.split(" — ")[0].strip()
+    page.wait_for_selector("#job-list button[data-run-id]", timeout=15000)
+    run_id = page.locator("#job-list button").first.get_attribute("data-run-id")
+    assert run_id
+    return run_id
 
 
 def _open_job_detail(page) -> None:
@@ -117,11 +114,12 @@ def _open_job_detail(page) -> None:
 def _wait_list_outcome(page, timeout_ms: int = 60000) -> str:
     page.wait_for_function(
         """() => [...document.querySelectorAll('#job-list button')].some((button) =>
-            /FOUND|NO_EVIDENCE|INCONCLUSIVE/.test((button.textContent || '').split(' — ').pop() || ''))""",
+            /FOUND|NO_EVIDENCE|INCONCLUSIVE/.test(button.getAttribute('data-outcome') || ''))""",
         timeout=timeout_ms,
     )
-    text = page.locator("#job-list button").first.inner_text()
-    return _list_research_outcome(text)
+    outcome = page.locator("#job-list button").first.get_attribute("data-outcome")
+    assert outcome
+    return outcome
 
 
 def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
@@ -139,6 +137,8 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#load-example").count() == 1
     assert page.locator("#before-bed").count() == 1
     assert page.locator("#morning").count() == 1
+    assert page.locator("#hypothesis-form").count() == 1
+    assert page.locator("#field-signal-mechanism").count() == 1
 
 
 def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
@@ -151,6 +151,16 @@ def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_pag
     assert page.locator("#submit-job").is_disabled()
     assert page.locator("#job-list button").count() == 0
     assert "target found" not in page.content()
+
+
+def test_load_example_fills_guided_form(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.click("#load-example")
+    assert page.locator("#field-signal-mechanism").input_value() == "momentum_12_1"
+    assert page.locator("#field-market-profile").input_value() == "us-equity-daily"
+    assert page.locator("#field-statement").input_value().startswith("12-1 momentum")
+    assert page.locator("#submit-job").is_disabled()
 
 
 def test_help_visible_without_opening_a_job(real_daemon, browser_page):
@@ -186,6 +196,7 @@ def test_preview_does_not_create_a_job(real_daemon, browser_page):
     _open_morning(page, real_daemon["base_url"])
     _preview_yaml(page, _spec_yaml(dataset))
     assert "planned_n_trials" in page.locator("#protocol-preview").inner_text()
+    assert page.locator("#protocol-grid li").count() >= 1
     assert page.locator("#job-list button").count() == 0
     assert not page.locator("#submit-job").is_disabled()
 
@@ -212,6 +223,18 @@ def test_valid_submit_shows_host_constraint_and_job_row(real_daemon, browser_pag
     )
     run_id = _first_run_id(page)
     assert run_id.startswith("j_")
+
+
+def test_job_card_shows_hypothesis_and_n_trials(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    _preview_then_submit(page, _spec_yaml(dataset))
+    page.wait_for_selector("#job-list button[data-run-id]", timeout=15000)
+    card = page.locator("#job-list button").first
+    assert "12-1 momentum works in US large caps net of costs" in card.inner_text()
+    assert "n_trials" in card.inner_text()
+    assert card.get_attribute("data-run-id").startswith("j_")
 
 
 def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_page):
@@ -282,7 +305,7 @@ def test_cancel_before_seal_is_inconclusive(real_daemon, browser_page):
     assert payload["research_outcome"] == "INCONCLUSIVE"
     page.wait_for_function(
         """() => [...document.querySelectorAll('#job-list button')].some((button) =>
-            (button.textContent || '').includes('INCONCLUSIVE'))""",
+            button.getAttribute('data-outcome') === 'INCONCLUSIVE')""",
         timeout=15000,
     )
     _open_job_detail(page)
@@ -300,10 +323,10 @@ def test_cancel_from_console_before_seal_is_inconclusive(real_daemon, browser_pa
     page.click("#cancel-job")
     page.wait_for_function(
         """() => [...document.querySelectorAll('#job-list button')].some((button) =>
-            (button.textContent || '').includes('INCONCLUSIVE'))""",
+            button.getAttribute('data-outcome') === 'INCONCLUSIVE')""",
         timeout=15000,
     )
-    assert _list_research_outcome(page.locator("#job-list button").first.inner_text()) == (
+    assert page.locator("#job-list button").first.get_attribute("data-outcome") == (
         "INCONCLUSIVE"
     )
     assert page.locator("#outcome").inner_text().strip() == "INCONCLUSIVE"
@@ -348,7 +371,7 @@ def test_kill_worker_then_resume_shows_queued_or_running(real_daemon, browser_pa
     assert payload["status"] in {"queued", "running"}
     page.wait_for_function(
         """(runId) => [...document.querySelectorAll('#job-list button')].some((button) =>
-            (button.textContent || '').startsWith(runId))""",
+            button.getAttribute('data-run-id') === runId)""",
         arg=run_id,
         timeout=15000,
     )

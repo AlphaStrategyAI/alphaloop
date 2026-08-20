@@ -26,6 +26,197 @@ const EXAMPLE_SPEC =
   "cost_budget_usd: 5.0\n";
 
 let currentRunId = null;
+let syncingForm = false;
+
+function unquoteYaml(value) {
+  const text = String(value || "").trim();
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    return text.slice(1, -1);
+  }
+  return text;
+}
+
+function extractDatasetYaml(text) {
+  const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  const captured = [];
+  let capturing = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (/^dataset\s*:/.test(line)) {
+      capturing = true;
+      captured.push(line);
+      continue;
+    }
+    if (capturing) {
+      if (/^[A-Za-z_]/.test(line)) {
+        break;
+      }
+      captured.push(line);
+    }
+  }
+  while (captured.length && captured[captured.length - 1].trim() === "") {
+    captured.pop();
+  }
+  if (!captured.length) {
+    return "";
+  }
+  return captured.join("\n") + "\n";
+}
+
+function parseSpecYaml(text) {
+  const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  const values = {};
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/);
+    if (!match) {
+      i += 1;
+      continue;
+    }
+    const key = match[1];
+    const rest = match[2];
+    if (key === "dataset") {
+      i += 1;
+      while (
+        i < lines.length &&
+        (lines[i].startsWith(" ") ||
+          lines[i].startsWith("\t") ||
+          lines[i].trim() === "")
+      ) {
+        i += 1;
+      }
+      continue;
+    }
+    if (key === "hard_gates") {
+      if (rest.startsWith("[")) {
+        const inner = rest.replace(/^\[/, "").replace(/\]\s*$/, "");
+        values.hard_gates = inner
+          .split(",")
+          .map(function (item) {
+            return unquoteYaml(item);
+          })
+          .filter(Boolean);
+        i += 1;
+        continue;
+      }
+      const items = [];
+      i += 1;
+      while (i < lines.length && /^\s*-\s+/.test(lines[i])) {
+        items.push(unquoteYaml(lines[i].replace(/^\s*-\s+/, "")));
+        i += 1;
+      }
+      values.hard_gates = items;
+      continue;
+    }
+    values[key] = unquoteYaml(rest);
+    i += 1;
+  }
+  return values;
+}
+
+function formToYaml() {
+  const dataset = extractDatasetYaml(document.getElementById("spec-yaml").value);
+  const gates = Array.prototype.map
+    .call(
+      document.querySelectorAll("#field-hard-gates input[type='checkbox']:checked"),
+      function (box) {
+        return box.value;
+      }
+    )
+    .join(", ");
+  const lines = [
+    "statement: " + document.getElementById("field-statement").value,
+    "economic_logic: " + document.getElementById("field-economic-logic").value,
+    "signal_mechanism: " + document.getElementById("field-signal-mechanism").value,
+    "market_scope: " + document.getElementById("field-market-scope").value,
+    "market_profile: " + document.getElementById("field-market-profile").value,
+    "benchmark: " + document.getElementById("field-benchmark").value,
+    "hard_gates: [" + gates + "]",
+    "seed: " + document.getElementById("field-seed").value,
+    "time_budget_s: " + document.getElementById("field-time-budget").value,
+    "cost_budget_usd: " + document.getElementById("field-cost-budget").value,
+  ];
+  return lines.join("\n") + "\n" + dataset;
+}
+
+function yamlToForm(text) {
+  const parsed = parseSpecYaml(text);
+  syncingForm = true;
+  document.getElementById("field-statement").value = parsed.statement || "";
+  document.getElementById("field-economic-logic").value =
+    parsed.economic_logic || "";
+  document.getElementById("field-signal-mechanism").value =
+    parsed.signal_mechanism || "";
+  document.getElementById("field-market-scope").value = parsed.market_scope || "";
+  document.getElementById("field-market-profile").value =
+    parsed.market_profile || "";
+  document.getElementById("field-benchmark").value = parsed.benchmark || "";
+  document.getElementById("field-seed").value = parsed.seed || "";
+  document.getElementById("field-time-budget").value = parsed.time_budget_s || "";
+  document.getElementById("field-cost-budget").value =
+    parsed.cost_budget_usd || "";
+  const selected = {};
+  (parsed.hard_gates || []).forEach(function (name) {
+    selected[name] = true;
+  });
+  Array.prototype.forEach.call(
+    document.querySelectorAll("#field-hard-gates input[type='checkbox']"),
+    function (box) {
+      box.checked = Boolean(selected[box.value]);
+    }
+  );
+  syncingForm = false;
+}
+
+function formatGridRow(row) {
+  if (!row) {
+    return "{}";
+  }
+  const keys = Object.keys(row);
+  if (keys.length === 0) {
+    return "{}";
+  }
+  keys.sort();
+  return keys
+    .map(function (key) {
+      return key + "=" + row[key];
+    })
+    .join(" ");
+}
+
+function renderPreview(body) {
+  const preview = document.getElementById("protocol-preview");
+  preview.textContent = "";
+  const summary = document.createElement("div");
+  summary.textContent = [
+    "spec_id: " + body.spec_id,
+    "statement: " + body.statement,
+    "signal_mechanism: " + body.signal_mechanism,
+    "hard_gates: " + (body.hard_gates || []).join(", "),
+    "planned_n_trials: " + body.planned_n_trials,
+    "grid:",
+  ].join("\n");
+  preview.appendChild(summary);
+  const grid = document.createElement("ul");
+  grid.id = "protocol-grid";
+  (body.method_parameter_grid || []).forEach(function (row) {
+    const item = document.createElement("li");
+    item.textContent = formatGridRow(row);
+    grid.appendChild(item);
+  });
+  preview.appendChild(grid);
+}
+
+function addJobSpan(button, className, text) {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  button.appendChild(span);
+}
 
 async function showJob(runId) {
   currentRunId = runId;
@@ -101,9 +292,19 @@ async function loadJobs() {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = job.run_id + " — " + job.status + " — " + job.research_outcome;
+    button.dataset.runId = job.run_id;
     button.dataset.status = job.status;
     button.dataset.outcome = job.research_outcome;
+    const statement =
+      job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";
+    const meta = document.createElement("span");
+    meta.className = "job-meta";
+    addJobSpan(meta, "job-id", job.run_id);
+    addJobSpan(meta, "job-status", job.status);
+    addJobSpan(meta, "job-outcome", job.research_outcome);
+    button.appendChild(meta);
+    addJobSpan(button, "job-statement", statement);
+    addJobSpan(button, "job-trials", "n_trials: " + job.n_trials);
     button.addEventListener("click", function () {
       showJob(job.run_id);
     });
@@ -147,17 +348,7 @@ async function previewProtocol() {
   if (body.host_constraint) {
     constraint.textContent = body.host_constraint;
   }
-  preview.textContent =
-    "spec_id: " +
-    body.spec_id +
-    " · planned_n_trials: " +
-    body.planned_n_trials +
-    " · signal_mechanism: " +
-    body.signal_mechanism +
-    " · hard_gates: " +
-    (body.hard_gates || []).join(",") +
-    " · grid: " +
-    JSON.stringify(body.method_parameter_grid);
+  renderPreview(body);
   if (!body.ok) {
     errors.textContent = (body.errors || []).join("; ");
     return;
@@ -194,6 +385,7 @@ async function submitJob() {
 document.getElementById("load-example").addEventListener("click", function () {
   const box = document.getElementById("spec-yaml");
   box.value = EXAMPLE_SPEC;
+  yamlToForm(EXAMPLE_SPEC);
   box.dispatchEvent(new Event("input"));
 });
 
@@ -214,6 +406,29 @@ document.getElementById("resume-job").addEventListener("click", function () {
 });
 
 document.getElementById("spec-yaml").addEventListener("input", function () {
+  if (!syncingForm) {
+    yamlToForm(document.getElementById("spec-yaml").value);
+  }
+  setSubmitEnabled(yamlMatchesPreview());
+});
+
+document.getElementById("hypothesis-form").addEventListener("input", function () {
+  if (syncingForm) {
+    return;
+  }
+  syncingForm = true;
+  document.getElementById("spec-yaml").value = formToYaml();
+  syncingForm = false;
+  setSubmitEnabled(yamlMatchesPreview());
+});
+
+document.getElementById("hypothesis-form").addEventListener("change", function () {
+  if (syncingForm) {
+    return;
+  }
+  syncingForm = true;
+  document.getElementById("spec-yaml").value = formToYaml();
+  syncingForm = false;
   setSubmitEnabled(yamlMatchesPreview());
 });
 

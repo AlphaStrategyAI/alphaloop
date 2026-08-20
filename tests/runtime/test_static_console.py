@@ -8,6 +8,9 @@ from urllib.request import Request, urlopen
 
 import pytest
 
+from alphaloop.contracts.gates import HardGateName
+from alphaloop.contracts.research_spec import ALLOWED_PROFILES
+from alphaloop.protocol.dsl import ALLOWED_KINDS
 from alphaloop.runtime.api import JobAPI
 from alphaloop.runtime.client import JobClient
 from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server
@@ -30,7 +33,7 @@ def test_packaged_assets_are_read_only_morning_copy():
     assert 'id="preview-protocol"' in html
     assert 'id="protocol-preview"' in html
     assert "disabled" in html
-    assert 'job.run_id + " — " + job.status + " — " + job.research_outcome' in script
+    assert "dataset.runId" in script
     assert "application/yaml" in script
     assert "setInterval" in script
     assert "/v1/jobs" in script
@@ -76,9 +79,41 @@ def test_packaged_example_layout_and_job_controls():
     assert "signal_mechanism: momentum_12_1" in script
     assert 'postJobAction("cancel")' in script
     assert 'postJobAction("resume")' in script
-    assert 'job.run_id + " — " + job.status + " — " + job.research_outcome' in script
+    assert "dataset.runId" in script
     assert "override" not in script.lower()
     assert "56rem" in css or "min-width: 56rem" in css
+
+
+def test_packaged_guided_form_preview_grid_and_job_cards():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="hypothesis-form"' in html
+    assert 'id="field-statement"' in html
+    assert 'id="field-economic-logic"' in html
+    assert 'id="field-signal-mechanism"' in html
+    assert 'id="field-market-scope"' in html
+    assert 'id="field-market-profile"' in html
+    assert 'id="field-benchmark"' in html
+    assert 'id="field-hard-gates"' in html
+    assert 'id="field-seed"' in html
+    assert 'id="field-time-budget"' in html
+    assert 'id="field-cost-budget"' in html
+    for kind in ALLOWED_KINDS:
+        assert f'value="{kind}"' in html
+    for profile in ALLOWED_PROFILES:
+        assert f'value="{profile}"' in html
+    for gate in HardGateName:
+        assert f'value="{gate.value}"' in html
+    assert "dataset.runId" in script
+    assert "protocol-grid" in script
+    assert "JSON.stringify(body.method_parameter_grid)" not in script
+    assert "job.hypothesis" in script
+    assert "n_trials" in script
+    assert "override" not in script.lower()
+    assert "override" not in html.lower()
+    assert "input:focus-visible" in css
 
 
 def test_static_package_loads_without_fastapi():
