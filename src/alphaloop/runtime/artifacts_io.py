@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, Mapping
 
 import pandas as pd
 import yaml
@@ -11,6 +12,16 @@ from alphaloop.contracts.research_spec import ResearchSpec
 
 _CANDIDATE_COLUMNS = ("trial_id", "kind", "parameters", "revision")
 NO_ALPHA_CLAIM = "This report does not claim alpha or future profitability."
+MORNING_DETAIL_KEYS = (
+    "returns_scope",
+    "n_trials",
+    "dsr",
+    "oos_sharpe_mean",
+    "oos_sharpe_median",
+    "first_half_sharpe",
+    "second_half_sharpe",
+    "regime_stable",
+)
 
 
 def write_manifest(layout: RunLayout, spec: ResearchSpec, *, engine_version: str) -> Path:
@@ -66,6 +77,26 @@ def write_candidates_parquet(layout: RunLayout) -> Path:
     return layout.candidates
 
 
+def _format_detail_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float):
+        return format(value, ".6g")
+    return str(value)
+
+
+def format_gate_line(row: Mapping[str, Any]) -> str:
+    name = str(row.get("name") or "")
+    verdict = "pass" if row.get("passed") else "fail"
+    parts = [f"{name}: {verdict}"]
+    detail = row.get("detail") or {}
+    if isinstance(detail, Mapping):
+        for key in MORNING_DETAIL_KEYS:
+            if key in detail:
+                parts.append(f"{key}={_format_detail_value(detail[key])}")
+    return " · ".join(parts)
+
+
 def _gate_result_lines(layout: RunLayout) -> list[str]:
     path = layout.evidence / "gates.json"
     if not path.is_file():
@@ -83,8 +114,7 @@ def _gate_result_lines(layout: RunLayout) -> list[str]:
         name = row.get("name")
         if not name:
             continue
-        verdict = "pass" if row.get("passed") else "fail"
-        lines.append(f"{name}: {verdict}")
+        lines.append(format_gate_line(row))
     return lines
 
 

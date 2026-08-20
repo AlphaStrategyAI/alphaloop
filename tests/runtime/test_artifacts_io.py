@@ -8,7 +8,12 @@ import yaml
 from alphaloop import __version__
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict, evaluate_hard_gates
-from alphaloop.runtime.artifacts_io import write_candidates_parquet, write_manifest, write_report
+from alphaloop.runtime.artifacts_io import (
+    format_gate_line,
+    write_candidates_parquet,
+    write_manifest,
+    write_report,
+)
 from tests.runtime.test_supervisor import _spec
 
 
@@ -85,3 +90,69 @@ def test_report_includes_frozen_hypothesis_and_n_trials(tmp_path):
     assert "n_trials: 2" in text
     assert spec.hypothesis.statement in text
     assert "signal_mechanism: momentum_12_1" in text
+
+
+def test_report_includes_walk_forward_detail_keys(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    evidence = evaluate_hard_gates(
+        (HardGateName.WALK_FORWARD,),
+        (
+            GateResult(
+                name=HardGateName.WALK_FORWARD,
+                passed=False,
+                detail={
+                    "regime_stable": False,
+                    "returns_scope": "oos_walk_forward",
+                    "oos_sharpe_median": -0.2,
+                },
+            ),
+        ),
+    )
+    layout.evidence.mkdir()
+    (layout.evidence / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+    write_report(layout, research_outcome="NO_EVIDENCE", stop_reason="hard_gate_failed")
+    text = layout.report.read_text(encoding="utf-8")
+    assert "walk_forward: fail" in text
+    assert "regime_stable=false" in text
+    assert "returns_scope=oos_walk_forward" in text
+    assert "oos_sharpe_median=-0.2" in text
+    assert format_gate_line({"name": "dsr", "passed": True, "detail": {}}) == "dsr: pass"
+
+
+def test_format_gate_line_walk_forward_order_and_bools():
+    line = format_gate_line(
+        {
+            "name": "walk_forward",
+            "passed": False,
+            "detail": {
+                "regime_stable": False,
+                "oos_sharpe_median": 0.1234567,
+                "first_half_sharpe": 1.0,
+                "second_half_sharpe": -0.5,
+                "returns_scope": "oos_walk_forward",
+                "oos_sharpe_mean": 0.25,
+                "ignored": "nope",
+            },
+        }
+    )
+    assert line.startswith("walk_forward: fail · ")
+    assert "ignored=" not in line
+    assert line == (
+        "walk_forward: fail · returns_scope=oos_walk_forward · "
+        "oos_sharpe_mean=0.25 · oos_sharpe_median=0.123457 · "
+        "first_half_sharpe=1 · second_half_sharpe=-0.5 · regime_stable=false"
+    )
+
+
+def test_format_gate_line_dsr_n_trials():
+    line = format_gate_line(
+        {
+            "name": "dsr",
+            "passed": True,
+            "detail": {"n_trials": 3, "dsr": 0.9, "returns_scope": "oos_walk_forward"},
+        }
+    )
+    assert line == (
+        "dsr: pass · returns_scope=oos_walk_forward · n_trials=3 · dsr=0.9"
+    )
