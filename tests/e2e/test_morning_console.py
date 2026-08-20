@@ -592,6 +592,18 @@ def test_cancel_from_console_before_seal_is_inconclusive(real_daemon, browser_pa
     page.wait_for_selector("#job-list button", timeout=15000)
     _open_job_detail(page)
     page.wait_for_selector("#cancel-job:not([hidden])", timeout=10000)
+    page.wait_for_function(
+        """() => {
+          const el = document.getElementById('cancel-job');
+          if (!el || el.hidden) return false;
+          const style = getComputedStyle(el);
+          return (
+            style.color === 'rgb(126, 184, 255)' &&
+            style.backgroundColor === 'rgb(11, 15, 22)'
+          );
+        }""",
+        timeout=10000,
+    )
     page.click("#cancel-job")
     page.wait_for_function(
         """() => [...document.querySelectorAll('#job-list button')].some((button) =>
@@ -638,6 +650,16 @@ def test_kill_worker_then_resume_shows_queued_or_running(real_daemon, browser_pa
     if pid is None:
         pytest.skip("worker pid never appeared")
     os.kill(pid, signal.SIGKILL)
+    _open_job_detail(page)
+    page.wait_for_selector("#resume-job:not([hidden])", timeout=15000)
+    page.wait_for_function(
+        """() => {
+          const el = document.getElementById('resume-job');
+          if (!el || el.hidden) return false;
+          return getComputedStyle(el).color === 'rgb(255, 176, 32)';
+        }""",
+        timeout=10000,
+    )
     resumed = _cli(real_daemon["data_dir"], "resume", "--json", run_id)
     assert resumed.returncode == 0
     payload = json.loads(resumed.stdout)

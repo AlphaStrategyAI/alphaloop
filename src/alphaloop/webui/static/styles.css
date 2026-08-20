@@ -485,6 +485,26 @@ h3 {
   color: var(--warn);
 }
 
+#cancel-job,
+#resume-job {
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+#cancel-job {
+  border-color: var(--focus);
+  color: var(--focus);
+}
+
+#resume-job {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
 .funnel-stack {
   display: flex;
   height: 1.15rem;

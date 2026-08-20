@@ -280,6 +280,30 @@ def test_packaged_console_morning_report():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_lifecycle_chrome():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="cancel-job"' in html
+    assert 'id="resume-job"' in html
+    assert "#cancel-job" in css
+    assert "#resume-job" in css
+    cancel_rule = css.find("#cancel-job {")
+    resume_rule = css.rfind("#resume-job {")
+    assert cancel_rule != -1
+    assert resume_rule != -1
+    cancel_block = css[cancel_rule : css.find("}", cancel_rule)]
+    resume_block = css[resume_rule : css.find("}", resume_rule)]
+    assert "var(--focus)" in cancel_block
+    assert "var(--accent)" not in cancel_block
+    assert "var(--warn)" in resume_block
+    assert "var(--accent)" not in resume_block
+    chrome = css[css.find("#cancel-job") : css.find("}", css.find("#cancel-job"))]
+    assert "var(--ink)" in chrome
+    assert "http" not in css.lower()
+    assert HOST_CONSTRAINT in html
+
+
 def test_packaged_example_dataset_matches_load_example_hash():
     from alphaloop.contracts.artifacts import hash_bytes
 

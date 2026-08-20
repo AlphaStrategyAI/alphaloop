@@ -20,7 +20,9 @@ frozen trials were evaluated, passed, and failed. A running job card
 and verdict pulse (focus blue, not FOUND green); the detail shows
 `Worker heartbeat:` when the supervisor has a timestamp. A failed job
 shows the stored worker error, recovery count, and Resume above the
-report. Job status and
+report. Cancel uses the same designed chrome as Export/Load with
+focus-blue (running pulse), not FOUND green. Resume uses warn chrome
+(failed recovery), not FOUND green. Job status and
 research outcome stay separate. The page does not promise alpha.
 
 The Vite + React + TypeScript Quant Lab SPA under `webui/` is **frozen
