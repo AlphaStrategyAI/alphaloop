@@ -47,6 +47,8 @@ def _detail(result: object) -> dict:
         "regime_stable",
         "oos_sharpe_median",
         "n_folds",
+        "n_positive_folds",
+        "majority_stable",
     ):
         if hasattr(result, name):
             value = getattr(result, name)

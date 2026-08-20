@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -61,11 +61,13 @@ class WalkForwardResult:
     oos_sharpe_median: float
     oos_return_mean: float
     n_folds: int
-    passes: bool  # mean OOS Sharpe > 0, halves stable when evaluable, median > 0 if n_folds >= 3
+    passes: bool  # mean > 0, halves, median, and majority when n_folds >= 3
     oos_returns: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
     first_half_sharpe: float = 0.0
     second_half_sharpe: float = 0.0
     regime_stable: bool = True
+    n_positive_folds: int = 0
+    majority_stable: bool = True
 
     def summary(self) -> str:
         verdict = "PASS" if self.passes else "FAIL"
@@ -78,7 +80,9 @@ class WalkForwardResult:
             f"  OOS return mean:   {self.oos_return_mean:.3%}\n"
             f"  Regime stable:     {self.regime_stable}\n"
             f"  First-half SR:     {self.first_half_sharpe:.3f}\n"
-            f"  Second-half SR:    {self.second_half_sharpe:.3f}"
+            f"  Second-half SR:    {self.second_half_sharpe:.3f}\n"
+            f"  Positive folds:    {self.n_positive_folds}/{self.n_folds}\n"
+            f"  Majority stable:   {self.majority_stable}"
         )
 
 
@@ -90,6 +94,19 @@ def _annualized_sharpe(returns: pd.Series, periods_per_year: int = 252) -> float
 
 
 MIN_REGIME_OBSERVATIONS = 30
+
+
+def majority_fold_ok(
+    oos_sharpes: Sequence[float] | np.ndarray,
+    min_oos_sharpe: float,
+) -> tuple[int, bool]:
+    """Count folds strictly above *min_oos_sharpe*; majority only if n >= 3."""
+    values = np.asarray(oos_sharpes, dtype=float)
+    n = int(values.size)
+    n_positive = int(np.sum(np.isfinite(values) & (values > min_oos_sharpe)))
+    if n < 3:
+        return n_positive, True
+    return n_positive, n_positive * 2 > n
 
 
 def chronological_half_sharpes(
@@ -146,7 +163,8 @@ def walk_forward_cv(
             OOS length is at least 30, both chronological halves must
             also have positive Sharpe. When there are at least three
             folds, the median fold OOS Sharpe must also exceed this
-            threshold.
+            threshold and a strict majority of fold Sharpes must be
+            above it.
         embargo_size: Bars skipped between the last train bar and the
             first test bar (López de Prado Ch. 7 embargo). Default 0
             preserves historical fold geometry.
@@ -225,12 +243,15 @@ def walk_forward_cv(
             first_half_sharpe=first,
             second_half_sharpe=second,
             regime_stable=regime_stable,
+            n_positive_folds=0,
+            majority_stable=True,
         )
 
     oos_sharpes = np.array([f.oos_sharpe for f in folds])
     oos_returns = np.array([f.oos_return for f in folds])
     median = float(np.median(oos_sharpes))
     median_ok = True if len(folds) < 3 else bool(median > min_oos_sharpe)
+    n_positive_folds, majority_ok = majority_fold_ok(oos_sharpes, min_oos_sharpe)
     return WalkForwardResult(
         folds=folds,
         oos_sharpe_mean=float(oos_sharpes.mean()),
@@ -238,11 +259,18 @@ def walk_forward_cv(
         oos_sharpe_median=median,
         oos_return_mean=float(oos_returns.mean()),
         n_folds=len(folds),
-        passes=bool(oos_sharpes.mean() > min_oos_sharpe) and regime_stable and median_ok,
+        passes=(
+            bool(oos_sharpes.mean() > min_oos_sharpe)
+            and regime_stable
+            and median_ok
+            and majority_ok
+        ),
         oos_returns=concat,
         first_half_sharpe=first,
         second_half_sharpe=second,
         regime_stable=regime_stable,
+        n_positive_folds=n_positive_folds,
+        majority_stable=majority_ok,
     )
 
 

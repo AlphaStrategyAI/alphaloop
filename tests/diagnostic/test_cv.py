@@ -18,7 +18,7 @@ from alphaloop.diagnostic import (  # noqa: E402
     WalkForwardResult,
     walk_forward_cv,
 )
-from alphaloop.diagnostic.cv import chronological_half_sharpes  # noqa: E402
+from alphaloop.diagnostic.cv import chronological_half_sharpes, majority_fold_ok  # noqa: E402
 
 
 def _make_prices(n: int = 1000, seed: int = 0, drift: float = 0.0003) -> pd.Series:
@@ -227,6 +227,56 @@ def test_walk_forward_fails_when_median_fold_sharpe_is_negative():
     assert result.oos_sharpe_mean > 0
     assert result.regime_stable is True
     assert result.oos_sharpe_median < 0
+    assert result.passes is False
+
+
+def test_majority_fold_ok_even_split_is_not_majority():
+    n_positive, ok = majority_fold_ok([-1.0, -0.5, 0.6, 2.0], 0.0)
+    assert n_positive == 2
+    assert ok is False
+
+
+def test_majority_fold_ok_skipped_when_fewer_than_three_folds():
+    n_positive, ok = majority_fold_ok([-1.0, 2.0], 0.0)
+    assert n_positive == 1
+    assert ok is True
+
+
+def test_majority_fold_ok_three_folds_need_two_positive():
+    n_positive, ok = majority_fold_ok([-0.1, 0.2, 0.3], 0.0)
+    assert n_positive == 2
+    assert ok is True
+
+
+def test_majority_fold_ok_nonfinite_does_not_count():
+    n_positive, ok = majority_fold_ok([float("nan"), 0.2, 0.3], 0.0)
+    assert n_positive == 2
+    assert ok is True
+
+
+def test_walk_forward_fails_when_only_half_of_even_folds_are_positive():
+    n = 400
+    idx = pd.date_range("2020-01-01", periods=n, freq="B")
+    rng = np.random.default_rng(4)
+    rets = np.concatenate(
+        [
+            rng.normal(0.0002, 0.002, 200),
+            rng.normal(0.008, 0.002, 50),
+            rng.normal(-0.002, 0.002, 50),
+            rng.normal(0.004, 0.002, 50),
+            rng.normal(-0.002, 0.002, 50),
+        ]
+    )
+    prices = pd.Series(100.0 * np.exp(np.cumsum(rets)), index=idx)
+    result = walk_forward_cv(
+        prices, _buy_and_hold, train_size=200, test_size=50, step_size=50
+    )
+    assert result.n_folds == 4
+    assert result.oos_sharpe_mean > 0
+    assert result.oos_sharpe_median > 0
+    assert result.regime_stable is True
+    assert result.n_positive_folds == 2
+    assert result.majority_stable is False
     assert result.passes is False
 
 

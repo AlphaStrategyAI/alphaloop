@@ -531,6 +531,8 @@ def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
     assert "regime_stable" in rows["walk_forward"]["detail"]
     assert isinstance(rows["walk_forward"]["detail"]["regime_stable"], bool)
     assert "oos_sharpe_median" in rows["walk_forward"]["detail"]
+    assert "n_positive_folds" in rows["walk_forward"]["detail"]
+    assert "majority_stable" in rows["walk_forward"]["detail"]
     assert "cpcv_passes" in rows["walk_forward"]["detail"]
     assert isinstance(rows["walk_forward"]["detail"]["cpcv_passes"], bool)
     assert "holdout_passes" in rows["walk_forward"]["detail"]

@@ -62,7 +62,8 @@ When `n_folds < 3`, do not use the median as an extra fail
 
 ## 4. Out of scope
 
-- CPCV, PBO, requiring a majority of folds to pass.
+- CPCV, PBO. Majority of folds is
+  `docs/requirements/2026-08-20-majority-folds.md`.
 - Changing DSR, costs, embargo, method grids.
 
 ## 5. Acceptance
@@ -78,5 +79,6 @@ When `n_folds < 3`, do not use the median as an extra fail
 
 ## 6. Loop exit
 
-Remaining validation: CPCV/PBO, nested holdout, majority-fold
-rule. Remaining search: 50-day Bollinger, OBV (needs volume).
+Remaining validation after this cycle shipped: majority of folds
+(`docs/requirements/2026-08-20-majority-folds.md`). Remaining search:
+OBV (needs volume).
