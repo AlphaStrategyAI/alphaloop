@@ -146,6 +146,32 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert "input:focus-visible" in css
 
 
+def test_packaged_signal_select_groups_economic_families():
+    from alphaloop.protocol.recommend import REVERSION_KINDS, TREND_KINDS
+
+    html = files("alphaloop.webui.static").joinpath("index.html").read_text(
+        encoding="utf-8"
+    )
+    start = html.find('id="field-signal-mechanism"')
+    select = html[start : html.find("</select>", start)]
+    assert '<optgroup label="Trend">' in select
+    assert '<optgroup label="Mean reversion">' in select
+    assert '<optgroup label="Relative value">' in select
+    trend = select.split('<optgroup label="Trend">')[1].split("</optgroup>")[0]
+    revert = select.split('<optgroup label="Mean reversion">')[1].split("</optgroup>")[0]
+    relative = select.split('<optgroup label="Relative value">')[1]
+    for kind in TREND_KINDS:
+        assert f'value="{kind}"' in trend
+    for kind in REVERSION_KINDS:
+        assert f'value="{kind}"' in revert
+    assert 'value="pairs_spread"' in relative
+    assert "momentum_12_1 — 12-1 momentum" in select
+    assert "rsi — RSI" in select
+    assert "pairs_spread — pairs spread" in select
+    assert 'value="parkinson_hist_vol"' not in select
+    assert 'value="obv_slope"' not in select
+
+
 def test_packaged_console_dataset_csv_accept():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

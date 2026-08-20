@@ -38,14 +38,20 @@
                 <label for="field-signal-mechanism">Signal</label>
                 <select id="field-signal-mechanism">
                   <option value="">choose a signal</option>
-                  <option value="rsi">rsi</option>
-                  <option value="macd">macd</option>
-                  <option value="roc">roc</option>
-                  <option value="momentum_12_1">momentum_12_1</option>
-                  <option value="bollinger_zscore">bollinger_zscore</option>
-                  <option value="ohlr_4_pct">ohlr_4_pct</option>
-                  <option value="pairs_spread">pairs_spread</option>
-                  <option value="atr_breakout">atr_breakout</option>
+                  <optgroup label="Trend">
+                    <option value="macd">macd — MACD</option>
+                    <option value="roc">roc — rate of change</option>
+                    <option value="momentum_12_1">momentum_12_1 — 12-1 momentum</option>
+                    <option value="atr_breakout">atr_breakout — ATR breakout</option>
+                  </optgroup>
+                  <optgroup label="Mean reversion">
+                    <option value="rsi">rsi — RSI</option>
+                    <option value="bollinger_zscore">bollinger_zscore — Bollinger z-score</option>
+                    <option value="ohlr_4_pct">ohlr_4_pct — opening range</option>
+                  </optgroup>
+                  <optgroup label="Relative value">
+                    <option value="pairs_spread">pairs_spread — pairs spread</option>
+                  </optgroup>
                 </select>
               </div>
             </fieldset>

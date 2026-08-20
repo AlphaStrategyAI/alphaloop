@@ -25,7 +25,7 @@
 - Modify: `docs/webui.md`
 - Test: `tests/runtime/test_static_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/runtime/test_static_console.py`:
 
@@ -63,17 +63,17 @@ def test_packaged_signal_select_groups_economic_families():
 
 Keep `test_packaged_guided_form_preview_grid_and_job_cards` value loop.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_signal_select_groups_economic_families -v
 ```
 
-- [ ] **Step 3: Implement** HTML optgroups with locked glosses. `docs/webui.md` one sentence.
+- [x] **Step 3: Implement** HTML optgroups with locked glosses. `docs/webui.md` one sentence.
 
-- [ ] **Step 4: PASS** plus `test_packaged_guided_form_preview_grid_and_job_cards`
+- [x] **Step 4: PASS** plus `test_packaged_guided_form_preview_grid_and_job_cards`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): group overnight signals by economic family"
