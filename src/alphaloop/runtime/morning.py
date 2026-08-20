@@ -8,6 +8,7 @@ from typing import Any, Optional
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import evidence_from_dict, evidence_to_dict
 from alphaloop.contracts.status import ResearchOutcome
+from alphaloop.runtime.artifacts_io import format_gate_line
 from alphaloop.runtime.store import JobRecord
 
 STOP_REASON_ALL_GATES_PASSED = "all_gates_passed"
@@ -95,6 +96,10 @@ def _dominant_failures(evidence: Optional[dict[str, Any]]) -> list[str]:
 def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
     layout = RunLayout(Path(data_dir) / job.run_id)
     evidence = _load_evidence(layout)
+    results = (evidence or {}).get("results") or []
+    evidence_lines = [
+        format_gate_line(row) for row in results if isinstance(row, dict)
+    ]
     return {
         "run_id": job.run_id,
         "status": job.status.value,
@@ -106,6 +111,7 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "recovery_attempts": job.recovery_attempts,
         "hypothesis": asdict(job.spec.hypothesis),
         "evidence": evidence,
+        "evidence_lines": evidence_lines,
         "funnel": {"dominant_failures": _dominant_failures(evidence)},
         "revisions": _load_revisions(layout),
         "queued_hypotheses": _load_queued(layout),

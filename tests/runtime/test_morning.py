@@ -129,3 +129,40 @@ def test_morning_view_n_trials_zero_without_ledger(tmp_path):
     view = morning_view(store.get(job.run_id), tmp_path)
     assert view["n_trials"] == 0
     assert view["seed"] == 7
+
+
+def test_morning_view_evidence_lines_include_walk_forward_detail(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    required = (HardGateName.WALK_FORWARD,)
+    evidence = evaluate_hard_gates(
+        required,
+        (
+            GateResult(
+                name=HardGateName.WALK_FORWARD,
+                passed=False,
+                detail={
+                    "regime_stable": False,
+                    "returns_scope": "oos_walk_forward",
+                    "oos_sharpe_median": -0.2,
+                },
+            ),
+        ),
+    )
+    evidence_dir = tmp_path / job.run_id / "evidence"
+    evidence_dir.mkdir()
+    (evidence_dir / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+    view = morning_view(store.complete_from_artifacts(job.run_id), tmp_path)
+    assert view["evidence_lines"]
+    line = view["evidence_lines"][0]
+    assert line.startswith("walk_forward: fail")
+    assert "regime_stable=false" in line
+    assert "returns_scope=oos_walk_forward" in line
+    assert "oos_sharpe_median=-0.2" in line
+
+
+def test_morning_view_missing_evidence_has_empty_lines(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    view = morning_view(store.complete_from_artifacts(job.run_id), tmp_path)
+    assert view["evidence_lines"] == []

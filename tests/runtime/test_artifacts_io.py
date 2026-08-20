@@ -117,6 +117,9 @@ def test_report_includes_walk_forward_detail_keys(tmp_path):
     assert "regime_stable=false" in text
     assert "returns_scope=oos_walk_forward" in text
     assert "oos_sharpe_median=-0.2" in text
+
+
+def test_format_gate_line_empty_detail():
     assert format_gate_line({"name": "dsr", "passed": True, "detail": {}}) == "dsr: pass"
 
 
