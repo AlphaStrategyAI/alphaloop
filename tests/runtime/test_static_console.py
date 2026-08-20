@@ -243,10 +243,15 @@ def test_packaged_console_asb_export():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")
     script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
     assert 'id="export-status"' in html
     assert "export-asb" in script
     assert "/export" in script
     assert "exported_path" in script
+    assert "export_handoff" in script
+    assert "#export-status" in css
+    assert "pre-wrap" in css
+    assert "http" not in css
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()
 

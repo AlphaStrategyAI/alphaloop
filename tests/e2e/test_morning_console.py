@@ -703,10 +703,13 @@ def test_export_found_only(real_daemon, browser_page, tmp_path):
         page.wait_for_selector("#verdict #handoff button.export-asb", timeout=10000)
         page.locator("#verdict #handoff button.export-asb").first.click()
         page.wait_for_function(
-            """() => (document.getElementById('export-status').textContent || '').indexOf('.asb') !== -1""",
+            """() => (document.getElementById('export-status').textContent || '').indexOf('FOUND') === 0""",
             timeout=10000,
         )
-        assert ".asb" in page.locator("#export-status").inner_text()
+        receipt = page.locator("#export-status").inner_text()
+        assert receipt.splitlines()[0] == "FOUND"
+        assert "This export does not claim alpha or future profitability." in receipt
+        assert ".asb" in receipt
     else:
         assert exported.returncode == 2
         assert not dest.exists()

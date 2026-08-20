@@ -167,7 +167,7 @@ async function exportCandidate(candidateId) {
     status.textContent = body.error || "export failed";
     return;
   }
-  status.textContent = body.exported_path || "";
+  status.textContent = body.export_handoff || body.exported_path || "";
 }
 
 function fillQueued(job) {

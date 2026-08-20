@@ -204,6 +204,12 @@ def test_http_export_found_only(tmp_path):
             assert response.status == 200
         path = tmp_path / run_id / "exports" / "c1.asb"
         assert body["exported_path"] == str(path)
+        from alphaloop.runtime.morning import format_export_handoff
+
+        assert body["export_handoff"] == format_export_handoff(
+            candidate_id="c1",
+            exported_path=str(path),
+        )
         assert zipfile.is_zipfile(path)
     finally:
         server.shutdown()

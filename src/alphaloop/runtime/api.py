@@ -10,7 +10,7 @@ from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.asb_export import export_found_asb
 from alphaloop.runtime.dataset_cache import put_dataset_bytes
 from alphaloop.runtime.example_dataset import ensure_example_dataset
-from alphaloop.runtime.morning import morning_view
+from alphaloop.runtime.morning import format_export_handoff, morning_view
 from alphaloop.runtime.preflight import preflight
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
@@ -99,6 +99,10 @@ class JobAPI:
         view = morning_view(self.store.get(run_id), self.data_dir)
         view["exported_path"] = str(dest)
         view["exported_candidate_id"] = candidate_id
+        view["export_handoff"] = format_export_handoff(
+            candidate_id=candidate_id,
+            exported_path=str(dest),
+        )
         return view
 
     def put_dataset(self, blob: bytes) -> dict[str, str]:

@@ -30,7 +30,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 from alphaloop.runtime.morning import format_export_handoff
@@ -50,13 +50,13 @@ Static: `"export_handoff"` in script; `"#export-status"` and `pre-wrap` in CSS; 
 E2E FOUND branch after click: `#export-status` first line `FOUND`; includes
 `This export does not claim alpha or future profitability.` and `.asb`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_api.py::test_export_run_writes_asb_for_found_ledger_id tests/runtime/test_static_console.py::test_packaged_console_asb_export -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `export_run` sets `export_handoff`. Console `status.textContent = body.export_handoff || body.exported_path || ""`. CSS `#export-status { white-space: pre-wrap; }`. Docs.
 

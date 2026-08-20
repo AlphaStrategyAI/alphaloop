@@ -446,6 +446,14 @@ h3 {
   clip: rect(0, 0, 0, 0);
 }
 
+#export-status {
+  white-space: pre-wrap;
+  margin: 0.65rem 0 0;
+  color: var(--fg);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
 #queued .queued-item,
 #qualifying .qualifying-item {
   display: grid;

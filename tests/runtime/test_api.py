@@ -116,6 +116,12 @@ def test_export_run_writes_asb_for_found_ledger_id(tmp_path):
     path = tmp_path / run_id / "exports" / "c1.asb"
     assert payload["exported_path"] == str(path)
     assert payload["exported_candidate_id"] == "c1"
+    from alphaloop.runtime.morning import format_export_handoff
+
+    assert payload["export_handoff"] == format_export_handoff(
+        candidate_id="c1",
+        exported_path=str(path),
+    )
     assert zipfile.is_zipfile(path)
     with pytest.raises(ValueError):
         api.export_run(run_id, "../escape")
