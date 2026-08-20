@@ -60,9 +60,9 @@ python3 -m pytest tests/runtime/test_api.py::test_export_run_writes_asb_for_foun
 
 `export_run` sets `export_handoff`. Console `status.textContent = body.export_handoff || body.exported_path || ""`. CSS `#export-status { white-space: pre-wrap; }`. Docs.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): show the FOUND receipt after console export"
