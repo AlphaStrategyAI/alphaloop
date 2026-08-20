@@ -113,6 +113,22 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#submit-job").count() == 1
 
 
+def test_help_visible_without_opening_a_job(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    assert page.locator("#help-no-alpha").inner_text() == (
+        "This console does not claim alpha or future profitability."
+    )
+    assert HOST_CONSTRAINT in page.locator("#help-host").inner_text()
+    assert page.locator("#help-status").inner_text() == (
+        "Job status (queued, running, completed, failed, cancelled) is not the research conclusion."
+    )
+    assert page.locator("#help-found").inner_text() == (
+        "FOUND means every required hard gate is present and passed. It is not a promise of alpha."
+    )
+    assert "target found" not in page.content()
+
+
 def test_invalid_yaml_shows_preflight_errors_without_job(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
@@ -369,6 +385,11 @@ def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
     assert isinstance(rows["walk_forward"]["detail"]["regime_stable"], bool)
     assert "oos_sharpe_median" in rows["walk_forward"]["detail"]
     assert "target found" not in page.content()
+    _open_job_detail(page)
+    page.wait_for_selector("#evidence li")
+    evidence_text = page.locator("#evidence").inner_text()
+    assert "walk_forward:" in evidence_text
+    assert "regime_stable=" in evidence_text
 
 
 def test_bollinger_job_records_method_trials(real_daemon, browser_page):
