@@ -254,6 +254,9 @@ def test_packaged_console_asb_export():
     assert html.find('id="handoff"') < html.find('id="export-status"')
     assert html.find('id="export-status"') < html.find('id="job-status"')
     assert "currentRunId !== runId" in script
+    assert "#handoff .export-asb" in css
+    assert '#verdict[data-outcome="FOUND"] #handoff .export-asb' in css
+    assert "var(--accent)" in css
     assert "http" not in css
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()

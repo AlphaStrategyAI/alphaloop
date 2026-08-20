@@ -462,7 +462,8 @@ h3 {
 }
 
 #queued .load-queued,
-#qualifying .export-asb {
+#qualifying .export-asb,
+#handoff .export-asb {
   justify-self: start;
   background: var(--ink);
   color: var(--fg);
@@ -471,6 +472,11 @@ h3 {
   padding: 0.35rem 0.65rem;
   font: inherit;
   cursor: pointer;
+}
+
+#verdict[data-outcome="FOUND"] #handoff .export-asb {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .funnel-stack {

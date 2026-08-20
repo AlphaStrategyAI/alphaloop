@@ -26,7 +26,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 assert "#handoff .export-asb" in css
@@ -45,20 +45,20 @@ assert style["borderColor"] == "rgb(62, 224, 160)"
 assert style["color"] == "rgb(62, 224, 160)"
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_asb_export -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Add `#handoff .export-asb` to the existing designed-button group.
 Add `#verdict[data-outcome="FOUND"] #handoff .export-asb` accent rule.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): style the verdict Export control as a FOUND handoff"

@@ -9,7 +9,9 @@ jobs. Cancel or resume from the job detail without
 leaving the page. A human **Export .asb** click on a `FOUND` candidate
 shows the same four-line receipt as `alphaloop export` (`FOUND`,
 qualifying id, path, no-alpha) in the morning verdict cluster next to
-the export button. Switching jobs clears a stale receipt. Leave the host awake, and review `FOUND` /
+the export button. Switching jobs clears a stale receipt. The verdict
+Export control uses the same designed chrome as the qualifying list,
+with FOUND accent color. Leave the host awake, and review `FOUND` /
 `NO_EVIDENCE` / `INCONCLUSIVE` in the morning — job cards show the
 frozen statement and `n_trials`; the detail funnel shows how many
 frozen trials were evaluated, passed, and failed. A running job card

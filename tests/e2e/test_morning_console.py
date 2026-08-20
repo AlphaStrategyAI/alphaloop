@@ -701,7 +701,12 @@ def test_export_found_only(real_daemon, browser_page, tmp_path):
         assert "This export does not claim alpha or future profitability." in exported.stdout
         _open_job_detail(page)
         page.wait_for_selector("#verdict #handoff button.export-asb", timeout=10000)
-        page.locator("#verdict #handoff button.export-asb").first.click()
+        button = page.locator("#verdict #handoff button.export-asb").first
+        color = button.evaluate("el => getComputedStyle(el).color")
+        border = button.evaluate("el => getComputedStyle(el).borderTopColor")
+        assert color == "rgb(62, 224, 160)"
+        assert border == "rgb(62, 224, 160)"
+        button.click()
         page.wait_for_function(
             """() => {
               const node = document.querySelector('#verdict #export-status');
