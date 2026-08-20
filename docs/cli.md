@@ -57,9 +57,10 @@ daemon is not running, the command fails with a hint to run
 
 ## `alphaloop preview`
 
-Review the compiled protocol **without** creating a job. Shows `spec_id`,
-statement, signal, hard gates, `planned_n_trials`, the method grid, and
-the host constraint. Does not claim alpha.
+Review the compiled protocol **without** creating a job. Leads with
+`planned_n_trials`, then `spec_id`, statement, signal, hard gates, seed,
+time and cost budgets, the method grid, and the host constraint. Does not
+claim alpha.
 
 ```
 alphaloop preview --spec PATH [--data-dir DIR] [--json]

@@ -215,11 +215,14 @@ def format_protocol_preview(body: dict[str, Any]) -> str:
             lines.append(str(error))
     lines.extend(
         [
+            f"planned_n_trials: {body.get('planned_n_trials', '')}",
             f"spec_id: {body.get('spec_id', '')}",
             f"statement: {body.get('statement', '')}",
             f"signal_mechanism: {body.get('signal_mechanism', '')}",
             f"hard_gates: {gates_text}",
-            f"planned_n_trials: {body.get('planned_n_trials', '')}",
+            f"seed: {body.get('seed', '')}",
+            f"time_budget_s: {body.get('time_budget_s', '')}",
+            f"cost_budget_usd: {body.get('cost_budget_usd', '')}",
             "grid:",
         ]
     )

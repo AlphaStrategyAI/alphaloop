@@ -29,7 +29,7 @@
 - Consumes: preview body keys already returned by `JobAPI.preview_run`
 - Produces: `format_protocol_preview(body: dict[str, Any]) -> str` with N first, then seed and budgets
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/runtime/test_cli_jobs.py`:
 
@@ -65,7 +65,7 @@ def test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets():
 
 Keep `test_preview_shows_protocol_without_creating_a_job`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets -v
@@ -73,7 +73,7 @@ python3 -m pytest tests/runtime/test_cli_jobs.py::test_format_protocol_preview_l
 
 Expected: FAIL (`planned_n_trials` is not the first line; `seed: 7` missing).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `format_protocol_preview`, after any preflight error lines, emit:
 
@@ -93,13 +93,13 @@ Keep existing grid rows, `HOST_CONSTRAINT`, no-alpha sentence, and freeze cue.
 
 In `docs/cli.md`, name seed and budgets in the preview paragraph.
 
-- [ ] **Step 4: PASS** plus `test_preview_shows_protocol_without_creating_a_job`
+- [x] **Step 4: PASS** plus `test_preview_shows_protocol_without_creating_a_job`
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets tests/runtime/test_cli_jobs.py::test_preview_shows_protocol_without_creating_a_job -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(cli): disclose N, seed, and budgets in protocol preview"

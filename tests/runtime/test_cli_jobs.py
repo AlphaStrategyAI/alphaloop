@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from alphaloop.cli.jobs import format_protocol_preview
 from alphaloop.cli.main import create_parser, main
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict, evaluate_hard_gates
@@ -63,6 +64,33 @@ def test_submit_returns_run_id_and_host_constraint(tmp_path, capsys):
         assert "j_" in captured.out
     finally:
         server.shutdown()
+
+
+def test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets():
+    text = format_protocol_preview(
+        {
+            "ok": True,
+            "spec_id": "sp_demo",
+            "statement": "momentum holds",
+            "signal_mechanism": "momentum_12_1",
+            "hard_gates": ["dsr", "walk_forward"],
+            "planned_n_trials": 12,
+            "seed": 7,
+            "time_budget_s": 3600,
+            "cost_budget_usd": 0.0,
+            "method_parameter_grid": [{}],
+        }
+    )
+    assert text.splitlines()[0] == "planned_n_trials: 12"
+    assert "seed: 7" in text
+    assert "time_budget_s: 3600" in text
+    assert "cost_budget_usd: 0.0" in text
+    assert text.index("planned_n_trials:") < text.index("spec_id:")
+    assert text.index("seed:") < text.index("grid:")
+    assert HOST_CONSTRAINT in text
+    assert "Freeze with alphaloop submit --spec PATH" in text
+    assert "run_id:" not in text
+    assert "FOUND" not in text
 
 
 def test_preview_shows_protocol_without_creating_a_job(tmp_path, capsys):
