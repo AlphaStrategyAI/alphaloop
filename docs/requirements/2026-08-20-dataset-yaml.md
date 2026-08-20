@@ -54,8 +54,7 @@ Cached: {cached_path}
 This cache does not claim alpha or future profitability.
 ```
 
-plus a trailing newline. Five content lines (six including the
-`dataset:` key line — six lines total in `splitlines()`).
+plus a trailing newline. Five lines in `str.splitlines()`.
 
 ### R2. JSON
 
