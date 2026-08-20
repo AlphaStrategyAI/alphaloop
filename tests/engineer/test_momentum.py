@@ -91,6 +91,12 @@ def test_macd_no_lookahead():
     pd.testing.assert_series_equal(w1.iloc[:200], w2.iloc[:200], check_names=False)
 
 
+def test_macd_appel_buy_params_weights_in_01():
+    p = _make_prices()
+    w = macd(p, fast=8, slow=17, signal_period=9)
+    assert w.between(0, 1).all()
+
+
 def test_roc_returns_same_index():
     p = _make_prices()
     w = roc(p)

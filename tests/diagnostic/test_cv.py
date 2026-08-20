@@ -18,6 +18,7 @@ from alphaloop.diagnostic import (  # noqa: E402
     WalkForwardResult,
     walk_forward_cv,
 )
+from alphaloop.diagnostic.cv import chronological_half_sharpes  # noqa: E402
 
 
 def _make_prices(n: int = 1000, seed: int = 0, drift: float = 0.0003) -> pd.Series:
@@ -143,3 +144,64 @@ def test_walk_forward_embargo_gaps_train_and_test():
         train_end_i = prices.index.get_loc(fold.train_end)
         test_start_i = prices.index.get_loc(fold.test_start)
         assert int(test_start_i) - int(train_end_i) - 1 == 5
+
+
+def test_chronological_half_sharpes_both_positive():
+    rng = np.random.default_rng(0)
+    rets = pd.Series(
+        np.concatenate(
+            [rng.normal(0.01, 0.002, 20), rng.normal(0.01, 0.002, 20)]
+        )
+    )
+    first, second, evaluated = chronological_half_sharpes(rets)
+    assert evaluated is True
+    assert first > 0
+    assert second > 0
+
+
+def test_chronological_half_sharpes_second_half_negative():
+    rng = np.random.default_rng(0)
+    rets = pd.Series(
+        np.concatenate(
+            [rng.normal(0.01, 0.002, 20), rng.normal(-0.01, 0.002, 20)]
+        )
+    )
+    first, second, evaluated = chronological_half_sharpes(rets)
+    assert evaluated is True
+    assert first > 0
+    assert second < 0
+
+
+def test_chronological_half_sharpes_short_not_evaluated():
+    first, second, evaluated = chronological_half_sharpes(pd.Series([0.01] * 20))
+    assert evaluated is False
+    assert first == 0.0
+    assert second == 0.0
+
+
+def test_walk_forward_fails_when_second_oos_half_is_negative():
+    n = 400
+    idx = pd.date_range("2020-01-01", periods=n, freq="B")
+    rng = np.random.default_rng(1)
+    rets = np.concatenate(
+        [rng.normal(0.004, 0.002, 300), rng.normal(-0.002, 0.002, 100)]
+    )
+    prices = pd.Series(100.0 * np.exp(np.cumsum(rets)), index=idx)
+    result = walk_forward_cv(
+        prices, _buy_and_hold, train_size=200, test_size=50, step_size=50
+    )
+    assert len(result.oos_returns) >= 30
+    assert result.oos_sharpe_mean > 0
+    assert result.first_half_sharpe > 0
+    assert result.second_half_sharpe < 0
+    assert result.regime_stable is False
+    assert result.passes is False
+
+
+def test_walk_forward_does_not_fail_regime_when_oos_short():
+    prices = _make_prices(50, drift=0.001)
+    result = walk_forward_cv(
+        prices, _buy_and_hold, train_size=20, test_size=8, step_size=8
+    )
+    assert len(result.oos_returns) < 30
+    assert result.regime_stable is True

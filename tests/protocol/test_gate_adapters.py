@@ -158,6 +158,27 @@ def test_walk_forward_adapter_passes_profile_cost_and_embargo():
         assert kwargs["embargo_size"] >= 1
 
 
+def test_walk_forward_detail_includes_regime_fields():
+    prices = _prices(400)
+    evidence = run_hard_gates(
+        (HardGateName.WALK_FORWARD,),
+        prices=prices,
+        strategy_returns=_returns(prices),
+        buy_hold_prices=prices,
+        benchmark_prices=prices,
+        secondary_frames=None,
+        n_trials=1,
+        profile=get_profile("us-equity-daily"),
+        seed=1,
+        strategy_fn=_strategy_fn,
+    )
+    detail = evidence.results[0].detail
+    assert "regime_stable" in detail
+    assert "first_half_sharpe" in detail
+    assert "second_half_sharpe" in detail
+    assert isinstance(detail["regime_stable"], bool)
+
+
 def test_dsr_detail_records_cost_bps():
     prices = _prices()
     evidence = run_hard_gates(

@@ -60,8 +60,11 @@ class WalkForwardResult:
     oos_sharpe_median: float
     oos_return_mean: float
     n_folds: int
-    passes: bool  # mean OOS Sharpe > 0
+    passes: bool  # mean OOS Sharpe > 0 and chronological halves stable when evaluable
     oos_returns: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
+    first_half_sharpe: float = 0.0
+    second_half_sharpe: float = 0.0
+    regime_stable: bool = True
 
     def summary(self) -> str:
         verdict = "PASS" if self.passes else "FAIL"
@@ -71,7 +74,10 @@ class WalkForwardResult:
             f"  OOS Sharpe mean:   {self.oos_sharpe_mean:.3f}\n"
             f"  OOS Sharpe std:    {self.oos_sharpe_std:.3f}\n"
             f"  OOS Sharpe median: {self.oos_sharpe_median:.3f}\n"
-            f"  OOS return mean:   {self.oos_return_mean:.3%}"
+            f"  OOS return mean:   {self.oos_return_mean:.3%}\n"
+            f"  Regime stable:     {self.regime_stable}\n"
+            f"  First-half SR:     {self.first_half_sharpe:.3f}\n"
+            f"  Second-half SR:    {self.second_half_sharpe:.3f}"
         )
 
 
@@ -80,6 +86,26 @@ def _annualized_sharpe(returns: pd.Series, periods_per_year: int = 252) -> float
     if returns.empty or returns.std() == 0:
         return 0.0
     return float(returns.mean() / returns.std() * np.sqrt(periods_per_year))
+
+
+MIN_REGIME_OBSERVATIONS = 30
+
+
+def chronological_half_sharpes(
+    returns: pd.Series,
+    periods_per_year: int = 252,
+) -> tuple[float, float, bool]:
+    """Split *returns* at the midpoint and Sharpe each half.
+
+    Returns ``(first_half_sharpe, second_half_sharpe, evaluated)``.
+    ``evaluated`` is False when ``len(returns) < MIN_REGIME_OBSERVATIONS``.
+    """
+    if returns is None or len(returns) < MIN_REGIME_OBSERVATIONS:
+        return 0.0, 0.0, False
+    mid = len(returns) // 2
+    first = _annualized_sharpe(returns.iloc[:mid], periods_per_year)
+    second = _annualized_sharpe(returns.iloc[mid:], periods_per_year)
+    return first, second, True
 
 
 def _max_drawdown(returns: pd.Series) -> float:
@@ -114,8 +140,10 @@ def walk_forward_cv(
         step_size: How many bars to roll forward each fold. Defaults
             to `test_size` (non-overlapping test windows).
         periods_per_year: For annualizing Sharpe. Default 252 (daily).
-        min_oos_sharpe: Threshold for `result.passes` (default 0.0,
-            i.e. mean OOS Sharpe must be positive).
+            min_oos_sharpe: Threshold for `result.passes` (default 0.0,
+            i.e. mean OOS Sharpe must be positive). When concatenated
+            OOS length is at least 30, both chronological halves must
+            also have positive Sharpe.
         embargo_size: Bars skipped between the last train bar and the
             first test bar (López de Prado Ch. 7 embargo). Default 0
             preserves historical fold geometry.
@@ -178,6 +206,8 @@ def walk_forward_cv(
     concat = pd.concat(oos_parts) if oos_parts else pd.Series(dtype=float)
     if not concat.empty:
         concat = concat[~concat.index.duplicated(keep="first")]
+    first, second, evaluated = chronological_half_sharpes(concat, periods_per_year)
+    regime_stable = (first > 0.0 and second > 0.0) if evaluated else True
 
     if not folds:
         return WalkForwardResult(
@@ -189,6 +219,9 @@ def walk_forward_cv(
             n_folds=0,
             passes=False,
             oos_returns=concat,
+            first_half_sharpe=first,
+            second_half_sharpe=second,
+            regime_stable=regime_stable,
         )
 
     oos_sharpes = np.array([f.oos_sharpe for f in folds])
@@ -200,6 +233,9 @@ def walk_forward_cv(
         oos_sharpe_median=float(np.median(oos_sharpes)),
         oos_return_mean=float(oos_returns.mean()),
         n_folds=len(folds),
-        passes=bool(oos_sharpes.mean() > min_oos_sharpe),
+        passes=bool(oos_sharpes.mean() > min_oos_sharpe) and regime_stable,
         oos_returns=concat,
+        first_half_sharpe=first,
+        second_half_sharpe=second,
+        regime_stable=regime_stable,
     )

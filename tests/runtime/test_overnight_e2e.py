@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+
 import pandas as pd
 
 from alphaloop.contracts.artifacts import RunLayout, DatasetRef, hash_bytes
+from alphaloop.contracts.gates import HardGateName, evidence_from_dict
 from alphaloop.contracts.research_spec import new_research_spec
 from alphaloop.runtime.api import JobAPI
 from alphaloop.runtime.store import JobStore
@@ -69,3 +72,36 @@ def test_shortened_overnight_writes_required_artifacts(tmp_path):
     if first is not None:
         second = (layout2.evidence / "gates.json").read_bytes()
         assert first == second
+
+
+def test_macd_walk_forward_records_regime_stable(tmp_path):
+    frame = _prices_frame()
+    parquet = tmp_path / "datasets" / "ds_macd" / "prices.parquet"
+    parquet.parent.mkdir(parents=True)
+    frame.to_parquet(parquet)
+    digest = hash_bytes(parquet.read_bytes())
+    spec = new_research_spec(
+        statement="MACD crossover works in US large caps net of costs",
+        economic_logic="trend continuation after EMA spread confirmation",
+        signal_mechanism="macd",
+        market_scope="AAPL, MSFT",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("walk_forward",),
+        seed=7,
+        time_budget_s=30,
+        cost_budget_usd=1.0,
+        dataset=DatasetRef(dataset_id="ds_macd", sha256=digest),
+    )
+    api = _api(tmp_path)
+    created = api.create_run(spec)
+    run_id = created["run_id"]
+    layout = RunLayout(tmp_path / run_id)
+    assert run_worker(run_id, tmp_path) == 0
+    gates_path = layout.evidence / "gates.json"
+    assert gates_path.is_file()
+    evidence = evidence_from_dict(json.loads(gates_path.read_text(encoding="utf-8")))
+    by_name = {row.name: row for row in evidence.results}
+    assert HardGateName.WALK_FORWARD in by_name
+    assert "regime_stable" in by_name[HardGateName.WALK_FORWARD].detail
+    assert isinstance(by_name[HardGateName.WALK_FORWARD].detail["regime_stable"], bool)

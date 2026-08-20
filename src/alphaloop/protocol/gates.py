@@ -33,7 +33,16 @@ def _annualized_sharpe(returns: pd.Series, periods_per_year: int) -> float:
 
 def _detail(result: object) -> dict:
     payload: dict = {}
-    for name in ("dsr", "passes", "p_value", "observed_sharpe", "oos_sharpe_mean"):
+    for name in (
+        "dsr",
+        "passes",
+        "p_value",
+        "observed_sharpe",
+        "oos_sharpe_mean",
+        "first_half_sharpe",
+        "second_half_sharpe",
+        "regime_stable",
+    ):
         if hasattr(result, name):
             value = getattr(result, name)
             if isinstance(value, (int, float, bool, str)):

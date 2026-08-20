@@ -339,3 +339,32 @@ def test_no_gate_override_in_page_or_http(real_daemon, browser_page):
         with pytest.raises(HTTPError) as exc:
             urlopen(req)
         assert exc.value.code == 404
+
+
+def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"], dataset_id="ds_macd_wf")
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill(
+        "#spec-yaml",
+        _spec_yaml(
+            dataset,
+            statement="MACD crossover works in US large caps net of costs",
+            signal_mechanism="macd",
+            hard_gates=["walk_forward"],
+            time_budget_s=60,
+        ),
+    )
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page, timeout_ms=90000)
+    assert outcome in _OUTCOMES
+    run_id = _first_run_id(page)
+    layout = RunLayout(real_daemon["data_dir"] / run_id)
+    gates_path = layout.evidence / "gates.json"
+    assert gates_path.is_file()
+    payload = json.loads(gates_path.read_text(encoding="utf-8"))
+    rows = {row["name"]: row for row in payload["results"]}
+    assert "walk_forward" in rows
+    assert "regime_stable" in rows["walk_forward"]["detail"]
+    assert isinstance(rows["walk_forward"]["detail"]["regime_stable"], bool)
+    assert "target found" not in page.content()

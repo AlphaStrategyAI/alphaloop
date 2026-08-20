@@ -8,6 +8,11 @@ _GRIDS: dict[str, tuple[dict[str, object], ...]] = {
     ),
     "rsi": ({}, {"window": 9}, {"window": 21}),
     "roc": ({}, {"window": 63}, {"window": 126}),
+    "macd": (
+        {},
+        {"fast": 8, "slow": 17, "signal_period": 9},
+        {"fast": 12, "slow": 25, "signal_period": 9},
+    ),
 }
 
 
