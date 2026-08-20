@@ -305,6 +305,32 @@ def test_dataset_file_picker_fills_identity_without_creating_a_job(real_daemon, 
     assert "target found" not in page.content()
 
 
+def test_dataset_csv_picker_fills_identity_without_creating_a_job(
+    real_daemon, browser_page, tmp_path
+):
+    idx = pd.bdate_range("2018-01-01", periods=20)
+    frame = pd.DataFrame(
+        {"AAPL": 100.0, "MSFT": 100.0, "SPY": 100.0},
+        index=idx,
+    )
+    csv_path = tmp_path / "prices.csv"
+    frame.to_csv(csv_path)
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.set_input_files("#field-dataset-file", str(csv_path))
+    page.wait_for_function(
+        """() => {
+            const id = document.getElementById('field-dataset-id');
+            const sha = document.getElementById('field-dataset-sha256');
+            return id && sha && id.value.startsWith('ds_') && sha.value.length === 64;
+        }""",
+        timeout=10000,
+    )
+    assert page.locator("#job-list button").count() == 0
+    assert page.locator("#submit-job").is_disabled()
+    assert "target found" not in page.content()
+
+
 def test_help_visible_without_opening_a_job(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])

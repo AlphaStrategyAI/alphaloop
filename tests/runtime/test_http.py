@@ -273,3 +273,33 @@ def test_http_dataset_upload_caches_parquet_without_a_job(tmp_path):
         assert api.list_jobs()["jobs"] == []
     finally:
         server.shutdown()
+
+
+def test_http_dataset_upload_caches_csv_without_a_job(tmp_path):
+    import pandas as pd
+
+    from alphaloop.runtime.dataset_cache import dataset_parquet_path
+
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    idx = pd.bdate_range("2018-01-01", periods=5)
+    frame = pd.DataFrame({"AAPL": 100.0, "MSFT": 100.0, "SPY": 100.0}, index=idx)
+    blob = frame.to_csv().encode("utf-8")
+    try:
+        req = Request(
+            f"http://{host}:{port}/v1/datasets",
+            data=blob,
+            headers={"Content-Type": "text/csv"},
+            method="POST",
+        )
+        with urlopen(req) as response:
+            assert response.status == 201
+            body = json.loads(response.read().decode("utf-8"))
+        assert str(body["dataset_id"]).startswith("ds_")
+        stored = pd.read_parquet(dataset_parquet_path(tmp_path, body["dataset_id"]))
+        assert list(stored.columns) == ["AAPL", "MSFT", "SPY"]
+        assert api.list_jobs()["jobs"] == []
+    finally:
+        server.shutdown()

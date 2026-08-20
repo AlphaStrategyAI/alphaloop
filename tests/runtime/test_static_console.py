@@ -146,6 +146,19 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert "input:focus-visible" in css
 
 
+def test_packaged_console_dataset_csv_accept():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    assert 'id="field-dataset-file"' in html
+    assert ".csv" in html
+    assert "CSV" in html or "csv" in html
+    picker = script.find("function cacheDatasetFile")
+    assert picker != -1
+    assert "submitJob" not in script[picker : picker + 1600]
+    assert HOST_CONSTRAINT in html
+
+
 def test_packaged_before_bed_groups_and_yaml_fold():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

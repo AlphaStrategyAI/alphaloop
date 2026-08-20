@@ -91,6 +91,16 @@ def cache_dataset_file(data_dir: Path, path: Path) -> DatasetRef:
     raise DatasetRejected("dataset snapshot must be parquet or csv")
 
 
+def cache_dataset_bytes(data_dir: Path, blob: bytes) -> DatasetRef:
+    if blob.startswith(PARQUET_MAGIC):
+        return put_dataset_bytes(data_dir, blob)
+    try:
+        converted = parquet_bytes_from_csv(blob)
+    except DatasetRejected as exc:
+        raise DatasetRejected("dataset snapshot must be parquet or csv") from exc
+    return put_dataset_bytes(data_dir, converted)
+
+
 def _universe(market_scope: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in market_scope.split(",") if part.strip())
 

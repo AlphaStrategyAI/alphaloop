@@ -8,7 +8,7 @@ from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus
 from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.asb_export import export_found_asb
-from alphaloop.runtime.dataset_cache import put_dataset_bytes
+from alphaloop.runtime.dataset_cache import cache_dataset_bytes
 from alphaloop.runtime.example_dataset import ensure_example_dataset
 from alphaloop.runtime.morning import format_export_handoff, morning_view
 from alphaloop.runtime.preflight import preflight
@@ -113,5 +113,5 @@ class JobAPI:
         return view
 
     def put_dataset(self, blob: bytes) -> dict[str, str]:
-        ref = put_dataset_bytes(self.data_dir, blob)
+        ref = cache_dataset_bytes(self.data_dir, blob)
         return {"dataset_id": ref.dataset_id, "sha256": ref.sha256}

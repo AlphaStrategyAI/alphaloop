@@ -31,7 +31,7 @@
 - Consumes: `put_dataset_bytes`, `parquet_bytes_from_csv`
 - Produces: `cache_dataset_bytes(data_dir: Path, blob: bytes) -> DatasetRef`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_cache_dataset_bytes_converts_wide_csv(tmp_path):
@@ -81,13 +81,13 @@ def test_dataset_csv_picker_fills_identity_without_creating_a_job(real_daemon, b
     assert page.locator("#submit-job").is_disabled()
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_dataset_cache.py::test_cache_dataset_bytes_converts_wide_csv tests/runtime/test_static_console.py::test_packaged_console_dataset_csv_accept -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `cache_dataset_bytes`: PAR1 → `put_dataset_bytes`; else convert CSV or `DatasetRejected("dataset snapshot must be parquet or csv")`.
 
@@ -95,13 +95,13 @@ python3 -m pytest tests/runtime/test_dataset_cache.py::test_cache_dataset_bytes_
 
 HTML: `accept=".parquet,.csv,application/octet-stream,text/csv"`; label `Dataset parquet or CSV`.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_dataset_cache.py tests/runtime/test_http.py::test_http_dataset_upload_caches_parquet_without_a_job tests/runtime/test_http.py::test_http_dataset_upload_caches_csv_without_a_job tests/runtime/test_static_console.py::test_packaged_console_dataset_csv_accept tests/runtime/test_dataset_upload.py -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): accept wide close-only CSV in the dataset picker"
