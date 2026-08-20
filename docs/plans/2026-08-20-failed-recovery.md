@@ -28,7 +28,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 In `tests/runtime/test_static_console.py`:
 
@@ -59,7 +59,7 @@ E2E `test_home_shows_promise_and_submit_form`: `#job-error` and
 E2E `test_job_detail_while_running_or_later_legal_outcome`: those
 nodes exist on the open detail.
 
-- [ ] **Step 2: Run tests — expect FAIL**
+- [x] **Step 2: Run tests — expect FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_failed_recovery_surface -v
@@ -67,7 +67,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_fa
 
 Expected: FAIL (no `#job-error`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 HTML: `#job-error` then `#recovery-attempts` after `#worker-heartbeat`.
 
@@ -81,13 +81,13 @@ Muted color for the new nodes.
 
 Register requirements + plan in `mkdocs.yml`.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py tests/runtime/test_morning.py -q
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): show failed-job error and recovery attempts"
