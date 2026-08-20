@@ -260,11 +260,25 @@ async function showJob(runId) {
     document.getElementById("funnel"),
     job.funnel && job.funnel.dominant_failures,
     function (name) {
-      return name;
+      const counts = (job.funnel && job.funnel.failure_counts) || {};
+      const count = counts[name];
+      return count ? name + " × " + count : name;
     }
   );
+  const funnel = job.funnel || {};
+  document.getElementById("funnel-summary").textContent = [
+    "evaluated: " + (funnel.n_evaluated || 0),
+    "passed: " + (funnel.n_passed || 0),
+    "failed: " + (funnel.n_failed || 0),
+  ].join(" · ");
   fillList(document.getElementById("revisions"), job.revisions, function (row) {
-    return (row.trial_id || "") + " " + (row.revision || "");
+    return (
+      (row.trial_id || "") +
+      " · " +
+      (row.revision || "") +
+      " · " +
+      formatGridRow(row.parameters)
+    );
   });
   fillList(document.getElementById("queued"), job.queued_hypotheses, function (row) {
     return row.statement || JSON.stringify(row);

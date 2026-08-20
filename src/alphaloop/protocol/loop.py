@@ -57,6 +57,15 @@ def _candidate_id(kind: str, parameters: Mapping[str, Any]) -> str:
     return "c_" + hashlib.sha256(encoded).hexdigest()[:16]
 
 
+def _write_evidence(layout: RunLayout, candidate_id: str, evidence: GateEvidence) -> None:
+    layout.evidence.mkdir(parents=True, exist_ok=True)
+    body = json.dumps(evidence_to_dict(evidence), indent=2) + "\n"
+    (layout.evidence / "gates.json").write_text(body, encoding="utf-8")
+    trials = layout.evidence / "trials"
+    trials.mkdir(parents=True, exist_ok=True)
+    (trials / f"{candidate_id}.json").write_text(body, encoding="utf-8")
+
+
 def _append_ledger(layout: RunLayout, payload: Mapping[str, Any]) -> None:
     layout.trial_ledger.parent.mkdir(parents=True, exist_ok=True)
     with layout.trial_ledger.open("a", encoding="utf-8") as handle:
@@ -252,11 +261,7 @@ def run_protocol(
             evidence = None
 
         if evidence is not None:
-            layout.evidence.mkdir(parents=True, exist_ok=True)
-            (layout.evidence / "gates.json").write_text(
-                json.dumps(evidence_to_dict(evidence), indent=2) + "\n",
-                encoding="utf-8",
-            )
+            _write_evidence(layout, candidate_id, evidence)
             last_evidence = evidence
             stop_evidence = evidence
 
@@ -298,11 +303,7 @@ def run_protocol(
                 pbo = probability_of_backtest_overfitting(pbo_inputs)
                 if pbo.evaluated:
                     last_evidence = _attach_pbo(last_evidence, pbo)
-                    layout.evidence.mkdir(parents=True, exist_ok=True)
-                    (layout.evidence / "gates.json").write_text(
-                        json.dumps(evidence_to_dict(last_evidence), indent=2) + "\n",
-                        encoding="utf-8",
-                    )
+                    _write_evidence(layout, candidate_id, last_evidence)
                     if not last_evidence.all_passed:
                         return _result(
                             research_outcome=ResearchOutcome.NO_EVIDENCE,

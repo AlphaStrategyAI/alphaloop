@@ -83,6 +83,7 @@ h3 {
 #job-status,
 #hypothesis-statement,
 #spec-meta,
+#funnel-summary,
 #protocol-preview,
 #host-constraint {
   color: var(--muted);

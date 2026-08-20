@@ -7,8 +7,9 @@ preview the compiled protocol (readable method grid and planned trial
 count), then freeze it. Cancel or resume from the job detail without
 leaving the page. Leave the host awake, and review `FOUND` /
 `NO_EVIDENCE` / `INCONCLUSIVE` in the morning — job cards show the
-frozen statement and `n_trials`. Job status and research outcome stay
-separate. The page does not promise alpha.
+frozen statement and `n_trials`; the detail funnel shows how many
+frozen trials were evaluated, passed, and failed. Job status and
+research outcome stay separate. The page does not promise alpha.
 
 The Vite + React + TypeScript Quant Lab SPA under `webui/` is **frozen
 heritage**. It is not the overnight-lab product UI. The notes below

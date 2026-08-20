@@ -8,6 +8,7 @@ import pandas as pd
 import yaml
 
 from alphaloop.contracts.artifacts import RunLayout
+from alphaloop.contracts.gates import GateEvidence, evidence_from_dict
 from alphaloop.contracts.research_spec import ResearchSpec
 
 _CANDIDATE_COLUMNS = ("trial_id", "kind", "parameters", "revision")
@@ -139,6 +140,68 @@ def _unique_trial_count(layout: RunLayout) -> int:
     return len(dict.fromkeys(ids))
 
 
+def _read_json_object(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _load_trial_evidence(layout: RunLayout) -> list[GateEvidence]:
+    rows: list[GateEvidence] = []
+    trials_dir = layout.evidence / "trials"
+    if trials_dir.is_dir():
+        for path in sorted(trials_dir.glob("*.json")):
+            payload = _read_json_object(path)
+            if payload is None:
+                continue
+            try:
+                rows.append(evidence_from_dict(payload))
+            except (KeyError, TypeError, ValueError):
+                continue
+    if rows:
+        return rows
+    payload = _read_json_object(layout.evidence / "gates.json")
+    if payload is None:
+        return []
+    try:
+        return [evidence_from_dict(payload)]
+    except (KeyError, TypeError, ValueError):
+        return []
+
+
+def build_funnel(layout: RunLayout) -> dict[str, Any]:
+    trials = _load_trial_evidence(layout)
+    n_complete = sum(1 for item in trials if item.complete)
+    n_passed = sum(1 for item in trials if item.complete and item.all_passed)
+    n_failed = sum(1 for item in trials if item.complete and not item.all_passed)
+    n_evaluated = max(_unique_trial_count(layout), n_complete)
+    failure_counts: dict[str, int] = {}
+    for evidence in trials:
+        if not evidence.complete or evidence.all_passed:
+            continue
+        required = set(evidence.required)
+        for row in evidence.results:
+            if row.name in required and not row.passed:
+                name = row.name.value
+                failure_counts[name] = failure_counts.get(name, 0) + 1
+    dominant_failures = sorted(
+        failure_counts, key=lambda name: (-failure_counts[name], name)
+    )
+    return {
+        "n_evaluated": n_evaluated,
+        "n_complete": n_complete,
+        "n_passed": n_passed,
+        "n_failed": n_failed,
+        "n_incomplete": max(0, n_evaluated - n_complete),
+        "failure_counts": failure_counts,
+        "dominant_failures": dominant_failures,
+    }
+
+
 def write_report(
     layout: RunLayout,
     *,
@@ -176,5 +239,13 @@ def write_report(
     if gate_lines:
         lines.extend(["", "## Gates", ""])
         lines.extend(gate_lines)
+    funnel = build_funnel(layout)
+    if funnel["n_evaluated"] or funnel["n_complete"]:
+        lines.extend(["", "## Elimination funnel", ""])
+        lines.append(f"evaluated: {funnel['n_evaluated']}")
+        lines.append(f"passed: {funnel['n_passed']}")
+        lines.append(f"failed: {funnel['n_failed']}")
+        for name in funnel["dominant_failures"]:
+            lines.append(f"{name}: {funnel['failure_counts'][name]}")
     layout.report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return layout.report

@@ -8,7 +8,7 @@ from typing import Any, Optional
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import evidence_from_dict, evidence_to_dict
 from alphaloop.contracts.status import ResearchOutcome
-from alphaloop.runtime.artifacts_io import format_gate_line
+from alphaloop.runtime.artifacts_io import build_funnel, format_gate_line
 from alphaloop.runtime.store import JobRecord
 
 STOP_REASON_ALL_GATES_PASSED = "all_gates_passed"
@@ -79,20 +79,6 @@ def _n_trials(layout: RunLayout) -> int:
     return len(dict.fromkeys(ids))
 
 
-def _dominant_failures(evidence: Optional[dict[str, Any]]) -> list[str]:
-    if not evidence:
-        return []
-    required = set(evidence.get("required") or [])
-    failures: list[str] = []
-    for row in evidence.get("results") or []:
-        if not isinstance(row, dict):
-            continue
-        name = row.get("name")
-        if name in required and row.get("passed") is False:
-            failures.append(str(name))
-    return failures
-
-
 def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
     layout = RunLayout(Path(data_dir) / job.run_id)
     evidence = _load_evidence(layout)
@@ -112,7 +98,7 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "hypothesis": asdict(job.spec.hypothesis),
         "evidence": evidence,
         "evidence_lines": evidence_lines,
-        "funnel": {"dominant_failures": _dominant_failures(evidence)},
+        "funnel": build_funnel(layout),
         "revisions": _load_revisions(layout),
         "queued_hypotheses": _load_queued(layout),
         "stop_reason": _STOP_REASONS[job.research_outcome],
