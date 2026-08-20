@@ -132,6 +132,10 @@ def test_complete_fail_walks_the_frozen_parameter_grid(tmp_path):
     assert len(ledger) == 3
     trial_files = list((layout.evidence / "trials").glob("*.json"))
     assert len(trial_files) == 3
+    rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
+    assert rec["queued_hypotheses"][0]["signal_mechanism"] == "rsi"
+    assert rec["queued_hypotheses"][0]["queued_reason"] == "economic_change_queued"
+    assert "not a claim of alpha" in rec["queued_hypotheses"][0]["statement"].lower()
 
 
 def test_later_frozen_grid_point_can_found(tmp_path):
@@ -161,13 +165,15 @@ def test_frozen_grid_does_not_call_revision_proposer(tmp_path):
     layout = RunLayout(tmp_path / "run")
     layout.run_dir.mkdir()
     calls = {"n": 0}
+    proposed = {"n": 0}
 
     def runner(required, **kwargs):
         calls["n"] += 1
         return _one_fail(required, **kwargs)
 
     def proposer(spec, doc):
-        return {"signal_mechanism": "rsi"}
+        proposed["n"] += 1
+        return {"signal_mechanism": "macd"}
 
     result = run_protocol(
         _spec(),
@@ -179,7 +185,8 @@ def test_frozen_grid_does_not_call_revision_proposer(tmp_path):
         revision_proposer=proposer,
     )
     rec = json.loads(layout.recommendations.read_text(encoding="utf-8"))
-    assert rec["queued_hypotheses"] == []
+    assert proposed["n"] == 0
+    assert all(item.get("signal_mechanism") != "macd" for item in rec["queued_hypotheses"])
     assert result.research_outcome is ResearchOutcome.NO_EVIDENCE
     assert calls["n"] == 3
 

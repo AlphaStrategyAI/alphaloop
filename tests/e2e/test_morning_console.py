@@ -251,6 +251,45 @@ def test_job_card_shows_hypothesis_and_n_trials(real_daemon, browser_page):
     assert card.get_attribute("data-run-id").startswith("j_")
 
 
+def test_load_queued_fills_editor_without_submitting(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    _preview_then_submit(page, _spec_yaml(dataset))
+    run_id = _first_run_id(page)
+    rec_path = Path(real_daemon["data_dir"]) / run_id / "recommendations.json"
+    rec_path.write_text(
+        json.dumps(
+            {
+                "queued_hypotheses": [
+                    {
+                        "queued_reason": "economic_change_queued",
+                        "statement": "No evidence for momentum_12_1; try rsi. This is not a claim of alpha.",
+                        "economic_logic": "Follow-up mechanism after momentum_12_1 found no evidence.",
+                        "signal_mechanism": "rsi",
+                        "market_scope": "AAPL, MSFT",
+                        "market_profile": "us-equity-daily",
+                        "benchmark": "SPY",
+                        "hard_gates": ["dsr"],
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_selector("#job-list button[data-run-id]", timeout=15000)
+    _open_job_detail(page)
+    page.wait_for_selector("#queued button.load-queued", timeout=10000)
+    page.locator("#queued button.load-queued").click()
+    assert page.locator("#field-signal-mechanism").input_value() == "rsi"
+    assert "signal_mechanism: rsi" in page.locator("#spec-yaml").input_value()
+    assert page.locator("#submit-job").is_disabled()
+    assert page.locator("#job-list button").count() == 1
+    assert "target found" not in page.content()
+
+
 def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_page):
     dataset = _write_dataset(real_daemon["data_dir"])
     page = browser_page

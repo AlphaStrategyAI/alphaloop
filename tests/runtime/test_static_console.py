@@ -116,6 +116,7 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert 'id="funnel-summary"' in html
     assert "failure_counts" in script
     assert "n_evaluated" in script
+    assert "load-queued" in script
     assert "override" not in script.lower()
     assert "override" not in html.lower()
     assert "input:focus-visible" in css
