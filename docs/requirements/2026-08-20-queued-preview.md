@@ -45,9 +45,12 @@ protocol review step, not the freeze.
 ### R1. Auto-preview after load
 
 Clicking `#queued button.load-queued` MUST fill the guided form as
-today, then call the existing preview endpoint. On success, Freeze
-and submit becomes enabled. On preview failure, Submit stays
-disabled and `#preflight-errors` shows the errors.
+today, reuse the selected job's `seed`, `time_budget_s`,
+`cost_budget_usd`, and `dataset` when those form fields are empty
+(so a morning page reload can still freeze), then call the existing
+preview endpoint. On success, Freeze and submit becomes enabled. On
+preview failure, Submit stays disabled and `#preflight-errors` shows
+the errors.
 
 ### R2. No auto-submit
 

@@ -117,4 +117,14 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "queued_hypotheses": _load_queued(layout),
         "stop_reason": _STOP_REASONS[job.research_outcome],
         "report_markdown": _load_report(layout),
+        "time_budget_s": job.spec.time_budget_s,
+        "cost_budget_usd": job.spec.cost_budget_usd,
+        "dataset": (
+            {
+                "dataset_id": job.spec.dataset.dataset_id,
+                "sha256": job.spec.dataset.sha256,
+            }
+            if job.spec.dataset is not None
+            else None
+        ),
     }

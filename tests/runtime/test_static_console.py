@@ -133,6 +133,8 @@ def test_packaged_queued_followup_auto_preview():
     body = script[load_at:example_at]
     assert "previewProtocol()" in body
     assert "submitJob()" not in body
+    assert "dataset" in body
+    assert "time_budget_s" in body
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()
 

@@ -54,6 +54,9 @@ def test_passing_gates_found(tmp_path):
     assert view["evidence"]["all_passed"] is True
     assert view["funnel"]["dominant_failures"] == []
     assert view["hypothesis"]["signal_mechanism"] == "momentum_12_1"
+    assert view["time_budget_s"] == job.spec.time_budget_s
+    assert view["cost_budget_usd"] == job.spec.cost_budget_usd
+    assert "dataset" in view
     assert view["qualifying_candidates"] == [
         {"trial_id": "gates.json", "kind": None, "parameters": {}}
     ]

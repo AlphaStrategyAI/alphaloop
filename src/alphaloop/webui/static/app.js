@@ -170,10 +170,11 @@ async function exportCandidate(candidateId) {
   status.textContent = body.exported_path || "";
 }
 
-function fillQueued(items) {
+function fillQueued(job) {
   const node = document.getElementById("queued");
   node.innerHTML = "";
-  if (!items || items.length === 0) {
+  const items = job.queued_hypotheses || [];
+  if (!items.length) {
     const empty = document.createElement("li");
     empty.textContent = "none";
     node.appendChild(empty);
@@ -189,7 +190,7 @@ function fillQueued(items) {
     button.className = "load-queued";
     button.textContent = "Load into editor";
     button.addEventListener("click", function () {
-      loadQueuedHypothesis(row);
+      loadQueuedHypothesis(row, job);
     });
     li.appendChild(text);
     li.appendChild(button);
@@ -197,7 +198,21 @@ function fillQueued(items) {
   });
 }
 
-function loadQueuedHypothesis(row) {
+function datasetYaml(job) {
+  const ds = job && job.dataset;
+  if (!ds || !ds.dataset_id || !ds.sha256) {
+    return "";
+  }
+  return (
+    "dataset:\n  dataset_id: " +
+    ds.dataset_id +
+    "\n  sha256: " +
+    ds.sha256 +
+    "\n"
+  );
+}
+
+function loadQueuedHypothesis(row, job) {
   syncingForm = true;
   document.getElementById("field-statement").value = row.statement || "";
   document.getElementById("field-economic-logic").value = row.economic_logic || "";
@@ -207,6 +222,25 @@ function loadQueuedHypothesis(row) {
   document.getElementById("field-market-profile").value =
     row.market_profile || "";
   document.getElementById("field-benchmark").value = row.benchmark || "";
+  if (job) {
+    if (!document.getElementById("field-seed").value && job.seed != null) {
+      document.getElementById("field-seed").value = String(job.seed);
+    }
+    if (
+      !document.getElementById("field-time-budget").value &&
+      job.time_budget_s != null
+    ) {
+      document.getElementById("field-time-budget").value = String(job.time_budget_s);
+    }
+    if (
+      !document.getElementById("field-cost-budget").value &&
+      job.cost_budget_usd != null
+    ) {
+      document.getElementById("field-cost-budget").value = String(
+        job.cost_budget_usd
+      );
+    }
+  }
   const selected = {};
   (row.hard_gates || []).forEach(function (name) {
     selected[name] = true;
@@ -217,7 +251,11 @@ function loadQueuedHypothesis(row) {
       box.checked = Boolean(selected[box.value]);
     }
   );
-  document.getElementById("spec-yaml").value = formToYaml();
+  let yaml = formToYaml();
+  if (!extractDatasetYaml(yaml)) {
+    yaml += datasetYaml(job);
+  }
+  document.getElementById("spec-yaml").value = yaml;
   syncingForm = false;
   previewedYaml = null;
   setSubmitEnabled(false);
@@ -491,7 +529,7 @@ async function showJob(runId) {
       formatGridRow(row.parameters)
     );
   });
-  fillQueued(job.queued_hypotheses);
+  fillQueued(job);
 }
 
 async function postJobAction(action) {
