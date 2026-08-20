@@ -55,6 +55,7 @@ short help. It does not claim alpha.
 
 ```bash
 alphaloop status RUN_ID
+alphaloop status RUN_ID --json
 alphaloop resume RUN_ID
 alphaloop replay RUN_ID
 ```

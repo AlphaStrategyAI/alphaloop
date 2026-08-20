@@ -21,6 +21,28 @@ STOP_REASON_ALL_GATES_PASSED = "all_gates_passed"
 STOP_REASON_HARD_GATE_FAILED = "hard_gate_failed"
 STOP_REASON_INCOMPLETE_EVIDENCE = "incomplete_evidence"
 
+OUTCOME_GLOSS = {
+    "FOUND": (
+        "FOUND means every required hard gate is present and passed. "
+        "It is not a promise of alpha."
+    ),
+    "NO_EVIDENCE": (
+        "NO_EVIDENCE means a required hard gate failed. "
+        "It is not a promise that alpha does not exist."
+    ),
+    "INCONCLUSIVE": (
+        "INCONCLUSIVE means the evidence set is incomplete. "
+        "Missing diagnostics cannot produce FOUND."
+    ),
+    "NONE": (
+        "Job status (queued, running, completed, failed, cancelled) "
+        "is not the research conclusion."
+    ),
+}
+
+STATUS_NO_ALPHA = "This status does not claim alpha or future profitability."
+_PENDING = "(running or not yet terminal)"
+
 _STOP_REASONS = {
     ResearchOutcome.FOUND: STOP_REASON_ALL_GATES_PASSED,
     ResearchOutcome.NO_EVIDENCE: STOP_REASON_HARD_GATE_FAILED,
@@ -92,6 +114,37 @@ def _load_report(layout: RunLayout) -> str:
         return layout.report.read_text(encoding="utf-8")
     except OSError:
         return ""
+
+
+def _format_grid_row(parameters: Any) -> str:
+    if not isinstance(parameters, dict) or not parameters:
+        return "{}"
+    return " ".join(f"{key}={parameters[key]}" for key in sorted(parameters))
+
+
+def format_status_verdict(view: dict[str, Any]) -> str:
+    outcome = str(view.get("research_outcome") or "NONE")
+    lines = [outcome, OUTCOME_GLOSS.get(outcome, OUTCOME_GLOSS["NONE"])]
+    primary = view.get("primary_evidence")
+    lines.append("Primary evidence: " + (str(primary) if primary else _PENDING))
+    stop = view.get("stop_reason")
+    lines.append("Stop reason: " + (str(stop) if stop else _PENDING))
+    queued = view.get("queued_hypotheses") or []
+    if isinstance(queued, list) and queued:
+        first = queued[0]
+        statement = first.get("statement") if isinstance(first, dict) else None
+        if statement:
+            lines.append("Next run: " + str(statement))
+    qualifying = view.get("qualifying_candidates") or []
+    if outcome == "FOUND" and isinstance(qualifying, list) and qualifying:
+        row = qualifying[0] if isinstance(qualifying[0], dict) else {}
+        trial = str(row.get("trial_id") or "gates.json")
+        kind = str(row.get("kind") or "")
+        params = _format_grid_row(row.get("parameters"))
+        lines.append(f"Qualifying: {trial} · {kind} · {params}")
+    lines.append("Job status: " + str(view.get("status") or ""))
+    lines.append(STATUS_NO_ALPHA)
+    return "\n".join(lines) + "\n"
 
 
 def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:

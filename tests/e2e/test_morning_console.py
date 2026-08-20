@@ -437,11 +437,16 @@ def test_terminal_outcome_matches_cli_status(real_daemon, browser_page):
     outcome = _wait_list_outcome(page)
     assert outcome in _OUTCOMES
     run_id = _first_run_id(page)
-    status = _cli(real_daemon["data_dir"], "status", run_id)
+    status = _cli(real_daemon["data_dir"], "status", "--json", run_id)
     assert status.returncode == 0
     payload = json.loads(status.stdout)
     assert payload["research_outcome"] == outcome
     assert payload["research_outcome"] in _OUTCOMES
+    human = _cli(real_daemon["data_dir"], "status", run_id)
+    assert human.returncode == 0
+    assert human.stdout.splitlines()[0] == payload["research_outcome"]
+    assert "Primary evidence:" in human.stdout
+    assert "This status does not claim alpha or future profitability." in human.stdout
     _open_job_detail(page)
     assert page.locator("#outcome").inner_text().strip() == payload["research_outcome"]
     page.wait_for_selector("#funnel-bars .funnel-stack")

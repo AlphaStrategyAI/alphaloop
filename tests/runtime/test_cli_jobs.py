@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 from alphaloop.cli.main import create_parser, main
@@ -48,6 +49,46 @@ def test_submit_returns_run_id_and_host_constraint(tmp_path, capsys):
         assert rc == 0
         assert HOST_CONSTRAINT in captured.out
         assert "j_" in captured.out
+    finally:
+        server.shutdown()
+
+
+def test_status_parser_has_json_flag():
+    parser = create_parser()
+    args = parser.parse_args(["status", "j_x", "--json"])
+    assert args.json is True
+    assert parser.parse_args(["status", "j_x"]).json is False
+
+
+def test_status_default_is_verdict_json_is_payload(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    try:
+        job = store.create(_spec())
+        rc = main(["status", job.run_id, "--data-dir", str(tmp_path)])
+        human = capsys.readouterr()
+        assert rc == 0
+        assert human.out.splitlines()[0] == "NONE"
+        assert "This status does not claim alpha or future profitability." in human.out
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(human.out)
+
+        rc = main(["status", job.run_id, "--json", "--data-dir", str(tmp_path)])
+        machine = capsys.readouterr()
+        assert rc == 0
+        payload = json.loads(machine.out)
+        assert payload["run_id"] == job.run_id
+        assert payload["research_outcome"] == "NONE"
+        assert "report_markdown" in payload
     finally:
         server.shutdown()
 

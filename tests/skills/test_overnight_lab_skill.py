@@ -26,6 +26,7 @@ def test_skill_teaches_submit_and_poll_not_block():
     assert "alphaloop start" in lowered
     assert "alphaloop submit" in lowered
     assert "alphaloop status" in lowered
+    assert "alphaloop status RUN_ID --json" in text
     assert "poll" in lowered
     assert "do not block" in lowered or "do not keep" in lowered
     assert "Submit" in text or "YAML" in text

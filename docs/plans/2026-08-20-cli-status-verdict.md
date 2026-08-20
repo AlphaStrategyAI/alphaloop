@@ -33,7 +33,7 @@
 - Consumes: `morning_view(...) -> dict`
 - Produces: `format_status_verdict(view: dict[str, Any]) -> str`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_morning.py`:
 
@@ -191,7 +191,7 @@ assert "Primary evidence:" in human.stdout
 assert "This status does not claim alpha or future profitability." in human.stdout
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -201,7 +201,7 @@ python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_foun
 
 Expected: FAIL — `format_status_verdict` missing; default status still JSON.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `src/alphaloop/runtime/morning.py`:
 

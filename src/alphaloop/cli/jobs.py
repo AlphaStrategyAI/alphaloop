@@ -50,6 +50,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
     status = subparsers.add_parser("status", help="show research job status")
     status.add_argument("run_id")
+    status.add_argument(
+        "--json",
+        action="store_true",
+        help="print the full morning_view JSON",
+    )
     _add_data_dir(status)
     status.set_defaults(func=run_status)
 
@@ -168,7 +173,19 @@ def _run_action(
 
 
 def run_status(args: argparse.Namespace) -> int:
-    return _run_action(args, JobClient.get_run)
+    from alphaloop.runtime.morning import format_status_verdict
+
+    result = _invoke(
+        args.data_dir,
+        lambda client: JobClient.get_run(client, args.run_id),
+    )
+    if result is None:
+        return 2
+    if args.json:
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    print(format_status_verdict(result), end="")
+    return 0
 
 
 def run_cancel(args: argparse.Namespace) -> int:

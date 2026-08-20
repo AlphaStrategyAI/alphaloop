@@ -13,6 +13,7 @@ from alphaloop.runtime.morning import (
     STOP_REASON_ALL_GATES_PASSED,
     STOP_REASON_HARD_GATE_FAILED,
     STOP_REASON_INCOMPLETE_EVIDENCE,
+    format_status_verdict,
     morning_view,
 )
 from alphaloop.runtime.store import JobStore
@@ -298,3 +299,92 @@ def test_morning_view_missing_evidence_has_empty_lines(tmp_path):
     job = store.create(_spec())
     view = morning_view(store.complete_from_artifacts(job.run_id), tmp_path)
     assert view["evidence_lines"] == []
+
+
+NO_ALPHA = "This status does not claim alpha or future profitability."
+
+
+def test_format_status_verdict_found_cluster():
+    text = format_status_verdict(
+        {
+            "research_outcome": "FOUND",
+            "primary_evidence": "all required hard gates passed",
+            "stop_reason": "all_gates_passed",
+            "status": "completed",
+            "queued_hypotheses": [],
+            "qualifying_candidates": [
+                {
+                    "trial_id": "c_abc",
+                    "kind": "momentum_12_1",
+                    "parameters": {"lookback": 12},
+                }
+            ],
+        }
+    )
+    lines = text.splitlines()
+    assert lines[0] == "FOUND"
+    assert lines[1] == (
+        "FOUND means every required hard gate is present and passed. "
+        "It is not a promise of alpha."
+    )
+    assert lines[2] == "Primary evidence: all required hard gates passed"
+    assert lines[3] == "Stop reason: all_gates_passed"
+    assert lines[4] == "Qualifying: c_abc · momentum_12_1 · lookback=12"
+    assert lines[5] == "Job status: completed"
+    assert lines[6] == NO_ALPHA
+    assert text.endswith("\n")
+    assert "target found" not in text.lower()
+    assert "report_markdown" not in text
+
+
+def test_format_status_verdict_none_omits_optional_lines():
+    text = format_status_verdict(
+        {
+            "research_outcome": "NONE",
+            "primary_evidence": None,
+            "stop_reason": None,
+            "status": "running",
+            "queued_hypotheses": [],
+            "qualifying_candidates": [{"trial_id": "c_skip"}],
+        }
+    )
+    lines = text.splitlines()
+    assert lines[0] == "NONE"
+    assert lines[1] == (
+        "Job status (queued, running, completed, failed, cancelled) "
+        "is not the research conclusion."
+    )
+    assert lines[2] == "Primary evidence: (running or not yet terminal)"
+    assert lines[3] == "Stop reason: (running or not yet terminal)"
+    assert lines[4] == "Job status: running"
+    assert "Next run:" not in text
+    assert "Qualifying:" not in text
+
+
+def test_format_status_verdict_queued_next_run():
+    text = format_status_verdict(
+        {
+            "research_outcome": "NO_EVIDENCE",
+            "primary_evidence": "dsr failed",
+            "stop_reason": "hard_gate_failed",
+            "status": "completed",
+            "queued_hypotheses": [
+                {"statement": "Try rsi. Not a claim of alpha."}
+            ],
+        }
+    )
+    assert "Next run: Try rsi. Not a claim of alpha." in text.splitlines()
+    assert text.splitlines()[1].startswith("NO_EVIDENCE means")
+
+
+def test_format_status_verdict_inconclusive_gloss():
+    text = format_status_verdict(
+        {
+            "research_outcome": "INCONCLUSIVE",
+            "primary_evidence": "no sealed gates.json",
+            "stop_reason": "incomplete_evidence",
+            "status": "completed",
+        }
+    )
+    assert "incomplete" in text.splitlines()[1]
+    assert "cannot produce FOUND" in text

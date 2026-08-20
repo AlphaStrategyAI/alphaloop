@@ -57,14 +57,19 @@ daemon is not running, the command fails with a hint to run
 
 ## `alphaloop status`
 
-Show the current status of a research job.
+Show the five-minute morning verdict for a research job.
 
 ```
-alphaloop status RUN_ID [--data-dir DIR]
+alphaloop status RUN_ID [--data-dir DIR] [--json]
 ```
 
-Prints a JSON object with job fields (`run_id`, `status`,
-`research_outcome`, timestamps, etc.).
+Default stdout is the conclusion cluster: outcome token, locked Help
+gloss, primary evidence, stop reason, optional next-run and qualifying
+lines, job status, and the locked no-alpha sentence. It is not a JSON
+object and does not claim alpha.
+
+`--json` prints the full `morning_view` payload (`json.dumps`, sorted
+keys) for agents. Job status is not the research conclusion.
 
 ## `alphaloop cancel`
 
