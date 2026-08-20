@@ -479,6 +479,14 @@ function fillOutcomeGloss(outcome) {
   gloss.textContent = src ? src.textContent : "";
 }
 
+function fillPrimaryEvidence(job) {
+  const node = document.getElementById("primary-evidence");
+  const value = job.primary_evidence;
+  node.textContent = value
+    ? "Primary evidence: " + value
+    : "Primary evidence: (running or not yet terminal)";
+}
+
 function fillReport(job) {
   const node = document.getElementById("report");
   node.textContent = job.report_markdown || "";
@@ -496,6 +504,7 @@ async function showJob(runId) {
   outcome.dataset.outcome = job.research_outcome;
   outcome.textContent = job.research_outcome;
   fillOutcomeGloss(job.research_outcome);
+  fillPrimaryEvidence(job);
   document.getElementById("job-status").textContent = "Job status: " + job.status;
   const statement =
     job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";

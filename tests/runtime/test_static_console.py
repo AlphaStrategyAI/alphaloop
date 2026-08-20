@@ -232,7 +232,11 @@ def test_packaged_console_morning_verdict_stage():
     assert 'id="verdict"' in html
     assert 'id="outcome-gloss"' in html
     assert html.find('id="outcome"') < html.find('id="outcome-gloss"')
-    assert html.find('id="outcome-gloss"') < html.find('id="job-status"')
+    assert html.find('id="outcome-gloss"') < html.find('id="primary-evidence"')
+    assert html.find('id="primary-evidence"') < html.find('id="stop-reason"')
+    assert html.find('id="stop-reason"') < html.find('id="job-status"')
+    assert "fillPrimaryEvidence" in script
+    assert "Primary evidence:" in script
     assert 'id="help-no-evidence"' in html
     assert 'id="help-inconclusive"' in html
     assert (

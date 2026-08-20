@@ -326,6 +326,9 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     assert fill.count() == 1
     assert fill.get_attribute("data-pct") is not None
     assert "Stop reason:" in page.locator("#stop-reason").inner_text()
+    primary = page.locator("#primary-evidence").inner_text()
+    assert primary.startswith("Primary evidence:")
+    assert page.locator("#verdict #stop-reason").count() == 1
     assert "evaluated:" in page.locator("#funnel-summary").inner_text()
     assert page.locator("#funnel-bars").count() == 1
     assert page.locator("#qualifying").count() == 1
@@ -380,6 +383,7 @@ def test_missing_columns_are_inconclusive_without_gates(real_daemon, browser_pag
     _open_job_detail(page)
     assert page.locator("#outcome").inner_text().strip() == "INCONCLUSIVE"
     assert "incomplete" in page.locator("#outcome-gloss").inner_text()
+    assert "no sealed gates.json" in page.locator("#primary-evidence").inner_text()
     evidence = page.locator("#evidence").inner_text()
     assert "none" in evidence or evidence.strip() == "none"
 
