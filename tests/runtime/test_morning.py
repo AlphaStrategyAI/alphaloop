@@ -152,6 +152,16 @@ def test_morning_view_exposes_planned_n_trials(tmp_path):
     assert view["n_trials"] == 0
 
 
+def test_morning_view_exposes_heartbeat_at(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    view = morning_view(job, tmp_path)
+    assert view["heartbeat_at"] is None
+    beat = store.set_heartbeat(job.run_id, pid=7, at="2026-08-20T00:00:00+00:00")
+    view = morning_view(beat, tmp_path)
+    assert view["heartbeat_at"] == "2026-08-20T00:00:00+00:00"
+
+
 def test_funnel_aggregates_trial_files_not_only_last_gates(tmp_path):
     store = JobStore(tmp_path / "state.db", tmp_path)
     job = store.create(_spec())

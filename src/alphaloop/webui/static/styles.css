@@ -177,6 +177,7 @@ h3 {
 }
 
 #job-status,
+#worker-heartbeat,
 #hypothesis-statement,
 #spec-meta,
 #funnel-summary,
@@ -258,6 +259,28 @@ h3 {
 #job-list button[aria-current="true"] {
   border-color: var(--focus);
   transform: translateY(-1px);
+}
+
+@keyframes overnight-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(126, 184, 255, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(126, 184, 255, 0.28);
+  }
+}
+
+#job-list button[data-status="running"],
+#verdict[data-status="running"] {
+  animation: overnight-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #job-list button[data-status="running"],
+  #verdict[data-status="running"] {
+    animation: none;
+  }
 }
 
 .job-funnel .funnel-stack {

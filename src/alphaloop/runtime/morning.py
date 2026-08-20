@@ -198,6 +198,7 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         ),
         "error": job.error,
         "recovery_attempts": job.recovery_attempts,
+        "heartbeat_at": job.heartbeat_at,
         "hypothesis": asdict(job.spec.hypothesis),
         "evidence": evidence,
         "evidence_lines": evidence_lines,

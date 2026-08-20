@@ -155,6 +155,7 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
         "Freeze and submit. This console does not claim alpha or future "
         "profitability."
     )
+    assert page.locator("#worker-heartbeat").count() == 1
 
 
 def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
@@ -398,6 +399,9 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     outcome = page.locator("#outcome").inner_text().strip()
     assert outcome in ("NONE",) + _OUTCOMES
     assert page.locator("#job-status").inner_text().startswith("Job status:")
+    assert page.locator("#worker-heartbeat").count() == 1
+    assert page.locator("#verdict").get_attribute("data-status")
+    assert page.locator("#job-list button").first.get_attribute("data-status")
     assert "12-1 momentum works in US large caps net of costs" in page.locator(
         "#hypothesis-statement"
     ).inner_text()

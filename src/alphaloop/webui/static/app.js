@@ -605,6 +605,7 @@ async function showJob(runId) {
   const verdict = document.getElementById("verdict");
   const outcome = document.getElementById("outcome");
   verdict.dataset.outcome = job.research_outcome;
+  verdict.dataset.status = job.status;
   outcome.dataset.outcome = job.research_outcome;
   outcome.textContent = job.research_outcome;
   fillOutcomeGloss(job.research_outcome);
@@ -612,6 +613,10 @@ async function showJob(runId) {
   fillNextStep(job);
   fillHandoff(job);
   document.getElementById("job-status").textContent = "Job status: " + job.status;
+  const beat = document.getElementById("worker-heartbeat");
+  beat.textContent = job.heartbeat_at
+    ? "Worker heartbeat: " + job.heartbeat_at
+    : "";
   const statement =
     job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";
   document.getElementById("hypothesis-statement").textContent = statement;

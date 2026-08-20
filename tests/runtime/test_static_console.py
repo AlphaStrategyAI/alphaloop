@@ -348,6 +348,23 @@ def test_roadmap_remaining_does_not_list_shipped_preview_as_unfinished():
     assert "cloud" in remaining.lower()
 
 
+def test_packaged_console_overnight_liveness():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="worker-heartbeat"' in html
+    assert html.find('id="job-status"') < html.find('id="worker-heartbeat"')
+    assert "Worker heartbeat:" in script
+    assert "verdict.dataset.status" in script
+    assert "overnight-pulse" in css
+    assert 'data-status="running"' in css
+    assert "prefers-reduced-motion" in css
+    assert "animation: none" in css
+    assert "http" not in css
+    assert "override" not in script.lower()
+
+
 def test_packaged_console_morning_verdict_stage():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")
