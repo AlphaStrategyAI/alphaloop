@@ -27,7 +27,7 @@
 - Modify: tests that `create_run(_spec())` or `preview_run` expect `ok`
 - Test: `tests/runtime/test_preflight.py`, `tests/runtime/test_static_console.py`, `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `test_missing_dataset_is_rejected`: `preflight(_spec(), tmp_path)` is not ok; locked sentence in errors.
 
@@ -37,7 +37,7 @@ E2E `test_load_example_fills_spec_without_creating_a_job`: after Load example, P
 
 E2E: YAML without `dataset` shows `dataset snapshot is required`; `#job-list button` count 0.
 
-- [ ] **Step 2: FAIL then implement**
+- [x] **Step 2: FAIL then implement**
 
 `preflight`: if `dataset is None`, append `dataset snapshot is required`.
 

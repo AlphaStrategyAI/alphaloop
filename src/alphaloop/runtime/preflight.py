@@ -88,7 +88,9 @@ def preflight(
     errors.extend(_check_data_dir(data_dir, min_free_bytes))
 
     dataset = getattr(spec, "dataset", None)
-    if dataset is not None:
+    if dataset is None:
+        errors.append("dataset snapshot is required")
+    else:
         path = Path(data_dir) / "datasets" / dataset.dataset_id / "prices.parquet"
         if not path.is_file():
             errors.append("dataset snapshot is unavailable")

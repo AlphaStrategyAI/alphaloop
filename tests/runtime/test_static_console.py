@@ -17,7 +17,7 @@ from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server
 from alphaloop.runtime.preflight import HOST_CONSTRAINT
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
-from tests.runtime.test_supervisor import FakeWorker, _spec
+from tests.runtime.test_supervisor import FakeWorker, _cached_spec
 
 
 def test_packaged_assets_are_read_only_morning_copy():
@@ -77,6 +77,7 @@ def test_packaged_example_layout_and_job_controls():
     assert 'id="resume-job"' in html
     assert "statement: 12-1 momentum works in US large caps net of costs" in script
     assert "signal_mechanism: momentum_12_1" in script
+    assert "dataset_id: ds_example" in script
     assert 'postJobAction("cancel")' in script
     assert 'postJobAction("resume")' in script
     assert "dataset.runId" in script
@@ -221,6 +222,19 @@ def test_packaged_console_morning_report():
     assert "fillReport" in script
     assert "grid-template-columns" in css
     assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
+def test_packaged_example_dataset_matches_load_example_hash():
+    from alphaloop.contracts.artifacts import hash_bytes
+
+    root = files("alphaloop.webui.static")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    blob = files("alphaloop.runtime.example_dataset").joinpath("prices.parquet").read_bytes()
+    digest = hash_bytes(blob)
+    assert "dataset_id: ds_example" in script
+    assert f"sha256: {digest}" in script
+    assert HOST_CONSTRAINT in root.joinpath("index.html").read_text(encoding="utf-8")
     assert "override" not in script.lower()
 
 
@@ -391,7 +405,7 @@ def test_list_jobs_http(tmp_path):
     server, base = _server(tmp_path)
     client = JobClient(base)
     try:
-        created = client.create_run(_spec())
+        created = client.create_run(_cached_spec())
         listed = client.list_jobs()
         assert listed["jobs"][0]["run_id"] == created["run_id"]
         assert "research_outcome" in listed["jobs"][0]

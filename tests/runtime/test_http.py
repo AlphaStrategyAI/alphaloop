@@ -18,7 +18,7 @@ from alphaloop.runtime.daemon import (
 )
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
-from tests.runtime.test_supervisor import FakeWorker, _spec
+from tests.runtime.test_supervisor import FakeWorker, _cached_spec
 
 
 def test_http_create_accepts_payload_without_spec_id(tmp_path):
@@ -29,7 +29,7 @@ def test_http_create_accepts_payload_without_spec_id(tmp_path):
     server = start_http_server(api, DEFAULT_HOST, 0)
     host, port = server.server_address[:2]
     try:
-        payload = _spec().to_dict()
+        payload = _cached_spec().to_dict()
         payload.pop("spec_id")
         req = Request(
             f"http://{host}:{port}/v1/jobs",
@@ -52,7 +52,7 @@ def test_http_create_accepts_yaml_body(tmp_path):
     server = start_http_server(api, DEFAULT_HOST, 0)
     host, port = server.server_address[:2]
     try:
-        payload = _spec().to_dict()
+        payload = _cached_spec().to_dict()
         payload.pop("spec_id")
         req = Request(
             f"http://{host}:{port}/v1/jobs",
@@ -74,7 +74,7 @@ def test_http_preview_does_not_create_a_job(tmp_path):
     server = start_http_server(api, DEFAULT_HOST, 0)
     host, port = server.server_address[:2]
     try:
-        payload = _spec().to_dict()
+        payload = _cached_spec().to_dict()
         payload.pop("spec_id")
         req = Request(
             f"http://{host}:{port}/v1/jobs/preview",
@@ -113,7 +113,7 @@ def test_http_create_get_cancel(tmp_path):
     client = JobClient(f"http://{host}:{port}")
     try:
         assert client.healthz()["status"] == "ok"
-        created = client.create_run(_spec())
+        created = client.create_run(_cached_spec())
         fetched = client.get_run(created["run_id"])
         assert fetched["run_id"] == created["run_id"]
         cancelled = client.cancel_run(created["run_id"])
@@ -165,7 +165,7 @@ def test_http_export_found_only(tmp_path):
     server = start_http_server(api, DEFAULT_HOST, 0)
     host, port = server.server_address[:2]
     try:
-        created = api.create_run(_spec())
+        created = api.create_run(_cached_spec())
         run_id = created["run_id"]
         req = Request(
             f"http://{host}:{port}/v1/jobs/{run_id}/export",

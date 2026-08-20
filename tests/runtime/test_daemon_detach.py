@@ -11,7 +11,7 @@ import pytest
 
 from alphaloop.runtime.client import JobClient
 from alphaloop.runtime.daemon import spawn_detached_daemon
-from tests.runtime.test_supervisor import _spec
+from tests.runtime.test_supervisor import _cached_spec
 
 
 def test_submit_survives_parent_exit(tmp_path):
@@ -30,7 +30,7 @@ def test_submit_survives_parent_exit(tmp_path):
                     "print(JobClient(sys.argv[1]).create_run(spec)['run_id'])"
                 ),
                 client.base_url,
-                json.dumps(_spec().to_dict()),
+                json.dumps(_cached_spec().to_dict()),
             ],
             check=True,
             capture_output=True,

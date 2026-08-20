@@ -11,7 +11,7 @@ from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
 
 
-def _spec():
+def _spec(dataset=None):
     return new_research_spec(
         statement="12-1 momentum works in US large caps net of costs",
         economic_logic="past winners continue",
@@ -23,7 +23,14 @@ def _spec():
         seed=7,
         time_budget_s=3600,
         cost_budget_usd=5.0,
+        dataset=dataset,
     )
+
+
+def _cached_spec():
+    from alphaloop.runtime.example_dataset import example_dataset_ref
+
+    return _spec(dataset=example_dataset_ref())
 
 
 class FakeWorker:

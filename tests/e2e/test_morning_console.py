@@ -49,9 +49,12 @@ def _spec_yaml(dataset, **overrides) -> str:
         "seed": 7,
         "time_budget_s": 30,
         "cost_budget_usd": 1.0,
-        "dataset": dataset,
     }
+    if dataset is not None:
+        payload["dataset"] = dataset
     payload.update(overrides)
+    if payload.get("dataset") is None:
+        payload.pop("dataset", None)
     return yaml.safe_dump(payload)
 
 
@@ -157,7 +160,13 @@ def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_pag
     text = page.locator("#spec-yaml").input_value()
     assert "statement: 12-1 momentum works in US large caps net of costs" in text
     assert "signal_mechanism: momentum_12_1" in text
-    assert page.locator("#submit-job").is_disabled()
+    assert "dataset_id: ds_example" in text
+    assert "sha256:" in text
+    page.click("#preview-protocol")
+    page.wait_for_function(
+        "() => document.getElementById('submit-job') && !document.getElementById('submit-job').disabled",
+        timeout=10000,
+    )
     assert page.locator("#job-list button").count() == 0
     assert "target found" not in page.content()
 
@@ -188,7 +197,16 @@ def test_help_visible_without_opening_a_job(real_daemon, browser_page):
     assert "target found" not in page.content()
 
 
-def test_invalid_yaml_shows_preflight_errors_without_job(real_daemon, browser_page):
+def test_preview_without_dataset_shows_required_snapshot_error(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    _preview_yaml(page, _spec_yaml(None))
+    page.wait_for_function(
+        "() => (document.getElementById('preflight-errors').textContent || '').indexOf('dataset snapshot is required') !== -1",
+        timeout=10000,
+    )
+    assert page.locator("#job-list button").count() == 0
+    assert page.locator("#submit-job").is_disabled()
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
     _preview_yaml(page, _spec_yaml({"dataset_id": "x", "sha256": "0" * 64}, hard_gates=[]))

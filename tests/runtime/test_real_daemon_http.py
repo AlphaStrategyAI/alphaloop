@@ -6,10 +6,12 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from alphaloop.runtime.example_dataset import example_dataset_ref
 from alphaloop.runtime.preflight import HOST_CONSTRAINT
 
 
 def _payload(**overrides):
+    ref = example_dataset_ref()
     body = {
         "statement": "12-1 momentum works in US large caps net of costs",
         "economic_logic": "past winners continue",
@@ -21,6 +23,7 @@ def _payload(**overrides):
         "seed": 7,
         "time_budget_s": 30,
         "cost_budget_usd": 1.0,
+        "dataset": {"dataset_id": ref.dataset_id, "sha256": ref.sha256},
     }
     body.update(overrides)
     return body

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from alphaloop.contracts.artifacts import DatasetRef
 from alphaloop.contracts.research_spec import new_research_spec
+from alphaloop.runtime.example_dataset import ensure_example_dataset, example_dataset_ref
 from alphaloop.runtime.preflight import HOST_CONSTRAINT, preflight
 
 
@@ -31,9 +32,17 @@ def test_host_constraint_text_is_locked():
 
 
 def test_ok_spec_includes_host_constraint(tmp_path):
-    result = preflight(_spec(), tmp_path)
+    ensure_example_dataset(tmp_path)
+    result = preflight(_spec(dataset=example_dataset_ref()), tmp_path)
     assert result.ok is True
     assert result.errors == ()
+    assert result.host_constraint == HOST_CONSTRAINT
+
+
+def test_missing_dataset_is_rejected(tmp_path):
+    result = preflight(_spec(), tmp_path)
+    assert result.ok is False
+    assert "dataset snapshot is required" in result.errors
     assert result.host_constraint == HOST_CONSTRAINT
 
 

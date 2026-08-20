@@ -8,7 +8,7 @@ from alphaloop.runtime.api import JobAPI, PreflightRejected
 from alphaloop.runtime.preflight import HOST_CONSTRAINT
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
-from tests.runtime.test_supervisor import FakeWorker, _spec
+from tests.runtime.test_supervisor import FakeWorker, _cached_spec
 
 
 def _api(tmp_path) -> JobAPI:
@@ -20,7 +20,7 @@ def _api(tmp_path) -> JobAPI:
 
 def test_create_run_returns_immediately_without_starting_worker(tmp_path):
     api = _api(tmp_path)
-    payload = api.create_run(_spec())
+    payload = api.create_run(_cached_spec())
     assert payload["status"] == JobStatus.QUEUED.value
     assert payload["research_outcome"] == ResearchOutcome.NONE.value
     assert payload["host_constraint"] == HOST_CONSTRAINT
@@ -30,7 +30,7 @@ def test_create_run_returns_immediately_without_starting_worker(tmp_path):
 
 def test_list_jobs_includes_research_outcome(tmp_path):
     api = _api(tmp_path)
-    created = api.create_run(_spec())
+    created = api.create_run(_cached_spec())
     listed = api.list_jobs()
     assert listed["jobs"][0]["run_id"] == created["run_id"]
     assert listed["jobs"][0]["research_outcome"] == ResearchOutcome.NONE.value
@@ -50,7 +50,7 @@ def test_get_run_includes_sealed_evidence(tmp_path):
     )
 
     api = _api(tmp_path)
-    created = api.create_run(_spec())
+    created = api.create_run(_cached_spec())
     run_id = created["run_id"]
     job = api.store.get(run_id)
     required = tuple(HardGateName(name) for name in job.spec.success_criteria.hard_gates)
@@ -110,7 +110,7 @@ def test_export_run_writes_asb_for_found_ledger_id(tmp_path):
     from alphaloop.contracts.bundle import ExportNotAllowed
 
     api = _api(tmp_path)
-    run_id = api.create_run(_spec())["run_id"]
+    run_id = api.create_run(_cached_spec())["run_id"]
     _seal_found(api, run_id)
     payload = api.export_run(run_id, "c1")
     path = tmp_path / run_id / "exports" / "c1.asb"
@@ -125,7 +125,7 @@ def test_export_run_rejects_non_found(tmp_path):
     from alphaloop.contracts.bundle import ExportNotAllowed
 
     api = _api(tmp_path)
-    run_id = api.create_run(_spec())["run_id"]
+    run_id = api.create_run(_cached_spec())["run_id"]
     with pytest.raises(ExportNotAllowed):
         api.export_run(run_id, "c1")
 
@@ -151,7 +151,7 @@ def test_create_run_rejects_empty_gates_without_inserting_job(tmp_path):
 
 def test_cancelled_run_cannot_be_resumed(tmp_path):
     api = _api(tmp_path)
-    created = api.create_run(_spec())
+    created = api.create_run(_cached_spec())
     run_id = created["run_id"]
     api.supervisor.tick()
     assert api.get_run(run_id)["status"] == JobStatus.RUNNING.value
@@ -169,7 +169,7 @@ def test_cancelled_run_cannot_be_resumed(tmp_path):
 
 def test_resume_running_terminates_worker_and_requeues_until_tick(tmp_path):
     api = _api(tmp_path)
-    run_id = api.create_run(_spec())["run_id"]
+    run_id = api.create_run(_cached_spec())["run_id"]
     api.supervisor.tick()
     running = api.store.get(run_id)
     pid = running.worker_pid
@@ -190,7 +190,7 @@ def test_resume_running_serializes_requeue_before_replacement_tick(
     tmp_path, monkeypatch
 ):
     api = _api(tmp_path)
-    run_id = api.create_run(_spec())["run_id"]
+    run_id = api.create_run(_cached_spec())["run_id"]
     api.supervisor.tick()
     running = api.store.get(run_id)
     old_pid = running.worker_pid
@@ -226,7 +226,7 @@ def test_resume_running_serializes_requeue_before_replacement_tick(
 
 def test_resume_failed_requeues_and_clears_error(tmp_path):
     api = _api(tmp_path)
-    run_id = api.create_run(_spec())["run_id"]
+    run_id = api.create_run(_cached_spec())["run_id"]
     api.store.update_status(run_id, JobStatus.FAILED, error="worker crashed")
 
     resumed = api.resume_run(run_id)
@@ -240,7 +240,7 @@ def test_preview_run_does_not_create_a_job(tmp_path):
     from alphaloop.protocol.search import method_parameter_grid
 
     api = _api(tmp_path)
-    spec = _spec()
+    spec = _cached_spec()
     preview = api.preview_run(spec)
     grid = list(method_parameter_grid(spec.hypothesis.signal_mechanism))
     assert preview["ok"] is True

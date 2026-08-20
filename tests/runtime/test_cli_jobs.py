@@ -9,7 +9,7 @@ from alphaloop.cli.main import create_parser, main
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict, evaluate_hard_gates
 from alphaloop.runtime.preflight import HOST_CONSTRAINT
-from tests.runtime.test_supervisor import _spec
+from tests.runtime.test_supervisor import _cached_spec, _spec
 
 
 def test_parser_has_runtime_commands():
@@ -41,7 +41,7 @@ def test_submit_returns_run_id_and_host_constraint(tmp_path, capsys):
     host, port = server.server_address[:2]
     write_daemon_meta(tmp_path, host=host, port=port, pid=0)
     spec_path = tmp_path / "spec.yaml"
-    spec_path.write_text(yaml.safe_dump(_spec().to_dict()), encoding="utf-8")
+    spec_path.write_text(yaml.safe_dump(_cached_spec().to_dict()), encoding="utf-8")
     try:
         rc = main(["submit", "--spec", str(spec_path), "--data-dir", str(tmp_path)])
         captured = capsys.readouterr()

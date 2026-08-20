@@ -8,6 +8,7 @@ from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus
 from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.asb_export import export_found_asb
+from alphaloop.runtime.example_dataset import ensure_example_dataset
 from alphaloop.runtime.morning import morning_view
 from alphaloop.runtime.preflight import preflight
 from alphaloop.runtime.store import JobStore
@@ -28,6 +29,7 @@ class JobAPI:
         self.store = store
         self.supervisor = supervisor
         self.data_dir = Path(data_dir)
+        ensure_example_dataset(self.data_dir)
 
     def create_run(self, spec: ResearchSpec) -> dict[str, Any]:
         result = preflight(spec, self.data_dir)

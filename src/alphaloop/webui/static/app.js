@@ -323,7 +323,10 @@ const EXAMPLE_SPEC =
   "hard_gates: [dsr, walk_forward, vs_benchmark]\n" +
   "seed: 7\n" +
   "time_budget_s: 3600\n" +
-  "cost_budget_usd: 5.0\n";
+  "cost_budget_usd: 5.0\n" +
+  "dataset:\n" +
+  "  dataset_id: ds_example\n" +
+  "  sha256: 03796e74d7eed2595bc882cd345ae7967b1622848a618e437e0847d7bc66bc55\n";
 
 let currentRunId = null;
 let syncingForm = false;
