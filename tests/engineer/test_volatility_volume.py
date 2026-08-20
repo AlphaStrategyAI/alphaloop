@@ -85,6 +85,16 @@ def test_atr_breakout_no_lookahead():
     pd.testing.assert_series_equal(w1.iloc[:400], w2.iloc[:400], check_names=False)
 
 
+def test_atr_breakout_window_changes_signal():
+    p = _make_prices(500, seed=1)
+    ohlc = _make_ohlcv(p, seed=1)
+    fast = atr_breakout(ohlc, breakout_window=20)
+    slow = atr_breakout(ohlc, breakout_window=55)
+    assert fast.between(0, 1).all()
+    assert slow.between(0, 1).all()
+    assert not fast.equals(slow)
+
+
 # --- parkinson_hist_vol ---
 
 

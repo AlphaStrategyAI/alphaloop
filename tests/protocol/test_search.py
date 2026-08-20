@@ -96,3 +96,16 @@ def test_pairs_grid_is_formation_windows():
     for params in grid:
         assert "hedge_asset" not in params
         assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD
+
+
+def test_atr_grid_is_turtle_donchian_entries():
+    grid = method_parameter_grid("atr_breakout")
+    assert grid[0] == {}
+    assert {"breakout_window": 20} in grid
+    assert {"breakout_window": 55} in grid
+    assert len(grid) == 3
+    frozen = _hypothesis()
+    for params in grid:
+        assert "atr_window" not in params
+        assert "atr_multiplier" not in params
+        assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD

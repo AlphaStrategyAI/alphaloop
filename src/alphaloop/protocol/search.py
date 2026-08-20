@@ -28,6 +28,11 @@ _GRIDS: dict[str, tuple[dict[str, object], ...]] = {
         {"window": 126},
         {"window": 252},
     ),
+    "atr_breakout": (
+        {},
+        {"breakout_window": 20},
+        {"breakout_window": 55},
+    ),
 }
 
 
