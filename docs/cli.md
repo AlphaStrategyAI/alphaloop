@@ -129,7 +129,7 @@ is canonical; the archive contains no Python files.  Human-triggered
 only.
 
 ```
-alphaloop export CANDIDATE_ID --run-id RUN_ID [--data-dir DIR] --output PATH
+alphaloop export CANDIDATE_ID --run-id RUN_ID [--data-dir DIR] --output PATH [--json]
 ```
 
 | Flag | Description |
@@ -138,8 +138,14 @@ alphaloop export CANDIDATE_ID --run-id RUN_ID [--data-dir DIR] --output PATH
 | `--run-id`     | **Required.** Job id returned by `submit`. |
 | `--data-dir`   | Runs output root (default: `./runs`). |
 | `--output, -o` | **Required.** Destination `.asb` path. |
+| `--json`       | Print `{candidate_id, exported_path, research_outcome}` as JSON. |
 
-Non-`FOUND` jobs exit 2.
+After a successful write, default stdout is a four-line receipt: `FOUND`,
+`Qualifying: {candidate_id}`, `Exported: {path}`, and
+`This export does not claim alpha or future profitability.`
+`--json` is for agents. Failures stay on stderr and exit 2.
+Non-`FOUND` jobs and unknown ledger ids exit 2. The command does not
+claim alpha.
 
 ## `alphaloop soak`
 

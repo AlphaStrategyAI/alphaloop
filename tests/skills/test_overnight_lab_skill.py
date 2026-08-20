@@ -41,6 +41,9 @@ def test_skill_forbids_alpha_claims_and_gate_overrides():
     assert "cannot override" in text or "must not override" in text
     assert "hard gate" in text
     assert "human" in text and "export" in text
+    assert "alphaloop export" in text.lower()
+    assert "--json" in text
+    assert "does not claim alpha" in text.lower()
 
 
 def test_skill_discloses_host_constraint_and_rejects_overnight_mcp():

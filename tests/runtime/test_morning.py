@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from alphaloop.contracts.gates import (
     GateResult,
     HardGateName,
@@ -10,9 +12,11 @@ from alphaloop.contracts.gates import (
 )
 from alphaloop.contracts.status import ResearchOutcome
 from alphaloop.runtime.morning import (
+    EXPORT_NO_ALPHA,
     STOP_REASON_ALL_GATES_PASSED,
     STOP_REASON_HARD_GATE_FAILED,
     STOP_REASON_INCOMPLETE_EVIDENCE,
+    format_export_handoff,
     format_status_verdict,
     morning_view,
     replay_view,
@@ -313,6 +317,20 @@ def test_morning_view_missing_evidence_has_empty_lines(tmp_path):
 
 
 NO_ALPHA = "This status does not claim alpha or future profitability."
+
+
+def test_format_export_handoff_cluster():
+    text = format_export_handoff(candidate_id="c_abc", exported_path="/tmp/out.asb")
+    lines = text.splitlines()
+    assert lines[0] == "FOUND"
+    assert lines[1] == "Qualifying: c_abc"
+    assert lines[2] == "Exported: /tmp/out.asb"
+    assert lines[3] == EXPORT_NO_ALPHA
+    assert lines[3] == "This export does not claim alpha or future profitability."
+    assert text.endswith("\n")
+    assert "target found" not in text.lower()
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(text)
 
 
 def test_format_status_verdict_found_cluster():

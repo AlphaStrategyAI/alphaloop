@@ -29,7 +29,7 @@
 - Test: `tests/e2e/test_morning_console.py`
 - Test: `tests/skills/test_overnight_lab_skill.py` (if skill mentions export receipt)
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_format_export_handoff_cluster():
@@ -49,19 +49,19 @@ Add `--json` parser + payload test.
 
 E2E FOUND branch: `exported.stdout.splitlines()[0] == "FOUND"`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/cli/test_export.py::test_export_writes_asb_zip tests/runtime/test_morning.py::test_format_export_handoff_cluster -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `EXPORT_NO_ALPHA` + `format_export_handoff`. Export parser `--json`. `run_export` prints cluster or JSON.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(cli): print a FOUND handoff receipt on export"

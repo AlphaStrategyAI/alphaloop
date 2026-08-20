@@ -41,6 +41,7 @@ OUTCOME_GLOSS = {
 }
 
 STATUS_NO_ALPHA = "This status does not claim alpha or future profitability."
+EXPORT_NO_ALPHA = "This export does not claim alpha or future profitability."
 EMPTY_STATUS_CUE = (
     "No overnight job yet. Preview with alphaloop preview --spec PATH, then freeze "
     "with alphaloop submit --spec PATH. This status does not claim alpha or future "
@@ -150,6 +151,20 @@ def format_status_verdict(view: dict[str, Any]) -> str:
     lines.append("Job status: " + str(view.get("status") or ""))
     lines.append(STATUS_NO_ALPHA)
     return "\n".join(lines) + "\n"
+
+
+def format_export_handoff(*, candidate_id: str, exported_path: str) -> str:
+    return (
+        "\n".join(
+            [
+                "FOUND",
+                f"Qualifying: {candidate_id}",
+                f"Exported: {exported_path}",
+                EXPORT_NO_ALPHA,
+            ]
+        )
+        + "\n"
+    )
 
 
 def replay_view(

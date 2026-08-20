@@ -695,6 +695,10 @@ def test_export_found_only(real_daemon, browser_page, tmp_path):
     if outcome == "FOUND":
         assert exported.returncode == 0
         assert dest.is_file()
+        assert exported.stdout.splitlines()[0] == "FOUND"
+        assert "Qualifying: " + candidate in exported.stdout
+        assert f"Exported: {dest}" in exported.stdout
+        assert "This export does not claim alpha or future profitability." in exported.stdout
         _open_job_detail(page)
         page.wait_for_selector("#verdict #handoff button.export-asb", timeout=10000)
         page.locator("#verdict #handoff button.export-asb").first.click()
