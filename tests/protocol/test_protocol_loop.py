@@ -130,6 +130,8 @@ def test_complete_fail_walks_the_frozen_parameter_grid(tmp_path):
     assert calls["n"] == 3
     ledger = layout.trial_ledger.read_text(encoding="utf-8").strip().splitlines()
     assert len(ledger) == 3
+    trial_files = list((layout.evidence / "trials").glob("*.json"))
+    assert len(trial_files) == 3
 
 
 def test_later_frozen_grid_point_can_found(tmp_path):

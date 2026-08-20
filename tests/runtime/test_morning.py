@@ -131,6 +131,50 @@ def test_morning_view_n_trials_zero_without_ledger(tmp_path):
     assert view["seed"] == 7
 
 
+def test_funnel_aggregates_trial_files_not_only_last_gates(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    run_dir = tmp_path / job.run_id
+    (run_dir / "trial-ledger.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps({"trial_id": "c_a", "revision": "none"}),
+                json.dumps({"trial_id": "c_b", "revision": "method"}),
+                json.dumps({"trial_id": "c_c", "revision": "method"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    required = tuple(HardGateName(name) for name in job.spec.success_criteria.hard_gates)
+    dsr_fail = evaluate_hard_gates(
+        required,
+        tuple(
+            GateResult(name=name, passed=name is not HardGateName.DSR, detail={})
+            for name in required
+        ),
+    )
+    both_fail = evaluate_hard_gates(
+        required,
+        tuple(GateResult(name=name, passed=False, detail={}) for name in required),
+    )
+    evidence_dir = run_dir / "evidence"
+    trials = evidence_dir / "trials"
+    trials.mkdir(parents=True)
+    (trials / "c_a.json").write_text(json.dumps(evidence_to_dict(dsr_fail)))
+    (trials / "c_b.json").write_text(json.dumps(evidence_to_dict(dsr_fail)))
+    (trials / "c_c.json").write_text(json.dumps(evidence_to_dict(both_fail)))
+    (evidence_dir / "gates.json").write_text(json.dumps(evidence_to_dict(both_fail)))
+    view = morning_view(store.complete_from_artifacts(job.run_id), tmp_path)
+    assert view["funnel"]["n_evaluated"] == 3
+    assert view["funnel"]["n_complete"] == 3
+    assert view["funnel"]["n_passed"] == 0
+    assert view["funnel"]["n_failed"] == 3
+    assert view["funnel"]["n_incomplete"] == 0
+    assert view["funnel"]["failure_counts"]["dsr"] == 3
+    assert view["funnel"]["dominant_failures"][0] == "dsr"
+
+
 def test_morning_view_evidence_lines_include_walk_forward_detail(tmp_path):
     store = JobStore(tmp_path / "state.db", tmp_path)
     job = store.create(_spec())

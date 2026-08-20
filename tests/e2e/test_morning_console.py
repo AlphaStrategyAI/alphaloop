@@ -269,6 +269,7 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     assert "seed:" in meta
     assert "n_trials:" in meta
     assert "Stop reason:" in page.locator("#stop-reason").inner_text()
+    assert "evaluated:" in page.locator("#funnel-summary").inner_text()
     assert "target found" not in page.content()
 
 

@@ -113,6 +113,9 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert "JSON.stringify(body.method_parameter_grid)" not in script
     assert "job.hypothesis" in script
     assert "n_trials" in script
+    assert 'id="funnel-summary"' in html
+    assert "failure_counts" in script
+    assert "n_evaluated" in script
     assert "override" not in script.lower()
     assert "override" not in html.lower()
     assert "input:focus-visible" in css

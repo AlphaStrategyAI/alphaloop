@@ -64,6 +64,30 @@ def test_report_is_a_view_of_sealed_evidence(tmp_path):
     assert "dsr" in text.lower()
 
 
+def test_report_includes_elimination_funnel(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    evidence = evaluate_hard_gates(
+        (HardGateName.DSR,),
+        (GateResult(name=HardGateName.DSR, passed=False, detail={}),),
+    )
+    trials = layout.evidence / "trials"
+    trials.mkdir(parents=True)
+    body = json.dumps(evidence_to_dict(evidence))
+    (layout.evidence / "gates.json").write_text(body)
+    (trials / "c_1.json").write_text(body)
+    layout.trial_ledger.write_text(
+        json.dumps({"trial_id": "c_1", "revision": "none"}) + "\n",
+        encoding="utf-8",
+    )
+    write_report(layout, research_outcome="NO_EVIDENCE", stop_reason="hard_gate_failed")
+    text = layout.report.read_text(encoding="utf-8")
+    assert "## Elimination funnel" in text
+    assert "evaluated: 1" in text
+    assert "failed: 1" in text
+    assert "dsr: 1" in text
+
+
 def test_report_includes_frozen_hypothesis_and_n_trials(tmp_path):
     layout = RunLayout(tmp_path / "run")
     layout.run_dir.mkdir()
