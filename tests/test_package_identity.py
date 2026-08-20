@@ -108,6 +108,16 @@ def test_published_example_yaml_declares_example_dataset():
     assert "A spec must declare a content-addressed `dataset`" in readme
 
 
+def test_published_dataset_path_names_csv_and_pasteable_yaml():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    home = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    for text in (readme, home):
+        assert "wide close-only CSV" in text
+        assert "pasteable" in text.lower()
+        assert "dataset:" in text
+    assert "Cache any other parquet with" not in readme
+
+
 def test_loop_help_is_heritage_not_find_alpha(capsys):
     parser = create_parser()
     try:

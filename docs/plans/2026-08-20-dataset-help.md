@@ -25,7 +25,7 @@
 - Modify: `README.md`, `docs/index.md`
 - Test: `tests/runtime/test_cli_jobs.py`, `tests/test_package_identity.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/runtime/test_cli_jobs.py`:
 
@@ -56,7 +56,7 @@ def test_published_dataset_path_names_csv_and_pasteable_yaml():
     assert "Cache any other parquet with" not in readme
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_dataset_help_names_csv_and_no_job tests/test_package_identity.py::test_published_dataset_path_names_csv_and_pasteable_yaml -v
@@ -64,7 +64,7 @@ python3 -m pytest tests/runtime/test_cli_jobs.py::test_dataset_help_names_csv_an
 
 Expected: FAIL (help parquet-only; README "Cache any other parquet").
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/alphaloop/cli/jobs.py`, dataset parser:
 
@@ -87,13 +87,13 @@ comment: parquet or CSV; pasteable YAML; no job.
 `docs/index.md` quick-start: same two shapes + pasteable `dataset:`
 YAML. Keep `alphaloop dataset` in the bash list.
 
-- [ ] **Step 4: PASS**
+- [x] **Step 4: PASS**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_dataset_help_names_csv_and_no_job tests/test_package_identity.py::test_published_example_yaml_declares_example_dataset tests/test_package_identity.py::test_published_dataset_path_names_csv_and_pasteable_yaml tests/runtime/test_cli_jobs.py::test_dataset_caches_parquet_without_daemon tests/runtime/test_cli_jobs.py::test_dataset_caches_wide_csv_without_daemon -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/alphaloop/cli/jobs.py README.md docs/index.md tests/runtime/test_cli_jobs.py tests/test_package_identity.py docs/plans/2026-08-20-dataset-help.md

@@ -545,6 +545,18 @@ def test_parser_has_dataset_command():
     assert "dataset" in parser.format_help()
 
 
+def test_dataset_help_names_csv_and_no_job(capsys):
+    parser = create_parser()
+    try:
+        parser.parse_args(["dataset", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    out = capsys.readouterr().out.lower()
+    assert "csv" in out
+    assert "parquet" in out
+    assert "does not create a job" in out
+
+
 def test_dataset_caches_parquet_without_daemon(tmp_path, capsys):
     from alphaloop.contracts.artifacts import hash_bytes
     from alphaloop.runtime.dataset_cache import (

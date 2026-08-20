@@ -90,11 +90,13 @@ independent.
 
 A spec must declare a content-addressed `dataset`. `alphaloop start`
 installs the packaged `ds_example` snapshot so the example YAML can
-preview. Cache any other parquet with `alphaloop dataset PATH`. Missing
-or mismatched snapshots do not synthesize prices.
+preview. Cache any other parquet or wide close-only CSV with
+`alphaloop dataset PATH`. It prints pasteable `dataset:` YAML
+(`dataset_id` / `sha256`). Missing or mismatched snapshots do not
+synthesize prices.
 
 ```bash
-alphaloop dataset PATH               # cache a parquet; does not create a job
+alphaloop dataset PATH               # parquet or CSV; pasteable YAML; no job
 alphaloop preview --spec spec.yaml   # review grid; does not create a job
 alphaloop submit --spec spec.yaml    # freeze after preview
 alphaloop status                     # latest job five-minute verdict

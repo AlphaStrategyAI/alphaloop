@@ -100,9 +100,14 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 
     dataset = subparsers.add_parser(
         "dataset",
-        help="cache a local parquet snapshot (does not create a job)",
+        help="cache a local parquet or wide close-only CSV (does not create a job)",
+        description="Cache a local parquet or wide close-only CSV (does not create a job).",
     )
-    dataset.add_argument("path", type=Path, help="local parquet file")
+    dataset.add_argument(
+        "path",
+        type=Path,
+        help="local parquet or wide close-only CSV",
+    )
     dataset.add_argument(
         "--json",
         action="store_true",

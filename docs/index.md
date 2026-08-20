@@ -32,7 +32,8 @@ alphaloop start --detach
 
 Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/). Paste a research
 spec (YAML) on the packaged morning page, or run
-`alphaloop dataset PATH` (custom parquet; skip for the packaged
+`alphaloop dataset PATH` (custom parquet or wide close-only CSV;
+prints pasteable `dataset:` YAML; skip for the packaged
 `ds_example`), then `alphaloop preview --spec spec.yaml` then
 `alphaloop submit --spec spec.yaml`. Leave the host awake. Closing the
 browser or terminal does not stop the job; suspending or powering off
