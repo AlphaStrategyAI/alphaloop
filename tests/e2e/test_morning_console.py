@@ -479,6 +479,8 @@ def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
     assert "oos_sharpe_median" in rows["walk_forward"]["detail"]
     assert "cpcv_passes" in rows["walk_forward"]["detail"]
     assert isinstance(rows["walk_forward"]["detail"]["cpcv_passes"], bool)
+    assert "holdout_passes" in rows["walk_forward"]["detail"]
+    assert isinstance(rows["walk_forward"]["detail"]["holdout_passes"], bool)
     assert "target found" not in page.content()
     _open_job_detail(page)
     page.wait_for_selector("#evidence li")

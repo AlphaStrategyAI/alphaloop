@@ -30,6 +30,7 @@ from .cv import (
     combinatorial_purged_cv,
     walk_forward_cv,
 )
+from .holdout import nested_holdout_bounds
 from .pbo import PBOResult, probability_of_backtest_overfitting
 from .dsr import DeflatedSharpeResult, deflated_sharpe, expected_max_sharpe
 from .judge import DimensionScore, LLMJudgeResult, llm_judge
@@ -47,6 +48,7 @@ __all__ = [
     "CombinatorialPurgedResult",
     "probability_of_backtest_overfitting",
     "PBOResult",
+    "nested_holdout_bounds",
     # Cross-source consistency
     "data_source_consistency",
     "ConsistencyResult",

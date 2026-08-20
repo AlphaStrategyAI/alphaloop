@@ -20,7 +20,9 @@ from alphaloop.diagnostic import (
     walk_forward_cv,
 )
 from alphaloop.diagnostic.cv import combinatorial_purged_cv
+from alphaloop.diagnostic.holdout import nested_holdout_bounds
 from alphaloop.protocol.profiles import MarketProfile
+from alphaloop.protocol.returns import compute_strategy_returns
 
 
 def _annualized_sharpe(returns: pd.Series, periods_per_year: int) -> float:
@@ -72,6 +74,38 @@ MIN_DSR_OBSERVATIONS = 30
 VS_RANDOM_SIMULATIONS = 200
 VS_RANDOM_BLOCK = 21
 
+_HOLDOUT_ATTACH_ORDER = (
+    HardGateName.DSR,
+    HardGateName.WALK_FORWARD,
+    HardGateName.VS_RANDOM,
+    HardGateName.VS_BUY_HOLD,
+    HardGateName.VS_BENCHMARK,
+    HardGateName.DATA_CONSISTENCY,
+)
+
+
+def _head(series: pd.Series, n: int) -> pd.Series:
+    return series.iloc[:n]
+
+
+def _score_holdout(
+    prices: pd.Series,
+    strategy_fn: Callable[[pd.Series], pd.Series],
+    bounds: tuple[int, int, int],
+    profile: MarketProfile,
+) -> dict:
+    _inner_end, holdout_start, holdout_end = bounds
+    history = prices.iloc[:holdout_end]
+    weights = strategy_fn(history)
+    net = compute_strategy_returns(history, weights, cost_bps=profile.cost_bps)
+    holdout = net.iloc[holdout_start:holdout_end]
+    sharpe = _annualized_sharpe(holdout, profile.periods_per_year)
+    return {
+        "holdout_n": int(len(holdout)),
+        "holdout_sharpe": float(sharpe),
+        "holdout_passes": bool(len(holdout) >= MIN_DSR_OBSERVATIONS and sharpe > 0.0),
+    }
+
 
 def _compute_walk_forward(
     prices: pd.Series,
@@ -103,20 +137,32 @@ def run_hard_gates(
     seed: int,
     strategy_fn: Callable[[pd.Series], pd.Series],
 ) -> GateEvidence:
+    bounds = nested_holdout_bounds(len(prices), profile.periods_per_year)
+    select_prices = prices
+    select_returns = strategy_returns
+    select_bh = buy_hold_prices
+    select_bm = benchmark_prices
+    if bounds is not None:
+        inner_end, _holdout_start, _holdout_end = bounds
+        select_prices = _head(prices, inner_end)
+        select_returns = _head(strategy_returns, inner_end)
+        select_bh = _head(buy_hold_prices, inner_end)
+        select_bm = _head(benchmark_prices, inner_end)
+
     wf_result = None
     cpcv_result = None
     if HardGateName.WALK_FORWARD in required:
         try:
-            wf_result = _compute_walk_forward(prices, strategy_fn, profile)
+            wf_result = _compute_walk_forward(select_prices, strategy_fn, profile)
         except Exception:
             wf_result = None
         if wf_result is not None:
             try:
                 _train, _test, embargo = _walk_forward_windows(
-                    len(prices), profile.periods_per_year
+                    len(select_prices), profile.periods_per_year
                 )
                 cpcv_result = combinatorial_purged_cv(
-                    prices,
+                    select_prices,
                     strategy_fn,
                     embargo_size=embargo,
                     cost_bps=profile.cost_bps,
@@ -134,18 +180,26 @@ def run_hard_gates(
         scored = None
         scope = "oos_walk_forward"
     else:
-        scored = strategy_returns
-        scope = "full_sample"
+        scored = select_returns
+        scope = "full_sample" if bounds is None else "inner_holdout"
+
+    holdout_detail = None
+    if bounds is not None:
+        try:
+            holdout_detail = _score_holdout(prices, strategy_fn, bounds, profile)
+        except Exception:
+            holdout_detail = None
+    holdout_target = next((name for name in _HOLDOUT_ATTACH_ORDER if name in required), None)
 
     rows: list[GateResult] = []
     for name in required:
         try:
             row = _run_one(
                 name,
-                prices=prices,
+                prices=select_prices,
                 scored_returns=scored,
-                buy_hold_prices=buy_hold_prices,
-                benchmark_prices=benchmark_prices,
+                buy_hold_prices=select_bh,
+                benchmark_prices=select_bm,
                 secondary_frames=secondary_frames,
                 n_trials=n_trials,
                 profile=profile,
@@ -173,6 +227,9 @@ def run_hard_gates(
             detail["cpcv_oos_sharpe_median"] = cpcv_result.oos_sharpe_median
             detail["cpcv_passes"] = bool(cpcv_result.passes)
             passed = bool(row.passed and cpcv_result.passes)
+        if holdout_detail is not None and name is holdout_target:
+            detail.update(holdout_detail)
+            passed = bool(passed and holdout_detail["holdout_passes"])
         rows.append(GateResult(name=row.name, passed=passed, detail=detail))
     return evaluate_hard_gates(required, rows)
 

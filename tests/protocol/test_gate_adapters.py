@@ -185,6 +185,9 @@ def test_walk_forward_detail_includes_regime_fields():
     assert detail["cpcv_passes"] is True
     assert isinstance(detail["cpcv_oos_sharpe_mean"], float)
     assert isinstance(detail["cpcv_oos_sharpe_median"], float)
+    assert detail["holdout_passes"] is True
+    assert detail["holdout_n"] >= 30
+    assert isinstance(detail["holdout_sharpe"], float)
 
 
 def test_walk_forward_skips_cpcv_on_short_sample():
@@ -204,6 +207,32 @@ def test_walk_forward_skips_cpcv_on_short_sample():
     detail = evidence.results[0].detail
     assert "n_folds" in detail
     assert "cpcv_passes" not in detail
+    assert "holdout_passes" not in detail
+
+
+def test_nested_holdout_fails_when_final_window_is_negative():
+    n = 220
+    idx = pd.bdate_range("2020-01-01", periods=n)
+    rets = [0.004] * 150 + [-0.004] * 70
+    prices = pd.Series(100.0, index=idx, dtype=float)
+    for i, ret in enumerate(rets[1:], start=1):
+        prices.iloc[i] = prices.iloc[i - 1] * (1.0 + ret)
+    evidence = run_hard_gates(
+        (HardGateName.DSR,),
+        prices=prices,
+        strategy_returns=_returns(prices),
+        buy_hold_prices=prices,
+        benchmark_prices=prices,
+        secondary_frames=None,
+        n_trials=1,
+        profile=get_profile("us-equity-daily"),
+        seed=1,
+        strategy_fn=_strategy_fn,
+    )
+    detail = evidence.results[0].detail
+    assert detail["holdout_passes"] is False
+    assert evidence.results[0].passed is False
+    assert detail["holdout_sharpe"] < 0
 
 
 def test_walk_forward_gate_fails_when_cpcv_fails():

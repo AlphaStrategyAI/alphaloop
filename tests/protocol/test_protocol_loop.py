@@ -650,3 +650,41 @@ def test_pbo_failure_blocks_found_after_method_repair(tmp_path, monkeypatch):
     dsr = next(row for row in evidence.results if row.name is HardGateName.DSR)
     assert dsr.detail["pbo_passes"] is False
     assert dsr.passed is False
+
+
+def test_pbo_receives_inner_holdout_prefix(tmp_path, monkeypatch):
+    from alphaloop.diagnostic.holdout import nested_holdout_bounds
+    from alphaloop.diagnostic.pbo import PBOResult
+
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    runner = _IncompleteThenPass()
+    captured: dict[str, list[int]] = {}
+
+    def fake_pbo(returns, **kwargs):
+        captured["lens"] = [len(row) for row in returns]
+        return PBOResult(
+            evaluated=True,
+            pbo=0.0,
+            passes=True,
+            n_strategies=len(returns),
+            n_paths=20,
+            n_groups=6,
+        )
+
+    monkeypatch.setattr(
+        "alphaloop.protocol.loop.probability_of_backtest_overfitting",
+        fake_pbo,
+    )
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    assert result.research_outcome is ResearchOutcome.FOUND
+    inner_end, _, _ = nested_holdout_bounds(300, 252)
+    assert inner_end is not None
+    assert captured["lens"] == [inner_end, inner_end]

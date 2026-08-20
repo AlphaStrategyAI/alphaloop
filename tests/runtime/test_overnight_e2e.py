@@ -108,6 +108,8 @@ def test_macd_walk_forward_records_regime_stable(tmp_path):
     assert "oos_sharpe_median" in by_name[HardGateName.WALK_FORWARD].detail
     assert "cpcv_passes" in by_name[HardGateName.WALK_FORWARD].detail
     assert isinstance(by_name[HardGateName.WALK_FORWARD].detail["cpcv_passes"], bool)
+    assert "holdout_passes" in by_name[HardGateName.WALK_FORWARD].detail
+    assert isinstance(by_name[HardGateName.WALK_FORWARD].detail["holdout_passes"], bool)
     assert layout.report.is_file()
     report = layout.report.read_text(encoding="utf-8")
     assert "regime_stable=" in report

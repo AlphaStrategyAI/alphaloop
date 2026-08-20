@@ -19,6 +19,7 @@ from alphaloop.contracts.gates import (
 )
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome
+from alphaloop.diagnostic.holdout import nested_holdout_bounds
 from alphaloop.diagnostic.pbo import PBOResult, probability_of_backtest_overfitting
 from alphaloop.protocol.dsl import (
     DSL_SCHEMA_VERSION,
@@ -280,7 +281,14 @@ def run_protocol(
         )
         if decision.reason == "found":
             if last_evidence is not None and len(trial_returns) >= 2:
-                pbo = probability_of_backtest_overfitting(trial_returns)
+                pbo_inputs = trial_returns
+                bounds = nested_holdout_bounds(
+                    len(trial_returns[-1]), profile.periods_per_year
+                )
+                if bounds is not None:
+                    inner_end, _holdout_start, _holdout_end = bounds
+                    pbo_inputs = [row.iloc[:inner_end] for row in trial_returns]
+                pbo = probability_of_backtest_overfitting(pbo_inputs)
                 if pbo.evaluated:
                     last_evidence = _attach_pbo(last_evidence, pbo)
                     layout.evidence.mkdir(parents=True, exist_ok=True)
