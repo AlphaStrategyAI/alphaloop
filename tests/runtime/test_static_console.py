@@ -180,6 +180,18 @@ def test_packaged_qualifying_candidates():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_asb_export():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    assert 'id="export-status"' in html
+    assert "export-asb" in script
+    assert "/export" in script
+    assert "exported_path" in script
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_static_package_loads_without_fastapi():
     """Morning assets must load even when FastAPI is not installed."""
     code = r"""

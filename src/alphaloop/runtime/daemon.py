@@ -20,6 +20,7 @@ from urllib.request import urlopen
 
 import yaml
 
+from alphaloop.contracts.bundle import ExportNotAllowed
 from alphaloop.runtime.submit import spec_from_submit_payload
 from alphaloop.runtime.api import JobAPI, PreflightRejected
 from alphaloop.runtime.store import JobStore
@@ -113,9 +114,13 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
                 len(parts) == 5
                 and parts[:3] == ["", "v1", "jobs"]
                 and parts[3]
-                and parts[4] in ("cancel", "resume")
+                and parts[4] in ("cancel", "resume", "export")
             ):
-                self._run_action(unquote(parts[3]), parts[4])
+                run_id = unquote(parts[3])
+                if parts[4] == "export":
+                    self._export_run(run_id)
+                    return
+                self._run_action(run_id, parts[4])
                 return
             self._send_json(404, {"error": "not found"})
 
@@ -154,6 +159,22 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
                 return
             except ValueError as exc:
                 self._send_json(409, {"error": str(exc)})
+                return
+            self._send_json(200, response)
+
+        def _export_run(self, run_id: str) -> None:
+            try:
+                payload = self._read_payload()
+                candidate_id = str(payload.get("candidate_id") or "")
+                response = api.export_run(run_id, candidate_id)
+            except KeyError:
+                self._send_json(404, {"error": "job not found"})
+                return
+            except ExportNotAllowed as exc:
+                self._send_json(409, {"error": str(exc)})
+                return
+            except (ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
+                self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(200, response)
 

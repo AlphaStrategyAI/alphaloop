@@ -94,6 +94,8 @@ unchanged. No `FakeWorker` in morning e2e. No gate override.
 
 ## 6. Loop exit
 
-Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
-(not CI), correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP /
-cloud workers.
+Remaining product after this cycle shipped: human-triggered `.asb`
+export from the morning console
+(`docs/requirements/2026-08-20-console-asb-export.md`). Remaining
+validation: textbook `S=16` CPCV, soak / 95% overnight (not CI),
+correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP / cloud workers.

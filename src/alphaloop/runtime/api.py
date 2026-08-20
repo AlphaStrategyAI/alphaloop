@@ -3,9 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus
 from alphaloop.protocol.search import method_parameter_grid
+from alphaloop.runtime.asb_export import export_found_asb
 from alphaloop.runtime.morning import morning_view
 from alphaloop.runtime.preflight import preflight
 from alphaloop.runtime.store import JobStore
@@ -77,3 +79,21 @@ class JobAPI:
                 self.store.requeue_unless_terminal(run_id, expected_pid=pid),
                 self.data_dir,
             )
+
+    def export_run(self, run_id: str, candidate_id: str) -> dict[str, Any]:
+        dest = (
+            RunLayout(self.data_dir / run_id).run_dir
+            / "exports"
+            / f"{Path(candidate_id).name}.asb"
+        )
+        export_found_asb(
+            store=self.store,
+            data_dir=self.data_dir,
+            run_id=run_id,
+            candidate_id=candidate_id,
+            output=dest,
+        )
+        view = morning_view(self.store.get(run_id), self.data_dir)
+        view["exported_path"] = str(dest)
+        view["exported_candidate_id"] = candidate_id
+        return view

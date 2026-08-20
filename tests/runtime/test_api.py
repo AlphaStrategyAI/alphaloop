@@ -70,6 +70,66 @@ def test_get_run_includes_sealed_evidence(tmp_path):
     assert payload["n_trials"] == 0
 
 
+def _seal_found(api, run_id: str, candidate_id: str = "c1") -> None:
+    import json
+
+    from alphaloop.contracts.gates import (
+        GateResult,
+        HardGateName,
+        evidence_to_dict,
+        evaluate_hard_gates,
+    )
+
+    job = api.store.get(run_id)
+    required = tuple(HardGateName(name) for name in job.spec.success_criteria.hard_gates)
+    evidence = evaluate_hard_gates(
+        required,
+        tuple(GateResult(name=name, passed=True, detail={}) for name in required),
+    )
+    evidence_dir = api.data_dir / run_id / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    (evidence_dir / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+    (api.data_dir / run_id / "trial-ledger.jsonl").write_text(
+        json.dumps(
+            {
+                "trial_id": candidate_id,
+                "kind": "momentum_12_1",
+                "parameters": {},
+                "revision": "none",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    api.store.complete_from_artifacts(run_id)
+
+
+def test_export_run_writes_asb_for_found_ledger_id(tmp_path):
+    import zipfile
+
+    from alphaloop.contracts.bundle import ExportNotAllowed
+
+    api = _api(tmp_path)
+    run_id = api.create_run(_spec())["run_id"]
+    _seal_found(api, run_id)
+    payload = api.export_run(run_id, "c1")
+    path = tmp_path / run_id / "exports" / "c1.asb"
+    assert payload["exported_path"] == str(path)
+    assert payload["exported_candidate_id"] == "c1"
+    assert zipfile.is_zipfile(path)
+    with pytest.raises(ValueError):
+        api.export_run(run_id, "../escape")
+
+
+def test_export_run_rejects_non_found(tmp_path):
+    from alphaloop.contracts.bundle import ExportNotAllowed
+
+    api = _api(tmp_path)
+    run_id = api.create_run(_spec())["run_id"]
+    with pytest.raises(ExportNotAllowed):
+        api.export_run(run_id, "c1")
+
+
 def test_create_run_rejects_empty_gates_without_inserting_job(tmp_path):
     api = _api(tmp_path)
     spec = new_research_spec(

@@ -147,3 +147,63 @@ def test_safe_tick_logs_failure_and_allows_next_tick(caplog):
     assert supervisor.calls == 2
     assert "supervisor tick failed" in caplog.text
     assert "transient tick failure" in caplog.text
+
+
+def test_http_export_found_only(tmp_path):
+    import json
+    import zipfile
+
+    from alphaloop.contracts.gates import (
+        GateResult,
+        HardGateName,
+        evidence_to_dict,
+        evaluate_hard_gates,
+    )
+
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    try:
+        created = api.create_run(_spec())
+        run_id = created["run_id"]
+        req = Request(
+            f"http://{host}:{port}/v1/jobs/{run_id}/export",
+            data=json.dumps({"candidate_id": "c1"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as exc:
+            urlopen(req)
+        assert exc.value.code == 409
+        job = api.store.get(run_id)
+        required = tuple(
+            HardGateName(name) for name in job.spec.success_criteria.hard_gates
+        )
+        evidence = evaluate_hard_gates(
+            required,
+            tuple(GateResult(name=name, passed=True, detail={}) for name in required),
+        )
+        evidence_dir = tmp_path / run_id / "evidence"
+        evidence_dir.mkdir()
+        (evidence_dir / "gates.json").write_text(json.dumps(evidence_to_dict(evidence)))
+        (tmp_path / run_id / "trial-ledger.jsonl").write_text(
+            json.dumps({"trial_id": "c1", "kind": "momentum_12_1", "parameters": {}})
+            + "\n",
+            encoding="utf-8",
+        )
+        api.store.complete_from_artifacts(run_id)
+        req = Request(
+            f"http://{host}:{port}/v1/jobs/{run_id}/export",
+            data=json.dumps({"candidate_id": "c1"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(req) as response:
+            body = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+        path = tmp_path / run_id / "exports" / "c1.asb"
+        assert body["exported_path"] == str(path)
+        assert zipfile.is_zipfile(path)
+    finally:
+        server.shutdown()

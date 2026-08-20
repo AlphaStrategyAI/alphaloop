@@ -254,13 +254,15 @@ h3 {
   width: auto;
 }
 
-#queued .queued-item {
+#queued .queued-item,
+#qualifying .qualifying-item {
   display: grid;
   gap: 0.45rem;
   margin: 0.4rem 0;
 }
 
-#queued .load-queued {
+#queued .load-queued,
+#qualifying .export-asb {
   justify-self: start;
   background: #0e121a;
   color: var(--fg);

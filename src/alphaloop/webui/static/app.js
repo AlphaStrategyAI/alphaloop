@@ -115,6 +115,61 @@ function fillFunnel(job) {
   });
 }
 
+function fillQualifying(job) {
+  const node = document.getElementById("qualifying");
+  node.innerHTML = "";
+  const rows = job.qualifying_candidates || [];
+  if (!rows.length) {
+    const empty = document.createElement("li");
+    empty.textContent = "none";
+    node.appendChild(empty);
+    return;
+  }
+  const canExport = job.research_outcome === "FOUND";
+  rows.forEach(function (row) {
+    const li = document.createElement("li");
+    li.className = "qualifying-item";
+    const trial = row.trial_id || "gates.json";
+    const text = document.createElement("span");
+    text.textContent =
+      trial + " · " + (row.kind || "") + " · " + formatGridRow(row.parameters);
+    li.appendChild(text);
+    if (canExport && trial.indexOf("c_") === 0) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "export-asb";
+      button.textContent = "Export .asb";
+      button.addEventListener("click", function () {
+        exportCandidate(trial);
+      });
+      li.appendChild(button);
+    }
+    node.appendChild(li);
+  });
+}
+
+async function exportCandidate(candidateId) {
+  const status = document.getElementById("export-status");
+  if (!currentRunId || !candidateId) {
+    status.textContent = "Export needs a selected job and candidate.";
+    return;
+  }
+  const response = await fetch(
+    "/v1/jobs/" + encodeURIComponent(currentRunId) + "/export",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidate_id: candidateId }),
+    }
+  );
+  const body = await response.json();
+  if (!response.ok) {
+    status.textContent = body.error || "export failed";
+    return;
+  }
+  status.textContent = body.exported_path || "";
+}
+
 function fillQueued(items) {
   const node = document.getElementById("queued");
   node.innerHTML = "";
@@ -412,19 +467,7 @@ async function showJob(runId) {
     job.evidence_lines && job.evidence_lines.length
       ? job.evidence_lines
       : results;
-  fillList(
-    document.getElementById("qualifying"),
-    job.qualifying_candidates,
-    function (row) {
-      return (
-        (row.trial_id || "gates.json") +
-        " · " +
-        (row.kind || "") +
-        " · " +
-        formatGridRow(row.parameters)
-      );
-    }
-  );
+  fillQualifying(job);
   fillList(document.getElementById("evidence"), evidenceItems, function (row) {
     if (typeof row === "string") {
       return row;
