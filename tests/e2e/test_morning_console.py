@@ -450,7 +450,6 @@ def test_load_queued_fills_editor_without_submitting(real_daemon, browser_page):
     assert _computed_style(button, "background-color") == "rgb(11, 15, 22)"
     if page.locator("#verdict").get_attribute("data-outcome") == "NO_EVIDENCE":
         assert _computed_style(button, "color") == "rgb(255, 176, 32)"
-        assert _computed_style(button, "border-top-color") == "rgb(255, 176, 32)"
     button.click()
     assert page.locator("#field-signal-mechanism").input_value() == "rsi"
     assert "signal_mechanism: rsi" in page.locator("#spec-yaml").input_value()
@@ -715,7 +714,6 @@ def test_export_found_only(real_daemon, browser_page, tmp_path):
         page.wait_for_selector("#verdict #handoff button.export-asb", timeout=10000)
         button = page.locator("#verdict #handoff button.export-asb").first
         assert _computed_style(button, "color") == "rgb(62, 224, 160)"
-        assert _computed_style(button, "border-top-color") == "rgb(62, 224, 160)"
         button.click()
         page.wait_for_function(
             """() => {

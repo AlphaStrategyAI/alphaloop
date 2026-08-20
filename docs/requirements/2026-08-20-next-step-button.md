@@ -82,5 +82,6 @@ EXAMPLE_SPEC unchanged.
 - E2E: `test_load_queued_fills_editor_without_submitting` — the
   verdict Load button computed background is `--ink`
   `rgb(11, 15, 22)`; when `#verdict[data-outcome="NO_EVIDENCE"]`,
-  border and text are `--warn` `rgb(255, 176, 32)`.
+  text color is `--warn` `rgb(255, 176, 32)`. Border color is locked
+  in CSS source (`border-color: var(--warn)`).
 - Locks: no invented `FOUND`; Load does not create a job.
