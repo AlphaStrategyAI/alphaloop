@@ -25,7 +25,7 @@
 - Test: `tests/runtime/test_cli_jobs.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 from alphaloop.contracts.status import JobStatus
@@ -78,10 +78,10 @@ assert payload["status"] == "cancelled"
 
 Resume e2e: `_cli(..., "resume", "--json", run_id)` keep json.loads.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
-- [ ] **Step 3: Implement `--json` + `_print_view`**
+- [x] **Step 3: Implement `--json` + `_print_view`**
 
-- [ ] **Step 4: Full unit + e2e**
+- [x] **Step 4: Full unit + e2e**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
