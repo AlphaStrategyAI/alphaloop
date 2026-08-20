@@ -24,7 +24,7 @@
 - Modify: `src/alphaloop/webui/static/index.html`, `app.js`
 - Test: `tests/runtime/test_static_console.py`, `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Static: `id="field-dataset-id"` and `id="field-dataset-sha256"` in HTML after `field-cost-budget`; script contains both ids in `formToYaml` / `yamlToForm` paths.
 
@@ -32,7 +32,7 @@ E2E `test_load_example_fills_guided_form`: fields equal `ds_example` and package
 
 E2E: Preview with empty dataset fields shows `dataset snapshot is required`.
 
-- [ ] **Step 2: FAIL then implement**
+- [x] **Step 2: FAIL then implement**
 
 - [ ] **Step 3: Unit + e2e**
 

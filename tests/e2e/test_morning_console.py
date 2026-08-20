@@ -15,6 +15,7 @@ import pytest
 import yaml
 
 from alphaloop.contracts.artifacts import RunLayout, hash_bytes
+from alphaloop.runtime.example_dataset import example_dataset_ref
 from alphaloop.runtime.preflight import HOST_CONSTRAINT
 from alphaloop.runtime.worker import find_running_worker_pid
 
@@ -175,9 +176,12 @@ def test_load_example_fills_guided_form(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
     page.click("#load-example")
+    ref = example_dataset_ref()
     assert page.locator("#field-signal-mechanism").input_value() == "momentum_12_1"
     assert page.locator("#field-market-profile").input_value() == "us-equity-daily"
     assert page.locator("#field-statement").input_value().startswith("12-1 momentum")
+    assert page.locator("#field-dataset-id").input_value() == ref.dataset_id
+    assert page.locator("#field-dataset-sha256").input_value() == ref.sha256
     assert page.locator("#submit-job").is_disabled()
 
 
@@ -201,6 +205,21 @@ def test_preview_without_dataset_shows_required_snapshot_error(real_daemon, brow
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
     _preview_yaml(page, _spec_yaml(None))
+    page.wait_for_function(
+        "() => (document.getElementById('preflight-errors').textContent || '').indexOf('dataset snapshot is required') !== -1",
+        timeout=10000,
+    )
+    assert page.locator("#job-list button").count() == 0
+    assert page.locator("#submit-job").is_disabled()
+
+
+def test_empty_dataset_fields_preview_requires_snapshot(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.click("#load-example")
+    page.fill("#field-dataset-id", "")
+    page.fill("#field-dataset-sha256", "")
+    page.click("#preview-protocol")
     page.wait_for_function(
         "() => (document.getElementById('preflight-errors').textContent || '').indexOf('dataset snapshot is required') !== -1",
         timeout=10000,

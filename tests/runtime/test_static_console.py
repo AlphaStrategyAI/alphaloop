@@ -101,6 +101,10 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert 'id="field-seed"' in html
     assert 'id="field-time-budget"' in html
     assert 'id="field-cost-budget"' in html
+    assert 'id="field-dataset-id"' in html
+    assert 'id="field-dataset-sha256"' in html
+    assert html.find('id="field-cost-budget"') < html.find('id="field-dataset-id"')
+    assert html.find('id="field-dataset-id"') < html.find('id="field-dataset-sha256"')
     for kind in DIRECTIONAL_SIGNAL_KINDS:
         assert f'value="{kind}"' in html
     assert 'value="parkinson_hist_vol"' not in html
@@ -118,6 +122,14 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert "failure_counts" in script
     assert "n_evaluated" in script
     assert "load-queued" in script
+    assert "field-dataset-id" in script
+    assert "field-dataset-sha256" in script
+    load = script[script.find("function formToYaml") : script.find("function yamlToForm")]
+    assert 'getElementById("field-dataset-id")' in load
+    assert 'getElementById("field-dataset-sha256")' in load
+    fill = script[script.find("function yamlToForm") : script.find("function formatGridRow")]
+    assert 'getElementById("field-dataset-id")' in fill
+    assert 'getElementById("field-dataset-sha256")' in fill
     assert "override" not in script.lower()
     assert "override" not in html.lower()
     assert "input:focus-visible" in css

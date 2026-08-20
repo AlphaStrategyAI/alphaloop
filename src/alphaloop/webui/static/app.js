@@ -291,6 +291,14 @@ function loadQueuedHypothesis(row, job) {
         job.cost_budget_usd
       );
     }
+    if (job.dataset) {
+      if (!document.getElementById("field-dataset-id").value && job.dataset.dataset_id) {
+        document.getElementById("field-dataset-id").value = job.dataset.dataset_id;
+      }
+      if (!document.getElementById("field-dataset-sha256").value && job.dataset.sha256) {
+        document.getElementById("field-dataset-sha256").value = job.dataset.sha256;
+      }
+    }
   }
   const selected = {};
   (row.hard_gates || []).forEach(function (name) {
@@ -390,6 +398,10 @@ function parseSpecYaml(text) {
           lines[i].startsWith("\t") ||
           lines[i].trim() === "")
       ) {
+        const nested = lines[i].match(/^\s+(dataset_id|sha256)\s*:\s*(.*)$/);
+        if (nested) {
+          values[nested[1]] = unquoteYaml(nested[2]);
+        }
         i += 1;
       }
       continue;
@@ -422,7 +434,6 @@ function parseSpecYaml(text) {
 }
 
 function formToYaml() {
-  const dataset = extractDatasetYaml(document.getElementById("spec-yaml").value);
   const gates = Array.prototype.map
     .call(
       document.querySelectorAll("#field-hard-gates input[type='checkbox']:checked"),
@@ -443,7 +454,14 @@ function formToYaml() {
     "time_budget_s: " + document.getElementById("field-time-budget").value,
     "cost_budget_usd: " + document.getElementById("field-cost-budget").value,
   ];
-  return lines.join("\n") + "\n" + dataset;
+  const datasetId = document.getElementById("field-dataset-id").value.trim();
+  const sha256 = document.getElementById("field-dataset-sha256").value.trim();
+  if (datasetId && sha256) {
+    lines.push("dataset:");
+    lines.push("  dataset_id: " + datasetId);
+    lines.push("  sha256: " + sha256);
+  }
+  return lines.join("\n") + "\n";
 }
 
 function yamlToForm(text) {
@@ -462,6 +480,8 @@ function yamlToForm(text) {
   document.getElementById("field-time-budget").value = parsed.time_budget_s || "";
   document.getElementById("field-cost-budget").value =
     parsed.cost_budget_usd || "";
+  document.getElementById("field-dataset-id").value = parsed.dataset_id || "";
+  document.getElementById("field-dataset-sha256").value = parsed.sha256 || "";
   const selected = {};
   (parsed.hard_gates || []).forEach(function (name) {
     selected[name] = true;
