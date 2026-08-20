@@ -5,7 +5,6 @@ from pathlib import Path
 import pandas as pd
 
 from alphaloop.contracts.artifacts import (
-    DatasetMismatchError,
     DatasetRef,
     RunLayout,
     hash_bytes,
