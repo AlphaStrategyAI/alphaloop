@@ -89,3 +89,11 @@ def test_increment_recovery_and_heartbeat(tmp_path):
     assert beat.heartbeat_at == "2026-08-19T00:00:00+00:00"
     again = store.increment_recovery(job.run_id)
     assert again.recovery_attempts == 1
+
+
+def test_list_jobs_newest_first(tmp_path):
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    first = store.create(_spec())
+    second = store.create(_spec())
+    ids = [job.run_id for job in store.list_jobs()]
+    assert ids == [second.run_id, first.run_id]

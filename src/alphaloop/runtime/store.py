@@ -140,7 +140,7 @@ class JobStore:
         with self._lock:
             with self._connect() as conn:
                 rows = conn.execute(
-                    "SELECT * FROM jobs ORDER BY created_at"
+                    "SELECT * FROM jobs ORDER BY created_at DESC, run_id DESC"
                 ).fetchall()
         return tuple(self._row_to_record(row) for row in rows)
 

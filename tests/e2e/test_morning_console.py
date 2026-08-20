@@ -139,6 +139,7 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#morning").count() == 1
     assert page.locator("#hypothesis-form").count() == 1
     assert page.locator("#field-signal-mechanism").count() == 1
+    assert page.locator("#detail").is_hidden()
 
 
 def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
@@ -237,6 +238,13 @@ def test_valid_submit_shows_host_constraint_and_job_row(real_daemon, browser_pag
     )
     run_id = _first_run_id(page)
     assert run_id.startswith("j_")
+    page.wait_for_function(
+        """() => {
+            const detail = document.getElementById('detail');
+            return detail && !detail.hidden;
+        }""",
+        timeout=15000,
+    )
 
 
 def test_job_card_shows_hypothesis_and_n_trials(real_daemon, browser_page):
@@ -340,6 +348,8 @@ def test_terminal_outcome_matches_cli_status(real_daemon, browser_page):
     assert passed.count() == 1
     assert passed.get_attribute("data-pct") is not None
     assert "incomplete:" in page.locator("#funnel-summary").inner_text()
+    card = page.locator("#job-list button").first
+    assert card.locator(".job-funnel .funnel-stack").count() == 1
     assert "target found" not in page.content()
 
 

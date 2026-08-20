@@ -135,6 +135,15 @@ h3 {
   border-left-color: var(--inconclusive);
 }
 
+#job-list button[aria-current="true"] {
+  border-color: var(--focus);
+}
+
+.job-funnel .funnel-stack {
+  height: 0.45rem;
+  margin: 0.4rem 0 0;
+}
+
 .job-meta {
   display: flex;
   flex-wrap: wrap;

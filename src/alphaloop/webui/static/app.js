@@ -54,6 +54,24 @@ function appendFunnelSeg(stack, key, count, whole) {
   stack.appendChild(seg);
 }
 
+function fillFunnelStack(host, funnel) {
+  host.innerHTML = "";
+  const evaluated = funnel.n_evaluated || 0;
+  const passed = funnel.n_passed || 0;
+  const failed = funnel.n_failed || 0;
+  const incomplete = funnel.n_incomplete || 0;
+  if (evaluated + passed + failed + incomplete <= 0) {
+    return;
+  }
+  const stack = document.createElement("div");
+  stack.className = "funnel-stack";
+  const whole = evaluated > 0 ? evaluated : passed + failed + incomplete;
+  appendFunnelSeg(stack, "passed", passed, whole);
+  appendFunnelSeg(stack, "failed", failed, whole);
+  appendFunnelSeg(stack, "incomplete", incomplete, whole);
+  host.appendChild(stack);
+}
+
 function fillFunnel(job) {
   const funnel = job.funnel || {};
   const evaluated = funnel.n_evaluated || 0;
@@ -66,17 +84,7 @@ function fillFunnel(job) {
     "failed: " + failed,
     "incomplete: " + incomplete,
   ].join(" · ");
-  const bars = document.getElementById("funnel-bars");
-  bars.innerHTML = "";
-  if (evaluated + passed + failed + incomplete > 0) {
-    const stack = document.createElement("div");
-    stack.className = "funnel-stack";
-    const whole = evaluated > 0 ? evaluated : passed + failed + incomplete;
-    appendFunnelSeg(stack, "passed", passed, whole);
-    appendFunnelSeg(stack, "failed", failed, whole);
-    appendFunnelSeg(stack, "incomplete", incomplete, whole);
-    bars.appendChild(stack);
-  }
+  fillFunnelStack(document.getElementById("funnel-bars"), funnel);
   const node = document.getElementById("funnel");
   const names = funnel.dominant_failures;
   const counts = funnel.failure_counts || {};
@@ -438,15 +446,26 @@ async function postJobAction(action) {
 async function loadJobs() {
   const response = await fetch("/v1/jobs");
   const data = await response.json();
+  const jobs = data.jobs || [];
+  const ids = {};
+  jobs.forEach(function (job) {
+    ids[job.run_id] = true;
+  });
+  if (!currentRunId || !ids[currentRunId]) {
+    currentRunId = jobs.length ? jobs[0].run_id : null;
+  }
   const list = document.getElementById("job-list");
   list.innerHTML = "";
-  for (const job of data.jobs || []) {
+  for (const job of jobs) {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.runId = job.run_id;
     button.dataset.status = job.status;
     button.dataset.outcome = job.research_outcome;
+    if (job.run_id === currentRunId) {
+      button.setAttribute("aria-current", "true");
+    }
     const statement =
       job.hypothesis && job.hypothesis.statement ? job.hypothesis.statement : "";
     const meta = document.createElement("span");
@@ -461,11 +480,21 @@ async function loadJobs() {
     progress.className = "job-search-progress";
     fillSearchProgress(progress, job.n_trials, job.planned_n_trials);
     button.appendChild(progress);
+    const mini = document.createElement("span");
+    mini.className = "job-funnel";
+    fillFunnelStack(mini, job.funnel || {});
+    button.appendChild(mini);
     button.addEventListener("click", function () {
       showJob(job.run_id);
     });
     item.appendChild(button);
     list.appendChild(item);
+  }
+  const detail = document.getElementById("detail");
+  if (currentRunId) {
+    await showJob(currentRunId);
+  } else {
+    detail.hidden = true;
   }
 }
 
@@ -535,7 +564,8 @@ async function submitJob() {
   if (body.host_constraint) {
     constraint.textContent = body.host_constraint;
   }
-  loadJobs();
+  currentRunId = body.run_id;
+  await loadJobs();
 }
 
 document.getElementById("load-example").addEventListener("click", function () {

@@ -155,6 +155,20 @@ def test_packaged_search_progress():
     assert "override" not in script.lower()
 
 
+def test_packaged_morning_lead_and_job_funnel():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert "fillFunnelStack" in script
+    assert "job-funnel" in script
+    assert "aria-current" in script
+    assert "detail.hidden" in script
+    assert ".job-funnel .funnel-stack" in css
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_static_package_loads_without_fastapi():
     """Morning assets must load even when FastAPI is not installed."""
     code = r"""

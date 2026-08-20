@@ -84,6 +84,8 @@ Packaged page only.
 
 ## 6. Loop exit
 
-Remaining product: job-list mini-funnel. Remaining validation:
-textbook `S=16` CPCV, soak / 95% overnight (not CI),
-correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP / cloud workers.
+Remaining product after this cycle shipped: morning home leads with
+the latest job (`docs/requirements/2026-08-20-morning-lead.md`).
+Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
+(not CI), correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP /
+cloud workers.
