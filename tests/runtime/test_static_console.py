@@ -224,6 +224,49 @@ def test_packaged_console_morning_report():
     assert "override" not in script.lower()
 
 
+def test_packaged_empty_morning_cue():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    locked = (
+        "No overnight job yet. Load example, then Preview protocol, then "
+        "Freeze and submit. This console does not claim alpha or future "
+        "profitability."
+    )
+    assert 'id="empty-morning"' in html
+    assert html.find('id="job-list"') < html.find('id="empty-morning"')
+    assert html.find('id="empty-morning"') < html.find('id="detail"')
+    assert locked in html
+    empty_block = html[html.find('id="empty-morning"') : html.find('id="detail"')]
+    assert "<button" not in empty_block.lower()
+    assert HOST_CONSTRAINT not in empty_block
+    load = script[
+        script.find("async function loadJobs") : script.find("let previewedYaml")
+    ]
+    assert 'getElementById("empty-morning")' in load
+    assert ".hidden" in load
+    assert "jobs.length" in load
+    assert "#empty-morning" in css
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
+def test_roadmap_remaining_does_not_list_shipped_preview_as_unfinished():
+    from pathlib import Path
+
+    text = Path("ROADMAP.md").read_text(encoding="utf-8")
+    remaining = text.split("## Remaining work")[1].split("## Version note")[0]
+    assert "Protocol preview before freeze" not in remaining
+    assert "Qualifying-candidate tables" not in remaining
+    assert "funnel visualization" not in remaining
+    assert "N_{\\mathrm{eff}}" in remaining
+    assert "n_trials" in remaining
+    assert "soak" in remaining.lower()
+    assert "MCP" in remaining
+    assert "cloud" in remaining.lower()
+
+
 def test_packaged_console_morning_verdict_stage():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

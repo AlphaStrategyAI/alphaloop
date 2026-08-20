@@ -668,6 +668,7 @@ async function loadJobs() {
     item.appendChild(button);
     list.appendChild(item);
   }
+  document.getElementById("empty-morning").hidden = jobs.length > 0;
   const detail = document.getElementById("detail");
   if (currentRunId) {
     await showJob(currentRunId);

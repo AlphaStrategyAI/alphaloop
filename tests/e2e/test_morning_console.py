@@ -140,6 +140,14 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#hypothesis-form").count() == 1
     assert page.locator("#field-signal-mechanism").count() == 1
     assert page.locator("#detail").is_hidden()
+    assert page.locator("#job-list button").count() == 0
+    empty = page.locator("#empty-morning")
+    assert empty.is_visible()
+    assert empty.inner_text() == (
+        "No overnight job yet. Load example, then Preview protocol, then "
+        "Freeze and submit. This console does not claim alpha or future "
+        "profitability."
+    )
 
 
 def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
@@ -245,6 +253,8 @@ def test_valid_submit_shows_host_constraint_and_job_row(real_daemon, browser_pag
         }""",
         timeout=15000,
     )
+    assert page.locator("#empty-morning").is_hidden()
+    assert page.locator("#job-list button").count() == 1
 
 
 def test_job_card_shows_hypothesis_and_n_trials(real_daemon, browser_page):
