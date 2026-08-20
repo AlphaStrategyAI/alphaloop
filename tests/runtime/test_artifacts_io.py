@@ -197,6 +197,7 @@ def test_format_gate_line_includes_pbo_when_present():
                 "pbo": 0.8,
                 "pbo_n_strategies": 3,
                 "pbo_n_paths": 20,
+                "pbo_n_groups": 6,
                 "pbo_passes": False,
             },
         }
@@ -204,4 +205,5 @@ def test_format_gate_line_includes_pbo_when_present():
     assert "pbo=0.8" in line
     assert "pbo_n_strategies=3" in line
     assert "pbo_n_paths=20" in line
+    assert "pbo_n_groups=6" in line
     assert "pbo_passes=false" in line

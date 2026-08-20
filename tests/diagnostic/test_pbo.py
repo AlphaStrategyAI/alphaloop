@@ -58,3 +58,25 @@ def test_pbo_fails_when_is_winner_is_oos_loser():
     assert result.evaluated is True
     assert result.pbo >= 0.5
     assert result.passes is False
+
+
+def test_pbo_selects_textbook_groups_when_sample_is_long():
+    idx = _idx(320)
+    a = pd.Series(0.001, index=idx)
+    result = probability_of_backtest_overfitting([a, a.copy(), a.copy()])
+    assert result.evaluated is True
+    assert result.n_groups == 16
+    assert result.n_paths == comb(16, 8)
+    assert result.passes is True
+
+
+def test_pbo_explicit_groups_override_auto_shape():
+    idx = _idx(320)
+    a = pd.Series(0.001, index=idx)
+    result = probability_of_backtest_overfitting(
+        [a, a.copy()],
+        n_groups=6,
+    )
+    assert result.n_groups == 6
+    assert result.n_paths == comb(6, 3)
+    assert result.passes is True

@@ -103,6 +103,7 @@ when attached). Morning `MORNING_DETAIL_KEYS` copies the new keys.
 
 ## 6. Loop exit
 
-Remaining validation: soak / 95% overnight (not CI),
-correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP / cloud workers.
-PBO may later follow the same `S=16` partition.
+Remaining product after this cycle shipped: textbook `S=16` CSCV PBO
+(`docs/requirements/2026-08-20-textbook-pbo.md`). Remaining
+validation: soak / 95% overnight (not CI), correlation-adjusted
+\(N_{\mathrm{eff}}\). Later: MCP / cloud workers.

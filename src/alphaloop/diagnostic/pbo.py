@@ -12,8 +12,8 @@ import pandas as pd
 from alphaloop.diagnostic.cv import (
     DEFAULT_CPCV_GROUPS,
     MIN_CPCV_GROUP_BARS,
-    _annualized_sharpe,
     _cpcv_group_ranges,
+    select_cpcv_shape,
 )
 
 DEFAULT_PBO_GROUPS = DEFAULT_CPCV_GROUPS
@@ -58,16 +58,32 @@ def _empty(*, n_strategies: int, n_groups: int) -> PBOResult:
     )
 
 
+def _column_sharpes(block: np.ndarray, periods_per_year: int) -> np.ndarray:
+    """Annualized Sharpe per column; matches pandas Series.std() (ddof=1)."""
+    n_obs = int(block.shape[0])
+    n_col = int(block.shape[1])
+    if n_obs < 2:
+        return np.zeros(n_col, dtype=float)
+    mean = np.mean(block, axis=0)
+    std = np.std(block, axis=0, ddof=1)
+    out = np.zeros(n_col, dtype=float)
+    ok = np.isfinite(std) & (std > 0)
+    scale = np.sqrt(periods_per_year)
+    out[ok] = mean[ok] / std[ok] * scale
+    return out
+
+
 def probability_of_backtest_overfitting(
     strategy_returns: Sequence[pd.Series],
     *,
-    n_groups: int = DEFAULT_PBO_GROUPS,
+    n_groups: int | None = None,
     min_group_bars: int = MIN_CPCV_GROUP_BARS,
     periods_per_year: int = 252,
     max_pbo: float = MAX_PBO,
 ) -> PBOResult:
     """CSCV PBO for a set of already-scored strategy return series.
 
+    When *n_groups* is omitted, uses the same S=16 / S=6 rule as CPCV.
     Splits the common index into ``n_groups`` contiguous groups. Each
     combination of ``n_groups // 2`` groups is the in-sample set; the
     complement is OOS. The in-sample Sharpe winner is overfit on a path
@@ -75,40 +91,35 @@ def probability_of_backtest_overfitting(
     """
     series = [row for row in strategy_returns if isinstance(row, pd.Series)]
     n_strategies = len(series)
-    if n_strategies < 2 or n_groups < 2 or n_groups % 2 != 0:
-        return _empty(n_strategies=n_strategies, n_groups=n_groups)
+    if n_strategies < 2:
+        return _empty(n_strategies=n_strategies, n_groups=n_groups or 0)
     frame = pd.concat(series, axis=1, join="inner")
+    if n_groups is None:
+        shape = select_cpcv_shape(len(frame), min_group_bars)
+        if shape is None:
+            return _empty(n_strategies=n_strategies, n_groups=0)
+        n_groups = shape[0]
+    if n_groups < 2 or n_groups % 2 != 0:
+        return _empty(n_strategies=n_strategies, n_groups=n_groups)
     if frame.empty or len(frame) < n_groups * min_group_bars:
         return _empty(n_strategies=n_strategies, n_groups=n_groups)
 
-    values = frame.to_numpy(dtype=float)
+    values = np.nan_to_num(frame.to_numpy(dtype=float), nan=0.0)
     n_obs, n_col = values.shape
     ranges = _cpcv_group_ranges(n_obs, n_groups)
+    group_masks = np.zeros((n_groups, n_obs), dtype=bool)
+    for i, (start, end) in enumerate(ranges):
+        group_masks[i, start:end] = True
     n_is = n_groups // 2
     overfit = 0
     n_paths = 0
     for combo in combinations(range(n_groups), n_is):
-        is_mask = np.zeros(n_obs, dtype=bool)
-        for group in combo:
-            start, end = ranges[group]
-            is_mask[start:end] = True
+        is_mask = np.any(group_masks[list(combo)], axis=0)
         oos_mask = ~is_mask
         if not is_mask.any() or not oos_mask.any():
             continue
-        is_sharpes = np.array(
-            [
-                _annualized_sharpe(pd.Series(values[is_mask, j]), periods_per_year)
-                for j in range(n_col)
-            ],
-            dtype=float,
-        )
-        oos_sharpes = np.array(
-            [
-                _annualized_sharpe(pd.Series(values[oos_mask, j]), periods_per_year)
-                for j in range(n_col)
-            ],
-            dtype=float,
-        )
+        is_sharpes = _column_sharpes(values[is_mask], periods_per_year)
+        oos_sharpes = _column_sharpes(values[oos_mask], periods_per_year)
         winner = int(np.argmax(is_sharpes))
         ranks = _average_ranks(oos_sharpes)
         relative = float(ranks[winner]) / float(n_col)

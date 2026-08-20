@@ -35,6 +35,7 @@ MORNING_DETAIL_KEYS = (
     "pbo",
     "pbo_n_strategies",
     "pbo_n_paths",
+    "pbo_n_groups",
     "pbo_passes",
     "holdout_n",
     "holdout_sharpe",

@@ -178,6 +178,7 @@ def _attach_pbo(evidence: GateEvidence, pbo: PBOResult) -> GateEvidence:
         "pbo": pbo.pbo,
         "pbo_n_strategies": pbo.n_strategies,
         "pbo_n_paths": pbo.n_paths,
+        "pbo_n_groups": pbo.n_groups,
         "pbo_passes": bool(pbo.passes),
     }
     rows: list[GateResult] = []
