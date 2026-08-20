@@ -8,6 +8,7 @@
   </head>
   <body>
     <header>
+      <p class="kicker">local overnight lab</p>
       <h1>alphaloop</h1>
       <p class="promise">
         Submit in one minute. Overnight, a local worker researches. In the
@@ -22,37 +23,46 @@
         <span data-outcome="INCONCLUSIVE">INCONCLUSIVE</span>
       </p>
     </header>
-    <main>
-      <section id="submit">
-        <h2>Submit</h2>
-        <label for="spec-yaml">Research spec (YAML)</label>
-        <textarea id="spec-yaml" rows="16" cols="72"></textarea>
-        <p>
-          <button id="preview-protocol" type="button">Preview protocol</button>
-          <button id="submit-job" type="button" disabled>Freeze and submit</button>
-        </p>
-        <p id="protocol-preview"></p>
-        <p id="preflight-errors"></p>
-        <p id="host-constraint"></p>
+    <main id="console">
+      <section id="before-bed">
+        <section id="submit">
+          <h2>Before bed</h2>
+          <label for="spec-yaml">Research spec (YAML)</label>
+          <textarea id="spec-yaml" rows="16" cols="72"></textarea>
+          <p class="actions">
+            <button id="load-example" type="button">Load example</button>
+            <button id="preview-protocol" type="button">Preview protocol</button>
+            <button id="submit-job" type="button" disabled>Freeze and submit</button>
+          </p>
+          <p id="protocol-preview"></p>
+          <p id="preflight-errors"></p>
+          <p id="host-constraint"></p>
+        </section>
       </section>
-      <section id="jobs">
-        <h2>Jobs</h2>
-        <ul id="job-list"></ul>
-      </section>
-      <section id="detail" hidden>
-        <p id="outcome" data-outcome></p>
-        <p id="job-status"></p>
-        <p id="hypothesis-statement"></p>
-        <p id="spec-meta"></p>
-        <p id="stop-reason"></p>
-        <h3>Evidence</h3>
-        <ul id="evidence"></ul>
-        <h3>Elimination funnel</h3>
-        <ul id="funnel"></ul>
-        <h3>Methodological revisions</h3>
-        <ul id="revisions"></ul>
-        <h3>Queued hypotheses</h3>
-        <ul id="queued"></ul>
+      <section id="morning">
+        <section id="jobs">
+          <h2>Morning</h2>
+          <ul id="job-list"></ul>
+        </section>
+        <section id="detail" hidden>
+          <p id="outcome" data-outcome></p>
+          <p id="job-status"></p>
+          <p id="hypothesis-statement"></p>
+          <p id="spec-meta"></p>
+          <p id="stop-reason"></p>
+          <p class="actions">
+            <button id="cancel-job" type="button" hidden>Cancel</button>
+            <button id="resume-job" type="button" hidden>Resume</button>
+          </p>
+          <h3>Evidence</h3>
+          <ul id="evidence"></ul>
+          <h3>Elimination funnel</h3>
+          <ul id="funnel"></ul>
+          <h3>Methodological revisions</h3>
+          <ul id="revisions"></ul>
+          <h3>Queued hypotheses</h3>
+          <ul id="queued"></ul>
+        </section>
       </section>
       <section id="help">
         <h2>Help</h2>

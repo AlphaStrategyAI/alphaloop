@@ -62,6 +62,25 @@ def test_packaged_help_and_evidence_lines():
     assert "override" not in script.lower()
 
 
+def test_packaged_example_layout_and_job_controls():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="load-example"' in html
+    assert 'id="before-bed"' in html
+    assert 'id="morning"' in html
+    assert 'id="cancel-job"' in html
+    assert 'id="resume-job"' in html
+    assert "statement: 12-1 momentum works in US large caps net of costs" in script
+    assert "signal_mechanism: momentum_12_1" in script
+    assert 'postJobAction("cancel")' in script
+    assert 'postJobAction("resume")' in script
+    assert 'job.run_id + " — " + job.status + " — " + job.research_outcome' in script
+    assert "override" not in script.lower()
+    assert "56rem" in css or "min-width: 56rem" in css
+
+
 def test_static_package_loads_without_fastapi():
     """Morning assets must load even when FastAPI is not installed."""
     code = r"""

@@ -136,6 +136,21 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#submit-job").count() == 1
     assert page.locator("#preview-protocol").count() == 1
     assert page.locator("#submit-job").is_disabled()
+    assert page.locator("#load-example").count() == 1
+    assert page.locator("#before-bed").count() == 1
+    assert page.locator("#morning").count() == 1
+
+
+def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.click("#load-example")
+    text = page.locator("#spec-yaml").input_value()
+    assert "statement: 12-1 momentum works in US large caps net of costs" in text
+    assert "signal_mechanism: momentum_12_1" in text
+    assert page.locator("#submit-job").is_disabled()
+    assert page.locator("#job-list button").count() == 0
+    assert "target found" not in page.content()
 
 
 def test_help_visible_without_opening_a_job(real_daemon, browser_page):
@@ -272,6 +287,27 @@ def test_cancel_before_seal_is_inconclusive(real_daemon, browser_page):
     )
     _open_job_detail(page)
     assert page.locator("#outcome").inner_text().strip() == "INCONCLUSIVE"
+
+
+def test_cancel_from_console_before_seal_is_inconclusive(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    _preview_then_submit(page, _spec_yaml(dataset, time_budget_s=3600))
+    page.wait_for_selector("#job-list button", timeout=15000)
+    _open_job_detail(page)
+    page.wait_for_selector("#cancel-job:not([hidden])", timeout=10000)
+    page.click("#cancel-job")
+    page.wait_for_function(
+        """() => [...document.querySelectorAll('#job-list button')].some((button) =>
+            (button.textContent || '').includes('INCONCLUSIVE'))""",
+        timeout=15000,
+    )
+    assert _list_research_outcome(page.locator("#job-list button").first.inner_text()) == (
+        "INCONCLUSIVE"
+    )
+    assert page.locator("#outcome").inner_text().strip() == "INCONCLUSIVE"
+    assert "target found" not in page.content()
 
 
 def test_cancel_keeps_found_when_already_sealed(real_daemon, browser_page):

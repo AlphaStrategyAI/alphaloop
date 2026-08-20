@@ -2,11 +2,12 @@
 
 The **first-release** morning UI is the packaged static page at
 `src/alphaloop/webui/static/`, served by `alphaloop start` on loopback.
-Paste a YAML research spec, preview the compiled protocol (method grid
-and planned trial count), then freeze it. Leave the host awake, and
-review `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE` in the morning. Job
-status and research outcome stay separate. The page does not promise
-alpha.
+Paste a YAML research spec (or load the example), preview the compiled
+protocol (method grid and planned trial count), then freeze it. Cancel
+or resume from the job detail without leaving the page. Leave the host
+awake, and review `FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE` in the
+morning. Job status and research outcome stay separate. The page does
+not promise alpha.
 
 The Vite + React + TypeScript Quant Lab SPA under `webui/` is **frozen
 heritage**. It is not the overnight-lab product UI. The notes below

@@ -13,7 +13,22 @@ function fillList(node, items, render) {
   }
 }
 
+const EXAMPLE_SPEC =
+  "statement: 12-1 momentum works in US large caps net of costs\n" +
+  "economic_logic: past winners continue\n" +
+  "signal_mechanism: momentum_12_1\n" +
+  "market_scope: AAPL, MSFT\n" +
+  "market_profile: us-equity-daily\n" +
+  "benchmark: SPY\n" +
+  "hard_gates: [dsr, walk_forward, vs_benchmark]\n" +
+  "seed: 7\n" +
+  "time_budget_s: 3600\n" +
+  "cost_budget_usd: 5.0\n";
+
+let currentRunId = null;
+
 async function showJob(runId) {
+  currentRunId = runId;
   const response = await fetch("/v1/jobs/" + encodeURIComponent(runId));
   const job = await response.json();
   const detail = document.getElementById("detail");
@@ -35,6 +50,10 @@ async function showJob(runId) {
   document.getElementById("stop-reason").textContent = job.stop_reason
     ? "Stop reason: " + job.stop_reason
     : "Stop reason: (running or not yet terminal)";
+  const cancel = document.getElementById("cancel-job");
+  const resume = document.getElementById("resume-job");
+  cancel.hidden = job.status !== "queued" && job.status !== "running";
+  resume.hidden = job.status !== "failed";
   const results = (job.evidence && job.evidence.results) || [];
   const evidenceItems =
     job.evidence_lines && job.evidence_lines.length
@@ -61,6 +80,18 @@ async function showJob(runId) {
   });
 }
 
+async function postJobAction(action) {
+  if (!currentRunId) {
+    return;
+  }
+  await fetch(
+    "/v1/jobs/" + encodeURIComponent(currentRunId) + "/" + action,
+    { method: "POST" }
+  );
+  await loadJobs();
+  await showJob(currentRunId);
+}
+
 async function loadJobs() {
   const response = await fetch("/v1/jobs");
   const data = await response.json();
@@ -71,6 +102,8 @@ async function loadJobs() {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = job.run_id + " — " + job.status + " — " + job.research_outcome;
+    button.dataset.status = job.status;
+    button.dataset.outcome = job.research_outcome;
     button.addEventListener("click", function () {
       showJob(job.run_id);
     });
@@ -158,12 +191,26 @@ async function submitJob() {
   loadJobs();
 }
 
+document.getElementById("load-example").addEventListener("click", function () {
+  const box = document.getElementById("spec-yaml");
+  box.value = EXAMPLE_SPEC;
+  box.dispatchEvent(new Event("input"));
+});
+
 document.getElementById("preview-protocol").addEventListener("click", function () {
   previewProtocol();
 });
 
 document.getElementById("submit-job").addEventListener("click", function () {
   submitJob();
+});
+
+document.getElementById("cancel-job").addEventListener("click", function () {
+  postJobAction("cancel");
+});
+
+document.getElementById("resume-job").addEventListener("click", function () {
+  postJobAction("resume");
 });
 
 document.getElementById("spec-yaml").addEventListener("input", function () {
