@@ -103,6 +103,7 @@ nav:
     - Verdict export receipt plan: plans/2026-08-20-verdict-export-receipt.md
     - Handoff export button plan: plans/2026-08-20-handoff-export-button.md
     - Next-step button plan: plans/2026-08-20-next-step-button.md
+    - Lifecycle actions plan: plans/2026-08-20-lifecycle-actions.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md
@@ -148,6 +149,7 @@ nav:
     - Verdict export receipt: requirements/2026-08-20-verdict-export-receipt.md
     - Handoff export button: requirements/2026-08-20-handoff-export-button.md
     - Next-step button: requirements/2026-08-20-next-step-button.md
+    - Lifecycle actions: requirements/2026-08-20-lifecycle-actions.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 
