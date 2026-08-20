@@ -309,6 +309,7 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     assert "n_trials:" in meta
     assert "Stop reason:" in page.locator("#stop-reason").inner_text()
     assert "evaluated:" in page.locator("#funnel-summary").inner_text()
+    assert page.locator("#funnel-bars").count() == 1
     assert "target found" not in page.content()
 
 
@@ -327,6 +328,11 @@ def test_terminal_outcome_matches_cli_status(real_daemon, browser_page):
     assert payload["research_outcome"] in _OUTCOMES
     _open_job_detail(page)
     assert page.locator("#outcome").inner_text().strip() == payload["research_outcome"]
+    page.wait_for_selector("#funnel-bars .funnel-stack")
+    passed = page.locator('#funnel-bars .funnel-seg[data-key="passed"]')
+    assert passed.count() == 1
+    assert passed.get_attribute("data-pct") is not None
+    assert "incomplete:" in page.locator("#funnel-summary").inner_text()
     assert "target found" not in page.content()
 
 

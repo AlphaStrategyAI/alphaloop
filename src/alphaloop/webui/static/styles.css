@@ -235,6 +235,54 @@ h3 {
   cursor: pointer;
 }
 
+.funnel-stack {
+  display: flex;
+  height: 1.15rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--line);
+  margin: 0.7rem 0 1rem;
+}
+
+.funnel-seg {
+  display: block;
+  height: 100%;
+  min-width: 0;
+}
+
+.funnel-seg[data-key="passed"] {
+  background: var(--accent);
+}
+
+.funnel-seg[data-key="failed"] {
+  background: var(--warn);
+}
+
+.funnel-seg[data-key="incomplete"] {
+  background: var(--inconclusive);
+}
+
+#funnel li.funnel-fail {
+  display: grid;
+  grid-template-columns: minmax(7rem, 12rem) minmax(4rem, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.4rem 0;
+}
+
+#funnel .funnel-fail-track {
+  height: 0.55rem;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#funnel .funnel-fail-fill {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+}
+
 #protocol-grid {
   list-style: none;
   padding: 0.4rem 0 0;

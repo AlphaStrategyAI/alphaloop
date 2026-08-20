@@ -90,7 +90,8 @@ show them.
 - Textbook CPCV `S=16` / `C(16,8)`.
 - Correlation-adjusted \(N_{\mathrm{eff}}\).
 - Soak / 95% overnight as CI.
-- Funnel bar charts or other visual polish.
+- Funnel bar charts (`docs/requirements/2026-08-20-funnel-bars.md`)
+  or other visual polish.
 - New `HardGateName`. Changing DSR, costs, embargo, or method grids.
 
 ## 5. Acceptance
@@ -110,8 +111,9 @@ show them.
 
 ## 6. Loop exit
 
-Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
-(release process, not CI), correlation-adjusted \(N_{\mathrm{eff}}\)
-(reducing N would make `FOUND` easier — keep N = ledger count until
-that is designed). Remaining product: visual polish beyond count
-funnel; MCP / cloud workers.
+Remaining product after this cycle shipped: visual funnel bars
+(`docs/requirements/2026-08-20-funnel-bars.md`). Remaining validation:
+textbook `S=16` CPCV, soak / 95% overnight (release process, not CI),
+correlation-adjusted \(N_{\mathrm{eff}}\) (reducing N would make
+`FOUND` easier — keep N = ledger count until that is designed).
+Remaining later: MCP / cloud workers.

@@ -13,6 +13,81 @@ function fillList(node, items, render) {
   }
 }
 
+function funnelPct(part, whole) {
+  const denom = whole > 0 ? whole : 1;
+  const pct = Math.round(((Number(part) || 0) / denom) * 100);
+  if (pct < 0) {
+    return 0;
+  }
+  if (pct > 100) {
+    return 100;
+  }
+  return pct;
+}
+
+function appendFunnelSeg(stack, key, count, whole) {
+  const seg = document.createElement("span");
+  seg.className = "funnel-seg";
+  seg.dataset.key = key;
+  const pct = funnelPct(count, whole);
+  seg.dataset.pct = String(pct);
+  seg.style.width = pct + "%";
+  stack.appendChild(seg);
+}
+
+function fillFunnel(job) {
+  const funnel = job.funnel || {};
+  const evaluated = funnel.n_evaluated || 0;
+  const passed = funnel.n_passed || 0;
+  const failed = funnel.n_failed || 0;
+  const incomplete = funnel.n_incomplete || 0;
+  document.getElementById("funnel-summary").textContent = [
+    "evaluated: " + evaluated,
+    "passed: " + passed,
+    "failed: " + failed,
+    "incomplete: " + incomplete,
+  ].join(" · ");
+  const bars = document.getElementById("funnel-bars");
+  bars.innerHTML = "";
+  if (evaluated + passed + failed + incomplete > 0) {
+    const stack = document.createElement("div");
+    stack.className = "funnel-stack";
+    const whole = evaluated > 0 ? evaluated : passed + failed + incomplete;
+    appendFunnelSeg(stack, "passed", passed, whole);
+    appendFunnelSeg(stack, "failed", failed, whole);
+    appendFunnelSeg(stack, "incomplete", incomplete, whole);
+    bars.appendChild(stack);
+  }
+  const node = document.getElementById("funnel");
+  const names = funnel.dominant_failures;
+  const counts = funnel.failure_counts || {};
+  node.innerHTML = "";
+  if (!names || names.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = "none";
+    node.appendChild(empty);
+    return;
+  }
+  names.forEach(function (name) {
+    const count = counts[name] || 0;
+    const li = document.createElement("li");
+    li.className = "funnel-fail";
+    const label = document.createElement("span");
+    label.textContent = name + " × " + count;
+    const track = document.createElement("span");
+    track.className = "funnel-fail-track";
+    const fill = document.createElement("span");
+    fill.className = "funnel-fail-fill";
+    const pct = funnelPct(count, failed);
+    fill.dataset.pct = String(pct);
+    fill.style.width = pct + "%";
+    track.appendChild(fill);
+    li.appendChild(label);
+    li.appendChild(track);
+    node.appendChild(li);
+  });
+}
+
 function fillQueued(items) {
   const node = document.getElementById("queued");
   node.innerHTML = "";
@@ -309,21 +384,7 @@ async function showJob(runId) {
     }
     return row.name + ": " + (row.passed ? "pass" : "fail");
   });
-  fillList(
-    document.getElementById("funnel"),
-    job.funnel && job.funnel.dominant_failures,
-    function (name) {
-      const counts = (job.funnel && job.funnel.failure_counts) || {};
-      const count = counts[name];
-      return count ? name + " × " + count : name;
-    }
-  );
-  const funnel = job.funnel || {};
-  document.getElementById("funnel-summary").textContent = [
-    "evaluated: " + (funnel.n_evaluated || 0),
-    "passed: " + (funnel.n_passed || 0),
-    "failed: " + (funnel.n_failed || 0),
-  ].join(" · ");
+  fillFunnel(job);
   fillList(document.getElementById("revisions"), job.revisions, function (row) {
     return (
       (row.trial_id || "") +
