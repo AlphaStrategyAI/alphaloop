@@ -106,6 +106,7 @@ nav:
     - Lifecycle actions plan: plans/2026-08-20-lifecycle-actions.md
     - Export latest plan: plans/2026-08-20-export-latest.md
     - Cancel latest plan: plans/2026-08-20-cancel-latest.md
+    - Replay latest plan: plans/2026-08-20-replay-latest.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md
@@ -154,6 +155,7 @@ nav:
     - Lifecycle actions: requirements/2026-08-20-lifecycle-actions.md
     - Export latest: requirements/2026-08-20-export-latest.md
     - Cancel latest: requirements/2026-08-20-cancel-latest.md
+    - Replay latest: requirements/2026-08-20-replay-latest.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 
