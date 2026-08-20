@@ -40,7 +40,7 @@
 - Consumes: sealed `gates.json`, optional `{data_dir}/.alphaloop/state.db`
 - Produces: `replay_view(...)` dict → `format_status_verdict` / `--json`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 In `tests/runtime/test_morning.py`:
 
@@ -128,7 +128,7 @@ assert "This status does not claim alpha or future profitability." in replayed.s
 
 Skill (if SKILL mentions replay): `alphaloop replay` present.
 
-- [ ] **Step 2: Run tests — expect FAIL**
+- [x] **Step 2: Run tests — expect FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_replay_rewrites_report_without_looprunner tests/runtime/test_cli_jobs.py::test_replay_parser_has_json_flag tests/runtime/test_static_console.py::test_prd_section_13_does_not_list_phases_8_11_as_remaining -v
@@ -137,7 +137,7 @@ python3 -m pytest tests/runtime/test_cli_jobs.py::test_replay_rewrites_report_wi
 Expected: FAIL (`research_outcome:` still printed; PRD still has the
 remaining-gaps sentence).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `replay_view(layout, *, research_outcome: str, status: str = "")` in
 `morning.py`. Map outcome → `_STOP_REASONS` / `format_primary_evidence`
@@ -175,13 +175,13 @@ remaining-work design is historical.”
 README / index one-liners. Skill: replay uses the same verdict as
 status. Register the requirements and plan in `mkdocs.yml`.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py tests/runtime/test_cli_jobs.py tests/runtime/test_static_console.py tests/skills/test_overnight_lab_skill.py -q
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/alphaloop/runtime/morning.py src/alphaloop/cli/jobs.py src/alphaloop/skills/overnight-lab/SKILL.md docs tests/runtime/test_morning.py tests/runtime/test_cli_jobs.py tests/runtime/test_static_console.py tests/skills/test_overnight_lab_skill.py tests/e2e/test_morning_console.py README.md mkdocs.yml
