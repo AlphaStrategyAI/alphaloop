@@ -158,6 +158,9 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#worker-heartbeat").count() == 1
     assert page.locator("#job-error").count() == 1
     assert page.locator("#recovery-attempts").count() == 1
+    assert page.locator("#keyboard-hint").inner_text() == (
+        "Ctrl/Cmd+Enter: Preview, then Freeze."
+    )
 
 
 def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
@@ -175,6 +178,24 @@ def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_pag
         timeout=10000,
     )
     assert page.locator("#job-list button").count() == 0
+    assert "target found" not in page.content()
+
+
+def test_ctrl_enter_previews_then_freezes(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.locator("#spec-yaml-fold").evaluate("el => { el.open = true; }")
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=30))
+    page.keyboard.press("Control+Enter")
+    page.wait_for_function(
+        "() => document.getElementById('submit-job') && !document.getElementById('submit-job').disabled",
+        timeout=10000,
+    )
+    assert page.locator("#job-list button").count() == 0
+    page.keyboard.press("Control+Enter")
+    page.wait_for_selector("#job-list button", timeout=15000)
+    assert page.locator("#job-list button").count() >= 1
     assert "target found" not in page.content()
 
 

@@ -385,6 +385,24 @@ def test_packaged_console_failed_recovery_surface():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_keyboard_preview_then_freeze():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="keyboard-hint"' in html
+    assert html.find('id="submit-job"') < html.find('id="keyboard-hint"')
+    assert "Ctrl/Cmd+Enter: Preview, then Freeze." in html
+    assert 'addEventListener("keydown"' in script
+    assert "ctrlKey" in script
+    assert "metaKey" in script
+    assert "previewProtocol()" in script
+    assert "submitJob()" in script
+    assert "#keyboard-hint" in css
+    assert "http" not in css
+    assert "override" not in script.lower()
+
+
 def test_packaged_console_morning_verdict_stage():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

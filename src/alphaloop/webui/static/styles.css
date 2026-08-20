@@ -557,6 +557,12 @@ button {
   cursor: not-allowed;
 }
 
+#keyboard-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-left: 0.35rem;
+}
+
 #preflight-errors {
   color: var(--warn);
 }

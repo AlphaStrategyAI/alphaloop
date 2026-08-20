@@ -872,4 +872,17 @@ document.getElementById("field-dataset-file").addEventListener("change", functio
 
 setInterval(loadJobs, 2000);
 
+window.addEventListener("keydown", function (ev) {
+  if (ev.key !== "Enter" || !(ev.ctrlKey || ev.metaKey)) {
+    return;
+  }
+  ev.preventDefault();
+  const submit = document.getElementById("submit-job");
+  if (submit && !submit.disabled) {
+    submitJob();
+    return;
+  }
+  previewProtocol();
+});
+
 loadJobs();
