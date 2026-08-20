@@ -614,3 +614,31 @@ def test_dataset_rejects_non_parquet(tmp_path, capsys):
     assert captured.err.startswith("error: ")
     assert "parquet" in captured.err
     assert "FOUND" not in captured.out
+
+
+def test_dataset_caches_wide_csv_without_daemon(tmp_path, capsys):
+    import pandas as pd
+
+    idx = pd.bdate_range("2018-01-01", periods=5)
+    frame = pd.DataFrame(
+        {"AAPL": 100.0, "MSFT": 100.0, "SPY": 100.0},
+        index=idx,
+    )
+    src = tmp_path / "prices.csv"
+    frame.to_csv(src)
+    rc = main(["dataset", str(src), "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert captured.out.startswith("dataset_id: ds_")
+    assert "FOUND" not in captured.out
+    assert captured.err == ""
+
+
+def test_dataset_rejects_unreadable_csv(tmp_path, capsys):
+    src = tmp_path / "broken.csv"
+    src.write_text("name,AAPL\nnot-a-date,100\n", encoding="utf-8")
+    rc = main(["dataset", str(src), "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "csv" in captured.err
+    assert "FOUND" not in captured.out

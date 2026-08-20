@@ -30,7 +30,7 @@
 - Consumes: `put_dataset_bytes(data_dir, blob) -> DatasetRef`
 - Produces: `cache_dataset_file(data_dir: Path, path: Path) -> DatasetRef`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/runtime/test_dataset_cache.py`:
 
@@ -83,7 +83,7 @@ def test_dataset_caches_wide_csv_without_daemon(tmp_path, capsys):
 
 def test_dataset_rejects_unreadable_csv(tmp_path, capsys):
     src = tmp_path / "broken.csv"
-    src.write_text("this is not tabular\n{{{", encoding="utf-8")
+    src.write_text("name,AAPL\nnot-a-date,100\n", encoding="utf-8")
     rc = main(["dataset", str(src), "--data-dir", str(tmp_path)])
     captured = capsys.readouterr()
     assert rc == 2

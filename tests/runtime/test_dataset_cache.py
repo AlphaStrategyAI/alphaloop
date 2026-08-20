@@ -48,3 +48,28 @@ def test_missing_benchmark_column_raises(tmp_path):
     layout, spec = _write_dataset(tmp_path, ("AAPL", "MSFT"))
     with pytest.raises(DatasetUnavailableError, match="SPY"):
         load_prices(layout, spec, data_dir=tmp_path)
+
+
+def test_cache_dataset_file_converts_wide_csv(tmp_path):
+    from alphaloop.runtime.dataset_cache import cache_dataset_file, dataset_parquet_path
+
+    idx = pd.bdate_range("2018-01-01", periods=5)
+    frame = pd.DataFrame(
+        {"AAPL": 100.0, "MSFT": 100.0, "SPY": 100.0},
+        index=idx,
+    )
+    src = tmp_path / "prices.csv"
+    frame.to_csv(src)
+    ref = cache_dataset_file(tmp_path, src)
+    stored = pd.read_parquet(dataset_parquet_path(tmp_path, ref.dataset_id))
+    assert list(stored.columns) == ["AAPL", "MSFT", "SPY"]
+    assert len(stored) == 5
+
+
+def test_cache_dataset_file_rejects_plain_text(tmp_path):
+    from alphaloop.runtime.dataset_cache import DatasetRejected, cache_dataset_file
+
+    src = tmp_path / "notes.txt"
+    src.write_text("not a snapshot", encoding="utf-8")
+    with pytest.raises(DatasetRejected, match="parquet or csv"):
+        cache_dataset_file(tmp_path, src)

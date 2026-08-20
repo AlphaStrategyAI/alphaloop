@@ -365,9 +365,9 @@ def run_replay(args: argparse.Namespace) -> int:
 def run_dataset(args: argparse.Namespace) -> int:
     from alphaloop.runtime.dataset_cache import (
         DatasetRejected,
+        cache_dataset_file,
         dataset_parquet_path,
         format_dataset_receipt,
-        put_dataset_bytes,
     )
 
     path = Path(args.path)
@@ -375,8 +375,7 @@ def run_dataset(args: argparse.Namespace) -> int:
         print(f"error: dataset file not found: {path}", file=sys.stderr)
         return 2
     try:
-        blob = path.read_bytes()
-        ref = put_dataset_bytes(Path(args.data_dir), blob)
+        ref = cache_dataset_file(Path(args.data_dir), path)
     except DatasetRejected as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

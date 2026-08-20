@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import pandas as pd
@@ -60,6 +61,34 @@ def put_dataset_bytes(data_dir: Path, blob: bytes) -> DatasetRef:
     ref = DatasetRef(dataset_id=dataset_id, sha256=digest)
     require_dataset(ref, path.read_bytes())
     return ref
+
+
+def parquet_bytes_from_csv(blob: bytes) -> bytes:
+    try:
+        frame = pd.read_csv(io.BytesIO(blob), index_col=0)
+        if frame.empty or frame.shape[1] == 0:
+            raise DatasetRejected("dataset snapshot is empty")
+        frame.index = pd.to_datetime(frame.index)
+        frame = frame.apply(pd.to_numeric)
+        buf = io.BytesIO()
+        frame.to_parquet(buf)
+        out = buf.getvalue()
+    except DatasetRejected:
+        raise
+    except (OSError, ValueError, TypeError, pd.errors.ParserError) as exc:
+        raise DatasetRejected("dataset snapshot csv is unreadable") from exc
+    if not out.startswith(PARQUET_MAGIC):
+        raise DatasetRejected("dataset snapshot must be parquet")
+    return out
+
+
+def cache_dataset_file(data_dir: Path, path: Path) -> DatasetRef:
+    blob = Path(path).read_bytes()
+    if blob.startswith(PARQUET_MAGIC):
+        return put_dataset_bytes(data_dir, blob)
+    if Path(path).suffix.lower() == ".csv":
+        return put_dataset_bytes(data_dir, parquet_bytes_from_csv(blob))
+    raise DatasetRejected("dataset snapshot must be parquet or csv")
 
 
 def _universe(market_scope: str) -> tuple[str, ...]:

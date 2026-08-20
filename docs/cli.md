@@ -77,9 +77,11 @@ errors exit 2 and still create no job. When `ok`, the last line is
 
 ## `alphaloop dataset`
 
-Cache a local parquet file into `{data-dir}/datasets/<dataset_id>/prices.parquet`
-using the same hash identity as the morning console picker. Does **not**
-create a job and does not require the daemon.
+Cache a local parquet file or a wide close-only CSV into
+`{data-dir}/datasets/<dataset_id>/prices.parquet` using the same hash
+identity as the morning console picker. CSV columns are asset ids; the
+first column is the date index. Does **not** create a job and does not
+require the daemon.
 
 ```
 alphaloop dataset PATH [--data-dir DIR] [--json]
@@ -87,7 +89,7 @@ alphaloop dataset PATH [--data-dir DIR] [--json]
 
 | Flag | Description |
 |------|-------------|
-| `PATH`       | **Required.** Local parquet file. |
+| `PATH`       | **Required.** Local parquet or wide close-only CSV. |
 | `--data-dir` | Runs output root (default: `./runs`). |
 | `--json`     | Print `{cached_path, dataset_id, sha256}` as JSON. |
 
