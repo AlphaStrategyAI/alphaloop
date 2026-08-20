@@ -586,6 +586,16 @@ button {
   font: inherit;
 }
 
+#preview-protocol {
+  background: var(--ink);
+  color: var(--focus);
+  border: 1px solid var(--focus);
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+}
+
 #submit-job {
   background: #16352c;
   border-color: #2f6b55;
