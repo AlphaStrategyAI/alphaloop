@@ -11,6 +11,7 @@ import pandas as pd
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import (
     GateEvidence,
+    GateResult,
     HardGateName,
     IncompleteEvidenceError,
     evidence_to_dict,
@@ -18,6 +19,7 @@ from alphaloop.contracts.gates import (
 )
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus, ResearchOutcome
+from alphaloop.diagnostic.pbo import PBOResult, probability_of_backtest_overfitting
 from alphaloop.protocol.dsl import (
     DSL_SCHEMA_VERSION,
     StrategyDocument,
@@ -101,6 +103,43 @@ def _result(
     )
 
 
+_PBO_ATTACH_ORDER = (
+    HardGateName.DSR,
+    HardGateName.WALK_FORWARD,
+    HardGateName.VS_RANDOM,
+    HardGateName.VS_BUY_HOLD,
+    HardGateName.VS_BENCHMARK,
+    HardGateName.DATA_CONSISTENCY,
+)
+
+
+def _attach_pbo(evidence: GateEvidence, pbo: PBOResult) -> GateEvidence:
+    target = next((name for name in _PBO_ATTACH_ORDER if name in evidence.required), None)
+    if target is None:
+        return evidence
+    extra = {
+        "pbo": pbo.pbo,
+        "pbo_n_strategies": pbo.n_strategies,
+        "pbo_n_paths": pbo.n_paths,
+        "pbo_passes": bool(pbo.passes),
+    }
+    rows: list[GateResult] = []
+    for row in evidence.results:
+        if row.name is target:
+            detail = dict(row.detail)
+            detail.update(extra)
+            rows.append(
+                GateResult(
+                    name=row.name,
+                    passed=bool(row.passed and pbo.passes),
+                    detail=detail,
+                )
+            )
+        else:
+            rows.append(row)
+    return GateEvidence(results=tuple(rows), required=evidence.required)
+
+
 def run_protocol(
     spec: ResearchSpec,
     layout: RunLayout,
@@ -149,6 +188,7 @@ def run_protocol(
     last_candidate_id: Optional[str] = None
     completed_skip = set(completed_trial_ids)
     finished_ids: list[str] = list(completed_trial_ids)
+    trial_returns: list[pd.Series] = []
 
     for index, parameters in enumerate(method_parameter_grid(doc.kind)):
         remaining_time = float(
@@ -188,14 +228,16 @@ def run_protocol(
         primary_prices = prices.get(primary, buy_hold_prices)
         strategy_fn = _strategy_fn_for(trial_doc, prices)
         weights = strategy_fn(primary_prices)
+        strategy_returns = compute_strategy_returns(
+            primary_prices, weights, cost_bps=profile.cost_bps
+        )
+        trial_returns.append(strategy_returns)
         stop_evidence: Optional[GateEvidence] = None
         try:
             evidence = runner(
                 required,
                 prices=primary_prices,
-                strategy_returns=compute_strategy_returns(
-                    primary_prices, weights, cost_bps=profile.cost_bps
-                ),
+                strategy_returns=strategy_returns,
                 buy_hold_prices=buy_hold_prices,
                 benchmark_prices=benchmark_prices,
                 secondary_frames=secondary_frames,
@@ -237,6 +279,21 @@ def run_protocol(
             stop_reason=None,
         )
         if decision.reason == "found":
+            if last_evidence is not None and len(trial_returns) >= 2:
+                pbo = probability_of_backtest_overfitting(trial_returns)
+                if pbo.evaluated:
+                    last_evidence = _attach_pbo(last_evidence, pbo)
+                    layout.evidence.mkdir(parents=True, exist_ok=True)
+                    (layout.evidence / "gates.json").write_text(
+                        json.dumps(evidence_to_dict(last_evidence), indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                    if not last_evidence.all_passed:
+                        return _result(
+                            research_outcome=ResearchOutcome.NO_EVIDENCE,
+                            candidate_id=candidate_id,
+                            evidence=last_evidence,
+                        )
             return _result(
                 research_outcome=ResearchOutcome.FOUND,
                 candidate_id=candidate_id,

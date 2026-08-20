@@ -26,6 +26,10 @@ MORNING_DETAIL_KEYS = (
     "cpcv_oos_sharpe_mean",
     "cpcv_oos_sharpe_median",
     "cpcv_passes",
+    "pbo",
+    "pbo_n_strategies",
+    "pbo_n_paths",
+    "pbo_passes",
 )
 
 

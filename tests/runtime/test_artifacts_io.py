@@ -159,3 +159,23 @@ def test_format_gate_line_dsr_n_trials():
     assert line == (
         "dsr: pass · returns_scope=oos_walk_forward · n_trials=3 · dsr=0.9"
     )
+
+
+def test_format_gate_line_includes_pbo_when_present():
+    line = format_gate_line(
+        {
+            "name": "dsr",
+            "passed": False,
+            "detail": {
+                "dsr": 0.9,
+                "pbo": 0.8,
+                "pbo_n_strategies": 3,
+                "pbo_n_paths": 20,
+                "pbo_passes": False,
+            },
+        }
+    )
+    assert "pbo=0.8" in line
+    assert "pbo_n_strategies=3" in line
+    assert "pbo_n_paths=20" in line
+    assert "pbo_passes=false" in line

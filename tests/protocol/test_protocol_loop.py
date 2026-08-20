@@ -611,3 +611,42 @@ def test_atr_protocol_walks_three_method_trials(tmp_path):
     assert len(set(ids)) == 3
     assert seen == [1, 2, 3]
     assert result.research_outcome is ResearchOutcome.FOUND
+
+
+def test_pbo_failure_blocks_found_after_method_repair(tmp_path, monkeypatch):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    runner = _IncompleteThenPass()
+
+    def fake_pbo(returns, **kwargs):
+        from alphaloop.diagnostic.pbo import PBOResult
+
+        assert len(returns) >= 2
+        return PBOResult(
+            evaluated=True,
+            pbo=0.8,
+            passes=False,
+            n_strategies=len(returns),
+            n_paths=20,
+            n_groups=6,
+        )
+
+    monkeypatch.setattr(
+        "alphaloop.protocol.loop.probability_of_backtest_overfitting",
+        fake_pbo,
+    )
+    result = run_protocol(
+        _spec(),
+        layout,
+        prices=_prices(),
+        buy_hold_prices=_prices()["AAPL"],
+        benchmark_prices=_prices()["AAPL"],
+        gate_runner=runner,
+    )
+    assert result.research_outcome is ResearchOutcome.NO_EVIDENCE
+    assert runner.calls == [1, 2]
+    evidence = evidence_from_dict(json.loads((layout.evidence / "gates.json").read_text()))
+    assert evidence.all_passed is False
+    dsr = next(row for row in evidence.results if row.name is HardGateName.DSR)
+    assert dsr.detail["pbo_passes"] is False
+    assert dsr.passed is False
