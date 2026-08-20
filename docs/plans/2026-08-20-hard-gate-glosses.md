@@ -25,7 +25,7 @@
 - Modify: `docs/webui.md`
 - Test: `tests/runtime/test_static_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/runtime/test_static_console.py`:
 
@@ -51,7 +51,7 @@ def test_packaged_hard_gates_keep_token_and_human_gloss():
 
 Keep `test_packaged_guided_form_preview_grid_and_job_cards` value loop.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_hard_gates_keep_token_and_human_gloss -v
@@ -59,11 +59,11 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_hard_gates
 
 Expected: FAIL (token-only labels, no em dash).
 
-- [ ] **Step 3: Implement** HTML labels with locked glosses. `docs/webui.md` one sentence after the signal-family sentence.
+- [x] **Step 3: Implement** HTML labels with locked glosses. `docs/webui.md` one sentence after the signal-family sentence.
 
-- [ ] **Step 4: PASS** plus `test_packaged_guided_form_preview_grid_and_job_cards`
+- [x] **Step 4: PASS** plus `test_packaged_guided_form_preview_grid_and_job_cards`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): gloss hard-gate checkboxes with locked names"
