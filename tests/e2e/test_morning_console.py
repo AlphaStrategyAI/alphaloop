@@ -153,6 +153,8 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert empty.inner_text() == (
         "No overnight job yet. Load example, then Preview protocol, then "
         "Freeze and submit. This console does not claim alpha or future "
+        "profitability."
+    )
     assert page.locator("#worker-heartbeat").count() == 1
     assert page.locator("#job-error").count() == 1
     assert page.locator("#recovery-attempts").count() == 1
