@@ -60,7 +60,7 @@ class WalkForwardResult:
     oos_sharpe_median: float
     oos_return_mean: float
     n_folds: int
-    passes: bool  # mean OOS Sharpe > 0 and chronological halves stable when evaluable
+    passes: bool  # mean OOS Sharpe > 0, halves stable when evaluable, median > 0 if n_folds >= 3
     oos_returns: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
     first_half_sharpe: float = 0.0
     second_half_sharpe: float = 0.0
@@ -143,7 +143,9 @@ def walk_forward_cv(
             min_oos_sharpe: Threshold for `result.passes` (default 0.0,
             i.e. mean OOS Sharpe must be positive). When concatenated
             OOS length is at least 30, both chronological halves must
-            also have positive Sharpe.
+            also have positive Sharpe. When there are at least three
+            folds, the median fold OOS Sharpe must also exceed this
+            threshold.
         embargo_size: Bars skipped between the last train bar and the
             first test bar (López de Prado Ch. 7 embargo). Default 0
             preserves historical fold geometry.
@@ -226,14 +228,16 @@ def walk_forward_cv(
 
     oos_sharpes = np.array([f.oos_sharpe for f in folds])
     oos_returns = np.array([f.oos_return for f in folds])
+    median = float(np.median(oos_sharpes))
+    median_ok = True if len(folds) < 3 else bool(median > min_oos_sharpe)
     return WalkForwardResult(
         folds=folds,
         oos_sharpe_mean=float(oos_sharpes.mean()),
         oos_sharpe_std=float(oos_sharpes.std()),
-        oos_sharpe_median=float(np.median(oos_sharpes)),
+        oos_sharpe_median=median,
         oos_return_mean=float(oos_returns.mean()),
         n_folds=len(folds),
-        passes=bool(oos_sharpes.mean() > min_oos_sharpe) and regime_stable,
+        passes=bool(oos_sharpes.mean() > min_oos_sharpe) and regime_stable and median_ok,
         oos_returns=concat,
         first_half_sharpe=first,
         second_half_sharpe=second,

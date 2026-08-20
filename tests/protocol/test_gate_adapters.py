@@ -176,7 +176,9 @@ def test_walk_forward_detail_includes_regime_fields():
     assert "regime_stable" in detail
     assert "first_half_sharpe" in detail
     assert "second_half_sharpe" in detail
+    assert "oos_sharpe_median" in detail
     assert isinstance(detail["regime_stable"], bool)
+    assert isinstance(detail["oos_sharpe_median"], float)
 
 
 def test_dsr_detail_records_cost_bps():

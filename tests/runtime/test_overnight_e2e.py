@@ -105,6 +105,7 @@ def test_macd_walk_forward_records_regime_stable(tmp_path):
     assert HardGateName.WALK_FORWARD in by_name
     assert "regime_stable" in by_name[HardGateName.WALK_FORWARD].detail
     assert isinstance(by_name[HardGateName.WALK_FORWARD].detail["regime_stable"], bool)
+    assert "oos_sharpe_median" in by_name[HardGateName.WALK_FORWARD].detail
 
 
 def test_bollinger_overnight_records_method_trials(tmp_path):

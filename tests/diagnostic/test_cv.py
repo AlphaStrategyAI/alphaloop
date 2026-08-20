@@ -205,3 +205,26 @@ def test_walk_forward_does_not_fail_regime_when_oos_short():
     )
     assert len(result.oos_returns) < 30
     assert result.regime_stable is True
+
+
+def test_walk_forward_fails_when_median_fold_sharpe_is_negative():
+    n = 350
+    idx = pd.date_range("2020-01-01", periods=n, freq="B")
+    rng = np.random.default_rng(2)
+    rets = np.concatenate(
+        [
+            rng.normal(0.0003, 0.01, 200),
+            rng.normal(-0.0015, 0.002, 50),
+            rng.normal(0.008, 0.002, 50),
+            rng.normal(-0.0015, 0.002, 50),
+        ]
+    )
+    prices = pd.Series(100.0 * np.exp(np.cumsum(rets)), index=idx)
+    result = walk_forward_cv(
+        prices, _buy_and_hold, train_size=200, test_size=50, step_size=50
+    )
+    assert result.n_folds == 3
+    assert result.oos_sharpe_mean > 0
+    assert result.regime_stable is True
+    assert result.oos_sharpe_median < 0
+    assert result.passes is False

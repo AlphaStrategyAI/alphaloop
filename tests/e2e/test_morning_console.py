@@ -367,6 +367,7 @@ def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
     assert "walk_forward" in rows
     assert "regime_stable" in rows["walk_forward"]["detail"]
     assert isinstance(rows["walk_forward"]["detail"]["regime_stable"], bool)
+    assert "oos_sharpe_median" in rows["walk_forward"]["detail"]
     assert "target found" not in page.content()
 
 

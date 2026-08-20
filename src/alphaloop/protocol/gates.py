@@ -42,6 +42,7 @@ def _detail(result: object) -> dict:
         "first_half_sharpe",
         "second_half_sharpe",
         "regime_stable",
+        "oos_sharpe_median",
     ):
         if hasattr(result, name):
             value = getattr(result, name)
