@@ -229,7 +229,15 @@ def main(args=None):
             return parsed.func(parsed)
         elif parsed.command == "export":
             return parsed.func(parsed)
-        elif parsed.command in {"start", "submit", "status", "cancel", "resume", "replay"}:
+        elif parsed.command in {
+            "start",
+            "submit",
+            "status",
+            "cancel",
+            "resume",
+            "replay",
+            "soak",
+        }:
             return parsed.func(parsed)
         elif parsed.command == "loop":
             return _handle_loop(parsed)

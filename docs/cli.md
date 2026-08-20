@@ -1,7 +1,7 @@
 # CLI reference
 
 Overnight-lab commands are `start`, `submit`, `status`, `cancel`,
-`resume`, `replay`, and `export`. Run `alphaloop --help` for the live
+`resume`, `replay`, `export`, and `soak`. Run `alphaloop --help` for the live
 parser (it is the source of truth — this page mirrors it).
 
 `alphaloop loop` is **heritage** v0.7 hybrid DAG. It is not the
@@ -10,7 +10,7 @@ overnight research lab. Do not treat it as a command that finds alpha.
 ## Global usage
 
 ```
-alphaloop [-h] {backtest, optimize, fetch, report, export, start, submit, status, cancel, resume, loop, replay, webui, judge} ...
+alphaloop [-h] {backtest, optimize, fetch, report, export, start, submit, status, cancel, resume, soak, loop, replay, webui, judge} ...
 ```
 
 ## `alphaloop start`
@@ -105,6 +105,20 @@ alphaloop export CANDIDATE_ID --run-id RUN_ID [--data-dir DIR] --output PATH
 | `--output, -o` | **Required.** Destination `.asb` path. |
 
 Non-`FOUND` jobs exit 2.
+
+## `alphaloop soak`
+
+Print the first-release overnight soak and five-minute review checklist.
+Does **not** start workers, submit jobs, or compute a 95% pass rate.
+This is a release-process aid, not CI.
+
+```
+alphaloop soak [--emit-plan]
+```
+
+The text includes the locked host constraint, two independent profiles
+(`us-equity-daily`, `crypto-daily`), the three research outcomes, and
+`kill -9` resume notes. It does not claim alpha.
 
 ## `alphaloop report`
 

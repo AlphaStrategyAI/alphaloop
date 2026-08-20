@@ -68,6 +68,17 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     _add_data_dir(replay)
     replay.set_defaults(func=run_replay)
 
+    soak = subparsers.add_parser(
+        "soak",
+        help="print the overnight soak release checklist (does not start jobs)",
+    )
+    soak.add_argument(
+        "--emit-plan",
+        action="store_true",
+        help="same as the default: print the checklist and exit",
+    )
+    soak.set_defaults(func=run_soak)
+
 
 def _daemon_unavailable(exc: Exception) -> int:
     print(
@@ -221,4 +232,11 @@ def run_replay(args: argparse.Namespace) -> int:
         spec=spec,
     )
     print(f"research_outcome: {outcome.value}")
+    return 0
+
+
+def run_soak(args: argparse.Namespace) -> int:
+    from alphaloop.runtime.soak import emit_soak_plan
+
+    print(emit_soak_plan(), end="")
     return 0

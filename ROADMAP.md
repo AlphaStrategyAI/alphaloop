@@ -57,7 +57,8 @@ Honest follow-ons, in product order:
 
 1. **Overnight soak (release process, not CI).** PRD §3.4 asks that a
    fixed overnight benchmark complete without operator intervention on
-   every supported platform. That is a release gate, not a pytest job.
+   every supported platform. Print the checklist with `alphaloop soak`.
+   That command does not start jobs and is not a pytest gate.
 2. **Protocol preview before freeze.** PRD §4.1 step 4: review the
    research protocol in the console before the job is frozen.
 3. **Richer five-minute evidence.** Qualifying-candidate tables and

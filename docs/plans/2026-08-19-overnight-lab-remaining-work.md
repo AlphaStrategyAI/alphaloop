@@ -239,10 +239,12 @@ These remain out of Phases 8–11 and must not appear as fake CI gates:
 
 Before tagging a first-release candidate:
 
-1. Overnight soak: one local machine, host stays awake, one
-   `us-equity-daily` job and one `crypto-daily` job, real snapshot hashes.
+1. Overnight soak: print `alphaloop soak`, then on one local machine
+   (host stays awake) run one `us-equity-daily` job and one
+   `crypto-daily` job with real snapshot hashes.
    Record outcome tokens and whether resume after a forced `kill -9` of
-   the worker recovered without duplicate `trial_id`s.
+   the worker recovered without duplicate `trial_id`s. Do not run this
+   command as CI.
 2. Five-minute review: a person who did not run the job opens the morning
    page, names the conclusion (`FOUND` / `NO_EVIDENCE` / `INCONCLUSIVE`),
    the primary failed or passed gate, and the stop reason.

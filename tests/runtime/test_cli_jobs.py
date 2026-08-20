@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import yaml
 
@@ -15,6 +16,7 @@ def test_parser_has_runtime_commands():
     parser = create_parser()
     assert "start" in parser.format_help()
     assert "submit" in parser.format_help()
+    assert "soak" in parser.format_help()
 
 
 def test_submit_without_daemon_fails(tmp_path, capsys):
@@ -101,3 +103,27 @@ def test_replay_rewrites_report_without_looprunner(tmp_path, capsys):
     assert "FOUND" in captured.out
     assert layout.report.is_file()
     assert "FOUND" in layout.report.read_text(encoding="utf-8")
+
+
+def test_soak_emits_release_plan_without_starting_jobs(capsys):
+    rc = main(["soak"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert HOST_CONSTRAINT in out
+    assert "This checklist is not CI." in out
+    assert "This soak does not claim alpha or future profitability." in out
+    assert "us-equity-daily" in out
+    assert "crypto-daily" in out
+    assert "FOUND" in out
+    assert "NO_EVIDENCE" in out
+    assert "INCONCLUSIVE" in out
+    assert "primary evidence" in out
+    assert "stop reason" in out
+    assert "kill -9" in out
+    assert "trial_id" in out
+    assert "target found" not in out.lower()
+
+
+def test_ci_workflow_does_not_run_soak():
+    text = Path(".github/workflows/pytest.yml").read_text(encoding="utf-8")
+    assert "soak" not in text.lower()
