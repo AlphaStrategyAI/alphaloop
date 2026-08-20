@@ -26,25 +26,25 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Static: `#load-example {` has `var(--ink)`, `var(--fg)`, `var(--line)`; not `--accent` / `--warn` / `--focus`.
 
 E2E: home waits until `#load-example` background is `rgb(11, 15, 22)` and color is `rgb(243, 239, 230)`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_load_chrome -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Add `#load-example` chrome. Leave `#preview-protocol` and `#submit-job` alone.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): style Load example as a before-bed control"

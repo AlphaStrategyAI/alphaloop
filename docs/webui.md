@@ -4,7 +4,8 @@ The **first-release** morning UI is the packaged static page at
 `src/alphaloop/webui/static/`, served by `alphaloop start` on loopback.
 Fill the guided hypothesis form (or load the example, or paste YAML),
 preview the compiled protocol (readable method grid and planned trial
-count), then freeze it. Preview protocol uses focus-blue chrome (not
+count), then freeze it. Load example uses designed secondary chrome
+(not FOUND green). Preview protocol uses focus-blue chrome (not
 FOUND green). Ctrl/Cmd+Enter previews, then freezes. j/k or arrows move between morning
 jobs. Cancel or resume from the job detail without
 leaving the page. A human **Export .asb** click on a `FOUND` candidate

@@ -152,6 +152,18 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     )
     assert page.locator("#submit-job").is_disabled()
     assert page.locator("#load-example").count() == 1
+    page.wait_for_function(
+        """() => {
+          const el = document.getElementById('load-example');
+          if (!el) return false;
+          const style = getComputedStyle(el);
+          return (
+            style.color === 'rgb(243, 239, 230)' &&
+            style.backgroundColor === 'rgb(11, 15, 22)'
+          );
+        }""",
+        timeout=10000,
+    )
     assert page.locator("#before-bed").count() == 1
     assert page.locator("#morning").count() == 1
     assert page.locator("#hypothesis-form").count() == 1

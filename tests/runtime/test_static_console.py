@@ -319,6 +319,24 @@ def test_packaged_console_preview_chrome():
     assert HOST_CONSTRAINT in html
 
 
+def test_packaged_console_load_chrome():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="load-example"' in html
+    load_rule = css.find("#load-example {")
+    assert load_rule != -1
+    load_block = css[load_rule : css.find("}", load_rule)]
+    assert "var(--ink)" in load_block
+    assert "var(--fg)" in load_block
+    assert "var(--line)" in load_block
+    assert "var(--accent)" not in load_block
+    assert "var(--warn)" not in load_block
+    assert "var(--focus)" not in load_block
+    assert "http" not in css.lower()
+    assert HOST_CONSTRAINT in html
+
+
 def test_packaged_example_dataset_matches_load_example_hash():
     from alphaloop.contracts.artifacts import hash_bytes
 
