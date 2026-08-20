@@ -122,6 +122,21 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert "input:focus-visible" in css
 
 
+def test_packaged_queued_followup_auto_preview():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    load_at = script.find("function loadQueuedHypothesis")
+    example_at = script.find("const EXAMPLE_SPEC")
+    assert load_at != -1
+    assert example_at != -1
+    body = script[load_at:example_at]
+    assert "previewProtocol()" in body
+    assert "submitJob()" not in body
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_packaged_funnel_bars():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

@@ -96,6 +96,8 @@ Python in `.asb`.
 
 ## 6. Loop exit
 
-Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
-(not CI), correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP /
-cloud workers.
+Remaining product after this cycle shipped: preview a queued
+follow-up without auto-submitting
+(`docs/requirements/2026-08-20-queued-preview.md`). Remaining
+validation: textbook `S=16` CPCV, soak / 95% overnight (not CI),
+correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP / cloud workers.

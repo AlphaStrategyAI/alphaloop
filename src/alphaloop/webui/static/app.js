@@ -221,6 +221,7 @@ function loadQueuedHypothesis(row) {
   syncingForm = false;
   previewedYaml = null;
   setSubmitEnabled(false);
+  previewProtocol();
 }
 
 const EXAMPLE_SPEC =

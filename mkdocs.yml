@@ -88,6 +88,7 @@ nav:
     - Qualifying candidates plan: plans/2026-08-20-qualifying-candidates.md
     - Console ASB export plan: plans/2026-08-20-console-asb-export.md
     - Morning report plan: plans/2026-08-20-morning-report.md
+    - Queued preview plan: plans/2026-08-20-queued-preview.md
     - Queued follow-up plan: plans/2026-08-20-queued-followup.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
@@ -119,6 +120,7 @@ nav:
     - Qualifying candidates: requirements/2026-08-20-qualifying-candidates.md
     - Console ASB export: requirements/2026-08-20-console-asb-export.md
     - Morning report: requirements/2026-08-20-morning-report.md
+    - Queued preview: requirements/2026-08-20-queued-preview.md
     - Queued follow-up: requirements/2026-08-20-queued-followup.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md

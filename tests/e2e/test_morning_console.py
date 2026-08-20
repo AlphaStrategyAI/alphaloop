@@ -296,7 +296,10 @@ def test_load_queued_fills_editor_without_submitting(real_daemon, browser_page):
     page.locator("#queued button.load-queued").click()
     assert page.locator("#field-signal-mechanism").input_value() == "rsi"
     assert "signal_mechanism: rsi" in page.locator("#spec-yaml").input_value()
-    assert page.locator("#submit-job").is_disabled()
+    page.wait_for_function(
+        """() => document.getElementById('submit-job') && !document.getElementById('submit-job').disabled""",
+        timeout=10000,
+    )
     assert page.locator("#job-list button").count() == 1
     assert "target found" not in page.content()
 
