@@ -120,7 +120,63 @@ def test_export_json_payload(tmp_path, capsys):
     }
 
 
-def test_export_without_found_returns_nonzero(tmp_path, capsys):
+def test_export_without_run_id_uses_latest_found_job(tmp_path, capsys):
+    _found_job(tmp_path, candidate_id="c_old")
+    newest = _found_job(tmp_path, candidate_id="c1")
+    out = tmp_path / "latest.asb"
+    rc = main(
+        [
+            "export",
+            "c1",
+            "--data-dir",
+            str(tmp_path),
+            "--output",
+            str(out),
+        ]
+    )
+    assert rc == 0
+    assert zipfile.is_zipfile(out)
+    captured = capsys.readouterr()
+    assert captured.out.splitlines()[0] == "FOUND"
+    assert captured.out.splitlines()[1] == "Qualifying: c1"
+    assert newest.run_id not in captured.err
+
+
+def test_export_without_run_id_does_not_search_older_found(tmp_path, capsys):
+    _found_job(tmp_path, candidate_id="c_old")
+    _found_job(tmp_path, candidate_id="c1")
+    rc = main(
+        [
+            "export",
+            "c_old",
+            "--data-dir",
+            str(tmp_path),
+            "--output",
+            str(tmp_path / "skip.asb"),
+        ]
+    )
+    assert rc == 2
+    assert not (tmp_path / "skip.asb").exists()
+    err = capsys.readouterr().err
+    assert "candidate not in sealed evidence: c_old" in err
+
+
+def test_export_without_run_id_empty_store(tmp_path, capsys):
+    rc = main(
+        [
+            "export",
+            "c1",
+            "--data-dir",
+            str(tmp_path),
+            "--output",
+            str(tmp_path / "x.asb"),
+        ]
+    )
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert captured.err == "error: no overnight job yet\n"
+    assert "FOUND" not in captured.out
+    assert "target found" not in captured.err.lower()
     store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
     job = store.create(_spec())
     rc = main(

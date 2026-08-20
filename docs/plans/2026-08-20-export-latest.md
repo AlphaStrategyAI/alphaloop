@@ -26,7 +26,7 @@
 - Test: `tests/cli/test_export.py`
 - Test: `tests/skills/test_overnight_lab_skill.py` (if skill text changes)
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 def test_export_without_run_id_uses_latest_found_job(tmp_path, capsys):
@@ -49,19 +49,19 @@ def test_export_without_run_id_empty_store(tmp_path, capsys):
 
 Note: second `readouterr` is empty; capture once.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/cli/test_export.py::test_export_without_run_id_uses_latest_found_job tests/cli/test_export.py::test_export_without_run_id_empty_store -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `--run-id` not required. Resolve from `list_jobs()[0]` or locked empty error.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(cli): export without --run-id uses the latest job"

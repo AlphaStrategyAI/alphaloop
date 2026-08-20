@@ -129,13 +129,13 @@ is canonical; the archive contains no Python files.  Human-triggered
 only.
 
 ```
-alphaloop export CANDIDATE_ID --run-id RUN_ID [--data-dir DIR] --output PATH [--json]
+alphaloop export CANDIDATE_ID [--run-id RUN_ID] [--data-dir DIR] --output PATH [--json]
 ```
 
 | Flag | Description |
 |------|-------------|
 | `CANDIDATE_ID` | Trial-ledger `trial_id` of the sealed candidate. |
-| `--run-id`     | **Required.** Job id returned by `submit`. |
+| `--run-id`     | Job id returned by `submit`. Omit to use the latest job. |
 | `--data-dir`   | Runs output root (default: `./runs`). |
 | `--output, -o` | **Required.** Destination `.asb` path. |
 | `--json`       | Print `{candidate_id, exported_path, research_outcome}` as JSON. |

@@ -44,7 +44,7 @@ Method repairs may continue only while evidence is incomplete and budget remains
 
 ## Export
 
-`alphaloop export CANDIDATE_ID --run-id RUN_ID --output strategy.asb` is allowed only for `FOUND`, only for a candidate in the trial ledger, and only after **human** confirmation. A successful export prints `FOUND`, `Qualifying:`, `Exported:`, and `This export does not claim alpha or future profitability.` Parse JSON with `alphaloop export CANDIDATE_ID --run-id RUN_ID --output strategy.asb --json`. The `.asb` is YAML/DSL data. Do not add Python files. Do not send fills or telemetry back to alphaloop.
+`alphaloop export CANDIDATE_ID --output strategy.asb` is allowed only for `FOUND`, only for a candidate in the trial ledger, and only after **human** confirmation. Omit `--run-id` to use the latest job; pass `--run-id RUN_ID` for an explicit job. A successful export prints `FOUND`, `Qualifying:`, `Exported:`, and `This export does not claim alpha or future profitability.` Parse JSON with `alphaloop export CANDIDATE_ID --output strategy.asb --json`. The `.asb` is YAML/DSL data. Do not add Python files. Do not send fills or telemetry back to alphaloop.
 
 ## Forbidden
 
