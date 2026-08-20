@@ -263,6 +263,36 @@ function datasetYaml(job) {
   );
 }
 
+function cacheDatasetFile(file) {
+  const errors = document.getElementById("preflight-errors");
+  errors.textContent = "";
+  if (!file) {
+    return;
+  }
+  setSubmitEnabled(false);
+  previewedYaml = null;
+  return file.arrayBuffer().then(function (buffer) {
+    return fetch("/v1/datasets", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: buffer,
+    }).then(function (response) {
+      return response.json().then(function (body) {
+        if (!response.ok) {
+          errors.textContent = body.error || "dataset cache failed";
+          return;
+        }
+        syncingForm = true;
+        document.getElementById("field-dataset-id").value = body.dataset_id || "";
+        document.getElementById("field-dataset-sha256").value = body.sha256 || "";
+        document.getElementById("spec-yaml").value = formToYaml();
+        syncingForm = false;
+        setSubmitEnabled(false);
+      });
+    });
+  });
+}
+
 function loadQueuedHypothesis(row, job) {
   syncingForm = true;
   document.getElementById("field-statement").value = row.statement || "";
@@ -818,6 +848,12 @@ document.getElementById("hypothesis-form").addEventListener("change", function (
   document.getElementById("spec-yaml").value = formToYaml();
   syncingForm = false;
   setSubmitEnabled(yamlMatchesPreview());
+});
+
+document.getElementById("field-dataset-file").addEventListener("change", function (ev) {
+  ev.stopPropagation();
+  const file = ev.target.files && ev.target.files[0];
+  cacheDatasetFile(file);
 });
 
 setInterval(loadJobs, 2000);

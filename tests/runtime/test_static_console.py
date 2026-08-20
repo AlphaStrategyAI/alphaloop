@@ -105,6 +105,8 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert 'id="field-dataset-sha256"' in html
     assert html.find('id="field-cost-budget"') < html.find('id="field-dataset-id"')
     assert html.find('id="field-dataset-id"') < html.find('id="field-dataset-sha256"')
+    assert 'id="field-dataset-file"' in html
+    assert html.find('id="field-dataset-sha256"') < html.find('id="field-dataset-file"')
     for kind in DIRECTIONAL_SIGNAL_KINDS:
         assert f'value="{kind}"' in html
     assert 'value="parkinson_hist_vol"' not in html
@@ -130,6 +132,15 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     fill = script[script.find("function yamlToForm") : script.find("function formatGridRow")]
     assert 'getElementById("field-dataset-id")' in fill
     assert 'getElementById("field-dataset-sha256")' in fill
+    assert "/v1/datasets" in script
+    picker = script.find("function cacheDatasetFile")
+    assert picker != -1
+    picker_body = script[picker : picker + 1600]
+    assert "/v1/datasets" in picker_body
+    assert "submitJob" not in picker_body
+    assert "field-dataset-id" in picker_body
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
     assert "override" not in script.lower()
     assert "override" not in html.lower()
     assert "input:focus-visible" in css

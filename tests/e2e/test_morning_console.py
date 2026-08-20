@@ -185,6 +185,35 @@ def test_load_example_fills_guided_form(real_daemon, browser_page):
     assert page.locator("#submit-job").is_disabled()
 
 
+def test_dataset_file_picker_fills_identity_without_creating_a_job(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    parquet = (
+        Path(real_daemon["data_dir"]) / "datasets" / dataset["dataset_id"] / "prices.parquet"
+    )
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.click("#load-example")
+    page.set_input_files("#field-dataset-file", str(parquet))
+    page.wait_for_function(
+        """() => {
+            const id = document.getElementById('field-dataset-id');
+            const sha = document.getElementById('field-dataset-sha256');
+            return id && sha && id.value.indexOf('ds_') === 0 && sha.value.length === 64;
+        }""",
+        timeout=10000,
+    )
+    assert page.locator("#field-dataset-sha256").input_value() == dataset["sha256"]
+    assert page.locator("#field-dataset-id").input_value() == "ds_" + dataset["sha256"][:16]
+    assert page.locator("#job-list button").count() == 0
+    page.click("#preview-protocol")
+    page.wait_for_function(
+        "() => document.getElementById('submit-job') && !document.getElementById('submit-job').disabled",
+        timeout=10000,
+    )
+    assert page.locator("#job-list button").count() == 0
+    assert "target found" not in page.content()
+
+
 def test_help_visible_without_opening_a_job(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])

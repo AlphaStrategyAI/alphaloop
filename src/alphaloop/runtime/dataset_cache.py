@@ -6,18 +6,44 @@ import pandas as pd
 
 from alphaloop.contracts.artifacts import (
     DatasetMismatchError,
+    DatasetRef,
     RunLayout,
+    hash_bytes,
     require_dataset,
 )
 from alphaloop.contracts.research_spec import ResearchSpec
+
+PARQUET_MAGIC = b"PAR1"
+MAX_DATASET_BYTES = 64 * 1024 * 1024
 
 
 class DatasetUnavailableError(FileNotFoundError):
     """Raised when no dataset snapshot or legacy prices.parquet is available."""
 
 
+class DatasetRejected(ValueError):
+    """Raised when uploaded snapshot bytes are empty, too large, or not parquet."""
+
+
 def dataset_parquet_path(data_dir: Path, dataset_id: str) -> Path:
     return Path(data_dir) / "datasets" / dataset_id / "prices.parquet"
+
+
+def put_dataset_bytes(data_dir: Path, blob: bytes) -> DatasetRef:
+    if not blob:
+        raise DatasetRejected("dataset snapshot is empty")
+    if len(blob) > MAX_DATASET_BYTES:
+        raise DatasetRejected("dataset snapshot is too large")
+    if not blob.startswith(PARQUET_MAGIC):
+        raise DatasetRejected("dataset snapshot must be parquet")
+    digest = hash_bytes(blob)
+    dataset_id = "ds_" + digest[:16]
+    path = dataset_parquet_path(data_dir, dataset_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(blob)
+    ref = DatasetRef(dataset_id=dataset_id, sha256=digest)
+    require_dataset(ref, path.read_bytes())
+    return ref
 
 
 def _universe(market_scope: str) -> tuple[str, ...]:

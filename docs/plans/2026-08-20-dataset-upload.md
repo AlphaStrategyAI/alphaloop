@@ -25,7 +25,7 @@
 - Modify: `src/alphaloop/webui/static/index.html`, `app.js`
 - Test: `tests/runtime/test_dataset_cache.py` (new or extend), `tests/runtime/test_http.py`, `tests/runtime/test_static_console.py`, `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `put_dataset_bytes` / HTTP POST: parquet → 201 identity; empty and `not-parquet` → 400; `list_jobs` empty.
 
@@ -33,7 +33,7 @@ Static: `field-dataset-file` after `field-dataset-sha256`; `/v1/datasets` in scr
 
 E2E: `set_input_files` on `#field-dataset-file`; id/sha256 fill; Preview with Load example + uploaded bytes can enable Freeze; job count 0 until Freeze.
 
-- [ ] **Step 2: FAIL then implement**
+- [x] **Step 2: FAIL then implement**
 
 - [ ] **Step 3: Unit + e2e**
 

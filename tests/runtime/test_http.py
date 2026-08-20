@@ -207,3 +207,42 @@ def test_http_export_found_only(tmp_path):
         assert zipfile.is_zipfile(path)
     finally:
         server.shutdown()
+
+
+def test_http_dataset_upload_caches_parquet_without_a_job(tmp_path):
+    from alphaloop.contracts.artifacts import hash_bytes
+    from alphaloop.runtime.dataset_cache import dataset_parquet_path
+    from alphaloop.runtime.example_dataset import example_dataset_bytes
+
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    blob = example_dataset_bytes()
+    try:
+        req = Request(
+            f"http://{host}:{port}/v1/datasets",
+            data=blob,
+            headers={"Content-Type": "application/octet-stream"},
+            method="POST",
+        )
+        with urlopen(req) as response:
+            assert response.status == 201
+            body = json.loads(response.read().decode("utf-8"))
+        digest = hash_bytes(blob)
+        assert body["sha256"] == digest
+        assert body["dataset_id"] == "ds_" + digest[:16]
+        assert dataset_parquet_path(tmp_path, body["dataset_id"]).read_bytes() == blob
+        assert api.list_jobs()["jobs"] == []
+        bad = Request(
+            f"http://{host}:{port}/v1/datasets",
+            data=b"not parquet",
+            headers={"Content-Type": "application/octet-stream"},
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as exc:
+            urlopen(bad)
+        assert exc.value.code == 400
+        assert api.list_jobs()["jobs"] == []
+    finally:
+        server.shutdown()

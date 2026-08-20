@@ -23,6 +23,7 @@ import yaml
 from alphaloop.contracts.bundle import ExportNotAllowed
 from alphaloop.runtime.submit import spec_from_submit_payload
 from alphaloop.runtime.api import JobAPI, PreflightRejected
+from alphaloop.runtime.dataset_cache import MAX_DATASET_BYTES, DatasetRejected
 from alphaloop.runtime.store import JobStore
 from alphaloop.runtime.supervisor import Supervisor
 from alphaloop.runtime.worker import ProcessWorker
@@ -105,6 +106,9 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
             if path == "/v1/jobs/preview":
                 self._preview_run()
                 return
+            if path == "/v1/datasets":
+                self._put_dataset()
+                return
             if path == "/v1/jobs":
                 self._create_run()
                 return
@@ -147,6 +151,26 @@ def _handler_for(api: JobAPI) -> type[http.server.BaseHTTPRequestHandler]:
                 self._send_json(400, {"error": str(exc)})
                 return
             self._send_json(200, response)
+
+        def _put_dataset(self) -> None:
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self._send_json(400, {"error": "dataset snapshot is empty"})
+                return
+            if content_length <= 0:
+                self._send_json(400, {"error": "dataset snapshot is empty"})
+                return
+            if content_length > MAX_DATASET_BYTES:
+                self._send_json(400, {"error": "dataset snapshot is too large"})
+                return
+            blob = self.rfile.read(content_length)
+            try:
+                response = api.put_dataset(blob)
+            except DatasetRejected as exc:
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(201, response)
 
         def _run_action(self, run_id: str, action: str) -> None:
             try:
