@@ -233,6 +233,7 @@ def main(args=None):
             "start",
             "submit",
             "preview",
+            "dataset",
             "status",
             "cancel",
             "resume",

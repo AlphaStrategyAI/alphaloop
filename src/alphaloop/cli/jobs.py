@@ -98,6 +98,19 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     _add_data_dir(replay)
     replay.set_defaults(func=run_replay)
 
+    dataset = subparsers.add_parser(
+        "dataset",
+        help="cache a local parquet snapshot (does not create a job)",
+    )
+    dataset.add_argument("path", type=Path, help="local parquet file")
+    dataset.add_argument(
+        "--json",
+        action="store_true",
+        help="print dataset identity as JSON",
+    )
+    _add_data_dir(dataset)
+    dataset.set_defaults(func=run_dataset)
+
     soak = subparsers.add_parser(
         "soak",
         help="print the overnight soak release checklist (does not start jobs)",
@@ -346,6 +359,51 @@ def run_replay(args: argparse.Namespace) -> int:
         if named_latest:
             print(f"run_id: {args.run_id}")
         print(format_status_verdict(view), end="")
+    return 0
+
+
+def run_dataset(args: argparse.Namespace) -> int:
+    from alphaloop.runtime.dataset_cache import (
+        DatasetRejected,
+        dataset_parquet_path,
+        format_dataset_receipt,
+        put_dataset_bytes,
+    )
+
+    path = Path(args.path)
+    if not path.is_file():
+        print(f"error: dataset file not found: {path}", file=sys.stderr)
+        return 2
+    try:
+        blob = path.read_bytes()
+        ref = put_dataset_bytes(Path(args.data_dir), blob)
+    except DatasetRejected as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"error: unable to read dataset file: {exc}", file=sys.stderr)
+        return 2
+    cached = dataset_parquet_path(Path(args.data_dir), ref.dataset_id)
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "cached_path": str(cached),
+                    "dataset_id": ref.dataset_id,
+                    "sha256": ref.sha256,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    print(
+        format_dataset_receipt(
+            dataset_id=ref.dataset_id,
+            sha256=ref.sha256,
+            cached_path=str(cached),
+        ),
+        end="",
+    )
     return 0
 
 

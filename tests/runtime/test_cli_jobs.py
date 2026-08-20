@@ -20,6 +20,7 @@ def test_parser_has_runtime_commands():
     assert "start" in parser.format_help()
     assert "submit" in parser.format_help()
     assert "preview" in parser.format_help()
+    assert "dataset" in parser.format_help()
     assert "soak" in parser.format_help()
 
 
@@ -537,3 +538,79 @@ def test_soak_emits_release_plan_without_starting_jobs(capsys):
 def test_ci_workflow_does_not_run_soak():
     text = Path(".github/workflows/pytest.yml").read_text(encoding="utf-8")
     assert "soak" not in text.lower()
+
+
+def test_parser_has_dataset_command():
+    parser = create_parser()
+    assert "dataset" in parser.format_help()
+
+
+def test_dataset_caches_parquet_without_daemon(tmp_path, capsys):
+    from alphaloop.contracts.artifacts import hash_bytes
+    from alphaloop.runtime.dataset_cache import (
+        DATASET_NO_ALPHA,
+        dataset_parquet_path,
+    )
+    from alphaloop.runtime.example_dataset import example_dataset_bytes
+
+    blob = example_dataset_bytes()
+    src = tmp_path / "prices.parquet"
+    src.write_bytes(blob)
+    rc = main(["dataset", str(src), "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 0
+    digest = hash_bytes(blob)
+    dataset_id = "ds_" + digest[:16]
+    cached = dataset_parquet_path(tmp_path, dataset_id)
+    assert cached.read_bytes() == blob
+    assert captured.out.splitlines() == [
+        f"dataset_id: {dataset_id}",
+        f"sha256: {digest}",
+        f"Cached: {cached}",
+        DATASET_NO_ALPHA,
+    ]
+    assert "FOUND" not in captured.out
+    assert captured.err == ""
+
+
+def test_dataset_json_payload(tmp_path, capsys):
+    from alphaloop.contracts.artifacts import hash_bytes
+    from alphaloop.runtime.dataset_cache import dataset_parquet_path
+    from alphaloop.runtime.example_dataset import example_dataset_bytes
+
+    blob = example_dataset_bytes()
+    src = tmp_path / "prices.parquet"
+    src.write_bytes(blob)
+    rc = main(["dataset", str(src), "--data-dir", str(tmp_path), "--json"])
+    captured = capsys.readouterr()
+    assert rc == 0
+    digest = hash_bytes(blob)
+    dataset_id = "ds_" + digest[:16]
+    payload = json.loads(captured.out)
+    assert payload == {
+        "cached_path": str(dataset_parquet_path(tmp_path, dataset_id)),
+        "dataset_id": dataset_id,
+        "sha256": digest,
+    }
+    assert "research_outcome" not in payload
+    assert "FOUND" not in captured.out
+
+
+def test_dataset_missing_file(tmp_path, capsys):
+    missing = tmp_path / "missing.parquet"
+    rc = main(["dataset", str(missing), "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert captured.err == f"error: dataset file not found: {missing}\n"
+    assert "FOUND" not in captured.out
+
+
+def test_dataset_rejects_non_parquet(tmp_path, capsys):
+    src = tmp_path / "notes.txt"
+    src.write_text("not parquet", encoding="utf-8")
+    rc = main(["dataset", str(src), "--data-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert captured.err.startswith("error: ")
+    assert "parquet" in captured.err
+    assert "FOUND" not in captured.out

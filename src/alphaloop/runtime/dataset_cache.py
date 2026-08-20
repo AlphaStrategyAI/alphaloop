@@ -14,6 +14,7 @@ from alphaloop.contracts.research_spec import ResearchSpec
 
 PARQUET_MAGIC = b"PAR1"
 MAX_DATASET_BYTES = 64 * 1024 * 1024
+DATASET_NO_ALPHA = "This cache does not claim alpha or future profitability."
 
 
 class DatasetUnavailableError(FileNotFoundError):
@@ -26,6 +27,22 @@ class DatasetRejected(ValueError):
 
 def dataset_parquet_path(data_dir: Path, dataset_id: str) -> Path:
     return Path(data_dir) / "datasets" / dataset_id / "prices.parquet"
+
+
+def format_dataset_receipt(
+    *, dataset_id: str, sha256: str, cached_path: str
+) -> str:
+    return (
+        "\n".join(
+            [
+                f"dataset_id: {dataset_id}",
+                f"sha256: {sha256}",
+                f"Cached: {cached_path}",
+                DATASET_NO_ALPHA,
+            ]
+        )
+        + "\n"
+    )
 
 
 def put_dataset_bytes(data_dir: Path, blob: bytes) -> DatasetRef:

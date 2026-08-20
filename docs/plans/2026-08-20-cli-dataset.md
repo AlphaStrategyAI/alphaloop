@@ -31,7 +31,7 @@
 - Consumes: `put_dataset_bytes(data_dir, blob) -> DatasetRef`, `dataset_parquet_path(data_dir, dataset_id) -> Path`, `DatasetRejected`
 - Produces: `format_dataset_receipt(*, dataset_id: str, sha256: str, cached_path: str) -> str` ending in newline; `DATASET_NO_ALPHA` locked sentence; `run_dataset(args) -> int`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 Add to `tests/runtime/test_cli_jobs.py`:
 
@@ -114,7 +114,7 @@ def test_dataset_rejects_non_parquet(tmp_path, capsys):
 
 Also extend `test_parser_has_runtime_commands` with `assert "dataset" in parser.format_help()`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_parser_has_dataset_command tests/runtime/test_cli_jobs.py::test_dataset_caches_parquet_without_daemon tests/runtime/test_cli_jobs.py::test_dataset_missing_file -v
@@ -122,7 +122,7 @@ python3 -m pytest tests/runtime/test_cli_jobs.py::test_parser_has_dataset_comman
 
 Expected: FAIL (`dataset` not in help / unknown command).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/alphaloop/runtime/dataset_cache.py`:
 
@@ -238,13 +238,13 @@ invalid files exit 2 on stderr. The command does not claim alpha.
 
 Skill workflow step 3 insert after start: if the spec names a local parquet other than the packaged example, run `alphaloop dataset PATH` (prints `dataset_id` / `sha256`; does not create a job), then Preview.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_cli_jobs.py::test_parser_has_dataset_command tests/runtime/test_cli_jobs.py::test_dataset_caches_parquet_without_daemon tests/runtime/test_cli_jobs.py::test_dataset_json_payload tests/runtime/test_cli_jobs.py::test_dataset_missing_file tests/runtime/test_cli_jobs.py::test_dataset_rejects_non_parquet tests/runtime/test_cli_jobs.py::test_parser_has_runtime_commands -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(cli): cache parquet snapshots with alphaloop dataset"
