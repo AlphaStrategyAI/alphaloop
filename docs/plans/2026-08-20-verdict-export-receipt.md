@@ -27,7 +27,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 assert html.find('id="handoff"') < html.find('id="export-status"')
@@ -37,13 +37,13 @@ assert "currentRunId !== runId" in script
 
 E2E FOUND branch: wait on `#verdict #export-status`; first line `FOUND`.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_asb_export -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Move `<p id="export-status"></p>` into `#verdict` after `#handoff`.
 `showJob`: clear status when `currentRunId !== runId`. Docs.

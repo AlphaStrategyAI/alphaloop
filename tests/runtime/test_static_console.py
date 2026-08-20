@@ -251,6 +251,9 @@ def test_packaged_console_asb_export():
     assert "export_handoff" in script
     assert "#export-status" in css
     assert "pre-wrap" in css
+    assert html.find('id="handoff"') < html.find('id="export-status"')
+    assert html.find('id="export-status"') < html.find('id="job-status"')
+    assert "currentRunId !== runId" in script
     assert "http" not in css
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()

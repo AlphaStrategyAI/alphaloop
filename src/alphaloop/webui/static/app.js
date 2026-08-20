@@ -597,6 +597,9 @@ function fillReport(job) {
 }
 
 async function showJob(runId) {
+  if (currentRunId !== runId) {
+    document.getElementById("export-status").textContent = "";
+  }
   currentRunId = runId;
   const response = await fetch("/v1/jobs/" + encodeURIComponent(runId));
   const job = await response.json();
