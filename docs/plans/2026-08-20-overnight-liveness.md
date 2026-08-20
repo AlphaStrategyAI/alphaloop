@@ -30,7 +30,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 In `tests/runtime/test_morning.py`:
 
@@ -69,7 +69,7 @@ E2E `test_home_shows_promise_and_submit_form`: `#worker-heartbeat` count is 1.
 
 E2E `test_job_detail_while_running_or_later_legal_outcome`: `#verdict` has `data-status`; `#job-list button` has `data-status`; `#worker-heartbeat` is present.
 
-- [ ] **Step 2: Run tests — expect FAIL**
+- [x] **Step 2: Run tests — expect FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_morning_view_exposes_heartbeat_at tests/runtime/test_static_console.py::test_packaged_console_overnight_liveness -v
@@ -77,7 +77,7 @@ python3 -m pytest tests/runtime/test_morning.py::test_morning_view_exposes_heart
 
 Expected: FAIL (no `heartbeat_at` / no `#worker-heartbeat`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `morning_view`: `"heartbeat_at": job.heartbeat_at`.
 
@@ -91,13 +91,13 @@ CSS: `@keyframes overnight-pulse` using `--focus`; running selectors; reduced-mo
 
 Register requirements + plan in `mkdocs.yml`.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py tests/runtime/test_static_console.py -q
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): show overnight worker liveness on the morning console"
