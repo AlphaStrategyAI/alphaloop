@@ -204,7 +204,7 @@ def test_dataset_file_picker_fills_identity_without_creating_a_job(real_daemon, 
             const sha = document.getElementById('field-dataset-sha256');
             return id && sha && id.value === expectedId && sha.value.length === 64;
         }""",
-        expected_id,
+        arg=expected_id,
         timeout=10000,
     )
     assert page.locator("#field-dataset-sha256").input_value() == dataset["sha256"]
