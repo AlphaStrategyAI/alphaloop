@@ -269,6 +269,9 @@ def test_packaged_console_morning_report():
     css = root.joinpath("styles.css").read_text(encoding="utf-8")
     assert 'id="report"' in html
     assert html.find('id="stop-reason"') < html.find('id="report"')
+    assert html.find('id="recovery-attempts"') < html.find('id="cancel-job"')
+    assert html.find('id="cancel-job"') < html.find('id="resume-job"')
+    assert html.find('id="resume-job"') < html.find('id="report"')
     assert html.find('id="report"') < html.find('id="qualifying"')
     assert "report_markdown" in script
     assert "fillReport" in script

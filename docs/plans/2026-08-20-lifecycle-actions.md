@@ -26,7 +26,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py` (existing cancel e2e still passes)
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 assert html.find('id="recovery-attempts"') < html.find('id="cancel-job"')
@@ -35,19 +35,19 @@ assert html.find('id="resume-job"') < html.find('id="report"')
 assert html.find('id="report"') < html.find('id="qualifying"')
 ```
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_morning_report -v
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Move `p.actions` to after `#recovery-attempts` and before `#hypothesis-statement`.
 
-- [ ] **Step 4: Tests pass**
+- [x] **Step 4: Tests pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(webui): put Cancel and Resume above the morning report"
