@@ -189,6 +189,26 @@ def test_packaged_hard_gates_keep_token_and_human_gloss():
     assert fieldset.count('type="checkbox"') == len(HardGateName)
 
 
+def test_packaged_market_profile_discloses_frozen_economics():
+    from alphaloop.protocol.profiles import CRYPTO_DAILY, US_EQUITY_DAILY
+
+    html = files("alphaloop.webui.static").joinpath("index.html").read_text(
+        encoding="utf-8"
+    )
+    start = html.find('id="field-market-profile"')
+    select = html[start : html.find("</select>", start)]
+    assert ">choose a profile</option>" in select
+    for profile in ALLOWED_PROFILES:
+        assert f'value="{profile}"' in select
+    assert "us-equity-daily — US equities, NYSE, 5 bps, default SPY" in select
+    assert "crypto-daily — crypto, 24/7, 10 bps, default BTC-USD" in select
+    assert str(int(US_EQUITY_DAILY.cost_bps)) in select
+    assert str(int(CRYPTO_DAILY.cost_bps)) in select
+    assert US_EQUITY_DAILY.default_benchmark in select
+    assert CRYPTO_DAILY.default_benchmark in select
+    assert select.count("<option") == 1 + len(ALLOWED_PROFILES)
+
+
 def test_packaged_console_dataset_csv_accept():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")
