@@ -80,6 +80,15 @@ def _n_trials(layout: RunLayout) -> int:
     return len(dict.fromkeys(ids))
 
 
+def _load_report(layout: RunLayout) -> str:
+    if not layout.report.is_file():
+        return ""
+    try:
+        return layout.report.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
 def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
     layout = RunLayout(Path(data_dir) / job.run_id)
     evidence = _load_evidence(layout)
@@ -107,4 +116,5 @@ def morning_view(job: JobRecord, data_dir: Path) -> dict[str, Any]:
         "revisions": _load_revisions(layout),
         "queued_hypotheses": _load_queued(layout),
         "stop_reason": _STOP_REASONS[job.research_outcome],
+        "report_markdown": _load_report(layout),
     }

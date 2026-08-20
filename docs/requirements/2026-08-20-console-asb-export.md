@@ -82,6 +82,8 @@ contain `.asb`). Help / `HOST_CONSTRAINT` unchanged. No invented
 
 ## 6. Loop exit
 
-Remaining validation: textbook `S=16` CPCV, soak / 95% overnight
-(not CI), correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP /
-cloud workers.
+Remaining product after this cycle shipped: sealed `report.md` on
+the morning console
+(`docs/requirements/2026-08-20-morning-report.md`). Remaining
+validation: textbook `S=16` CPCV, soak / 95% overnight (not CI),
+correlation-adjusted \(N_{\mathrm{eff}}\). Later: MCP / cloud workers.

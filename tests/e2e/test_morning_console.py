@@ -326,6 +326,7 @@ def test_job_detail_while_running_or_later_legal_outcome(real_daemon, browser_pa
     assert "evaluated:" in page.locator("#funnel-summary").inner_text()
     assert page.locator("#funnel-bars").count() == 1
     assert page.locator("#qualifying").count() == 1
+    assert page.locator("#report").count() == 1
     assert "target found" not in page.content()
 
 
@@ -471,6 +472,17 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     assert report != "" or before == ""
     assert "This report does not claim alpha or future profitability." in report
     assert "12-1 momentum works in US large caps net of costs" in report
+    _open_job_detail(page)
+    page.wait_for_function(
+        """() => (document.getElementById('report').textContent || '').indexOf(
+            'This report does not claim alpha or future profitability.'
+        ) !== -1""",
+        timeout=10000,
+    )
+    assert (
+        "This report does not claim alpha or future profitability."
+        in page.locator("#report").inner_text()
+    )
     page.wait_for_timeout(2500)
     assert _wait_list_outcome(page, timeout_ms=5000) == outcome
 

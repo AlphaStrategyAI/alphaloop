@@ -428,6 +428,11 @@ function addJobSpan(button, className, text) {
   button.appendChild(span);
 }
 
+function fillReport(job) {
+  const node = document.getElementById("report");
+  node.textContent = job.report_markdown || "";
+}
+
 async function showJob(runId) {
   currentRunId = runId;
   const response = await fetch("/v1/jobs/" + encodeURIComponent(runId));
@@ -458,6 +463,7 @@ async function showJob(runId) {
   document.getElementById("stop-reason").textContent = job.stop_reason
     ? "Stop reason: " + job.stop_reason
     : "Stop reason: (running or not yet terminal)";
+  fillReport(job);
   const cancel = document.getElementById("cancel-job");
   const resume = document.getElementById("resume-job");
   cancel.hidden = job.status !== "queued" && job.status !== "running";

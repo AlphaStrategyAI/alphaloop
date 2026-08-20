@@ -188,6 +188,28 @@ def test_funnel_aggregates_trial_files_not_only_last_gates(tmp_path):
     assert view["qualifying_candidates"] == []
 
 
+def test_morning_view_report_markdown_is_sealed_file_or_empty(tmp_path):
+    from alphaloop.contracts.artifacts import RunLayout
+    from alphaloop.runtime.artifacts_io import write_report
+
+    store = JobStore(tmp_path / "state.db", tmp_path)
+    job = store.create(_spec())
+    view = morning_view(job, tmp_path)
+    assert view["report_markdown"] == ""
+    layout = RunLayout(tmp_path / job.run_id)
+    write_report(
+        layout,
+        research_outcome="NO_EVIDENCE",
+        stop_reason="hard_gate_failed",
+        spec=job.spec,
+        n_trials=0,
+    )
+    view = morning_view(job, tmp_path)
+    assert view["report_markdown"] == layout.report.read_text(encoding="utf-8")
+    assert "This report does not claim alpha or future profitability." in view["report_markdown"]
+    assert view["research_outcome"] == job.research_outcome.value
+
+
 def test_qualifying_candidates_only_all_passed_trial_files(tmp_path):
     store = JobStore(tmp_path / "state.db", tmp_path)
     job = store.create(_spec())

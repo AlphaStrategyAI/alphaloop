@@ -192,6 +192,21 @@ def test_packaged_console_asb_export():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_morning_report():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="report"' in html
+    assert html.find('id="stop-reason"') < html.find('id="report"')
+    assert html.find('id="report"') < html.find('id="qualifying"')
+    assert "report_markdown" in script
+    assert "fillReport" in script
+    assert "grid-template-columns" in css
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
 def test_static_package_loads_without_fastapi():
     """Morning assets must load even when FastAPI is not installed."""
     code = r"""
