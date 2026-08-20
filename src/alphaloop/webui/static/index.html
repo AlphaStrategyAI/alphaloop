@@ -28,46 +28,64 @@
         <section id="submit">
           <h2>Before bed</h2>
           <form id="hypothesis-form" onsubmit="return false">
-            <div class="form-grid">
-              <label for="field-statement">Hypothesis</label>
-              <input id="field-statement" type="text" autocomplete="off" />
-              <label for="field-economic-logic">Economic logic</label>
-              <input id="field-economic-logic" type="text" autocomplete="off" />
-              <label for="field-signal-mechanism">Signal</label>
-              <select id="field-signal-mechanism">
-                <option value="">choose a signal</option>
-                <option value="rsi">rsi</option>
-                <option value="macd">macd</option>
-                <option value="roc">roc</option>
-                <option value="momentum_12_1">momentum_12_1</option>
-                <option value="bollinger_zscore">bollinger_zscore</option>
-                <option value="ohlr_4_pct">ohlr_4_pct</option>
-                <option value="pairs_spread">pairs_spread</option>
-                <option value="atr_breakout">atr_breakout</option>
-              </select>
-              <label for="field-market-scope">Market scope</label>
-              <input id="field-market-scope" type="text" autocomplete="off" />
-              <label for="field-market-profile">Market profile</label>
-              <select id="field-market-profile">
-                <option value="">choose a profile</option>
-                <option value="us-equity-daily">us-equity-daily</option>
-                <option value="crypto-daily">crypto-daily</option>
-              </select>
-              <label for="field-benchmark">Benchmark</label>
-              <input id="field-benchmark" type="text" autocomplete="off" />
-              <label for="field-seed">Seed</label>
-              <input id="field-seed" type="number" />
-              <label for="field-time-budget">Time budget (s)</label>
-              <input id="field-time-budget" type="number" />
-              <label for="field-cost-budget">Cost budget (USD)</label>
-              <input id="field-cost-budget" type="number" step="any" />
-              <label for="field-dataset-id">Dataset id</label>
-              <input id="field-dataset-id" type="text" autocomplete="off" />
-              <label for="field-dataset-sha256">Dataset sha256</label>
-              <input id="field-dataset-sha256" type="text" autocomplete="off" spellcheck="false" />
-              <label for="field-dataset-file">Dataset parquet</label>
-              <input id="field-dataset-file" type="file" accept=".parquet,application/octet-stream" />
-            </div>
+            <fieldset id="group-hypothesis" class="form-group">
+              <legend>Hypothesis</legend>
+              <div class="form-grid">
+                <label for="field-statement">Hypothesis</label>
+                <input id="field-statement" type="text" autocomplete="off" />
+                <label for="field-economic-logic">Economic logic</label>
+                <input id="field-economic-logic" type="text" autocomplete="off" />
+                <label for="field-signal-mechanism">Signal</label>
+                <select id="field-signal-mechanism">
+                  <option value="">choose a signal</option>
+                  <option value="rsi">rsi</option>
+                  <option value="macd">macd</option>
+                  <option value="roc">roc</option>
+                  <option value="momentum_12_1">momentum_12_1</option>
+                  <option value="bollinger_zscore">bollinger_zscore</option>
+                  <option value="ohlr_4_pct">ohlr_4_pct</option>
+                  <option value="pairs_spread">pairs_spread</option>
+                  <option value="atr_breakout">atr_breakout</option>
+                </select>
+              </div>
+            </fieldset>
+            <fieldset id="group-market" class="form-group">
+              <legend>Market</legend>
+              <div class="form-grid">
+                <label for="field-market-scope">Market scope</label>
+                <input id="field-market-scope" type="text" autocomplete="off" />
+                <label for="field-market-profile">Market profile</label>
+                <select id="field-market-profile">
+                  <option value="">choose a profile</option>
+                  <option value="us-equity-daily">us-equity-daily</option>
+                  <option value="crypto-daily">crypto-daily</option>
+                </select>
+                <label for="field-benchmark">Benchmark</label>
+                <input id="field-benchmark" type="text" autocomplete="off" />
+              </div>
+            </fieldset>
+            <fieldset id="group-run" class="form-group">
+              <legend>Run</legend>
+              <div class="form-grid">
+                <label for="field-seed">Seed</label>
+                <input id="field-seed" type="number" />
+                <label for="field-time-budget">Time budget (s)</label>
+                <input id="field-time-budget" type="number" />
+                <label for="field-cost-budget">Cost budget (USD)</label>
+                <input id="field-cost-budget" type="number" step="any" />
+              </div>
+            </fieldset>
+            <fieldset id="group-dataset" class="form-group">
+              <legend>Dataset</legend>
+              <div class="form-grid">
+                <label for="field-dataset-id">Dataset id</label>
+                <input id="field-dataset-id" type="text" autocomplete="off" />
+                <label for="field-dataset-sha256">Dataset sha256</label>
+                <input id="field-dataset-sha256" type="text" autocomplete="off" spellcheck="false" />
+                <label for="field-dataset-file">Dataset parquet</label>
+                <input id="field-dataset-file" type="file" accept=".parquet,application/octet-stream" />
+              </div>
+            </fieldset>
             <fieldset id="field-hard-gates">
               <legend>Hard gates</legend>
               <label><input type="checkbox" value="dsr" /> dsr</label>
@@ -78,8 +96,11 @@
               <label><input type="checkbox" value="data_consistency" /> data_consistency</label>
             </fieldset>
           </form>
-          <label for="spec-yaml">Research spec (YAML)</label>
-          <textarea id="spec-yaml" rows="16" cols="72"></textarea>
+          <details id="spec-yaml-fold">
+            <summary>Research spec (YAML)</summary>
+            <label for="spec-yaml">Research spec (YAML)</label>
+            <textarea id="spec-yaml" rows="16" cols="72"></textarea>
+          </details>
           <p class="actions">
             <button id="load-example" type="button">Load example</button>
             <button id="preview-protocol" type="button">Preview protocol</button>

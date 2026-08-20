@@ -75,6 +75,7 @@ def _open_morning(page, base_url: str) -> None:
 
 
 def _preview_yaml(page, yaml_text: str) -> None:
+    page.locator("#spec-yaml-fold").evaluate("el => { el.open = true; }")
     page.fill("#spec-yaml", yaml_text)
     page.click("#preview-protocol")
     page.wait_for_function(
@@ -143,6 +144,8 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#morning").count() == 1
     assert page.locator("#hypothesis-form").count() == 1
     assert page.locator("#field-signal-mechanism").count() == 1
+    assert page.locator("#spec-yaml-fold").count() == 1
+    assert page.locator("#spec-yaml-fold").get_attribute("open") is None
     assert page.locator("#detail").is_hidden()
     assert page.locator("#job-list button").count() == 0
     empty = page.locator("#empty-morning")

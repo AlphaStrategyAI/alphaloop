@@ -146,6 +146,24 @@ def test_packaged_guided_form_preview_grid_and_job_cards():
     assert "input:focus-visible" in css
 
 
+def test_packaged_before_bed_groups_and_yaml_fold():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert html.find('id="group-hypothesis"') < html.find('id="group-market"')
+    assert html.find('id="group-market"') < html.find('id="group-run"')
+    assert html.find('id="group-run"') < html.find('id="group-dataset"')
+    assert html.find('id="group-dataset"') < html.find('id="field-hard-gates"')
+    assert html.find('id="spec-yaml-fold"') < html.find('id="spec-yaml"')
+    assert html.find('id="spec-yaml"') < html.find('id="load-example"')
+    assert ">Research spec (YAML)<" in html
+    assert '<details id="spec-yaml-fold">' in html
+    assert ".form-group" in css
+    assert "http" not in css.lower()
+    assert HOST_CONSTRAINT in html
+    assert "override" not in html.lower()
+
+
 def test_packaged_queued_followup_auto_preview():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")
