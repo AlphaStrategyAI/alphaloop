@@ -303,7 +303,7 @@ Skill workflow step 4:
    with `alphaloop status RUN_ID --json`. Do not block ...
 ```
 
-- [ ] **Step 4: Run the new tests and the full suites**
+- [x] **Step 4: Run the new tests and the full suites**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py tests/runtime/test_cli_jobs.py tests/skills/test_overnight_lab_skill.py -v
@@ -313,7 +313,7 @@ python3 -m pytest tests/e2e -m e2e
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/requirements/2026-08-20-cli-status-verdict.md docs/plans/2026-08-20-cli-status-verdict.md src/alphaloop/runtime/morning.py src/alphaloop/cli/jobs.py src/alphaloop/skills/overnight-lab/SKILL.md docs/cli.md README.md docs/index.md tests/runtime/test_morning.py tests/runtime/test_cli_jobs.py tests/skills/test_overnight_lab_skill.py tests/e2e/test_morning_console.py
