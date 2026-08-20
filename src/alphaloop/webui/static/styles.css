@@ -557,10 +557,17 @@ button {
   cursor: not-allowed;
 }
 
-#keyboard-hint {
+#keyboard-hint,
+#job-keys-hint {
   color: var(--muted);
   font-size: 0.82rem;
   margin-left: 0.35rem;
+}
+
+#job-keys-hint {
+  display: block;
+  margin: 0.15rem 0 0.55rem;
+  margin-left: 0;
 }
 
 #preflight-errors {

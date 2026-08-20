@@ -161,6 +161,9 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     assert page.locator("#keyboard-hint").inner_text() == (
         "Ctrl/Cmd+Enter: Preview, then Freeze."
     )
+    assert page.locator("#job-keys-hint").inner_text() == (
+        "j/k or arrows move between jobs."
+    )
 
 
 def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
@@ -196,6 +199,41 @@ def test_ctrl_enter_previews_then_freezes(real_daemon, browser_page):
     page.keyboard.press("Control+Enter")
     page.wait_for_selector("#job-list button", timeout=15000)
     assert page.locator("#job-list button").count() >= 1
+    assert "target found" not in page.content()
+
+
+def test_arrow_down_moves_aria_current_to_older_job(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.locator("#spec-yaml-fold").evaluate("el => { el.open = true; }")
+    page.fill("#spec-yaml", _spec_yaml(dataset, time_budget_s=3600))
+    page.keyboard.press("Control+Enter")
+    page.wait_for_function(
+        "() => document.getElementById('submit-job') && !document.getElementById('submit-job').disabled",
+        timeout=10000,
+    )
+    page.keyboard.press("Control+Enter")
+    page.wait_for_selector("#job-list button", timeout=15000)
+    page.keyboard.press("Control+Enter")
+    page.wait_for_function(
+        "() => document.querySelectorAll('#job-list button').length >= 2",
+        timeout=15000,
+    )
+    first = page.locator("#job-list button").nth(0)
+    second = page.locator("#job-list button").nth(1)
+    assert first.get_attribute("aria-current") == "true"
+    page.locator("#jobs h2").click()
+    page.keyboard.press("ArrowDown")
+    page.wait_for_function(
+        """() => {
+            const buttons = document.querySelectorAll('#job-list button');
+            return buttons.length >= 2 && buttons[1].getAttribute('aria-current') === 'true';
+        }""",
+        timeout=5000,
+    )
+    assert second.get_attribute("aria-current") == "true"
+    assert first.get_attribute("aria-current") != "true"
     assert "target found" not in page.content()
 
 

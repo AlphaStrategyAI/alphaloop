@@ -403,6 +403,24 @@ def test_packaged_console_keyboard_preview_then_freeze():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_job_list_keys():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="job-keys-hint"' in html
+    assert "j/k or arrows move between jobs." in html
+    assert "ArrowDown" in script
+    assert "ArrowUp" in script
+    assert "showJob(" in script
+    assert "TEXTAREA" in script
+    assert "INPUT" in script
+    assert "SELECT" in script
+    assert "#job-keys-hint" in css
+    assert "http" not in css
+    assert "override" not in script.lower()
+
+
 def test_packaged_console_morning_verdict_stage():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

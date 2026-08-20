@@ -872,17 +872,66 @@ document.getElementById("field-dataset-file").addEventListener("change", functio
 
 setInterval(loadJobs, 2000);
 
+function typingInField(target) {
+  if (!target || !target.tagName) {
+    return false;
+  }
+  const tag = String(target.tagName).toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+function moveJobSelection(delta) {
+  const buttons = document.querySelectorAll("#job-list button");
+  if (!buttons.length) {
+    return;
+  }
+  let index = 0;
+  for (let i = 0; i < buttons.length; i += 1) {
+    if (buttons[i].getAttribute("aria-current") === "true") {
+      index = i;
+      break;
+    }
+  }
+  const next = index + delta;
+  if (next < 0 || next >= buttons.length) {
+    return;
+  }
+  for (let i = 0; i < buttons.length; i += 1) {
+    if (i === next) {
+      buttons[i].setAttribute("aria-current", "true");
+    } else {
+      buttons[i].removeAttribute("aria-current");
+    }
+  }
+  const runId = buttons[next].dataset.runId;
+  if (runId) {
+    showJob(runId);
+  }
+}
+
 window.addEventListener("keydown", function (ev) {
-  if (ev.key !== "Enter" || !(ev.ctrlKey || ev.metaKey)) {
+  if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+    ev.preventDefault();
+    const submit = document.getElementById("submit-job");
+    if (submit && !submit.disabled) {
+      submitJob();
+      return;
+    }
+    previewProtocol();
     return;
   }
-  ev.preventDefault();
-  const submit = document.getElementById("submit-job");
-  if (submit && !submit.disabled) {
-    submitJob();
+  if (typingInField(ev.target)) {
     return;
   }
-  previewProtocol();
+  if (ev.key === "ArrowDown" || ev.key === "j") {
+    ev.preventDefault();
+    moveJobSelection(1);
+    return;
+  }
+  if (ev.key === "ArrowUp" || ev.key === "k") {
+    ev.preventDefault();
+    moveJobSelection(-1);
+  }
 });
 
 loadJobs();
