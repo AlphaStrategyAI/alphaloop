@@ -124,9 +124,9 @@ assert "alphaloop preview --spec PATH" in EMPTY_STATUS_CUE
 
 Skill: `assert "alphaloop preview" in lowered`.
 
-- [ ] **Step 2: Run to FAIL** (`preview` unknown)
+- [x] **Step 2: Run to FAIL** (`preview` unknown)
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `JobClient.preview_run`: `_request("POST", "/v1/jobs/preview", spec.to_dict())`.
 
@@ -140,6 +140,6 @@ Skill: `assert "alphaloop preview" in lowered`.
 
 Docs + Skill: preview does not create a job; then submit to freeze.
 
-- [ ] **Step 4: Full unit + e2e**
+- [x] **Step 4: Full unit + e2e**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
