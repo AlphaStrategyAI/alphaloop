@@ -68,6 +68,13 @@ def _cli(data_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _computed_style(locator, property_name: str) -> str:
+    return locator.evaluate(
+        "(el, name) => getComputedStyle(el).getPropertyValue(name)",
+        property_name,
+    )
+
+
 def _open_morning(page, base_url: str) -> None:
     page.goto(base_url + "/", wait_until="domcontentloaded")
     page.wait_for_selector("#preview-protocol")
@@ -440,13 +447,10 @@ def test_load_queued_fills_editor_without_submitting(real_daemon, browser_page):
     _open_job_detail(page)
     page.wait_for_selector("#verdict #next-step button.load-queued", timeout=10000)
     button = page.locator("#verdict #next-step button.load-queued")
-    assert button.evaluate("el => getComputedStyle(el).backgroundColor") == "rgb(11, 15, 22)"
+    assert _computed_style(button, "background-color") == "rgb(11, 15, 22)"
     if page.locator("#verdict").get_attribute("data-outcome") == "NO_EVIDENCE":
-        assert button.evaluate("el => getComputedStyle(el).color") == "rgb(255, 176, 32)"
-        assert (
-            button.evaluate("el => getComputedStyle(el).borderTopColor")
-            == "rgb(255, 176, 32)"
-        )
+        assert _computed_style(button, "color") == "rgb(255, 176, 32)"
+        assert _computed_style(button, "border-top-color") == "rgb(255, 176, 32)"
     button.click()
     assert page.locator("#field-signal-mechanism").input_value() == "rsi"
     assert "signal_mechanism: rsi" in page.locator("#spec-yaml").input_value()
@@ -710,10 +714,8 @@ def test_export_found_only(real_daemon, browser_page, tmp_path):
         _open_job_detail(page)
         page.wait_for_selector("#verdict #handoff button.export-asb", timeout=10000)
         button = page.locator("#verdict #handoff button.export-asb").first
-        color = button.evaluate("el => getComputedStyle(el).color")
-        border = button.evaluate("el => getComputedStyle(el).borderTopColor")
-        assert color == "rgb(62, 224, 160)"
-        assert border == "rgb(62, 224, 160)"
+        assert _computed_style(button, "color") == "rgb(62, 224, 160)"
+        assert _computed_style(button, "border-top-color") == "rgb(62, 224, 160)"
         button.click()
         page.wait_for_function(
             """() => {
