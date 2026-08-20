@@ -15,6 +15,9 @@ class JobClient:
     def create_run(self, spec: ResearchSpec) -> dict[str, Any]:
         return self._request("POST", "/v1/jobs", spec.to_dict())
 
+    def preview_run(self, spec: ResearchSpec) -> dict[str, Any]:
+        return self._request("POST", "/v1/jobs/preview", spec.to_dict())
+
     def list_jobs(self) -> dict[str, Any]:
         return self._request("GET", "/v1/jobs")
 

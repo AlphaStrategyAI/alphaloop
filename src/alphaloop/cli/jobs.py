@@ -48,6 +48,19 @@ def register(subparsers: argparse._SubParsersAction) -> None:
     _add_data_dir(submit)
     submit.set_defaults(func=run_submit)
 
+    preview = subparsers.add_parser(
+        "preview",
+        help="preview the compiled protocol without creating a job",
+    )
+    preview.add_argument("--spec", required=True, type=Path)
+    preview.add_argument(
+        "--json",
+        action="store_true",
+        help="print the preview payload as JSON",
+    )
+    _add_data_dir(preview)
+    preview.set_defaults(func=run_preview)
+
     status = subparsers.add_parser("status", help="show research job status")
     status.add_argument("run_id", nargs="?")
     status.add_argument(
@@ -156,6 +169,62 @@ def run_submit(args: argparse.Namespace) -> int:
     print(f"run_id: {result['run_id']}")
     print(HOST_CONSTRAINT)
     return 0
+
+
+def format_protocol_preview(body: dict[str, Any]) -> str:
+    from alphaloop.runtime.morning import _format_grid_row
+
+    gates = body.get("hard_gates") or []
+    if isinstance(gates, (list, tuple)):
+        gates_text = ", ".join(str(name) for name in gates)
+    else:
+        gates_text = str(gates)
+    lines: list[str] = []
+    if not body.get("ok"):
+        for error in body.get("errors") or []:
+            lines.append(str(error))
+    lines.extend(
+        [
+            f"spec_id: {body.get('spec_id', '')}",
+            f"statement: {body.get('statement', '')}",
+            f"signal_mechanism: {body.get('signal_mechanism', '')}",
+            f"hard_gates: {gates_text}",
+            f"planned_n_trials: {body.get('planned_n_trials', '')}",
+            "grid:",
+        ]
+    )
+    for row in body.get("method_parameter_grid") or []:
+        lines.append(_format_grid_row(row))
+    lines.append(HOST_CONSTRAINT)
+    lines.append("This preview does not claim alpha or future profitability.")
+    if body.get("ok"):
+        lines.append("Freeze with alphaloop submit --spec PATH")
+    return "\n".join(lines) + "\n"
+
+
+def _load_spec(path: Path) -> ResearchSpec | None:
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("research spec must be a mapping")
+        return ResearchSpec.from_dict(payload)
+    except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
+        print(f"error: unable to read research spec: {exc}", file=sys.stderr)
+        return None
+
+
+def run_preview(args: argparse.Namespace) -> int:
+    spec = _load_spec(args.spec)
+    if spec is None:
+        return 2
+    result = _invoke(args.data_dir, lambda client: client.preview_run(spec))
+    if result is None:
+        return 2
+    if args.json:
+        print(json.dumps(result, sort_keys=True))
+        return 0 if result.get("ok") else 2
+    print(format_protocol_preview(result), end="")
+    return 0 if result.get("ok") else 2
 
 
 def _run_action(

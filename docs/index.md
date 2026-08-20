@@ -32,7 +32,7 @@ alphaloop start --detach
 
 Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/). Paste a research
 spec (YAML) on the packaged morning page, or run
-`alphaloop submit --spec spec.yaml`. Leave the host awake. Closing the
+`alphaloop preview --spec spec.yaml` then `alphaloop submit --spec spec.yaml`. Leave the host awake. Closing the
 browser or terminal does not stop the job; suspending or powering off
 the host does.
 
@@ -54,6 +54,8 @@ walk-forward `regime_stable` and median fold Sharpe when present), and
 short help. It does not claim alpha.
 
 ```bash
+alphaloop preview --spec spec.yaml
+alphaloop submit --spec spec.yaml
 alphaloop status
 alphaloop status RUN_ID
 alphaloop status RUN_ID --json

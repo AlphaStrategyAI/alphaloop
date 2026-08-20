@@ -34,7 +34,7 @@
 - Produces: `JobClient.preview_run(spec: ResearchSpec) -> dict[str, Any]`
 - Produces: `format_protocol_preview(body: dict[str, Any]) -> str`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_cli_jobs.py`:
 

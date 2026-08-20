@@ -25,6 +25,7 @@ def test_skill_teaches_submit_and_poll_not_block():
     lowered = text.lower()
     assert "alphaloop start" in lowered
     assert "alphaloop submit" in lowered
+    assert "alphaloop preview" in lowered
     assert "alphaloop status" in lowered
     assert "alphaloop status RUN_ID --json" in text
     assert "latest job" in lowered

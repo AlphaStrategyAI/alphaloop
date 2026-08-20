@@ -1,6 +1,6 @@
 # CLI reference
 
-Overnight-lab commands are `start`, `submit`, `status`, `cancel`,
+Overnight-lab commands are `start`, `submit`, `preview`, `status`, `cancel`,
 `resume`, `replay`, `export`, and `soak`. Run `alphaloop --help` for the live
 parser (it is the source of truth — this page mirrors it).
 
@@ -10,7 +10,7 @@ overnight research lab. Do not treat it as a command that finds alpha.
 ## Global usage
 
 ```
-alphaloop [-h] {backtest, optimize, fetch, report, export, start, submit, status, cancel, resume, soak, loop, replay, webui, judge} ...
+alphaloop [-h] {backtest, optimize, fetch, report, export, start, submit, preview, status, cancel, resume, soak, loop, replay, webui, judge} ...
 ```
 
 ## `alphaloop start`
@@ -55,6 +55,26 @@ On success prints `run_id` and the host-constraint disclosure.  If the
 daemon is not running, the command fails with a hint to run
 `alphaloop start`.
 
+## `alphaloop preview`
+
+Review the compiled protocol **without** creating a job. Shows `spec_id`,
+statement, signal, hard gates, `planned_n_trials`, the method grid, and
+the host constraint. Does not claim alpha.
+
+```
+alphaloop preview --spec PATH [--data-dir DIR] [--json]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--spec`     | **Required.** Path to a `ResearchSpec` YAML file. |
+| `--data-dir` | Runs output root (default: `./runs`). |
+| `--json`     | Print the preview payload as JSON. |
+
+Exit 0 only when preflight is `ok`. Missing dataset or other preflight
+errors exit 2 and still create no job. When `ok`, the last line is
+`Freeze with alphaloop submit --spec PATH`.
+
 ## `alphaloop status`
 
 Show the five-minute morning verdict for a research job.
@@ -65,7 +85,7 @@ alphaloop status [RUN_ID] [--data-dir DIR] [--json]
 
 With no `RUN_ID`, prints the **latest** job (newest `created_at`),
 prefixed with `run_id:`. If there is no job yet, prints the locked
-empty cue (submit a frozen spec; does not claim alpha).
+empty cue (preview, then freeze; does not claim alpha).
 
 With a `RUN_ID`, default stdout is the conclusion cluster: outcome
 token, locked Help gloss, primary evidence, stop reason, optional

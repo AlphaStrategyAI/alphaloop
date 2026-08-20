@@ -90,11 +90,13 @@ If the spec declares a `dataset`, the parquet must exist under
 or mismatched snapshots do not synthesize prices.
 
 ```bash
-alphaloop status                 # latest job five-minute verdict
-alphaloop status RUN_ID          # five-minute verdict for one run
-alphaloop status RUN_ID --json   # full morning_view payload for agents
-alphaloop resume RUN_ID          # after a crash or host sleep
-alphaloop replay RUN_ID          # rewrite report.md from sealed gates.json
+alphaloop preview --spec spec.yaml   # review grid; does not create a job
+alphaloop submit --spec spec.yaml    # freeze after preview
+alphaloop status                     # latest job five-minute verdict
+alphaloop status RUN_ID              # five-minute verdict for one run
+alphaloop status RUN_ID --json       # full morning_view payload for agents
+alphaloop resume RUN_ID              # after a crash or host sleep
+alphaloop replay RUN_ID              # rewrite report.md from sealed gates.json
 alphaloop export CANDIDATE_ID --run-id RUN_ID --output strategy.asb
 ```
 

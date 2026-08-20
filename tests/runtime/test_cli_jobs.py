@@ -18,6 +18,7 @@ def test_parser_has_runtime_commands():
     parser = create_parser()
     assert "start" in parser.format_help()
     assert "submit" in parser.format_help()
+    assert "preview" in parser.format_help()
     assert "soak" in parser.format_help()
 
 
@@ -28,6 +29,14 @@ def test_submit_without_daemon_fails(tmp_path, capsys):
     assert rc == 2
     err = capsys.readouterr().err
     assert "alphaloop start" in err
+
+
+def test_preview_without_daemon_fails(tmp_path, capsys):
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(yaml.safe_dump(_cached_spec().to_dict()), encoding="utf-8")
+    rc = main(["preview", "--spec", str(spec_path), "--data-dir", str(tmp_path)])
+    assert rc == 2
+    assert "alphaloop start" in capsys.readouterr().err
 
 
 def test_submit_returns_run_id_and_host_constraint(tmp_path, capsys):
@@ -50,6 +59,71 @@ def test_submit_returns_run_id_and_host_constraint(tmp_path, capsys):
         assert rc == 0
         assert HOST_CONSTRAINT in captured.out
         assert "j_" in captured.out
+    finally:
+        server.shutdown()
+
+
+def test_preview_shows_protocol_without_creating_a_job(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(yaml.safe_dump(_cached_spec().to_dict()), encoding="utf-8")
+    try:
+        rc = main(["preview", "--spec", str(spec_path), "--data-dir", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert rc == 0
+        assert "planned_n_trials:" in out
+        assert "spec_id:" in out
+        assert HOST_CONSTRAINT in out
+        assert "Freeze with alphaloop submit --spec PATH" in out
+        assert "This preview does not claim alpha or future profitability." in out
+        assert "run_id:" not in out
+        assert "target found" not in out.lower()
+        assert api.list_jobs()["jobs"] == []
+
+        rc = main(
+            ["preview", "--spec", str(spec_path), "--json", "--data-dir", str(tmp_path)]
+        )
+        payload = json.loads(capsys.readouterr().out)
+        assert rc == 0
+        assert payload["ok"] is True
+        assert "run_id" not in payload
+        assert payload["planned_n_trials"] >= 1
+        assert api.list_jobs()["jobs"] == []
+    finally:
+        server.shutdown()
+
+
+def test_preview_missing_dataset_is_not_ok_and_creates_no_job(tmp_path, capsys):
+    from alphaloop.runtime.api import JobAPI
+    from alphaloop.runtime.daemon import DEFAULT_HOST, start_http_server, write_daemon_meta
+    from alphaloop.runtime.store import JobStore
+    from alphaloop.runtime.supervisor import Supervisor
+    from tests.runtime.test_supervisor import FakeWorker
+
+    store = JobStore(tmp_path / ".alphaloop" / "state.db", tmp_path)
+    api = JobAPI(store, Supervisor(store, tmp_path, FakeWorker()), tmp_path)
+    server = start_http_server(api, DEFAULT_HOST, 0)
+    host, port = server.server_address[:2]
+    write_daemon_meta(tmp_path, host=host, port=port, pid=0)
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(yaml.safe_dump(_spec().to_dict()), encoding="utf-8")
+    try:
+        rc = main(["preview", "--spec", str(spec_path), "--data-dir", str(tmp_path)])
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "dataset snapshot is required" in captured.out
+        assert "Freeze with alphaloop submit" not in captured.out
+        assert api.list_jobs()["jobs"] == []
     finally:
         server.shutdown()
 
@@ -86,6 +160,7 @@ def test_status_without_run_id_leads_with_latest_or_empty(tmp_path, capsys):
         empty = capsys.readouterr()
         assert rc == 0
         assert empty.out == EMPTY_STATUS_CUE
+        assert "alphaloop preview --spec PATH" in empty.out
         assert "target found" not in empty.out.lower()
         assert STATUS_NO_ALPHA in empty.out
 

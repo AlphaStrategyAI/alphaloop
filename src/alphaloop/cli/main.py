@@ -232,6 +232,7 @@ def main(args=None):
         elif parsed.command in {
             "start",
             "submit",
+            "preview",
             "status",
             "cancel",
             "resume",
