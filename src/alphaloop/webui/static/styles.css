@@ -218,6 +218,23 @@ h3 {
   width: auto;
 }
 
+#queued .queued-item {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.4rem 0;
+}
+
+#queued .load-queued {
+  justify-self: start;
+  background: #0e121a;
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  font: inherit;
+  cursor: pointer;
+}
+
 #protocol-grid {
   list-style: none;
   padding: 0.4rem 0 0;

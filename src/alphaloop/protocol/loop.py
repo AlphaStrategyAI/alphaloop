@@ -30,6 +30,7 @@ from alphaloop.protocol.dsl import (
 )
 from alphaloop.protocol.gates import run_hard_gates
 from alphaloop.protocol.profiles import get_profile
+from alphaloop.protocol.recommend import followup_hypotheses
 from alphaloop.protocol.returns import compute_strategy_returns
 from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.protocol.stop import (
@@ -97,6 +98,52 @@ def _strategy_fn_for(doc, prices: Mapping[str, pd.Series]):
         return pd.Series(weights, index=series.index)
 
     return _fn
+
+
+def _queued_hypotheses(layout: RunLayout) -> list[dict[str, Any]]:
+    if not layout.recommendations.exists():
+        return []
+    try:
+        payload = json.loads(layout.recommendations.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    queued = payload.get("queued_hypotheses") or []
+    return [item for item in queued if isinstance(item, dict)]
+
+
+def _queue_followup(
+    layout: RunLayout,
+    spec: ResearchSpec,
+    evidence: Optional[GateEvidence],
+) -> None:
+    if evidence is None or not evidence.complete or evidence.all_passed:
+        return
+    if _queued_hypotheses(layout):
+        return
+    items = followup_hypotheses(spec, evidence)
+    if not items:
+        return
+    layout.recommendations.write_text(
+        json.dumps({"queued_hypotheses": items}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _no_evidence(
+    layout: RunLayout,
+    spec: ResearchSpec,
+    *,
+    candidate_id: Optional[str],
+    evidence: Optional[GateEvidence],
+) -> ProtocolResult:
+    _queue_followup(layout, spec, evidence)
+    return _result(
+        research_outcome=ResearchOutcome.NO_EVIDENCE,
+        candidate_id=candidate_id,
+        evidence=evidence,
+    )
 
 
 def _result(
@@ -305,8 +352,9 @@ def run_protocol(
                     last_evidence = _attach_pbo(last_evidence, pbo)
                     _write_evidence(layout, candidate_id, last_evidence)
                     if not last_evidence.all_passed:
-                        return _result(
-                            research_outcome=ResearchOutcome.NO_EVIDENCE,
+                        return _no_evidence(
+                            layout,
+                            spec,
                             candidate_id=candidate_id,
                             evidence=last_evidence,
                         )
@@ -316,8 +364,9 @@ def run_protocol(
                 evidence=last_evidence,
             )
         if decision.reason in FORBIDDEN_CONTINUE_REASONS:
-            return _result(
-                research_outcome=ResearchOutcome.NO_EVIDENCE,
+            return _no_evidence(
+                layout,
+                spec,
                 candidate_id=candidate_id,
                 evidence=last_evidence,
             )
@@ -362,8 +411,9 @@ def run_protocol(
         break
 
     if last_evidence is not None and last_evidence.complete and not last_evidence.all_passed:
-        return _result(
-            research_outcome=ResearchOutcome.NO_EVIDENCE,
+        return _no_evidence(
+            layout,
+            spec,
             candidate_id=last_candidate_id,
             evidence=last_evidence,
         )

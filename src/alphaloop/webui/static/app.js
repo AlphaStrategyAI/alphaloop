@@ -13,6 +13,59 @@ function fillList(node, items, render) {
   }
 }
 
+function fillQueued(items) {
+  const node = document.getElementById("queued");
+  node.innerHTML = "";
+  if (!items || items.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = "none";
+    node.appendChild(empty);
+    return;
+  }
+  items.forEach(function (row) {
+    const li = document.createElement("li");
+    li.className = "queued-item";
+    const text = document.createElement("span");
+    text.textContent = row.statement || JSON.stringify(row);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "load-queued";
+    button.textContent = "Load into editor";
+    button.addEventListener("click", function () {
+      loadQueuedHypothesis(row);
+    });
+    li.appendChild(text);
+    li.appendChild(button);
+    node.appendChild(li);
+  });
+}
+
+function loadQueuedHypothesis(row) {
+  syncingForm = true;
+  document.getElementById("field-statement").value = row.statement || "";
+  document.getElementById("field-economic-logic").value = row.economic_logic || "";
+  document.getElementById("field-signal-mechanism").value =
+    row.signal_mechanism || "";
+  document.getElementById("field-market-scope").value = row.market_scope || "";
+  document.getElementById("field-market-profile").value =
+    row.market_profile || "";
+  document.getElementById("field-benchmark").value = row.benchmark || "";
+  const selected = {};
+  (row.hard_gates || []).forEach(function (name) {
+    selected[name] = true;
+  });
+  Array.prototype.forEach.call(
+    document.querySelectorAll("#field-hard-gates input[type='checkbox']"),
+    function (box) {
+      box.checked = Boolean(selected[box.value]);
+    }
+  );
+  document.getElementById("spec-yaml").value = formToYaml();
+  syncingForm = false;
+  previewedYaml = null;
+  setSubmitEnabled(false);
+}
+
 const EXAMPLE_SPEC =
   "statement: 12-1 momentum works in US large caps net of costs\n" +
   "economic_logic: past winners continue\n" +
@@ -280,9 +333,7 @@ async function showJob(runId) {
       formatGridRow(row.parameters)
     );
   });
-  fillList(document.getElementById("queued"), job.queued_hypotheses, function (row) {
-    return row.statement || JSON.stringify(row);
-  });
+  fillQueued(job.queued_hypotheses);
 }
 
 async function postJobAction(action) {
