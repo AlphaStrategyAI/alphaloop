@@ -171,3 +171,36 @@ def test_ohlr_overnight_records_method_trials(tmp_path):
     ]
     assert rows
     assert all(row.get("kind") == "ohlr_4_pct" for row in rows)
+
+
+def test_pairs_overnight_records_method_trials(tmp_path):
+    frame = _prices_frame()
+    parquet = tmp_path / "datasets" / "ds_pairs" / "prices.parquet"
+    parquet.parent.mkdir(parents=True)
+    frame.to_parquet(parquet)
+    digest = hash_bytes(parquet.read_bytes())
+    spec = new_research_spec(
+        statement="Pairs spread mean reversion works in US large caps net of costs",
+        economic_logic="close substitutes revert after the log spread stretches",
+        signal_mechanism="pairs_spread",
+        market_scope="AAPL, MSFT",
+        market_profile="us-equity-daily",
+        benchmark="SPY",
+        hard_gates=("dsr",),
+        seed=7,
+        time_budget_s=30,
+        cost_budget_usd=1.0,
+        dataset=DatasetRef(dataset_id="ds_pairs", sha256=digest),
+    )
+    api = _api(tmp_path)
+    created = api.create_run(spec)
+    run_id = created["run_id"]
+    layout = RunLayout(tmp_path / run_id)
+    assert run_worker(run_id, tmp_path) == 0
+    rows = [
+        json.loads(line)
+        for line in layout.trial_ledger.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert rows
+    assert all(row.get("kind") == "pairs_spread" for row in rows)

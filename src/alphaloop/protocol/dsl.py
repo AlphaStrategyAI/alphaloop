@@ -125,7 +125,12 @@ def target_weights(
         if series is None or series.empty:
             raw[asset] = 0.0
             continue
-        weights = _call_factor(doc.kind, series, prices, doc.parameters)
+        params = dict(doc.parameters)
+        if doc.kind == "pairs_spread" and not params.get("hedge_asset"):
+            others = [name for name in doc.universe if name != asset]
+            if others:
+                params["hedge_asset"] = others[0]
+        weights = _call_factor(doc.kind, series, prices, params)
         raw[asset] = _asof_weight(weights, effective_at)
     total = sum(raw.values())
     if total <= 0.0:

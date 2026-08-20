@@ -23,6 +23,11 @@ _GRIDS: dict[str, tuple[dict[str, object], ...]] = {
         {"threshold": 80.0},
         {"period": 10, "threshold": 80.0},
     ),
+    "pairs_spread": (
+        {},
+        {"window": 126},
+        {"window": 252},
+    ),
 }
 
 

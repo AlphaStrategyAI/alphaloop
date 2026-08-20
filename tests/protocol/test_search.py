@@ -84,3 +84,15 @@ def test_ohlr_grid_is_williams_oversold_variants():
     frozen = _hypothesis()
     for params in grid:
         assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD
+
+
+def test_pairs_grid_is_formation_windows():
+    grid = method_parameter_grid("pairs_spread")
+    assert grid[0] == {}
+    assert {"window": 126} in grid
+    assert {"window": 252} in grid
+    assert len(grid) == 3
+    frozen = _hypothesis()
+    for params in grid:
+        assert "hedge_asset" not in params
+        assert classify_revision(frozen, ("dsr",), params) is RevisionKind.METHOD

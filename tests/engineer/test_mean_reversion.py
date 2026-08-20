@@ -150,3 +150,13 @@ def test_pairs_spread_different_index_handles_inner_join():
     assert (w.index == p1.index).all()
     # Should have some non-zero weights on the overlapping window
     assert w.sum() > 0
+
+
+def test_pairs_window_changes_signal():
+    p1 = _make_prices(n=400, seed=1)
+    p2 = _make_prices(n=400, seed=2)
+    short = pairs_spread(p1, p2, window=126)
+    long = pairs_spread(p1, p2, window=252)
+    assert short.between(0, 1).all()
+    assert long.between(0, 1).all()
+    assert not short.equals(long)

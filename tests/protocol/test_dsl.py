@@ -83,3 +83,19 @@ def test_ohlr_close_only_target_weights_do_not_raise():
     prices = _rising_prices(40)
     weights = target_weights(doc, {"AAPL": prices}, prices.index[-1])
     assert weights["AAPL"] >= 0.0
+
+
+def test_pairs_default_hedge_from_universe():
+    doc = parse_strategy_document(_payload(kind="pairs_spread", universe=["AAPL", "MSFT"]))
+    aapl = _rising_prices(80)
+    msft = _rising_prices(80) * 1.01
+    weights = target_weights(doc, {"AAPL": aapl, "MSFT": msft}, aapl.index[-1])
+    assert set(weights) == {"AAPL", "MSFT"}
+    assert all(w >= 0.0 for w in weights.values())
+
+
+def test_pairs_single_name_universe_still_requires_hedge():
+    doc = parse_strategy_document(_payload(kind="pairs_spread", universe=["AAPL"]))
+    prices = _rising_prices(80)
+    with pytest.raises(UnsupportedDslError):
+        target_weights(doc, {"AAPL": prices}, prices.index[-1])

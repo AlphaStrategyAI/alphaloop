@@ -424,3 +424,31 @@ def test_ohlr_job_records_method_trials(real_daemon, browser_page):
     assert rows
     assert all(row.get("kind") == "ohlr_4_pct" for row in rows)
     assert "target found" not in page.content()
+
+
+def test_pairs_job_records_method_trials(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"], dataset_id="ds_pairs_e2e")
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    page.fill(
+        "#spec-yaml",
+        _spec_yaml(
+            dataset,
+            statement="Pairs spread mean reversion works in US large caps net of costs",
+            signal_mechanism="pairs_spread",
+            time_budget_s=60,
+        ),
+    )
+    page.click("#submit-job")
+    outcome = _wait_list_outcome(page, timeout_ms=90000)
+    assert outcome in _OUTCOMES
+    run_id = _first_run_id(page)
+    layout = RunLayout(real_daemon["data_dir"] / run_id)
+    rows = [
+        json.loads(line)
+        for line in layout.trial_ledger.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert rows
+    assert all(row.get("kind") == "pairs_spread" for row in rows)
+    assert "target found" not in page.content()
