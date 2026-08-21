@@ -99,7 +99,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_mo
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: give the sealed report the same outcome chrome as the verdict"
