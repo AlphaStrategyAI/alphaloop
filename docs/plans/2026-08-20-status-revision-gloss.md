@@ -132,7 +132,7 @@ python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_glos
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: gloss repaired signal kinds on CLI status revisions"
