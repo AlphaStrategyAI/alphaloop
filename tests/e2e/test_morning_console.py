@@ -182,6 +182,8 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     )
     assert page.locator("#before-bed").count() == 1
     assert page.locator("#morning").count() == 1
+    assert page.locator("#stage-nav").count() == 1
+    assert page.locator("#local-chip").inner_text() == "LOCAL"
     assert page.locator("#hypothesis-form").count() == 1
     assert page.locator("#field-signal-mechanism").count() == 1
     assert page.locator("#spec-yaml-fold").count() == 1
@@ -367,6 +369,7 @@ def test_dataset_csv_picker_fills_identity_without_creating_a_job(
 def test_help_visible_without_opening_a_job(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
+    page.click("#stage-help")
     assert page.locator("#help-no-alpha").inner_text() == (
         "This console does not claim alpha or future profitability."
     )
@@ -378,6 +381,24 @@ def test_help_visible_without_opening_a_job(real_daemon, browser_page):
         "FOUND means every required hard gate is present and passed. It is not a promise of alpha."
     )
     assert "target found" not in page.content()
+
+
+def test_stage_nav_hides_help_until_selected(real_daemon, browser_page):
+    page = browser_page
+    page.set_viewport_size({"width": 480, "height": 900})
+    _open_morning(page, real_daemon["base_url"])
+    assert page.locator("#local-chip").inner_text() == "LOCAL"
+    assert page.locator("#before-bed").is_visible()
+    assert page.locator("#morning").is_hidden()
+    assert page.locator("#help").is_hidden()
+    page.click("#stage-morning")
+    assert page.locator("#morning").is_visible()
+    assert page.locator("#before-bed").is_hidden()
+    assert page.locator("#empty-morning").is_visible()
+    page.click("#stage-help")
+    assert page.locator("#help").is_visible()
+    assert page.locator("#help-no-alpha").is_visible()
+    assert page.locator("#before-bed").is_hidden()
 
 
 def test_preview_without_dataset_shows_required_snapshot_error(real_daemon, browser_page):

@@ -730,6 +730,56 @@ def test_packaged_console_job_list_keys():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_stage_nav_and_instruments():
+    root = files("alphaloop.webui.static")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    assert 'id="stage-nav"' in html
+    assert 'id="stage-before-bed"' in html
+    assert 'id="stage-morning"' in html
+    assert 'id="stage-help"' in html
+    assert 'id="local-chip"' in html
+    assert ">LOCAL<" in html
+    assert 'id="runtime-chip"' in html
+    assert 'id="console" data-stage="before-bed"' in html
+    assert "function setConsoleStage" in script
+    assert "dataset.stage" in script
+    assert "runtime-chip" in script
+    submit = script[
+        script.find("async function submitJob") : script.find(
+            'document.getElementById("load-example")'
+        )
+    ]
+    assert "scrollIntoView" in submit
+    assert "setConsoleStage" in submit
+    assert "#stage-nav" in css
+    assert 'data-stage="help"' in css
+    assert "http" not in css.lower()
+    assert HOST_CONSTRAINT in html
+    assert "override" not in script.lower()
+
+
+def test_packaged_console_futuristic_surfaces():
+    root = files("alphaloop.webui.static")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    html = root.joinpath("index.html").read_text(encoding="utf-8")
+    body = css[css.find("html,") : css.find("#console {")]
+    assert "radial-gradient" in body
+    assert "repeating-linear-gradient" not in body
+    assert "repeating-linear-gradient" in css
+    assert "#stage-nav" in css
+    assert "160ms" in css
+    assert "prefers-reduced-motion" in css
+    assert "transition: none" in css
+    assert "animation: none" in css
+    morning = css.find("#morning {")
+    block = css[morning : css.find("}", morning)]
+    assert "sticky" in block
+    assert "http" not in css.lower()
+    assert HOST_CONSTRAINT in html
+
+
 def test_packaged_console_morning_verdict_stage():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")
