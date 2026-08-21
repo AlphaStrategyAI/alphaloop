@@ -11,6 +11,7 @@ from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import GateEvidence, evidence_from_dict, gloss_hard_gate
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.protocol.dsl import gloss_signal
+from alphaloop.protocol.profiles import gloss_market_profile
 
 _CANDIDATE_COLUMNS = ("trial_id", "kind", "parameters", "revision")
 NO_ALPHA_CLAIM = "This report does not claim alpha or future profitability."
@@ -336,7 +337,7 @@ def write_report(
                 f"economic_logic: {hyp.economic_logic}",
                 f"signal_mechanism: {gloss_signal(hyp.signal_mechanism)}",
                 f"market_scope: {hyp.market_scope}",
-                f"market_profile: {hyp.market_profile}",
+                f"market_profile: {gloss_market_profile(hyp.market_profile)}",
                 f"benchmark: {hyp.benchmark}",
             ]
         )

@@ -198,7 +198,11 @@ def test_packaged_hard_gates_keep_token_and_human_gloss():
 
 
 def test_packaged_market_profile_discloses_frozen_economics():
-    from alphaloop.protocol.profiles import CRYPTO_DAILY, US_EQUITY_DAILY
+    from alphaloop.protocol.profiles import (
+        CRYPTO_DAILY,
+        MARKET_PROFILE_GLOSS,
+        US_EQUITY_DAILY,
+    )
 
     html = files("alphaloop.webui.static").joinpath("index.html").read_text(
         encoding="utf-8"
@@ -208,8 +212,9 @@ def test_packaged_market_profile_discloses_frozen_economics():
     assert ">choose a profile</option>" in select
     for profile in ALLOWED_PROFILES:
         assert f'value="{profile}"' in select
-    assert "us-equity-daily — US equities, NYSE, 5 bps, default SPY" in select
-    assert "crypto-daily — crypto, 24/7, 10 bps, default BTC-USD" in select
+    assert set(MARKET_PROFILE_GLOSS) == set(ALLOWED_PROFILES)
+    for gloss in MARKET_PROFILE_GLOSS.values():
+        assert gloss in select
     assert str(int(US_EQUITY_DAILY.cost_bps)) in select
     assert str(int(CRYPTO_DAILY.cost_bps)) in select
     assert US_EQUITY_DAILY.default_benchmark in select

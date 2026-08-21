@@ -32,7 +32,7 @@
 **Interfaces:**
 - Produces: `gloss_market_profile(name: str) -> str`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/protocol/test_profiles.py`:
 

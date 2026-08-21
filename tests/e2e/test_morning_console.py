@@ -762,6 +762,7 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     assert "This report does not claim alpha or future profitability." in report
     assert "12-1 momentum works in US large caps net of costs" in report
     assert "signal_mechanism: momentum_12_1 — 12-1 momentum" in report
+    assert "NYSE" in report
     _open_job_detail(page)
     page.wait_for_selector("#replay-job", timeout=10000)
     page.click("#replay-job")
@@ -776,6 +777,7 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
         in page.locator("#report").inner_text()
     )
     assert "momentum_12_1 — 12-1 momentum" in page.locator("#report").inner_text()
+    assert "NYSE" in page.locator("#report").inner_text()
     page.wait_for_timeout(2500)
     assert _wait_list_outcome(page, timeout_ms=5000) == outcome
 

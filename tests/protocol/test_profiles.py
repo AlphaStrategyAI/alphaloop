@@ -9,6 +9,7 @@ from alphaloop.protocol.profiles import (
     MixedProfileError,
     assert_single_profile,
     get_profile,
+    gloss_market_profile,
 )
 
 
@@ -40,6 +41,16 @@ def test_crypto_profile_constants():
     assert profile.default_benchmark == "BTC-USD"
     assert profile.cost_bps == 10.0
     assert profile.calendar == "247"
+
+
+def test_gloss_market_profile_matches_form_labels():
+    assert gloss_market_profile("us-equity-daily") == (
+        "us-equity-daily — US equities, NYSE, 5 bps, default SPY"
+    )
+    assert gloss_market_profile("crypto-daily") == (
+        "crypto-daily — crypto, 24/7, 10 bps, default BTC-USD"
+    )
+    assert gloss_market_profile("fx-hourly") == "fx-hourly"
 
 
 def test_unknown_profile_rejected():

@@ -28,7 +28,8 @@ frozen statement and `n_trials`; the detail funnel shows how many
 frozen trials were evaluated, passed, and failed. The elimination funnel
 uses the same hard-gate gloss as the form. Qualifying candidate kinds
 use the same signal gloss as the form. The sealed report names the
-frozen signal with the same gloss as the form. Methodological revisions
+frozen signal with the same gloss as the form. The sealed report names the
+frozen market profile with the same gloss as the form. Methodological revisions
 list in-run method repairs, not the first frozen grid point. Morning evidence
 lines use the same hard-gate gloss as the form. A running job card
 and verdict pulse (focus blue, not FOUND green); the detail shows

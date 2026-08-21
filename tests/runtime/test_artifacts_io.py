@@ -120,6 +120,11 @@ def test_report_includes_frozen_hypothesis_and_n_trials(tmp_path):
     assert spec.hypothesis.statement in text
     assert "signal_mechanism: momentum_12_1 — 12-1 momentum" in text
     assert "signal_mechanism: momentum_12_1\n" not in text
+    assert (
+        "market_profile: us-equity-daily — US equities, NYSE, 5 bps, default SPY"
+        in text
+    )
+    assert "market_profile: us-equity-daily\n" not in text
 
 
 def test_report_includes_walk_forward_detail_keys(tmp_path):
