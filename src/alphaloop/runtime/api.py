@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Any
 
 from alphaloop.contracts.artifacts import RunLayout
+from alphaloop.contracts.gates import gloss_hard_gate
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus
+from alphaloop.protocol.dsl import gloss_signal
 from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.asb_export import export_found_asb
 from alphaloop.runtime.dataset_cache import cache_dataset_bytes
@@ -52,7 +54,11 @@ class JobAPI:
             "seed": spec.seed,
             "statement": spec.hypothesis.statement,
             "signal_mechanism": spec.hypothesis.signal_mechanism,
+            "signal_label": gloss_signal(spec.hypothesis.signal_mechanism),
             "hard_gates": list(spec.success_criteria.hard_gates),
+            "hard_gate_labels": [
+                gloss_hard_gate(name) for name in spec.success_criteria.hard_gates
+            ],
             "method_parameter_grid": grid,
             "planned_n_trials": len(grid),
             "time_budget_s": spec.time_budget_s,

@@ -91,6 +91,8 @@ def test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets():
     assert "Freeze with alphaloop submit --spec PATH" in text
     assert "run_id:" not in text
     assert "FOUND" not in text
+    assert "momentum_12_1 — 12-1 momentum" in text
+    assert "dsr — Deflated Sharpe Ratio" in text
 
 
 def test_preview_shows_protocol_without_creating_a_job(tmp_path, capsys):

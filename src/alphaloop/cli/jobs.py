@@ -202,13 +202,19 @@ def run_submit(args: argparse.Namespace) -> int:
 
 
 def format_protocol_preview(body: dict[str, Any]) -> str:
+    from alphaloop.contracts.gates import gloss_hard_gate
+    from alphaloop.protocol.dsl import gloss_signal
     from alphaloop.runtime.morning import _format_grid_row
 
-    gates = body.get("hard_gates") or []
-    if isinstance(gates, (list, tuple)):
-        gates_text = ", ".join(str(name) for name in gates)
-    else:
-        gates_text = str(gates)
+    gates = body.get("hard_gate_labels")
+    if not gates:
+        raw = body.get("hard_gates") or []
+        if isinstance(raw, (list, tuple)):
+            gates = [gloss_hard_gate(str(name)) for name in raw]
+        else:
+            gates = [gloss_hard_gate(str(raw))]
+    gates_text = ", ".join(str(name) for name in gates)
+    signal = body.get("signal_label") or gloss_signal(str(body.get("signal_mechanism") or ""))
     lines: list[str] = []
     if not body.get("ok"):
         for error in body.get("errors") or []:
@@ -218,7 +224,7 @@ def format_protocol_preview(body: dict[str, Any]) -> str:
             f"planned_n_trials: {body.get('planned_n_trials', '')}",
             f"spec_id: {body.get('spec_id', '')}",
             f"statement: {body.get('statement', '')}",
-            f"signal_mechanism: {body.get('signal_mechanism', '')}",
+            f"signal_mechanism: {signal}",
             f"hard_gates: {gates_text}",
             f"seed: {body.get('seed', '')}",
             f"time_budget_s: {body.get('time_budget_s', '')}",

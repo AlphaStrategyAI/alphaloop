@@ -32,7 +32,7 @@
 - Test: `tests/runtime/test_api.py`
 - Test: `tests/runtime/test_static_console.py`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 In `tests/protocol/test_recommend.py`:
 
@@ -87,7 +87,7 @@ Extend `test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets`:
 
 Keep counterpart_kind tests.
 
-- [ ] **Step 2: FAIL**
+- [x] **Step 2: FAIL**
 
 ```bash
 python3 -m pytest tests/protocol/test_recommend.py tests/runtime/test_cli_jobs.py::test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets -v
@@ -95,7 +95,7 @@ python3 -m pytest tests/protocol/test_recommend.py tests/runtime/test_cli_jobs.p
 
 Expected: FAIL (`gloss_signal` missing; preview/follow-up still tokens).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `SIGNAL_GLOSS` + `gloss_signal` in `dsl.py` (locked table).
 `preview_run` adds `signal_label` and `hard_gate_labels`.
@@ -105,13 +105,13 @@ Expected: FAIL (`gloss_signal` missing; preview/follow-up still tokens).
 Docs: one sentence each in `docs/webui.md` and `docs/cli.md`.
 Static: every `SIGNAL_GLOSS` value in the signal `<select>`.
 
-- [ ] **Step 4: PASS**
+- [x] **Step 4: PASS**
 
 ```bash
 python3 -m pytest tests/protocol/test_recommend.py tests/runtime/test_cli_jobs.py::test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets tests/runtime/test_api.py::test_preview_run_does_not_create_a_job tests/runtime/test_static_console.py::test_packaged_signal_select_groups_economic_families -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: gloss signals and gates in preview and queued follow-ups"

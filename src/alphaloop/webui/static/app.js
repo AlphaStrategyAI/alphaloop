@@ -553,8 +553,8 @@ function renderPreview(body) {
   summary.textContent = [
     "spec_id: " + body.spec_id,
     "statement: " + body.statement,
-    "signal_mechanism: " + body.signal_mechanism,
-    "hard_gates: " + (body.hard_gates || []).join(", "),
+    "signal_mechanism: " + (body.signal_label || body.signal_mechanism),
+    "hard_gates: " + (body.hard_gate_labels || body.hard_gates || []).join(", "),
     "seed: " + body.seed,
     "time_budget_s: " + body.time_budget_s,
     "cost_budget_usd: " + body.cost_budget_usd,

@@ -278,7 +278,9 @@ def test_preview_run_does_not_create_a_job(tmp_path):
     assert preview["seed"] == spec.seed
     assert preview["statement"] == spec.hypothesis.statement
     assert preview["signal_mechanism"] == spec.hypothesis.signal_mechanism
+    assert preview["signal_label"] == "momentum_12_1 — 12-1 momentum"
     assert preview["hard_gates"] == list(spec.success_criteria.hard_gates)
+    assert preview["hard_gate_labels"][0].startswith("dsr —")
     assert preview["method_parameter_grid"] == grid
     assert preview["planned_n_trials"] == len(grid)
     assert preview["time_budget_s"] == spec.time_budget_s

@@ -41,6 +41,21 @@ VOLUME_KINDS = ("obv_slope",)
 DIRECTIONAL_SIGNAL_KINDS = tuple(
     kind for kind in ALLOWED_KINDS if kind not in FEATURE_KINDS and kind not in VOLUME_KINDS
 )
+SIGNAL_GLOSS = {
+    "macd": "macd — MACD",
+    "roc": "roc — rate of change",
+    "momentum_12_1": "momentum_12_1 — 12-1 momentum",
+    "atr_breakout": "atr_breakout — ATR breakout",
+    "rsi": "rsi — RSI",
+    "bollinger_zscore": "bollinger_zscore — Bollinger z-score",
+    "ohlr_4_pct": "ohlr_4_pct — opening range",
+    "pairs_spread": "pairs_spread — pairs spread",
+}
+
+
+def gloss_signal(kind: str) -> str:
+    key = str(kind)
+    return SIGNAL_GLOSS.get(key, key)
 
 
 class UnsupportedDslError(ValueError):

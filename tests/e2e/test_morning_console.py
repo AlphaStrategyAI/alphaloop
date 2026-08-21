@@ -420,6 +420,7 @@ def test_preview_does_not_create_a_job(real_daemon, browser_page):
     assert "planned_n_trials" in text
     assert "seed:" in text
     assert "time_budget_s:" in text
+    assert "12-1 momentum" in text
     page.wait_for_function(
         """() => {
           const el = document.getElementById('preview-n-trials');

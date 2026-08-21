@@ -170,6 +170,11 @@ def test_packaged_signal_select_groups_economic_families():
     assert "pairs_spread — pairs spread" in select
     assert 'value="parkinson_hist_vol"' not in select
     assert 'value="obv_slope"' not in select
+    from alphaloop.protocol.dsl import SIGNAL_GLOSS
+
+    assert set(SIGNAL_GLOSS) == set(DIRECTIONAL_SIGNAL_KINDS)
+    for gloss in SIGNAL_GLOSS.values():
+        assert gloss in select
 
 
 def test_packaged_hard_gates_keep_token_and_human_gloss():
@@ -426,6 +431,8 @@ def test_packaged_console_preview_card():
     assert "seed:" in script
     assert "time_budget_s:" in script
     assert "cost_budget_usd:" in script
+    assert "signal_label" in script
+    assert "hard_gate_labels" in script
     card = css.find("#protocol-preview:not(:empty)")
     assert card != -1
     card_block = css[card : css.find("}", card)]
