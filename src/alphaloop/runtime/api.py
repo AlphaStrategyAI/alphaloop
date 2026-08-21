@@ -8,6 +8,7 @@ from alphaloop.contracts.gates import gloss_hard_gate
 from alphaloop.contracts.research_spec import ResearchSpec
 from alphaloop.contracts.status import JobStatus
 from alphaloop.protocol.dsl import gloss_signal
+from alphaloop.protocol.profiles import gloss_market_profile
 from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.asb_export import export_found_asb
 from alphaloop.runtime.dataset_cache import cache_dataset_bytes
@@ -55,6 +56,10 @@ class JobAPI:
             "statement": spec.hypothesis.statement,
             "signal_mechanism": spec.hypothesis.signal_mechanism,
             "signal_label": gloss_signal(spec.hypothesis.signal_mechanism),
+            "market_profile": spec.hypothesis.market_profile,
+            "market_profile_label": gloss_market_profile(
+                spec.hypothesis.market_profile
+            ),
             "hard_gates": list(spec.success_criteria.hard_gates),
             "hard_gate_labels": [
                 gloss_hard_gate(name) for name in spec.success_criteria.hard_gates

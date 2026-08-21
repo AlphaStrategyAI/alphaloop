@@ -442,6 +442,8 @@ def test_packaged_console_preview_card():
     assert "cost_budget_usd:" in script
     assert "signal_label" in script
     assert "hard_gate_labels" in script
+    assert "market_profile_label" in script
+    assert "MARKET_PROFILE_GLOSS" not in script
     card = css.find("#protocol-preview:not(:empty)")
     assert card != -1
     card_block = css[card : css.find("}", card)]

@@ -73,6 +73,10 @@ def test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets():
             "spec_id": "sp_demo",
             "statement": "momentum holds",
             "signal_mechanism": "momentum_12_1",
+            "market_profile": "us-equity-daily",
+            "market_profile_label": (
+                "us-equity-daily — US equities, NYSE, 5 bps, default SPY"
+            ),
             "hard_gates": ["dsr", "walk_forward"],
             "planned_n_trials": 12,
             "seed": 7,
@@ -92,6 +96,9 @@ def test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets():
     assert "run_id:" not in text
     assert "FOUND" not in text
     assert "momentum_12_1 — 12-1 momentum" in text
+    assert "us-equity-daily — US equities, NYSE, 5 bps, default SPY" in text
+    assert text.index("signal_mechanism:") < text.index("market_profile:")
+    assert text.index("market_profile:") < text.index("hard_gates:")
     assert "dsr — Deflated Sharpe Ratio" in text
 
 

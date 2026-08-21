@@ -204,6 +204,7 @@ def run_submit(args: argparse.Namespace) -> int:
 def format_protocol_preview(body: dict[str, Any]) -> str:
     from alphaloop.contracts.gates import gloss_hard_gate
     from alphaloop.protocol.dsl import gloss_signal
+    from alphaloop.protocol.profiles import gloss_market_profile
     from alphaloop.runtime.morning import _format_grid_row
 
     gates = body.get("hard_gate_labels")
@@ -215,6 +216,9 @@ def format_protocol_preview(body: dict[str, Any]) -> str:
             gates = [gloss_hard_gate(str(raw))]
     gates_text = ", ".join(str(name) for name in gates)
     signal = body.get("signal_label") or gloss_signal(str(body.get("signal_mechanism") or ""))
+    profile = body.get("market_profile_label") or gloss_market_profile(
+        str(body.get("market_profile") or "")
+    )
     lines: list[str] = []
     if not body.get("ok"):
         for error in body.get("errors") or []:
@@ -225,6 +229,7 @@ def format_protocol_preview(body: dict[str, Any]) -> str:
             f"spec_id: {body.get('spec_id', '')}",
             f"statement: {body.get('statement', '')}",
             f"signal_mechanism: {signal}",
+            f"market_profile: {profile}",
             f"hard_gates: {gates_text}",
             f"seed: {body.get('seed', '')}",
             f"time_budget_s: {body.get('time_budget_s', '')}",

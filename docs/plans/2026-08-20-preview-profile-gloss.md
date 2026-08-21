@@ -34,7 +34,7 @@
 - Consumes: `gloss_market_profile(name: str) -> str`
 - Produces: `preview_run(...)["market_profile_label"]: str`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_api.py` `test_preview_run_does_not_create_a_job`:
 

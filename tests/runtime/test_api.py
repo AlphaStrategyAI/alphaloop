@@ -279,6 +279,10 @@ def test_preview_run_does_not_create_a_job(tmp_path):
     assert preview["statement"] == spec.hypothesis.statement
     assert preview["signal_mechanism"] == spec.hypothesis.signal_mechanism
     assert preview["signal_label"] == "momentum_12_1 — 12-1 momentum"
+    assert preview["market_profile"] == spec.hypothesis.market_profile
+    assert preview["market_profile_label"] == (
+        "us-equity-daily — US equities, NYSE, 5 bps, default SPY"
+    )
     assert preview["hard_gates"] == list(spec.success_criteria.hard_gates)
     assert preview["hard_gate_labels"][0].startswith("dsr —")
     assert preview["method_parameter_grid"] == grid

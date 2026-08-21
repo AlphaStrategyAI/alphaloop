@@ -555,6 +555,7 @@ function renderPreview(body) {
     "spec_id: " + body.spec_id,
     "statement: " + body.statement,
     "signal_mechanism: " + (body.signal_label || body.signal_mechanism),
+    "market_profile: " + (body.market_profile_label || body.market_profile || ""),
     "hard_gates: " + (body.hard_gate_labels || body.hard_gates || []).join(", "),
     "seed: " + body.seed,
     "time_budget_s: " + body.time_budget_s,
