@@ -368,7 +368,13 @@ def test_packaged_console_morning_report():
     assert html.find('id="recovery-attempts"') < html.find('id="cancel-job"')
     assert html.find('id="cancel-job"') < html.find('id="resume-job"')
     assert html.find('id="resume-job"') < html.find('id="report"')
-    assert html.find('id="report"') < html.find('id="qualifying"')
+    assert html.find('id="search-progress"') < html.find('id="qualifying"')
+    assert html.find('id="qualifying"') < html.find('id="evidence"')
+    assert html.find('id="evidence"') < html.find('id="funnel"')
+    assert html.find('id="funnel"') < html.find('id="revisions"')
+    assert html.find('id="revisions"') < html.find('id="queued"')
+    assert html.find('id="queued"') < html.find('id="report"')
+    assert html.find('id="replay-job"') < html.find('id="qualifying"')
     assert "report_markdown" in script
     assert "fillReport" in script
     fill_at = script.find("function fillReport")

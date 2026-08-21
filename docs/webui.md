@@ -36,7 +36,9 @@ frozen market profile with the same gloss as the form. Methodological revisions
 list in-run method repairs, not the first frozen grid point, and name the
 repaired signal with the same gloss as the form. The sealed report lists
 queued hypotheses (or `none`). The sealed report uses the same outcome
-chrome as the verdict and sizes to its content instead of a 22rem clip. Morning evidence
+chrome as the verdict and sizes to its content instead of a 22rem clip.
+The five-minute lists (qualifying, evidence, funnel, revisions, queued)
+sit above the sealed report. Morning evidence
 lines use the same hard-gate gloss as the form. A running job card
 and verdict pulse (focus blue, not FOUND green); the detail shows
 `Worker heartbeat:` when the supervisor has a timestamp. A failed job

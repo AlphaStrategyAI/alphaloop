@@ -113,6 +113,7 @@ nav:
     - Console replay plan: plans/2026-08-20-console-replay.md
     - Freeze reveal plan: plans/2026-08-21-freeze-reveal.md
     - Report uncramp plan: plans/2026-08-21-report-uncramp.md
+    - Five-minute order plan: plans/2026-08-21-five-minute-order.md
     - Hybrid DAG loop: plans/v07-hybrid-loop.md
     - LLM judge: plans/v06-llm-judge.md
     - WebUI: plans/v071-webui.md
@@ -168,6 +169,7 @@ nav:
     - Console replay: requirements/2026-08-20-console-replay.md
     - Freeze reveal: requirements/2026-08-21-freeze-reveal.md
     - Report uncramp: requirements/2026-08-21-report-uncramp.md
+    - Five-minute order: requirements/2026-08-21-five-minute-order.md
     - v0.7.2: requirements/v072-requirements.md
     - v0.8: requirements/v08-requirements.md
 

@@ -28,7 +28,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `test_packaged_console_morning_report`, replace:
 
@@ -57,7 +57,7 @@ In e2e `test_replay_rewrites_report_without_changing_page_outcome`, after the un
     assert qual_box["y"] < report_box["y"]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_morning_report -v
@@ -65,7 +65,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_mo
 
 Expected: FAIL (`#report` still before `#qualifying`).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `index.html` `#detail`, move the five-minute headings and lists to sit after `#search-progress` and before `#report`:
 
@@ -92,7 +92,7 @@ Keep verdict, status, lifecycle `.actions`, hypothesis, and spec-meta where they
 
 `mkdocs.yml`: register this requirements file and plan after Report uncramp.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_morning_report tests/runtime/test_static_console.py::test_packaged_console_replay_report tests/runtime/test_static_console.py::test_packaged_console_report_is_not_clipped -v
@@ -100,7 +100,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_mo
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: put five-minute lists above the sealed morning report"

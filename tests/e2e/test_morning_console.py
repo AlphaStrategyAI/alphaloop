@@ -837,6 +837,10 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     )
     assert metrics["maxHeight"] == "none"
     assert metrics["clientHeight"] > 352
+    qual_box = page.locator("#qualifying").bounding_box()
+    report_box = page.locator("#report").bounding_box()
+    assert qual_box is not None and report_box is not None
+    assert qual_box["y"] < report_box["y"]
     page.wait_for_timeout(2500)
     assert _wait_list_outcome(page, timeout_ms=5000) == outcome
 
