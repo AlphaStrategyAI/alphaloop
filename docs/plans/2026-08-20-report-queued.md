@@ -162,7 +162,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_queued_line_us
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: list queued hypotheses on the sealed report"
