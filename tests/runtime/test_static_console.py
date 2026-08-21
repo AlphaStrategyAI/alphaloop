@@ -321,6 +321,8 @@ def test_packaged_qualifying_candidates():
     assert 'id="qualifying"' in html
     assert html.find('id="qualifying"') < html.find('id="evidence"')
     assert "qualifying_candidates" in script
+    assert "kind_label" in script
+    assert "SIGNAL_GLOSS" not in script
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()
 

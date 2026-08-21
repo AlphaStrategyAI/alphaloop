@@ -67,7 +67,12 @@ def test_passing_gates_found(tmp_path):
     assert view["cost_budget_usd"] == job.spec.cost_budget_usd
     assert "dataset" in view
     assert view["qualifying_candidates"] == [
-        {"trial_id": "gates.json", "kind": None, "parameters": {}}
+        {
+            "trial_id": "gates.json",
+            "kind": None,
+            "kind_label": None,
+            "parameters": {},
+        }
     ]
     assert view["primary_evidence"] == "all required hard gates passed"
 
@@ -305,6 +310,7 @@ def test_qualifying_candidates_only_all_passed_trial_files(tmp_path):
         {
             "trial_id": "c_pass",
             "kind": "momentum_12_1",
+            "kind_label": "momentum_12_1 — 12-1 momentum",
             "parameters": {"lookback": 126},
         }
     ]
@@ -376,6 +382,7 @@ def test_format_status_verdict_found_cluster():
                 {
                     "trial_id": "c_abc",
                     "kind": "momentum_12_1",
+                    "kind_label": "momentum_12_1 — 12-1 momentum",
                     "parameters": {"lookback": 12},
                 }
             ],
@@ -389,7 +396,26 @@ def test_format_status_verdict_found_cluster():
     )
     assert lines[2] == "Primary evidence: all required hard gates passed"
     assert lines[3] == "Stop reason: all_gates_passed"
-    assert lines[4] == "Qualifying: c_abc · momentum_12_1 · lookback=12"
+    assert lines[4] == (
+        "Qualifying: c_abc · momentum_12_1 — 12-1 momentum · lookback=12"
+    )
+    fallback = format_status_verdict(
+        {
+            "research_outcome": "FOUND",
+            "primary_evidence": "all required hard gates passed",
+            "stop_reason": "all_gates_passed",
+            "status": "completed",
+            "queued_hypotheses": [],
+            "qualifying_candidates": [
+                {
+                    "trial_id": "c_abc",
+                    "kind": "momentum_12_1",
+                    "parameters": {"lookback": 12},
+                }
+            ],
+        }
+    )
+    assert "Qualifying: c_abc · momentum_12_1 · lookback=12" in fallback
     assert lines[5] == "Job status: completed"
     assert lines[6] == NO_ALPHA
     assert text.endswith("\n")

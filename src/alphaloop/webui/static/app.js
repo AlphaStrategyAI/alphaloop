@@ -133,7 +133,7 @@ function fillQualifying(job) {
     const trial = row.trial_id || "gates.json";
     const text = document.createElement("span");
     text.textContent =
-      trial + " · " + (row.kind || "") + " · " + formatGridRow(row.parameters);
+      trial + " · " + (row.kind_label || row.kind || "") + " · " + formatGridRow(row.parameters);
     li.appendChild(text);
     if (canExport && trial.indexOf("c_") === 0) {
       const button = document.createElement("button");
@@ -234,7 +234,7 @@ function fillHandoff(job) {
     "Qualifying: " +
     trial +
     " · " +
-    (row.kind || "") +
+    (row.kind_label || row.kind || "") +
     " · " +
     formatGridRow(row.parameters);
   node.appendChild(text);

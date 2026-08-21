@@ -149,7 +149,7 @@ def format_status_verdict(view: dict[str, Any]) -> str:
     if outcome == "FOUND" and isinstance(qualifying, list) and qualifying:
         row = qualifying[0] if isinstance(qualifying[0], dict) else {}
         trial = str(row.get("trial_id") or "gates.json")
-        kind = str(row.get("kind") or "")
+        kind = str(row.get("kind_label") or row.get("kind") or "")
         params = _format_grid_row(row.get("parameters"))
         lines.append(f"Qualifying: {trial} · {kind} · {params}")
     lines.append("Job status: " + str(view.get("status") or ""))

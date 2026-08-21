@@ -10,6 +10,7 @@ import yaml
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import GateEvidence, evidence_from_dict, gloss_hard_gate
 from alphaloop.contracts.research_spec import ResearchSpec
+from alphaloop.protocol.dsl import gloss_signal
 
 _CANDIDATE_COLUMNS = ("trial_id", "kind", "parameters", "revision")
 NO_ALPHA_CLAIM = "This report does not claim alpha or future profitability."
@@ -250,9 +251,11 @@ def _qualifying_entry(
     if not isinstance(parameters, dict):
         parameters = {}
     kind = payload.get("kind")
+    kind_str = str(kind) if kind else None
     return {
         "trial_id": trial_id,
-        "kind": str(kind) if kind else None,
+        "kind": kind_str,
+        "kind_label": gloss_signal(kind_str) if kind_str else None,
         "parameters": parameters,
     }
 
@@ -357,7 +360,8 @@ def write_report(
     else:
         for row in qualifying:
             kind = row.get("kind") or ""
+            label = row.get("kind_label") or kind
             parameters = row.get("parameters") or {}
-            lines.append(f"{row['trial_id']} · {kind} · {parameters}")
+            lines.append(f"{row['trial_id']} · {label} · {parameters}")
     layout.report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return layout.report

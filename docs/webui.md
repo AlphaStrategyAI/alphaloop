@@ -26,7 +26,8 @@ same designed chrome as the queued list, with NO_EVIDENCE warn color
 `NO_EVIDENCE` / `INCONCLUSIVE` in the morning — job cards show the
 frozen statement and `n_trials`; the detail funnel shows how many
 frozen trials were evaluated, passed, and failed. The elimination funnel
-uses the same hard-gate gloss as the form. Methodological revisions
+uses the same hard-gate gloss as the form. Qualifying candidate kinds
+use the same signal gloss as the form. Methodological revisions
 list in-run method repairs, not the first frozen grid point. Morning evidence
 lines use the same hard-gate gloss as the form. A running job card
 and verdict pulse (focus blue, not FOUND green); the detail shows
