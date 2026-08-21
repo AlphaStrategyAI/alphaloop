@@ -6,6 +6,8 @@ Fill the guided hypothesis form (or load the example, or paste YAML),
 preview the compiled protocol (readable method grid, planned trial
 count leading the preview card, seed, and budgets), then freeze it.
 The preview card sits above Freeze and submit.
+Freeze reveals the selected morning job. On a wide console Morning
+stays visible while Before bed scrolls.
 The signal list is grouped by economic family (trend, mean reversion,
 relative value). Preview names the same signal, gate, and market-profile
 glosses as the form. Hard-gate checkboxes keep the gate token plus a human

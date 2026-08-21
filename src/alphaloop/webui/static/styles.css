@@ -720,4 +720,11 @@ section {
     gap: 1.5rem;
     align-items: start;
   }
+
+  #morning {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+  }
 }

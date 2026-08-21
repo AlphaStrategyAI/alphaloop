@@ -29,7 +29,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_static_console.py` add:
 
@@ -105,7 +105,7 @@ def test_wide_morning_stays_visible_at_freeze(real_daemon, browser_page):
     assert metrics["morningVisible"]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_freeze_reveals_morning_job -v
@@ -113,7 +113,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_fr
 
 Expected: FAIL (`scrollIntoView` missing from `submitJob`, or `#morning {` missing).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `submitJob`, after `await loadJobs();`:
 
@@ -142,7 +142,7 @@ console Morning stays visible while Before bed scrolls.
 `mkdocs.yml`: register this requirements file and plan after Console
 replay.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_freeze_reveals_morning_job -v
@@ -150,7 +150,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_fr
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: reveal the selected morning job after Freeze"

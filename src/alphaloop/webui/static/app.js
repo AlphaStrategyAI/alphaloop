@@ -824,6 +824,11 @@ async function submitJob() {
   }
   currentRunId = body.run_id;
   await loadJobs();
+  const selected = document.querySelector('#job-list button[aria-current="true"]');
+  const target = selected || document.getElementById("morning");
+  if (target) {
+    target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
 }
 
 document.getElementById("load-example").addEventListener("click", function () {

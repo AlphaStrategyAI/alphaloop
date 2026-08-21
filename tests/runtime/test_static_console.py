@@ -632,6 +632,32 @@ def test_packaged_console_failed_recovery_surface():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_freeze_reveals_morning_job():
+    root = files("alphaloop.webui.static")
+    script = root.joinpath("app.js").read_text(encoding="utf-8")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    submit = script[
+        script.find("async function submitJob") : script.find(
+            'document.getElementById("load-example")'
+        )
+    ]
+    load = script[
+        script.find("async function loadJobs") : script.find("let previewedYaml")
+    ]
+    assert "scrollIntoView" in submit
+    assert 'block: "nearest"' in submit
+    assert "aria-current" in submit
+    assert "scrollIntoView" not in load
+    morning = css.find("#morning {")
+    assert morning != -1
+    block = css[morning : css.find("}", morning)]
+    assert "sticky" in block
+    assert "top:" in block
+    assert "max-height" in block
+    assert "http" not in css
+    assert "override" not in script.lower()
+
+
 def test_packaged_console_keyboard_preview_then_freeze():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")

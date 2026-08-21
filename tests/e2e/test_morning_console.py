@@ -472,6 +472,48 @@ def test_valid_submit_shows_host_constraint_and_job_row(real_daemon, browser_pag
     assert page.locator("#job-list button").count() == 1
 
 
+def test_freeze_reveals_selected_morning_job(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    page.set_viewport_size({"width": 800, "height": 560})
+    _open_morning(page, real_daemon["base_url"])
+    _preview_then_submit(page, _spec_yaml(dataset))
+    page.wait_for_function(
+        """() => {
+            const el = document.querySelector('#job-list button[aria-current="true"]');
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            return r.bottom > 0 && r.top < window.innerHeight;
+        }""",
+        timeout=15000,
+    )
+
+
+def test_wide_morning_stays_visible_at_freeze(real_daemon, browser_page):
+    dataset = _write_dataset(real_daemon["data_dir"])
+    page = browser_page
+    page.set_viewport_size({"width": 1280, "height": 560})
+    _open_morning(page, real_daemon["base_url"])
+    _preview_yaml(page, _spec_yaml(dataset))
+    page.locator("#submit-job").scroll_into_view_if_needed()
+    metrics = page.evaluate(
+        """() => {
+            const morning = document.getElementById("morning").getBoundingClientRect();
+            const bed = document.getElementById("before-bed").getBoundingClientRect();
+            const freeze = document.getElementById("submit-job").getBoundingClientRect();
+            return {
+                morningVisible: morning.bottom > 0 && morning.top < window.innerHeight,
+                freezeVisible: freeze.bottom > 0 && freeze.top < window.innerHeight,
+                bedHeight: bed.height,
+                vh: window.innerHeight,
+            };
+        }"""
+    )
+    assert metrics["bedHeight"] > metrics["vh"]
+    assert metrics["freezeVisible"]
+    assert metrics["morningVisible"]
+
+
 def test_job_card_shows_hypothesis_and_n_trials(real_daemon, browser_page):
     dataset = _write_dataset(real_daemon["data_dir"])
     page = browser_page
