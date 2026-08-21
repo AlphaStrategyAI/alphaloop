@@ -8,8 +8,16 @@
   </head>
   <body>
     <header id="masthead">
-      <p class="kicker">local overnight lab</p>
-      <h1>alphaloop</h1>
+      <div class="masthead-row">
+        <div class="masthead-brand">
+          <p class="kicker">local overnight lab</p>
+          <h1>alphaloop</h1>
+        </div>
+        <p class="instruments" aria-label="Runtime instruments">
+          <span class="chip" id="local-chip">LOCAL</span>
+          <span class="chip" id="runtime-chip">idle</span>
+        </p>
+      </div>
       <p class="promise">
         Submit in one minute. Overnight, a local worker researches. In the
         morning, read a trustworthy conclusion in five minutes.
@@ -23,7 +31,12 @@
         <span data-outcome="INCONCLUSIVE">INCONCLUSIVE</span>
       </p>
     </header>
-    <main id="console">
+    <nav id="stage-nav" aria-label="Console stages">
+      <button type="button" id="stage-before-bed" data-stage="before-bed" aria-current="page">Before bed</button>
+      <button type="button" id="stage-morning" data-stage="morning">Morning</button>
+      <button type="button" id="stage-help" data-stage="help">Help</button>
+    </nav>
+    <main id="console" data-stage="before-bed">
       <section id="before-bed">
         <section id="submit">
           <h2>Before bed</h2>

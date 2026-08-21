@@ -18,21 +18,9 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(900px 420px at 8% -8%, rgba(62, 224, 160, 0.12), transparent 58%),
-    radial-gradient(800px 380px at 92% 0%, rgba(126, 184, 255, 0.08), transparent 52%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 31px,
-      rgba(243, 239, 230, 0.028) 32px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 31px,
-      rgba(243, 239, 230, 0.028) 32px
-    ),
-    var(--bg);
+    radial-gradient(1100px 480px at 8% -18%, rgba(126, 184, 255, 0.09), transparent 58%),
+    radial-gradient(900px 420px at 92% -12%, rgba(62, 224, 160, 0.07), transparent 54%),
+    linear-gradient(180deg, #070a11 0%, var(--bg) 42%);
   color: var(--fg);
   font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -47,6 +35,100 @@ header,
 
 #masthead {
   padding-bottom: 0.5rem;
+}
+
+.masthead-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
+}
+
+.instruments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  color: var(--muted);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+#local-chip {
+  color: var(--accent);
+  border-color: rgba(62, 224, 160, 0.45);
+}
+
+#runtime-chip[data-status="running"] {
+  color: var(--focus);
+  border-color: rgba(126, 184, 255, 0.5);
+}
+
+#morning {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+#stage-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: 92rem;
+  margin: 0 auto;
+  padding: 0.15rem 1.25rem 0.85rem;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 23px,
+      rgba(243, 239, 230, 0.035) 24px
+    );
+}
+
+#stage-nav button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+#stage-nav button[aria-current="page"] {
+  color: var(--fg);
+  border-color: var(--line);
+  background: var(--card);
+}
+
+#console[data-stage="before-bed"] #help,
+#console[data-stage="morning"] #help {
+  display: none;
+}
+
+@media (max-width: 55.99rem) {
+  #console[data-stage="before-bed"] #morning,
+  #console[data-stage="morning"] #before-bed,
+  #console[data-stage="help"] #before-bed,
+  #console[data-stage="help"] #morning {
+    display: none;
+  }
 }
 
 @media (min-width: 960px) {
@@ -118,6 +200,7 @@ h3 {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 42%),
     var(--ink);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 #verdict[data-outcome="FOUND"] {
@@ -220,7 +303,9 @@ h3 {
 #protocol-preview,
 #detail,
 #submit {
-  background: var(--card);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 38%),
+    var(--card);
   border: 1px solid var(--line);
   border-radius: 0.85rem;
   padding: 1.05rem 1.15rem;
@@ -257,7 +342,7 @@ h3 {
   margin: 0.45rem 0;
   cursor: pointer;
   font: inherit;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 160ms ease, transform 160ms ease;
 }
 
 #job-list button[data-outcome="FOUND"] {
@@ -288,14 +373,23 @@ h3 {
 }
 
 #job-list button[data-status="running"],
-#verdict[data-status="running"] {
+#verdict[data-status="running"],
+#runtime-chip[data-status="running"] {
   animation: overnight-pulse 2.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   #job-list button[data-status="running"],
-  #verdict[data-status="running"] {
+  #verdict[data-status="running"],
+  #runtime-chip[data-status="running"] {
     animation: none;
+  }
+
+  #stage-nav button,
+  #job-list button,
+  #verdict,
+  #hypothesis-form .form-group {
+    transition: none;
   }
 }
 
@@ -378,6 +472,7 @@ h3 {
   border-radius: 0.85rem;
   padding: 0.75rem 0.9rem 0.85rem;
   background: var(--ink);
+  transition: border-color 160ms ease;
 }
 
 #hypothesis-form .form-group legend {
@@ -732,10 +827,19 @@ section {
 
 #help {
   grid-column: 1 / -1;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 38%),
+    var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  padding: 1.15rem 1.25rem 1.05rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
 }
 
 #help p {
   color: var(--muted);
+  max-width: 46rem;
+  line-height: 1.5;
 }
 
 @media (min-width: 56rem) {
@@ -744,6 +848,15 @@ section {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 1.5rem;
     align-items: start;
+  }
+
+  #console[data-stage="help"] #before-bed,
+  #console[data-stage="help"] #morning {
+    display: none;
+  }
+
+  #console[data-stage="help"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   #morning {

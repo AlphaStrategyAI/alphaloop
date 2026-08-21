@@ -700,6 +700,7 @@ async function loadJobs() {
   const response = await fetch("/v1/jobs");
   const data = await response.json();
   const jobs = data.jobs || [];
+  refreshInstruments(jobs);
   const ids = {};
   jobs.forEach(function (job) {
     ids[job.run_id] = true;
@@ -754,6 +755,38 @@ async function loadJobs() {
   } else {
     detail.hidden = true;
   }
+}
+
+function setConsoleStage(stage) {
+  const root = document.getElementById("console");
+  const names = ["before-bed", "morning", "help"];
+  if (names.indexOf(stage) === -1) {
+    return;
+  }
+  root.dataset.stage = stage;
+  names.forEach(function (name) {
+    const button = document.getElementById("stage-" + name);
+    if (!button) {
+      return;
+    }
+    if (name === stage) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
+  });
+}
+
+function refreshInstruments(jobs) {
+  const chip = document.getElementById("runtime-chip");
+  if (!chip) {
+    return;
+  }
+  const running = (jobs || []).filter(function (job) {
+    return job.status === "running";
+  }).length;
+  chip.textContent = running > 0 ? running + " running" : "idle";
+  chip.dataset.status = running > 0 ? "running" : "idle";
 }
 
 let previewedYaml = null;
@@ -823,6 +856,7 @@ async function submitJob() {
     constraint.textContent = body.host_constraint;
   }
   currentRunId = body.run_id;
+  setConsoleStage("morning");
   await loadJobs();
   const selected = document.querySelector('#job-list button[aria-current="true"]');
   const target = selected || document.getElementById("morning");
@@ -891,6 +925,14 @@ document.getElementById("field-dataset-file").addEventListener("change", functio
   cacheDatasetFile(file);
 });
 
+document.getElementById("stage-nav").addEventListener("click", function (ev) {
+  const button = ev.target.closest("button[data-stage]");
+  if (!button) {
+    return;
+  }
+  setConsoleStage(button.getAttribute("data-stage"));
+});
+
 setInterval(loadJobs, 2000);
 
 function typingInField(target) {
@@ -942,6 +984,21 @@ window.addEventListener("keydown", function (ev) {
     return;
   }
   if (typingInField(ev.target)) {
+    return;
+  }
+  if (ev.key === "1") {
+    ev.preventDefault();
+    setConsoleStage("before-bed");
+    return;
+  }
+  if (ev.key === "2") {
+    ev.preventDefault();
+    setConsoleStage("morning");
+    return;
+  }
+  if (ev.key === "3") {
+    ev.preventDefault();
+    setConsoleStage("help");
     return;
   }
   if (ev.key === "ArrowDown" || ev.key === "j") {

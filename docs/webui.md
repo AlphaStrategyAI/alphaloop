@@ -6,6 +6,12 @@ Fill the guided hypothesis form (or load the example, or paste YAML),
 preview the compiled protocol (readable method grid, planned trial
 count leading the preview card, seed, and budgets), then freeze it.
 The preview card sits above Freeze and submit.
+The masthead shows LOCAL and worker idle/running instruments. Stage
+nav switches Before bed, Morning, and Help. On a narrow console only
+the active stage is shown. On a wide console Before bed and Morning
+stay side by side; Help replaces them. Freeze selects the Morning
+stage. The canvas is graphite with restrained glows, not a full-page
+scan overlay.
 Run, Dataset, and Hard gates start folded so Hypothesis and Market
 lead the one-minute path.
 Freeze reveals the selected morning job. On a wide console Morning
