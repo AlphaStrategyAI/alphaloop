@@ -442,14 +442,40 @@ h3 {
   background: var(--ink);
 }
 
+.form-fold {
+  margin: 0 0 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  padding: 0.55rem 0.85rem 0.75rem;
+  background: var(--ink);
+}
+
+.form-fold summary,
 #spec-yaml-fold summary {
   cursor: pointer;
   color: var(--muted);
   font-size: 0.85rem;
 }
 
+.form-fold[open] summary,
 #spec-yaml-fold[open] summary {
   margin-bottom: 0.45rem;
+}
+
+.form-fold .form-group,
+.form-fold #field-hard-gates {
+  margin: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.form-fold legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 
 #spec-yaml-fold label[for="spec-yaml"] {

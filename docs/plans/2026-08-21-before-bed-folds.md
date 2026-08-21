@@ -29,7 +29,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `test_packaged_before_bed_groups_and_yaml_fold` add:
 
@@ -81,7 +81,7 @@ In `test_dataset_file_picker_fills_identity_without_creating_a_job`,
 `_open_form_fold(page, "fold-dataset")` before `set_input_files` /
 `fill` on dataset controls.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_before_bed_groups_and_yaml_fold -v
@@ -89,7 +89,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_before_bed
 
 Expected: FAIL (`fold-run` missing).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Wrap `#group-run`, `#group-dataset`, and `#field-hard-gates` in closed details with class `form-fold` and the summaries above. Keep fieldset ids.
 
@@ -99,7 +99,7 @@ CSS: `.form-fold` matches `#spec-yaml-fold` chrome. Hide nested `legend` (clip).
 
 `mkdocs.yml`: register this requirements file and plan after Five-minute order.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_before_bed_groups_and_yaml_fold tests/runtime/test_static_console.py::test_packaged_guided_form_preview_grid_and_job_cards -v
@@ -107,7 +107,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_before_bed
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: fold Run, Dataset, and Hard gates on first paint"

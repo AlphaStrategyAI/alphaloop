@@ -70,7 +70,9 @@
                 <input id="field-benchmark" type="text" autocomplete="off" />
               </div>
             </fieldset>
-            <fieldset id="group-run" class="form-group">
+            <details id="fold-run" class="form-fold">
+              <summary>Run</summary>
+              <fieldset id="group-run" class="form-group">
               <legend>Run</legend>
               <div class="form-grid">
                 <label for="field-seed">Seed</label>
@@ -81,7 +83,10 @@
                 <input id="field-cost-budget" type="number" step="any" />
               </div>
             </fieldset>
-            <fieldset id="group-dataset" class="form-group">
+            </details>
+            <details id="fold-dataset" class="form-fold">
+              <summary>Dataset</summary>
+              <fieldset id="group-dataset" class="form-group">
               <legend>Dataset</legend>
               <div class="form-grid">
                 <label for="field-dataset-id">Dataset id</label>
@@ -92,7 +97,10 @@
                 <input id="field-dataset-file" type="file" accept=".parquet,.csv,application/octet-stream,text/csv" />
               </div>
             </fieldset>
-            <fieldset id="field-hard-gates">
+            </details>
+            <details id="fold-gates" class="form-fold">
+              <summary>Hard gates</summary>
+              <fieldset id="field-hard-gates">
               <legend>Hard gates</legend>
               <label><input type="checkbox" value="dsr" /> dsr — Deflated Sharpe Ratio</label>
               <label><input type="checkbox" value="walk_forward" /> walk_forward — walk-forward OOS</label>
@@ -101,6 +109,7 @@
               <label><input type="checkbox" value="vs_benchmark" /> vs_benchmark — versus benchmark</label>
               <label><input type="checkbox" value="data_consistency" /> data_consistency — data consistency</label>
             </fieldset>
+            </details>
           </form>
           <details id="spec-yaml-fold">
             <summary>Research spec (YAML)</summary>

@@ -88,6 +88,10 @@ def _preview_yaml(page, yaml_text: str) -> None:
     )
 
 
+def _open_form_fold(page, fold_id: str) -> None:
+    page.locator("#" + fold_id).evaluate("el => { el.open = true; }")
+
+
 def _preview_then_submit(page, yaml_text: str) -> None:
     _preview_yaml(page, yaml_text)
     page.wait_for_function(
@@ -202,6 +206,21 @@ def test_home_shows_promise_and_submit_form(real_daemon, browser_page):
     )
 
 
+def test_before_bed_folds_run_dataset_and_gates(real_daemon, browser_page):
+    page = browser_page
+    _open_morning(page, real_daemon["base_url"])
+    assert page.locator("#group-hypothesis").is_visible()
+    assert page.locator("#group-market").is_visible()
+    assert not page.locator("#group-run").is_visible()
+    assert not page.locator("#group-dataset").is_visible()
+    assert not page.locator("#field-hard-gates").is_visible()
+    assert page.locator("#fold-run").is_visible()
+    assert page.locator("#fold-dataset").is_visible()
+    assert page.locator("#fold-gates").is_visible()
+    _open_form_fold(page, "fold-dataset")
+    assert page.locator("#field-dataset-file").is_visible()
+
+
 def test_load_example_fills_spec_without_creating_a_job(real_daemon, browser_page):
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
@@ -294,6 +313,7 @@ def test_dataset_file_picker_fills_identity_without_creating_a_job(real_daemon, 
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
     page.click("#load-example")
+    _open_form_fold(page, "fold-dataset")
     page.set_input_files("#field-dataset-file", str(parquet))
     expected_id = "ds_" + dataset["sha256"][:16]
     page.wait_for_function(
@@ -329,6 +349,7 @@ def test_dataset_csv_picker_fills_identity_without_creating_a_job(
     frame.to_csv(csv_path)
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
+    _open_form_fold(page, "fold-dataset")
     page.set_input_files("#field-dataset-file", str(csv_path))
     page.wait_for_function(
         """() => {
@@ -375,6 +396,7 @@ def test_empty_dataset_fields_preview_requires_snapshot(real_daemon, browser_pag
     page = browser_page
     _open_morning(page, real_daemon["base_url"])
     page.click("#load-example")
+    _open_form_fold(page, "fold-dataset")
     page.fill("#field-dataset-id", "")
     page.fill("#field-dataset-sha256", "")
     page.click("#preview-protocol")

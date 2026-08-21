@@ -247,6 +247,21 @@ def test_packaged_before_bed_groups_and_yaml_fold():
     assert html.find('id="spec-yaml"') < html.find('id="load-example"')
     assert ">Research spec (YAML)<" in html
     assert '<details id="spec-yaml-fold">' in html
+    assert '<details id="fold-run"' in html
+    assert '<details id="fold-dataset"' in html
+    assert '<details id="fold-gates"' in html
+    assert ">Run<" in html
+    assert ">Dataset<" in html
+    assert ">Hard gates<" in html
+    assert html.find('id="group-market"') < html.find('id="fold-run"')
+    assert html.find('id="fold-run"') < html.find('id="group-run"')
+    assert html.find('id="fold-dataset"') < html.find('id="group-dataset"')
+    assert html.find('id="fold-gates"') < html.find('id="field-hard-gates"')
+    for fold_id in ("fold-run", "fold-dataset", "fold-gates"):
+        start = html.find(f'<details id="{fold_id}"')
+        assert start != -1
+        assert "open" not in html[start : html.find(">", start)]
+    assert ".form-fold" in css
     assert ".form-group" in css
     assert "http" not in css.lower()
     assert HOST_CONSTRAINT in html
