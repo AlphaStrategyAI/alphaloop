@@ -184,8 +184,7 @@ h3 {
 #spec-meta,
 #funnel-summary,
 #protocol-preview,
-#host-constraint,
-#report {
+#host-constraint {
   color: var(--muted);
 }
 
@@ -195,12 +194,28 @@ h3 {
   max-height: 22rem;
   margin: 0.5rem 0 0.75rem;
   padding: 0.75rem 0.85rem;
+  color: var(--fg);
   background: var(--ink);
   border: 1px solid var(--line);
   border-radius: 0.5rem;
   font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, monospace;
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+#report[data-outcome="FOUND"] {
+  border-color: rgba(62, 224, 160, 0.5);
+  box-shadow: 0 0 0 1px rgba(62, 224, 160, 0.12), 0 18px 40px rgba(62, 224, 160, 0.08);
+}
+
+#report[data-outcome="NO_EVIDENCE"] {
+  border-color: rgba(255, 176, 32, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 176, 32, 0.1), 0 18px 40px rgba(255, 176, 32, 0.08);
+}
+
+#report[data-outcome="INCONCLUSIVE"] {
+  border-color: rgba(196, 160, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(196, 160, 255, 0.1), 0 18px 40px rgba(196, 160, 255, 0.08);
 }
 
 #protocol-preview,

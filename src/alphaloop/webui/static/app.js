@@ -601,6 +601,7 @@ function fillPrimaryEvidence(job) {
 
 function fillReport(job) {
   const node = document.getElementById("report");
+  node.dataset.outcome = job.research_outcome || "";
   node.textContent = job.report_markdown || "";
 }
 

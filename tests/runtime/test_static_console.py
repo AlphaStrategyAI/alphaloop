@@ -371,6 +371,16 @@ def test_packaged_console_morning_report():
     assert html.find('id="report"') < html.find('id="qualifying"')
     assert "report_markdown" in script
     assert "fillReport" in script
+    fill_at = script.find("function fillReport")
+    assert fill_at != -1
+    assert "dataset.outcome" in script[fill_at : fill_at + 400]
+    assert '#report[data-outcome="FOUND"]' in css
+    assert '#report[data-outcome="NO_EVIDENCE"]' in css
+    assert '#report[data-outcome="INCONCLUSIVE"]' in css
+    found_rule = css.find('#report[data-outcome="FOUND"]')
+    found_block = css[found_rule : css.find("}", found_rule)]
+    assert "224, 160" in found_block or "var(--accent)" in found_block
+    assert "target found" not in css.lower()
     assert "grid-template-columns" in css
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()

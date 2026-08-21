@@ -27,7 +27,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `test_packaged_console_morning_report`:
 
@@ -50,7 +50,7 @@ In e2e `test_replay_rewrites_report`, after `#report` assertions:
     assert page.locator("#report").get_attribute("data-outcome") == outcome
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_morning_report -v
@@ -58,7 +58,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_mo
 
 Expected: FAIL (`dataset.outcome` / `#report[data-outcome="FOUND"]` missing).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `fillReport`:
 
@@ -91,7 +91,7 @@ Remove `#report` from the muted metadata selector list. Keep the existing `#repo
 
 `docs/webui.md`: the sealed report uses the same outcome chrome as the verdict.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_morning_report tests/runtime/test_static_console.py::test_packaged_console_lifecycle_chrome -v
