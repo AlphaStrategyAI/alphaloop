@@ -26,7 +26,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `test_packaged_console_preview_card`:
 
@@ -46,7 +46,7 @@ In e2e `test_preview_does_not_create_a_job`, after the preview card assertions:
     assert preview_box["y"] < submit_box["y"]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_preview_card -v
@@ -54,7 +54,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_pr
 
 Expected: FAIL (`protocol-preview` still after `submit-job`).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `index.html` replace the Before bed actions/preview block with:
 
@@ -74,7 +74,7 @@ In `index.html` replace the Before bed actions/preview block with:
 
 `docs/webui.md`: the preview card sits above Freeze and submit.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_preview_card tests/runtime/test_static_console.py::test_packaged_console_keyboard_preview_then_freeze tests/runtime/test_static_console.py::test_packaged_assets_are_read_only_morning_copy -v

@@ -431,6 +431,10 @@ def test_preview_does_not_create_a_job(real_daemon, browser_page):
         timeout=10000,
     )
     assert page.locator("#protocol-grid li").count() >= 1
+    preview_box = page.locator("#protocol-preview").bounding_box()
+    submit_box = page.locator("#submit-job").bounding_box()
+    assert preview_box is not None and submit_box is not None
+    assert preview_box["y"] < submit_box["y"]
     assert page.locator("#job-list button").count() == 0
     assert not page.locator("#submit-job").is_disabled()
 

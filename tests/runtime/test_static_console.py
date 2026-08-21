@@ -449,6 +449,10 @@ def test_packaged_console_preview_card():
     script = root.joinpath("app.js").read_text(encoding="utf-8")
     css = root.joinpath("styles.css").read_text(encoding="utf-8")
     assert 'id="protocol-preview"' in html
+    assert html.find('id="preview-protocol"') < html.find('id="protocol-preview"')
+    assert html.find('id="protocol-preview"') < html.find('id="submit-job"')
+    assert html.find('id="protocol-preview"') < html.find('id="preflight-errors"')
+    assert html.find('id="preflight-errors"') < html.find('id="submit-job"')
     assert "preview-n-trials" in script
     assert "seed:" in script
     assert "time_budget_s:" in script

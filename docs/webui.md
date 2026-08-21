@@ -5,6 +5,7 @@ The **first-release** morning UI is the packaged static page at
 Fill the guided hypothesis form (or load the example, or paste YAML),
 preview the compiled protocol (readable method grid, planned trial
 count leading the preview card, seed, and budgets), then freeze it.
+The preview card sits above Freeze and submit.
 The signal list is grouped by economic family (trend, mean reversion,
 relative value). Preview names the same signal, gate, and market-profile
 glosses as the form. Hard-gate checkboxes keep the gate token plus a human
