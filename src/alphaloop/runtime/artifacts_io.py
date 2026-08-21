@@ -236,6 +236,9 @@ def build_funnel(layout: RunLayout) -> dict[str, Any]:
         "n_incomplete": max(0, n_evaluated - n_complete),
         "failure_counts": failure_counts,
         "dominant_failures": dominant_failures,
+        "dominant_failure_labels": [
+            gloss_hard_gate(name) for name in dominant_failures
+        ],
     }
 
 
@@ -344,7 +347,9 @@ def write_report(
         lines.append(f"passed: {funnel['n_passed']}")
         lines.append(f"failed: {funnel['n_failed']}")
         for name in funnel["dominant_failures"]:
-            lines.append(f"{name}: {funnel['failure_counts'][name]}")
+            lines.append(
+                f"{gloss_hard_gate(name)}: {funnel['failure_counts'][name]}"
+            )
     qualifying = build_qualifying_candidates(layout)
     lines.extend(["", "## Qualifying candidates", ""])
     if not qualifying:

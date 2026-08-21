@@ -87,7 +87,8 @@ def test_report_includes_elimination_funnel(tmp_path):
     assert "## Elimination funnel" in text
     assert "evaluated: 1" in text
     assert "failed: 1" in text
-    assert "dsr: 1" in text
+    assert "dsr — Deflated Sharpe Ratio: 1" in text
+    assert "dsr: 1\n" not in text
     assert "## Qualifying candidates" in text
     assert "none" in text
 

@@ -87,6 +87,7 @@ function fillFunnel(job) {
   fillFunnelStack(document.getElementById("funnel-bars"), funnel);
   const node = document.getElementById("funnel");
   const names = funnel.dominant_failures;
+  const labels = funnel.dominant_failure_labels || [];
   const counts = funnel.failure_counts || {};
   node.innerHTML = "";
   if (!names || names.length === 0) {
@@ -95,12 +96,12 @@ function fillFunnel(job) {
     node.appendChild(empty);
     return;
   }
-  names.forEach(function (name) {
+  names.forEach(function (name, i) {
     const count = counts[name] || 0;
     const li = document.createElement("li");
     li.className = "funnel-fail";
     const label = document.createElement("span");
-    label.textContent = name + " × " + count;
+    label.textContent = (labels[i] || name) + " × " + count;
     const track = document.createElement("span");
     track.className = "funnel-fail-track";
     const fill = document.createElement("span");

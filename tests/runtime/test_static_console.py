@@ -276,6 +276,8 @@ def test_packaged_funnel_bars():
     assert "dataset.pct" in script
     assert "incomplete:" in script
     assert "funnel-fail-fill" in script
+    assert "dominant_failure_labels" in script
+    assert "HARD_GATE_GLOSS" not in script
     assert ".funnel-stack" in css
     assert '.funnel-seg[data-key="passed"]' in css
     assert '.funnel-seg[data-key="failed"]' in css

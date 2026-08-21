@@ -898,6 +898,10 @@ def test_macd_walk_forward_job_records_regime_stable(real_daemon, browser_page):
     evidence_text = page.locator("#evidence").inner_text()
     assert "walk-forward OOS" in evidence_text
     assert "regime_stable=" in evidence_text
+    funnel_text = page.locator("#funnel").inner_text()
+    assert "walk_forward ×" not in funnel_text
+    if funnel_text.strip() != "none":
+        assert "walk-forward OOS" in funnel_text
 
 
 def test_bollinger_job_records_method_trials(real_daemon, browser_page):

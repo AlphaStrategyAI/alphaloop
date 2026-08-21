@@ -43,6 +43,7 @@ def test_missing_gates_is_inconclusive(tmp_path):
     assert view["evidence"] is None
     assert view["stop_reason"] == STOP_REASON_INCOMPLETE_EVIDENCE
     assert view["funnel"]["dominant_failures"] == []
+    assert view["funnel"]["dominant_failure_labels"] == []
     assert view["queued_hypotheses"] == []
     assert view["primary_evidence"] == "no sealed gates.json"
 
@@ -60,6 +61,7 @@ def test_passing_gates_found(tmp_path):
     assert view["stop_reason"] == STOP_REASON_ALL_GATES_PASSED
     assert view["evidence"]["all_passed"] is True
     assert view["funnel"]["dominant_failures"] == []
+    assert view["funnel"]["dominant_failure_labels"] == []
     assert view["hypothesis"]["signal_mechanism"] == "momentum_12_1"
     assert view["time_budget_s"] == job.spec.time_budget_s
     assert view["cost_budget_usd"] == job.spec.cost_budget_usd
@@ -82,6 +84,7 @@ def test_failed_gate_is_no_evidence(tmp_path):
     assert view["research_outcome"] == ResearchOutcome.NO_EVIDENCE.value
     assert view["stop_reason"] == STOP_REASON_HARD_GATE_FAILED
     assert view["funnel"]["dominant_failures"] == [job.spec.success_criteria.hard_gates[0]]
+    assert view["funnel"]["dominant_failure_labels"] == ["dsr — Deflated Sharpe Ratio"]
     assert view["qualifying_candidates"] == []
     assert view["primary_evidence"] == "dsr — Deflated Sharpe Ratio failed"
 
@@ -235,6 +238,7 @@ def test_funnel_aggregates_trial_files_not_only_last_gates(tmp_path):
     assert view["funnel"]["n_incomplete"] == 0
     assert view["funnel"]["failure_counts"]["dsr"] == 3
     assert view["funnel"]["dominant_failures"][0] == "dsr"
+    assert view["funnel"]["dominant_failure_labels"][0] == "dsr — Deflated Sharpe Ratio"
     assert view["qualifying_candidates"] == []
 
 
