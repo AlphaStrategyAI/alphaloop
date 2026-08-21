@@ -672,13 +672,13 @@ async function showJob(runId) {
   });
   fillFunnel(job);
   fillList(document.getElementById("revisions"), job.revisions, function (row) {
-    return (
-      (row.trial_id || "") +
-      " · " +
-      (row.revision || "") +
-      " · " +
-      formatGridRow(row.parameters)
-    );
+    const parts = [
+      row.trial_id || "",
+      row.revision || "",
+      row.kind_label || row.kind || "",
+    ].filter(Boolean);
+    parts.push(formatGridRow(row.parameters));
+    return parts.join(" · ");
   });
   fillQueued(job);
 }

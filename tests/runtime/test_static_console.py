@@ -328,6 +328,9 @@ def test_packaged_qualifying_candidates():
     assert "qualifying_candidates" in script
     assert "kind_label" in script
     assert "SIGNAL_GLOSS" not in script
+    rev_at = script.find('getElementById("revisions")')
+    assert rev_at != -1
+    assert "kind_label" in script[rev_at : rev_at + 500]
     assert HOST_CONSTRAINT in html
     assert "override" not in script.lower()
 

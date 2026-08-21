@@ -11,6 +11,7 @@ from alphaloop.contracts.status import ResearchOutcome
 from alphaloop.protocol.search import method_parameter_grid
 from alphaloop.runtime.artifacts_io import (
     build_funnel,
+    build_method_revisions,
     build_qualifying_candidates,
     format_gate_line,
     format_primary_evidence,
@@ -92,7 +93,7 @@ def _load_ledger(layout: RunLayout) -> list[dict[str, Any]]:
 
 
 def _load_revisions(layout: RunLayout) -> list[dict[str, Any]]:
-    return [row for row in _load_ledger(layout) if row.get("revision") == "method"]
+    return build_method_revisions(layout)
 
 
 def _load_queued(layout: RunLayout) -> list[Any]:

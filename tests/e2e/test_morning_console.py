@@ -934,6 +934,10 @@ def test_bollinger_job_records_method_trials(real_daemon, browser_page):
     assert rows
     assert all(row.get("kind") == "bollinger_zscore" for row in rows)
     assert "target found" not in page.content()
+    _open_job_detail(page)
+    if any(row.get("revision") == "method" for row in rows):
+        page.wait_for_selector("#revisions")
+        assert "Bollinger z-score" in page.locator("#revisions").inner_text()
 
 
 def test_ohlr_job_records_method_trials(real_daemon, browser_page):

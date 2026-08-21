@@ -118,6 +118,7 @@ def test_revisions_and_queued_hypotheses(tmp_path):
                     {
                         "trial_id": "c_2",
                         "revision": "method",
+                        "kind": "momentum_12_1",
                         "parameters": {"window": 21},
                     }
                 ),
@@ -133,6 +134,7 @@ def test_revisions_and_queued_hypotheses(tmp_path):
     view = morning_view(store.get(job.run_id), tmp_path)
     assert [row["trial_id"] for row in view["revisions"]] == ["c_2"]
     assert view["revisions"][0]["revision"] == "method"
+    assert view["revisions"][0]["kind_label"] == "momentum_12_1 — 12-1 momentum"
     assert view["n_trials"] == 2
     assert view["queued_hypotheses"][0]["statement"] == "try mean reversion"
     assert view["research_outcome"] == ResearchOutcome.NONE.value

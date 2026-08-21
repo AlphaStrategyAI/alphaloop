@@ -11,6 +11,7 @@ from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict
 from alphaloop.runtime.artifacts_io import (
     format_gate_line,
     format_primary_evidence,
+    format_revision_line,
     write_candidates_parquet,
     write_manifest,
     write_report,
@@ -125,6 +126,49 @@ def test_report_includes_frozen_hypothesis_and_n_trials(tmp_path):
         in text
     )
     assert "market_profile: us-equity-daily\n" not in text
+
+
+def test_format_revision_line_glosses_kind():
+    assert (
+        format_revision_line(
+            {
+                "trial_id": "c_2",
+                "revision": "method",
+                "kind": "momentum_12_1",
+                "kind_label": "momentum_12_1 — 12-1 momentum",
+                "parameters": {"window": 21},
+            }
+        )
+        == "c_2 · method · momentum_12_1 — 12-1 momentum · window=21"
+    )
+    assert (
+        format_revision_line({"trial_id": "c_2", "revision": "method", "parameters": {}})
+        == "c_2 · method · {}"
+    )
+
+
+def test_report_includes_method_revisions(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    layout.trial_ledger.write_text(
+        json.dumps({"trial_id": "c_1", "revision": "none", "kind": "momentum_12_1"})
+        + "\n"
+        + json.dumps(
+            {
+                "trial_id": "c_2",
+                "revision": "method",
+                "kind": "momentum_12_1",
+                "parameters": {"window": 21},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    write_report(layout, research_outcome="NO_EVIDENCE", stop_reason="hard_gate_failed")
+    text = layout.report.read_text(encoding="utf-8")
+    assert "## Methodological revisions" in text
+    assert "c_2 · method · momentum_12_1 — 12-1 momentum · window=21" in text
+    assert "c_1 · none" not in text
 
 
 def test_report_includes_walk_forward_detail_keys(tmp_path):

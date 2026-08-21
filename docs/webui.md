@@ -30,7 +30,8 @@ uses the same hard-gate gloss as the form. Qualifying candidate kinds
 use the same signal gloss as the form. The sealed report names the
 frozen signal with the same gloss as the form. The sealed report names the
 frozen market profile with the same gloss as the form. Methodological revisions
-list in-run method repairs, not the first frozen grid point. Morning evidence
+list in-run method repairs, not the first frozen grid point, and name the
+repaired signal with the same gloss as the form. Morning evidence
 lines use the same hard-gate gloss as the form. A running job card
 and verdict pulse (focus blue, not FOUND green); the detail shows
 `Worker heartbeat:` when the supervisor has a timestamp. A failed job

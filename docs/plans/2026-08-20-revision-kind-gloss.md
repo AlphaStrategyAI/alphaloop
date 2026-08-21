@@ -34,7 +34,7 @@
 - Produces: `build_method_revisions(layout) -> list[dict]`
 - Produces: `format_revision_line(row: Mapping) -> str`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_artifacts_io.py`:
 
@@ -105,7 +105,7 @@ In e2e `test_bollinger_job_records_method_trials`, after reading ledger rows:
         assert "Bollinger z-score" in page.locator("#revisions").inner_text()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_revision_line_glosses_kind tests/runtime/test_artifacts_io.py::test_report_includes_method_revisions tests/runtime/test_morning.py::test_revisions_and_queued_hypotheses -v
@@ -113,7 +113,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_revision_line_
 
 Expected: FAIL (`format_revision_line` missing / `kind_label` missing).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `artifacts_io.py`:
 
@@ -177,7 +177,7 @@ function formatRevisionRow(row) {
 
 `docs/webui.md`: revision lines name the repaired signal with the same gloss as the form.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_revision_line_glosses_kind tests/runtime/test_artifacts_io.py::test_report_includes_method_revisions tests/runtime/test_morning.py::test_revisions_and_queued_hypotheses tests/runtime/test_morning.py::test_revisions_omit_first_frozen_grid_point tests/runtime/test_static_console.py::test_packaged_qualifying_candidates -v

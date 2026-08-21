@@ -63,6 +63,34 @@ def write_manifest(layout: RunLayout, spec: ResearchSpec, *, engine_version: str
     return layout.manifest
 
 
+def _format_parameters(parameters: Any) -> str:
+    if not isinstance(parameters, dict) or not parameters:
+        return "{}"
+    return " ".join(f"{key}={parameters[key]}" for key in sorted(parameters))
+
+
+def format_revision_line(row: Mapping[str, Any]) -> str:
+    trial = str(row.get("trial_id") or "")
+    revision = str(row.get("revision") or "")
+    label = str(row.get("kind_label") or row.get("kind") or "")
+    parts = [part for part in (trial, revision, label) if part]
+    parts.append(_format_parameters(row.get("parameters")))
+    return " · ".join(parts)
+
+
+def build_method_revisions(layout: RunLayout) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for row in _ledger_rows(layout):
+        if row.get("revision") != "method":
+            continue
+        kind = row.get("kind")
+        kind_str = str(kind) if kind else None
+        payload = dict(row)
+        payload["kind_label"] = gloss_signal(kind_str) if kind_str else None
+        rows.append(payload)
+    return rows
+
+
 def _ledger_rows(layout: RunLayout) -> list[dict[str, object]]:
     if not layout.trial_ledger.is_file():
         return []
@@ -364,5 +392,11 @@ def write_report(
             label = row.get("kind_label") or kind
             parameters = row.get("parameters") or {}
             lines.append(f"{row['trial_id']} · {label} · {parameters}")
+    revisions = build_method_revisions(layout)
+    lines.extend(["", "## Methodological revisions", ""])
+    if not revisions:
+        lines.append("none")
+    else:
+        lines.extend(format_revision_line(row) for row in revisions)
     layout.report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return layout.report
