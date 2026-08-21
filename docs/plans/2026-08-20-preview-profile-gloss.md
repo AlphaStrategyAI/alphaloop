@@ -68,7 +68,7 @@ In e2e `test_preview_does_not_create_a_job`:
     assert "NYSE" in text
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_api.py::test_preview_run_does_not_create_a_job tests/runtime/test_cli_jobs.py::test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets tests/runtime/test_static_console.py::test_packaged_console_preview_card -v
@@ -76,7 +76,7 @@ python3 -m pytest tests/runtime/test_api.py::test_preview_run_does_not_create_a_
 
 Expected: FAIL (`market_profile_label` missing).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `preview_run` return dict, after `signal_label`:
 
@@ -108,7 +108,7 @@ from alphaloop.protocol.profiles import gloss_market_profile
 
 `docs/webui.md` / `docs/cli.md`: preview names the market profile gloss.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_api.py::test_preview_run_does_not_create_a_job tests/runtime/test_cli_jobs.py::test_format_protocol_preview_leads_with_n_and_discloses_seed_budgets tests/runtime/test_static_console.py::test_packaged_console_preview_card -v
@@ -116,7 +116,7 @@ python3 -m pytest tests/runtime/test_api.py::test_preview_run_does_not_create_a_
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: gloss frozen market_profile on protocol preview"
