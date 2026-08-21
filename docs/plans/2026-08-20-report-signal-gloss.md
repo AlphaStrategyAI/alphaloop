@@ -30,7 +30,7 @@
 - Consumes: `gloss_signal(kind: str) -> str` (already imported)
 - Produces: `report.md` line `signal_mechanism: {gloss}`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_artifacts_io.py`
 `test_report_includes_frozen_hypothesis_and_n_trials`:
@@ -59,7 +59,7 @@ After `#report` wait, also:
 Load-example e2e MUST still assert raw YAML
 `signal_mechanism: momentum_12_1`.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_frozen_hypothesis_and_n_trials -v
@@ -67,7 +67,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_froze
 
 Expected: FAIL (bare `signal_mechanism: momentum_12_1` still present).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `write_report` frozen-hypothesis block:
 
@@ -78,7 +78,7 @@ In `write_report` frozen-hypothesis block:
 `docs/webui.md`: the sealed report names the frozen signal with the
 same gloss as the form.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_frozen_hypothesis_and_n_trials tests/runtime/test_static_console.py -v
@@ -86,7 +86,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_froze
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: gloss frozen signal_mechanism on the sealed report"

@@ -118,7 +118,8 @@ def test_report_includes_frozen_hypothesis_and_n_trials(tmp_path):
     assert f"seed: {spec.seed}" in text
     assert "n_trials: 2" in text
     assert spec.hypothesis.statement in text
-    assert "signal_mechanism: momentum_12_1" in text
+    assert "signal_mechanism: momentum_12_1 — 12-1 momentum" in text
+    assert "signal_mechanism: momentum_12_1\n" not in text
 
 
 def test_report_includes_walk_forward_detail_keys(tmp_path):

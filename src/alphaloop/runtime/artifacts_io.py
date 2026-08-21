@@ -334,7 +334,7 @@ def write_report(
                 "",
                 f"statement: {hyp.statement}",
                 f"economic_logic: {hyp.economic_logic}",
-                f"signal_mechanism: {hyp.signal_mechanism}",
+                f"signal_mechanism: {gloss_signal(hyp.signal_mechanism)}",
                 f"market_scope: {hyp.market_scope}",
                 f"market_profile: {hyp.market_profile}",
                 f"benchmark: {hyp.benchmark}",
