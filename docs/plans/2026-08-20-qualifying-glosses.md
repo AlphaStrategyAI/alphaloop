@@ -32,7 +32,7 @@
 - Consumes: `gloss_signal(kind: str) -> str`
 - Produces: `qualifying_candidates[].kind_label: str | None`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_morning.py` `test_passing_gates_found`:
 
@@ -80,7 +80,7 @@ In `tests/runtime/test_static_console.py` `test_packaged_qualifying_candidates`:
     assert "SIGNAL_GLOSS" not in script
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_passing_gates_found tests/runtime/test_morning.py::test_qualifying_candidates_only_all_passed_trial_files tests/runtime/test_morning.py::test_format_status_verdict_found_cluster tests/runtime/test_static_console.py::test_packaged_qualifying_candidates -v
@@ -88,7 +88,7 @@ python3 -m pytest tests/runtime/test_morning.py::test_passing_gates_found tests/
 
 Expected: FAIL (`kind_label` missing from payload / script).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `artifacts_io._qualifying_entry`:
 
@@ -132,7 +132,7 @@ as the form.
 Note: `alphaloop.runtime` already uses protocol helpers; adding
 `gloss_signal` here does not create a protocol → runtime import.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py tests/runtime/test_artifacts_io.py tests/runtime/test_static_console.py::test_packaged_qualifying_candidates -v
@@ -140,7 +140,7 @@ python3 -m pytest tests/runtime/test_morning.py tests/runtime/test_artifacts_io.
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: gloss qualifying candidate signal kinds"
