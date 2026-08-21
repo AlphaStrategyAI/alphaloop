@@ -16,6 +16,8 @@
         <p class="instruments" aria-label="Runtime instruments">
           <span class="chip" id="local-chip">LOCAL</span>
           <span class="chip" id="runtime-chip">idle</span>
+          <span class="chip" id="host-chip">awake</span>
+          <span class="chip" id="beat-chip" hidden></span>
         </p>
       </div>
       <p class="promise">
@@ -36,6 +38,7 @@
       <button type="button" id="stage-morning" data-stage="morning">Morning</button>
       <button type="button" id="stage-help" data-stage="help">Help</button>
     </nav>
+    <div id="hud-rule" aria-hidden="true"></div>
     <main id="console" data-stage="before-bed">
       <section id="before-bed">
         <section id="submit">

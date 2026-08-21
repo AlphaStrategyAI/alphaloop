@@ -629,6 +629,7 @@ async function showJob(runId) {
   beat.textContent = job.heartbeat_at
     ? "Worker heartbeat: " + job.heartbeat_at
     : "";
+  refreshBeatChip(job);
   const err = document.getElementById("job-error");
   err.textContent = job.error ? "Worker error: " + job.error : "";
   const recovery = document.getElementById("recovery-attempts");
@@ -754,6 +755,7 @@ async function loadJobs() {
     await showJob(currentRunId);
   } else {
     detail.hidden = true;
+    refreshBeatChip(null);
   }
 }
 
@@ -775,6 +777,22 @@ function setConsoleStage(stage) {
       button.removeAttribute("aria-current");
     }
   });
+}
+
+function refreshBeatChip(job) {
+  const chip = document.getElementById("beat-chip");
+  if (!chip) {
+    return;
+  }
+  if (job && job.heartbeat_at) {
+    chip.hidden = false;
+    chip.textContent = "heartbeat";
+    chip.title = String(job.heartbeat_at);
+  } else {
+    chip.hidden = true;
+    chip.textContent = "";
+    chip.title = "";
+  }
 }
 
 function refreshInstruments(jobs) {
