@@ -82,7 +82,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_pr
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: put the protocol preview above Freeze and submit"
