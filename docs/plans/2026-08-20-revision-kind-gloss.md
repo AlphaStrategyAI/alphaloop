@@ -185,7 +185,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_revision_line_
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: gloss repaired signal kinds on methodological revisions"
