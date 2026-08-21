@@ -34,7 +34,7 @@
 - Consumes: `gloss_hard_gate(name: str) -> str`
 - Produces: `build_funnel(...)["dominant_failure_labels"]: list[str]` parallel to `dominant_failures`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_artifacts_io.py`, extend
 `test_report_includes_elimination_funnel`:
@@ -79,7 +79,7 @@ In `tests/e2e/test_morning_console.py`
         assert "walk-forward OOS" in funnel_text
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_elimination_funnel tests/runtime/test_morning.py::test_funnel_aggregates_trial_files_not_only_last_gates tests/runtime/test_morning.py::test_failed_gate_is_no_evidence tests/runtime/test_static_console.py::test_packaged_funnel_bars -v
@@ -87,7 +87,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_elimi
 
 Expected: FAIL (`dominant_failure_labels` missing; report still has `dsr: 1`).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `build_funnel`, after computing `dominant_failures`:
 
@@ -135,7 +135,7 @@ In `src/alphaloop/webui/static/app.js` `fillFunnel`:
 `docs/webui.md`: the elimination funnel uses the same hard-gate gloss
 as the form.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_elimination_funnel tests/runtime/test_morning.py tests/runtime/test_static_console.py::test_packaged_funnel_bars -v
@@ -143,7 +143,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_report_includes_elimi
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/alphaloop/runtime/artifacts_io.py src/alphaloop/webui/static/app.js docs/webui.md tests/runtime/test_artifacts_io.py tests/runtime/test_morning.py tests/runtime/test_static_console.py tests/e2e/test_morning_console.py
