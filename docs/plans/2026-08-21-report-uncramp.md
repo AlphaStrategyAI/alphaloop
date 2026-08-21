@@ -28,7 +28,7 @@
 - Test: `tests/runtime/test_static_console.py`
 - Test: `tests/e2e/test_morning_console.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_static_console.py` add:
 
@@ -61,7 +61,7 @@ In e2e `test_replay_rewrites_report_without_changing_page_outcome`, after the `d
     assert metrics["clientHeight"] > 352
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_report_is_not_clipped -v
@@ -69,7 +69,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_re
 
 Expected: FAIL (`max-height` still in the `#report {` block).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `styles.css` `#report` block, delete the `max-height: 22rem;` line. Keep `overflow: auto`.
 
@@ -77,7 +77,7 @@ In `styles.css` `#report` block, delete the `max-height: 22rem;` line. Keep `ove
 
 `mkdocs.yml`: register this requirements file and plan after Freeze reveal.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_report_is_not_clipped tests/runtime/test_static_console.py::test_packaged_console_freeze_reveals_morning_job -v
@@ -85,7 +85,7 @@ python3 -m pytest tests/runtime/test_static_console.py::test_packaged_console_re
 
 Expected: PASS (`#morning` still has `max-height`; `#report` does not).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: let the sealed morning report size to its content"

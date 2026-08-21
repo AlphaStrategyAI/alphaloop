@@ -829,6 +829,14 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     assert "momentum_12_1 — 12-1 momentum" in page.locator("#report").inner_text()
     assert "NYSE" in page.locator("#report").inner_text()
     assert page.locator("#report").get_attribute("data-outcome") == outcome
+    metrics = page.locator("#report").evaluate(
+        """el => {
+            const s = getComputedStyle(el);
+            return { maxHeight: s.maxHeight, clientHeight: el.clientHeight };
+        }"""
+    )
+    assert metrics["maxHeight"] == "none"
+    assert metrics["clientHeight"] > 352
     page.wait_for_timeout(2500)
     assert _wait_list_outcome(page, timeout_ms=5000) == outcome
 

@@ -386,6 +386,21 @@ def test_packaged_console_morning_report():
     assert "override" not in script.lower()
 
 
+def test_packaged_console_report_is_not_clipped():
+    root = files("alphaloop.webui.static")
+    css = root.joinpath("styles.css").read_text(encoding="utf-8")
+    rule = css.find("#report {")
+    assert rule != -1
+    block = css[rule : css.find("}", rule)]
+    assert "max-height" not in block
+    assert "22rem" not in block
+    assert "var(--fg)" in block
+    assert '#report[data-outcome="FOUND"]' in css
+    assert '#report[data-outcome="NO_EVIDENCE"]' in css
+    assert '#report[data-outcome="INCONCLUSIVE"]' in css
+    assert "http" not in css
+
+
 def test_packaged_console_lifecycle_chrome():
     root = files("alphaloop.webui.static")
     html = root.joinpath("index.html").read_text(encoding="utf-8")
