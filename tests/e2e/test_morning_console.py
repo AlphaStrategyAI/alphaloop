@@ -764,6 +764,7 @@ def test_replay_rewrites_report_without_changing_page_outcome(real_daemon, brows
     assert "12-1 momentum works in US large caps net of costs" in report
     assert "signal_mechanism: momentum_12_1 — 12-1 momentum" in report
     assert "NYSE" in report
+    assert "## Queued hypotheses" in report
     _open_job_detail(page)
     page.wait_for_selector("#replay-job", timeout=10000)
     page.click("#replay-job")

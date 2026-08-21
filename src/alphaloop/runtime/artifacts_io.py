@@ -91,6 +91,18 @@ def build_method_revisions(layout: RunLayout) -> list[dict[str, Any]]:
     return rows
 
 
+def format_queued_line(row: Mapping[str, Any]) -> str:
+    return str(row.get("statement") or "").strip()
+
+
+def build_queued_hypotheses(layout: RunLayout) -> list[dict[str, Any]]:
+    payload = _read_json_object(layout.recommendations)
+    if payload is None:
+        return []
+    queued = payload.get("queued_hypotheses") or []
+    return [dict(item) for item in queued if isinstance(item, dict)]
+
+
 def _ledger_rows(layout: RunLayout) -> list[dict[str, object]]:
     if not layout.trial_ledger.is_file():
         return []
@@ -398,5 +410,12 @@ def write_report(
         lines.append("none")
     else:
         lines.extend(format_revision_line(row) for row in revisions)
+    queued = build_queued_hypotheses(layout)
+    lines.extend(["", "## Queued hypotheses", ""])
+    statements = [line for line in (format_queued_line(row) for row in queued) if line]
+    if not statements:
+        lines.append("none")
+    else:
+        lines.extend(statements)
     layout.report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return layout.report

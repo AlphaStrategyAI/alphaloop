@@ -30,7 +30,7 @@
 - Produces: `build_queued_hypotheses(layout) -> list[dict]`
 - Produces: `format_queued_line(row: Mapping) -> str`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_artifacts_io.py`:
 
@@ -115,7 +115,7 @@ In e2e `test_replay_rewrites_report`, after reading `report`:
     assert "## Queued hypotheses" in report
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_queued_line_uses_statement tests/runtime/test_artifacts_io.py::test_report_includes_queued_hypotheses tests/runtime/test_artifacts_io.py::test_report_queued_hypotheses_none_when_missing -v
@@ -123,7 +123,7 @@ python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_queued_line_us
 
 Expected: FAIL (`format_queued_line` missing / heading missing).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `artifacts_io.py`:
 
@@ -154,7 +154,7 @@ def build_queued_hypotheses(layout: RunLayout) -> list[dict[str, Any]]:
 
 `docs/webui.md`: the sealed report lists queued hypotheses (or `none`).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_artifacts_io.py::test_format_queued_line_uses_statement tests/runtime/test_artifacts_io.py::test_report_includes_queued_hypotheses tests/runtime/test_artifacts_io.py::test_report_queued_hypotheses_none_when_missing tests/runtime/test_artifacts_io.py::test_report_includes_method_revisions -v

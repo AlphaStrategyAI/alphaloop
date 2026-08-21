@@ -11,6 +11,7 @@ from alphaloop.contracts.gates import GateResult, HardGateName, evidence_to_dict
 from alphaloop.runtime.artifacts_io import (
     format_gate_line,
     format_primary_evidence,
+    format_queued_line,
     format_revision_line,
     write_candidates_parquet,
     write_manifest,
@@ -169,6 +170,77 @@ def test_report_includes_method_revisions(tmp_path):
     assert "## Methodological revisions" in text
     assert "c_2 · method · momentum_12_1 — 12-1 momentum · window=21" in text
     assert "c_1 · none" not in text
+
+
+def test_format_queued_line_uses_statement():
+    assert (
+        format_queued_line(
+            {
+                "statement": "No evidence for momentum_12_1 — 12-1 momentum. "
+                "Try rsi — RSI. This is not a claim of alpha."
+            }
+        )
+        == (
+            "No evidence for momentum_12_1 — 12-1 momentum. "
+            "Try rsi — RSI. This is not a claim of alpha."
+        )
+    )
+    assert format_queued_line({}) == ""
+    assert format_queued_line({"statement": "  "}) == ""
+
+
+def test_report_includes_queued_hypotheses(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    layout.trial_ledger.write_text(
+        json.dumps(
+            {
+                "trial_id": "c_2",
+                "revision": "method",
+                "kind": "momentum_12_1",
+                "parameters": {"window": 21},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    layout.recommendations.write_text(
+        json.dumps(
+            {
+                "queued_hypotheses": [
+                    {
+                        "statement": (
+                            "No evidence for momentum_12_1 — 12-1 momentum. "
+                            "Try rsi — RSI. This is not a claim of alpha."
+                        )
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    write_report(layout, research_outcome="NO_EVIDENCE", stop_reason="hard_gate_failed")
+    text = layout.report.read_text(encoding="utf-8")
+    assert "## Methodological revisions" in text
+    assert "## Queued hypotheses" in text
+    assert text.index("## Methodological revisions") < text.index("## Queued hypotheses")
+    assert (
+        "No evidence for momentum_12_1 — 12-1 momentum. "
+        "Try rsi — RSI. This is not a claim of alpha."
+    ) in text
+    assert text.split("## Queued hypotheses", 1)[1].strip().startswith(
+        "No evidence for momentum_12_1 — 12-1 momentum."
+    )
+
+
+def test_report_queued_hypotheses_none_when_missing(tmp_path):
+    layout = RunLayout(tmp_path / "run")
+    layout.run_dir.mkdir()
+    write_report(layout, research_outcome="INCONCLUSIVE", stop_reason="incomplete_evidence")
+    text = layout.report.read_text(encoding="utf-8")
+    assert "## Queued hypotheses" in text
+    assert text.split("## Queued hypotheses", 1)[1].strip().startswith("none")
 
 
 def test_report_includes_walk_forward_detail_keys(tmp_path):
