@@ -447,6 +447,7 @@ def test_format_status_verdict_none_omits_optional_lines():
     assert lines[4] == "Job status: running"
     assert "Next run:" not in text
     assert "Qualifying:" not in text
+    assert "Revision:" not in text
 
 
 def test_format_status_verdict_queued_next_run():
@@ -463,6 +464,40 @@ def test_format_status_verdict_queued_next_run():
     )
     assert "Next run: Try rsi. Not a claim of alpha." in text.splitlines()
     assert text.splitlines()[1].startswith("NO_EVIDENCE means")
+
+
+def test_format_status_verdict_glosses_revisions():
+    text = format_status_verdict(
+        {
+            "research_outcome": "NO_EVIDENCE",
+            "primary_evidence": "dsr — Deflated Sharpe Ratio failed",
+            "stop_reason": "hard_gate_failed",
+            "status": "completed",
+            "revisions": [
+                {
+                    "trial_id": "c_2",
+                    "revision": "method",
+                    "kind": "momentum_12_1",
+                    "kind_label": "momentum_12_1 — 12-1 momentum",
+                    "parameters": {"window": 21},
+                }
+            ],
+            "queued_hypotheses": [
+                {"statement": "Try rsi. Not a claim of alpha."}
+            ],
+        }
+    )
+    lines = text.splitlines()
+    assert (
+        "Revision: c_2 · method · momentum_12_1 — 12-1 momentum · window=21"
+        in lines
+    )
+    assert lines.index("Stop reason: hard_gate_failed") < lines.index(
+        "Revision: c_2 · method · momentum_12_1 — 12-1 momentum · window=21"
+    )
+    assert lines.index(
+        "Revision: c_2 · method · momentum_12_1 — 12-1 momentum · window=21"
+    ) < lines.index("Next run: Try rsi. Not a claim of alpha.")
 
 
 def test_format_status_verdict_inconclusive_gloss():
@@ -489,3 +524,24 @@ def test_replay_view_uses_artifact_outcome_not_store_token(tmp_path):
     assert view["primary_evidence"] == "all required hard gates passed"
     assert view["queued_hypotheses"] == []
     assert isinstance(view["qualifying_candidates"], list)
+
+
+def test_replay_view_includes_method_revisions(tmp_path):
+    from alphaloop.contracts.artifacts import RunLayout
+
+    layout = RunLayout(tmp_path / "j_replay")
+    layout.run_dir.mkdir()
+    layout.trial_ledger.write_text(
+        json.dumps(
+            {
+                "trial_id": "c_2",
+                "revision": "method",
+                "kind": "momentum_12_1",
+                "parameters": {"window": 21},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    view = replay_view(layout, research_outcome="NO_EVIDENCE", status="completed")
+    assert view["revisions"][0]["kind_label"] == "momentum_12_1 — 12-1 momentum"

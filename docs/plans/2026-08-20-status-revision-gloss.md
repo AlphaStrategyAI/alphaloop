@@ -29,7 +29,7 @@
 - Consumes: `format_revision_line(row) -> str`
 - Consumes: `build_method_revisions(layout) -> list[dict]`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_morning.py`:
 
@@ -95,7 +95,7 @@ In `test_format_status_verdict_none_omits_optional_lines`, add:
     assert "Revision:" not in text
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_glosses_revisions tests/runtime/test_morning.py::test_replay_view_includes_method_revisions tests/runtime/test_morning.py::test_format_status_verdict_none_omits_optional_lines -v
@@ -103,7 +103,7 @@ python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_glos
 
 Expected: FAIL (`Revision:` missing / `revisions` missing on replay_view).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Import `format_revision_line` in `morning.py`.
 
@@ -124,7 +124,7 @@ Import `format_revision_line` in `morning.py`.
 
 `docs/cli.md`: the cluster may include revision lines that name the repaired signal with the same gloss as the form.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_glosses_revisions tests/runtime/test_morning.py::test_replay_view_includes_method_revisions tests/runtime/test_morning.py::test_format_status_verdict_none_omits_optional_lines tests/runtime/test_morning.py::test_format_status_verdict_found_cluster tests/runtime/test_morning.py::test_format_status_verdict_queued_next_run -v

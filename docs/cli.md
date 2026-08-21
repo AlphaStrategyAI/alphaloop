@@ -114,8 +114,10 @@ empty cue (preview, then freeze; does not claim alpha).
 
 With a `RUN_ID`, default stdout is the conclusion cluster: outcome
 token, locked Help gloss, primary evidence, stop reason, optional
-next-run and qualifying lines, job status, and the locked no-alpha
-sentence. It is not a JSON object and does not claim alpha.
+revision lines that name the repaired signal with the same gloss as
+the form, optional next-run and qualifying lines, job status, and the
+locked no-alpha sentence. It is not a JSON object and does not claim
+alpha.
 
 `--json` prints the full `morning_view` payload (`json.dumps`, sorted
 keys) for that job, or for the latest job when `RUN_ID` is omitted.

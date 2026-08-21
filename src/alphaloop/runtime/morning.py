@@ -15,6 +15,7 @@ from alphaloop.runtime.artifacts_io import (
     build_qualifying_candidates,
     format_gate_line,
     format_primary_evidence,
+    format_revision_line,
 )
 from alphaloop.runtime.store import JobRecord
 
@@ -140,6 +141,14 @@ def format_status_verdict(view: dict[str, Any]) -> str:
     lines.append("Primary evidence: " + (str(primary) if primary else _PENDING))
     stop = view.get("stop_reason")
     lines.append("Stop reason: " + (str(stop) if stop else _PENDING))
+    revisions = view.get("revisions") or []
+    if isinstance(revisions, list):
+        for row in revisions:
+            if not isinstance(row, dict):
+                continue
+            line = format_revision_line(row)
+            if line:
+                lines.append("Revision: " + line)
     queued = view.get("queued_hypotheses") or []
     if isinstance(queued, list) and queued:
         first = queued[0]
@@ -195,6 +204,7 @@ def replay_view(
         "status": status,
         "queued_hypotheses": _load_queued(layout),
         "qualifying_candidates": build_qualifying_candidates(layout),
+        "revisions": build_method_revisions(layout),
     }
 
 
