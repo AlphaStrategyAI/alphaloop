@@ -448,6 +448,8 @@ def test_format_status_verdict_none_omits_optional_lines():
     assert "Next run:" not in text
     assert "Qualifying:" not in text
     assert "Revision:" not in text
+    assert "Funnel:" not in text
+    assert "Dominant:" not in text
 
 
 def test_format_status_verdict_queued_next_run():
@@ -513,6 +515,35 @@ def test_format_status_verdict_inconclusive_gloss():
     assert "cannot produce FOUND" in text
 
 
+def test_format_status_verdict_prints_funnel():
+    text = format_status_verdict(
+        {
+            "research_outcome": "NO_EVIDENCE",
+            "primary_evidence": "dsr — Deflated Sharpe Ratio failed",
+            "stop_reason": "hard_gate_failed",
+            "status": "completed",
+            "funnel": {
+                "n_evaluated": 3,
+                "n_passed": 0,
+                "n_failed": 3,
+                "n_incomplete": 0,
+                "failure_counts": {"dsr": 3},
+                "dominant_failures": ["dsr"],
+                "dominant_failure_labels": ["dsr — Deflated Sharpe Ratio"],
+            },
+            "revisions": [],
+            "queued_hypotheses": [],
+        }
+    )
+    lines = text.splitlines()
+    assert "Funnel: evaluated=3 passed=0 failed=3 incomplete=0" in lines
+    assert "Dominant: dsr — Deflated Sharpe Ratio × 3" in lines
+    assert lines.index("Stop reason: hard_gate_failed") < lines.index(
+        "Funnel: evaluated=3 passed=0 failed=3 incomplete=0"
+    )
+    assert "dsr × 3" not in text
+
+
 def test_replay_view_uses_artifact_outcome_not_store_token(tmp_path):
     from alphaloop.contracts.artifacts import RunLayout
 
@@ -545,3 +576,13 @@ def test_replay_view_includes_method_revisions(tmp_path):
     )
     view = replay_view(layout, research_outcome="NO_EVIDENCE", status="completed")
     assert view["revisions"][0]["kind_label"] == "momentum_12_1 — 12-1 momentum"
+
+
+def test_replay_view_includes_funnel(tmp_path):
+    from alphaloop.contracts.artifacts import RunLayout
+
+    layout = RunLayout(tmp_path / "j_replay")
+    layout.run_dir.mkdir()
+    view = replay_view(layout, research_outcome="INCONCLUSIVE", status="completed")
+    assert view["funnel"]["n_evaluated"] == 0
+    assert view["funnel"]["dominant_failures"] == []

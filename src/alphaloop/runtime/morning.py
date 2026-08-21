@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from alphaloop.contracts.artifacts import RunLayout
 from alphaloop.contracts.gates import evidence_from_dict, evidence_to_dict
@@ -141,6 +141,24 @@ def format_status_verdict(view: dict[str, Any]) -> str:
     lines.append("Primary evidence: " + (str(primary) if primary else _PENDING))
     stop = view.get("stop_reason")
     lines.append("Stop reason: " + (str(stop) if stop else _PENDING))
+    funnel = view.get("funnel") or {}
+    if isinstance(funnel, Mapping):
+        n_eval = int(funnel.get("n_evaluated") or 0)
+        n_pass = int(funnel.get("n_passed") or 0)
+        n_fail = int(funnel.get("n_failed") or 0)
+        n_inc = int(funnel.get("n_incomplete") or 0)
+        if n_eval or n_pass or n_fail or n_inc:
+            lines.append(
+                f"Funnel: evaluated={n_eval} passed={n_pass} "
+                f"failed={n_fail} incomplete={n_inc}"
+            )
+            counts = funnel.get("failure_counts") or {}
+            labels = list(funnel.get("dominant_failure_labels") or [])
+            names = list(funnel.get("dominant_failures") or [])
+            for i, name in enumerate(names):
+                label = labels[i] if i < len(labels) else str(name)
+                count = counts.get(name, 0) if isinstance(counts, dict) else 0
+                lines.append(f"Dominant: {label} × {count}")
     revisions = view.get("revisions") or []
     if isinstance(revisions, list):
         for row in revisions:
@@ -202,6 +220,7 @@ def replay_view(
         ),
         "stop_reason": _STOP_REASONS.get(outcome),
         "status": status,
+        "funnel": funnel,
         "queued_hypotheses": _load_queued(layout),
         "qualifying_candidates": build_qualifying_candidates(layout),
         "revisions": build_method_revisions(layout),

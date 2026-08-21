@@ -30,7 +30,7 @@
 - Consumes: `view["funnel"]` (`n_evaluated`, `n_passed`, `n_failed`, `n_incomplete`, `failure_counts`, `dominant_failures`, `dominant_failure_labels`)
 - Consumes: `build_funnel(layout) -> dict`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/runtime/test_morning.py`:
 
@@ -88,7 +88,7 @@ In e2e status test after `human = _cli(..., "status", run_id)`:
         assert "Funnel:" in human.stdout
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_prints_funnel tests/runtime/test_morning.py::test_replay_view_includes_funnel tests/runtime/test_morning.py::test_format_status_verdict_none_omits_optional_lines -v
@@ -96,7 +96,7 @@ python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_prin
 
 Expected: FAIL (`Funnel:` missing / `funnel` missing on replay_view).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `morning.py`, after stop reason and before revisions:
 
@@ -127,7 +127,7 @@ Need `Mapping` import if not present (`from typing import Any, Mapping, Optional
 
 `docs/cli.md`: optional funnel counts and dominant-failure glosses.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/runtime/test_morning.py::test_format_status_verdict_prints_funnel tests/runtime/test_morning.py::test_replay_view_includes_funnel tests/runtime/test_morning.py::test_format_status_verdict_none_omits_optional_lines tests/runtime/test_morning.py::test_format_status_verdict_found_cluster tests/runtime/test_morning.py::test_format_status_verdict_glosses_revisions -v

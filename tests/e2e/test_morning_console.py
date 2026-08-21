@@ -604,6 +604,8 @@ def test_terminal_outcome_matches_cli_status(real_daemon, browser_page):
     assert human.stdout.splitlines()[0] == payload["research_outcome"]
     assert "Primary evidence:" in human.stdout
     assert "This status does not claim alpha or future profitability." in human.stdout
+    if (payload.get("funnel") or {}).get("n_evaluated"):
+        assert "Funnel:" in human.stdout
     latest = _cli(real_daemon["data_dir"], "status")
     assert latest.returncode == 0
     assert latest.stdout.splitlines()[0] == f"run_id: {run_id}"
