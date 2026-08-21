@@ -82,7 +82,7 @@ After `#report` wait:
     assert "NYSE" in page.locator("#report").inner_text()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python3 -m pytest tests/protocol/test_profiles.py::test_gloss_market_profile_matches_form_labels tests/runtime/test_artifacts_io.py::test_report_includes_frozen_hypothesis_and_n_trials -v
@@ -90,7 +90,7 @@ python3 -m pytest tests/protocol/test_profiles.py::test_gloss_market_profile_mat
 
 Expected: FAIL (`gloss_market_profile` missing; report still has bare profile token).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `src/alphaloop/protocol/profiles/__init__.py`:
 
@@ -118,7 +118,7 @@ from alphaloop.protocol.profiles import gloss_market_profile
 `docs/webui.md`: the sealed report names the frozen market profile
 with the same gloss as the form.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python3 -m pytest tests/protocol/test_profiles.py tests/runtime/test_artifacts_io.py::test_report_includes_frozen_hypothesis_and_n_trials tests/runtime/test_static_console.py::test_packaged_market_profile_discloses_frozen_economics -v
@@ -126,7 +126,7 @@ python3 -m pytest tests/protocol/test_profiles.py tests/runtime/test_artifacts_i
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat: gloss frozen market_profile on the sealed report"
