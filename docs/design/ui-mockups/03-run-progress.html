@@ -326,9 +326,47 @@
                   </div>
                 </div>
               </div>
-              <div class="panel-ft">
-                Negative out-of-sample results, cost failures, or a failed gate
-                never justify widening an already failed parameter search.
+              <div class="panel-sub">
+                <span class="panel-title"
+                  >Epistemic stopping <em>停止规则</em></span
+                >
+                <span class="spacer"></span>
+                <span class="panel-note"
+                  >none of these extends the search</span
+                >
+              </div>
+              <div class="panel-bd" style="padding-top: 4px">
+                <div class="checks">
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >Negative out-of-sample performance</span
+                    >
+                  </div>
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k">Failure after transaction costs</span>
+                  </div>
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >A failed DSR or other predeclared gate</span
+                    >
+                  </div>
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >Instability across the required regimes</span
+                    >
+                  </div>
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >Improvement reachable only by widening an already failed
+                      search</span
+                    >
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -441,10 +479,10 @@
             <section class="panel">
               <div class="panel-hd">
                 <span class="panel-title"
-                  >Trial ledger <em>.jsonl</em></span
+                  >Trial ledger <em>trial-ledger.jsonl</em></span
                 >
                 <span class="spacer"></span>
-                <span class="panel-note mono">append-only · 26 lines</span>
+                <span class="panel-note mono">26 lines</span>
               </div>
               <div class="panel-bd panel-bd--tight">
                 <table class="tbl tbl--compact">
