@@ -120,7 +120,7 @@ nav:
     - WebUI: plans/v071-webui.md
   - Requirements:
     - Product positioning: requirements/product-positioning-requirements.md
-    - Product design: requirements/product-design.md
+    - Product design: requirements/product-design-v0_0_1.md
     - Five-minute morning review: requirements/2026-08-19-five-minute-morning-review.md
     - Net-of-cost validation: requirements/2026-08-19-net-of-cost-validation.md
     - OOS DSR and method grids: requirements/2026-08-19-oos-dsr-method-grids.md

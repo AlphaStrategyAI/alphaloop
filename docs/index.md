@@ -100,6 +100,6 @@ product UI is the packaged static page served by `alphaloop start`.
 - [CLI reference](cli.md) — overnight-lab commands first; `loop` is heritage.
 - [WebUI](webui.md) — packaged morning page, then frozen SPA notes.
 - [Product positioning](requirements/product-positioning-requirements.md) — locks.
-- [Product design](requirements/product-design.md) — feature map, screens, flows.
+- [Product design](requirements/product-design-v0_0_1.md) — feature map, screens, flows.
 - [Overnight lab architecture](plans/overnight-research-lab-refactor.md).
 - [GitHub repo](https://github.com/AlphaStrategyAI/alphaloop).
