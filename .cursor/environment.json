@@ -1,4 +1,0 @@
-{
-  "name": "alphaloop",
-  "install": "./scripts/cloud-agent-install.sh"
-}
