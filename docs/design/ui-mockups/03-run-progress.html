@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alphaloop — Run Progress (overnight) · static mockup</title>
+    <meta name="viewport" content="width=1440" />
+    <link rel="stylesheet" href="assets/mockups.css" />
+  </head>
+  <body class="v-running">
+    <div class="frame">
+      <div class="foldline"></div>
+
+      <!-- ============================ RAIL ============================ -->
+      <aside class="rail">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <div class="brand-name">alphaloop</div>
+            <div class="brand-sub">Overnight lab</div>
+          </div>
+        </div>
+
+        <div class="rail-label">Console</div>
+        <nav class="nav">
+          <a class="nav-item" href="01-morning-home.html">
+            <span class="nav-glyph">M</span> Morning
+          </a>
+          <a class="nav-item" href="02-new-research-preflight.html">
+            <span class="nav-glyph">N</span> New research
+          </a>
+          <a class="nav-item is-active" href="03-run-progress.html">
+            <span class="nav-glyph">R</span> Active run
+            <span class="nav-tail">1</span>
+          </a>
+          <a class="nav-item" href="04-result-detail.html">
+            <span class="nav-glyph">E</span> Evidence
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">D</span> Datasets
+            <span class="nav-tail">4</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">?</span> Help
+          </a>
+        </nav>
+
+        <div class="rail-label">Overnight runs · 隔夜运行</div>
+        <div class="runlist">
+          <a class="runrow is-active" href="03-run-progress.html">
+            <span class="dot dot--running"></span>
+            <span>
+              <span class="runrow-id">j_20260823T234118Z_a1b2c3d4</span>
+              <span class="runrow-meta">running · 26 / 48 · NONE</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--no-evidence"></span>
+            <span>
+              <span class="runrow-id">j_20260822T232604Z_deadbeef</span>
+              <span class="runrow-meta">completed · NO_EVIDENCE · rsi</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--inconclusive"></span>
+            <span>
+              <span class="runrow-id">j_20260821T234512Z_c0ffee01</span>
+              <span class="runrow-meta">completed · INCONCLUSIVE · budget</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--no-evidence"></span>
+            <span>
+              <span class="runrow-id">j_20260820T231907Z_5eed1234</span>
+              <span class="runrow-meta">completed · NO_EVIDENCE · macd</span>
+            </span>
+          </a>
+        </div>
+
+        <div class="rail-foot">
+          <strong>Worker supervisor</strong><br />
+          pid 48213 · 6 workers · 0 restarts<br />
+          <a href="00-overview.html" style="color: var(--ink-3)">Mockup index →</a>
+        </div>
+      </aside>
+
+      <!-- ============================ STAGE =========================== -->
+      <main class="stage">
+        <header class="topbar">
+          <div>
+            <div class="topbar-title">Active run <span>· 运行中</span></div>
+            <div class="topbar-sub">
+              The job is owned by the local supervisor, not by this browser.
+            </div>
+          </div>
+          <div class="topbar-spacer"></div>
+          <span class="chip"><span class="chip-dot"></span>Local</span>
+          <span class="chip chip--warn">Host awake</span>
+          <span class="chip chip--live"
+            ><span class="chip-dot"></span>heartbeat 1.4 s</span
+          >
+          <span class="clock">Mon 24 Aug 2026 · 03:12 <small>UTC+8</small></span>
+        </header>
+
+        <div class="canvas">
+          <!-- ---------------------- LIVE HERO ------------------------ -->
+          <section class="verdict">
+            <div class="verdict-grid">
+              <div class="verdict-main">
+                <div class="verdict-kicker">
+                  Overnight run · 隔夜运行
+                  <b>j_20260823T234118Z_a1b2c3d4</b>
+                </div>
+
+                <h1 class="verdict-word verdict-word--sm">RUNNING</h1>
+
+                <p class="verdict-gloss">
+                  Trial <b>26 of 48</b> · 3h 31m elapsed. The research outcome is
+                  <span class="mono">NONE</span> and stays that way until every
+                  required gate is sealed. Job status is not a conclusion.
+                </p>
+
+                <div class="verdict-lead">
+                  <div class="lead-row">
+                    <span class="lead-k">Primary evidence</span>
+                    <span class="lead-v dim"
+                      >(running or not yet terminal) — DSR is evaluated once,
+                      against the final unique-trial count.</span
+                    >
+                  </div>
+                  <div class="lead-row">
+                    <span class="lead-k">Stop reason</span>
+                    <span class="lead-v dim"
+                      >(running or not yet terminal) — the loop continues only
+                      while the next experiment can credibly add evidence.</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <aside class="verdict-side">
+                <div class="kv-k" style="margin-bottom: 7px">
+                  Liveness · 存活状态
+                </div>
+                <div class="kv">
+                  <div class="kv-row">
+                    <span class="kv-k">supervisor</span>
+                    <span class="kv-v"
+                      ><b>pid 48213</b> · 6 workers · lease ok</span
+                    >
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">heartbeat</span>
+                    <span class="kv-v"
+                      ><b>03:12:38</b> <span class="dim">· 1.4 s ago</span></span
+                    >
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">checkpoint</span>
+                    <span class="kv-v"
+                      ><b>ckpt_0007</b>
+                      <span class="dim">· 03:09:42 · 24 MiB</span></span
+                    >
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">recovery</span>
+                    <span class="kv-v"
+                      >0 attempts <span class="dim">· 0 worker errors</span></span
+                    >
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">job status</span>
+                    <span class="kv-v"><b>running</b></span>
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">outcome</span>
+                    <span class="kv-v dim">NONE</span>
+                  </div>
+                </div>
+
+                <div class="note note--lock">
+                  <span class="note-glyph">⌂</span>
+                  <span
+                    >Closing this tab or the submitting shell does not stop the
+                    job. <b>Suspending or powering off the host does.</b></span
+                  >
+                </div>
+
+                <div class="btn-row mt-a">
+                  <a class="btn btn--danger" href="#">Cancel run</a>
+                  <a class="btn is-disabled" href="#">Resume</a>
+                  <span class="disclaimer"
+                    >Cancel cannot claim <span class="mono">FOUND</span>.</span
+                  >
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- ---------------------- LIVE ROW ------------------------- -->
+          <div class="section-label" style="margin-top: 16px">
+            <h2>Progress</h2>
+            <span
+              >进度 — search, budget burn, funnel and ledger, refreshed every 2
+              s</span
+            >
+            <span class="rule"></span>
+          </div>
+
+          <div
+            class="cols cols--stretch"
+            style="
+              grid-template-columns:
+                minmax(0, 1.24fr) minmax(0, 0.92fr) minmax(0, 1.1fr);
+            "
+          >
+            <!-- ---- Search + budgets ---- -->
+            <section class="panel">
+              <div class="panel-hd">
+                <span class="panel-title">Search progress <em>搜索进度</em></span>
+                <span class="spacer"></span>
+                <span class="chip chip--live"
+                  ><span class="chip-dot"></span>search 26 / 48</span
+                >
+              </div>
+              <div class="panel-bd">
+                <div class="ticks">
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--incomplete"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--incomplete"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--active"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                </div>
+                <div class="bars-axis">
+                  <span>trial 1</span>
+                  <span>evaluating c_2b6f8d31c95a07e4</span>
+                  <span>48</span>
+                </div>
+
+                <div class="hr" style="margin: 14px 0 12px"></div>
+
+                <div class="meters">
+                  <div>
+                    <div class="meter-hd">
+                      <span class="meter-k">Time budget</span>
+                      <span class="meter-v"
+                        >3h 31m <small>/ 6h 00m</small></span
+                      >
+                    </div>
+                    <div class="meter-track">
+                      <i class="meter-fill meter-fill--live" style="width: 58.6%"></i>
+                    </div>
+                    <div class="meter-foot">
+                      Projected finish 05:52 · exhaustion with an incomplete
+                      evidence set yields INCONCLUSIVE
+                    </div>
+                  </div>
+                  <div>
+                    <div class="meter-hd">
+                      <span class="meter-k">Compute cost</span>
+                      <span class="meter-v">$2.31 <small>/ $5.00</small></span>
+                    </div>
+                    <div class="meter-track">
+                      <i class="meter-fill meter-fill--live" style="width: 46.2%"></i>
+                    </div>
+                    <div class="meter-foot">
+                      planning tokens $0.44 · engine $1.87
+                    </div>
+                  </div>
+                  <div>
+                    <div class="meter-hd">
+                      <span class="meter-k">Artifacts on disk</span>
+                      <span class="meter-v"
+                        >412 MiB <small>/ 3.4 GiB free</small></span
+                      >
+                    </div>
+                    <div class="meter-track">
+                      <i class="meter-fill" style="width: 12%"></i>
+                    </div>
+                    <div class="meter-foot">
+                      7 checkpoints · evidence/ 188 MiB ·
+                      trial-ledger.jsonl 26 lines
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="panel-ft">
+                Negative out-of-sample results, cost failures, or a failed gate
+                never justify widening an already failed parameter search.
+              </div>
+            </section>
+
+            <!-- ---- Funnel, updating ---- -->
+            <section class="panel">
+              <div class="panel-hd">
+                <span class="panel-title"
+                  >Candidate funnel <em>淘汰漏斗</em></span
+                >
+                <span class="spacer"></span>
+                <span class="badge badge--pending">updating</span>
+              </div>
+              <div class="panel-bd">
+                <div class="funnel">
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Generated <small>DSL-constrained</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 54.2%"></i
+                    ></span>
+                    <span class="fn-n">26</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Evidence complete <small>−2 data gap</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 50%"></i
+                    ></span>
+                    <span class="fn-n">24</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Net of cost <small>5.0 bps per side</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 31.3%"></i
+                    ></span>
+                    <span class="fn-n">15</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Walk-forward OOS <small>6 folds · CPCV</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 12.5%"></i
+                    ></span>
+                    <span class="fn-n">6</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Regime stability <small>half-sample sign</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 8.3%"></i
+                    ></span>
+                    <span class="fn-n">4</span>
+                  </div>
+                  <div class="fn-row fn-row--pending">
+                    <span class="fn-k"
+                      >DSR <small>needs final N</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 100%"></i
+                    ></span>
+                    <span class="fn-n dim">—</span>
+                  </div>
+                  <div class="fn-row fn-row--pending">
+                    <span class="fn-k"
+                      >Qualified <small>sealed at stop</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 100%"></i
+                    ></span>
+                    <span class="fn-n dim">—</span>
+                  </div>
+                </div>
+                <div class="fn-legend">
+                  <span>evaluated <b>26</b></span>
+                  <span>eliminated <b>20</b></span>
+                  <span>incomplete <b>2</b></span>
+                  <span>alive <b>4</b></span>
+                </div>
+              </div>
+              <div class="panel-sub">
+                <span class="panel-title">Gate status <em>门槛状态</em></span>
+              </div>
+              <div class="panel-bd" style="padding-top: 4px">
+                <div class="gate-strip">
+                  <span class="gtok gtok--pending">dsr — at seal</span>
+                  <span class="gtok gtok--pending">walk_forward — 6 / 26</span>
+                  <span class="gtok gtok--pending">vs_benchmark</span>
+                  <span class="gtok gtok--pending">vs_buy_hold</span>
+                  <span class="gtok gtok--pending">vs_random</span>
+                  <span class="gtok gtok--pass">data_consistency</span>
+                </div>
+                <div class="note note--lock" style="margin-top: 11px">
+                  <span class="note-glyph">⊘</span>
+                  <span
+                    >This console cannot override an evidence gate. Only the
+                    deterministic hard-gate evaluator can produce
+                    <b>FOUND</b>.</span
+                  >
+                </div>
+              </div>
+            </section>
+
+            <!-- ---- Trial ledger ---- -->
+            <section class="panel">
+              <div class="panel-hd">
+                <span class="panel-title"
+                  >Trial ledger <em>.jsonl</em></span
+                >
+                <span class="spacer"></span>
+                <span class="panel-note mono">append-only · 26 lines</span>
+              </div>
+              <div class="panel-bd panel-bd--tight">
+                <table class="tbl tbl--compact">
+                  <thead>
+                    <tr>
+                      <th>trial_id</th>
+                      <th>rev</th>
+                      <th class="r">Sharpe</th>
+                      <th>state</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="mono nw">c_2b6f8d31c95a07e4</td>
+                      <td class="dim">method</td>
+                      <td class="r dim">—</td>
+                      <td>
+                        <span class="badge badge--pending">running</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="mono nw">c_71d9e4f0a2c85b63</td>
+                      <td class="dim">none</td>
+                      <td class="r num">0.88</td>
+                      <td><span class="badge badge--pass">alive</span></td>
+                    </tr>
+                    <tr>
+                      <td class="mono nw">c_ae03b6c9d4f21e78</td>
+                      <td class="dim">none</td>
+                      <td class="r num">0.42</td>
+                      <td><span class="badge badge--fail">net cost</span></td>
+                    </tr>
+                    <tr>
+                      <td class="mono nw">c_4c81f5a2e07b93d1</td>
+                      <td class="dim">method</td>
+                      <td class="r num">0.74</td>
+                      <td><span class="badge badge--pass">alive</span></td>
+                    </tr>
+                    <tr>
+                      <td class="mono nw">c_63c07ab8e1d5924f</td>
+                      <td class="dim">none</td>
+                      <td class="r dim">—</td>
+                      <td><span class="badge badge--warn">data gap</span></td>
+                    </tr>
+                    <tr>
+                      <td class="mono nw">c_8e5a1c74b3902fd6</td>
+                      <td class="dim">none</td>
+                      <td class="r num">0.19</td>
+                      <td><span class="badge badge--fail">oos ≤ 0</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="hr" style="margin: 11px 0 9px"></div>
+
+                <div
+                  style="display: flex; align-items: baseline; gap: 8px"
+                >
+                  <span class="kv-k">In-sample Sharpe, trials 1 – 26</span>
+                  <span class="panel-note mono" style="margin-left: auto"
+                    >4 alive</span
+                  >
+                </div>
+                <div class="bars" style="margin-top: 9px">
+                  <i class="bar bar--fail" style="height: 22%"></i>
+                  <i class="bar bar--fail" style="height: 31%"></i>
+                  <i class="bar bar--pass" style="height: 68%"></i>
+                  <i class="bar bar--fail" style="height: 18%"></i>
+                  <i class="bar bar--fail" style="height: 26%"></i>
+                  <i class="bar bar--dim" style="height: 8%"></i>
+                  <i class="bar bar--fail" style="height: 35%"></i>
+                  <i class="bar bar--pass" style="height: 74%"></i>
+                  <i class="bar bar--fail" style="height: 41%"></i>
+                  <i class="bar bar--fail" style="height: 12%"></i>
+                  <i class="bar bar--fail" style="height: 29%"></i>
+                  <i class="bar bar--pass" style="height: 81%"></i>
+                  <i class="bar bar--fail" style="height: 24%"></i>
+                  <i class="bar bar--fail" style="height: 37%"></i>
+                  <i class="bar bar--dim" style="height: 8%"></i>
+                  <i class="bar bar--fail" style="height: 44%"></i>
+                  <i class="bar bar--fail" style="height: 21%"></i>
+                  <i class="bar bar--pass" style="height: 62%"></i>
+                  <i class="bar bar--fail" style="height: 33%"></i>
+                  <i class="bar bar--fail" style="height: 16%"></i>
+                  <i class="bar bar--fail" style="height: 39%"></i>
+                  <i class="bar bar--pass" style="height: 70%"></i>
+                  <i class="bar bar--fail" style="height: 27%"></i>
+                  <i class="bar bar--fail" style="height: 19%"></i>
+                  <i class="bar bar--pass" style="height: 58%"></i>
+                  <i class="bar bar--live" style="height: 46%"></i>
+                </div>
+                <div class="bars-axis">
+                  <span>1</span>
+                  <span class="dim">gross, before gates</span>
+                  <span>26</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ---------------------- NIGHT LOG ------------------------ -->
+          <div class="cols cols--wide-left" style="margin-top: 16px">
+            <section class="panel">
+              <div class="panel-hd">
+                <span class="panel-title">Tonight <em>今夜时间线</em></span>
+                <span class="spacer"></span>
+                <span class="panel-note"
+                  >Checkpoints make the job recoverable; recovery never treats a
+                  partial artifact as complete.</span
+                >
+              </div>
+              <div class="panel-bd">
+                <div class="cols cols--2">
+                  <div class="timeline">
+                    <div class="tl-row">
+                      <span class="tl-t">23:41:18</span>
+                      <span class="tl-mark"></span>
+                      <span class="tl-v"
+                        >Protocol frozen · <b>run_id</b> returned
+                        <i>spec_id rs_8c4f… · 48 planned trials</i></span
+                      >
+                    </div>
+                    <div class="tl-row">
+                      <span class="tl-t">23:41:26</span>
+                      <span class="tl-mark"></span>
+                      <span class="tl-v"
+                        >Supervisor claimed the lease, 6 workers started
+                        <i>independent of the submitting shell</i></span
+                      >
+                    </div>
+                    <div class="tl-row">
+                      <span class="tl-t">00:12:04</span>
+                      <span class="tl-mark"></span>
+                      <span class="tl-v"
+                        >ckpt_0001 written
+                        <i>restart-safe worker state, 19 MiB</i></span
+                      >
+                    </div>
+                  </div>
+                  <div class="timeline">
+                    <div class="tl-row">
+                      <span class="tl-t">02:14:51</span>
+                      <span class="tl-mark"></span>
+                      <span class="tl-v"
+                        ><b>Method revision</b> — missing cost assumption
+                        <i
+                          >applied 5.0 bps profile default, 12 trials
+                          re-evaluated</i
+                        ></span
+                      >
+                    </div>
+                    <div class="tl-row">
+                      <span class="tl-t">03:09:42</span>
+                      <span class="tl-mark"></span>
+                      <span class="tl-v"
+                        >ckpt_0007 written
+                        <i>latest complete checkpoint</i></span
+                      >
+                    </div>
+                    <div class="tl-row tl-row--live">
+                      <span class="tl-t">03:12:38</span>
+                      <span class="tl-mark"></span>
+                      <span class="tl-v"
+                        >Evaluating trial 26 of 48
+                        <i>heartbeat 1.4 s ago · no recovery attempts</i></span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-hd">
+                <span class="panel-title">What cannot happen tonight</span>
+              </div>
+              <div class="panel-bd">
+                <div class="checks">
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >A new economic hypothesis
+                      <span class="check-v"
+                        >queued for human review, never executed silently</span
+                      ></span
+                    >
+                  </div>
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >A gate override from this console
+                      <span class="check-v"
+                        >the report is a view of the evidence, not its
+                        source</span
+                      ></span
+                    >
+                  </div>
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >Arbitrary agent-generated Python
+                      <span class="check-v"
+                        >workers emit DSL documents only</span
+                      ></span
+                    >
+                  </div>
+                  <div class="check check--deny">
+                    <span class="check-mark">⊘</span>
+                    <span class="check-k"
+                      >Any broker contact
+                      <span class="check-v"
+                        >no credentials, no orders, no promotion</span
+                      ></span
+                    >
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

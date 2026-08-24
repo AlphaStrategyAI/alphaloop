@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alphaloop — Morning Home (FOUND) · static mockup</title>
+    <meta name="viewport" content="width=1440" />
+    <link rel="stylesheet" href="assets/mockups.css" />
+  </head>
+  <body class="v-found">
+    <div class="frame">
+      <div class="foldline"></div>
+      <!-- ============================ RAIL ============================ -->
+      <aside class="rail">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <div class="brand-name">alphaloop</div>
+            <div class="brand-sub">Overnight lab</div>
+          </div>
+        </div>
+
+        <div class="rail-label">Console</div>
+        <nav class="nav">
+          <a class="nav-item is-active" href="01-morning-home.html">
+            <span class="nav-glyph">M</span> Morning
+          </a>
+          <a class="nav-item" href="02-new-research-preflight.html">
+            <span class="nav-glyph">N</span> New research
+          </a>
+          <a class="nav-item" href="03-run-progress.html">
+            <span class="nav-glyph">R</span> Active run
+            <span class="nav-tail">1</span>
+          </a>
+          <a class="nav-item" href="04-result-detail.html">
+            <span class="nav-glyph">E</span> Evidence
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">D</span> Datasets
+            <span class="nav-tail">4</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">?</span> Help
+          </a>
+        </nav>
+
+        <div class="rail-label">Overnight runs · 隔夜运行</div>
+        <div class="runlist">
+          <a class="runrow is-active" href="04-result-detail.html">
+            <span class="dot dot--found"></span>
+            <span>
+              <span class="runrow-id">j_20260823T234118Z_a1b2c3d4</span>
+              <span class="runrow-meta">completed · FOUND · 60 trials</span>
+            </span>
+          </a>
+          <a class="runrow" href="03-run-progress.html">
+            <span class="dot dot--running"></span>
+            <span>
+              <span class="runrow-id">j_20260824T060411Z_7c1de904</span>
+              <span class="runrow-meta">running · crypto-daily · 4 / 36</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--no-evidence"></span>
+            <span>
+              <span class="runrow-id">j_20260822T232604Z_deadbeef</span>
+              <span class="runrow-meta">completed · NO_EVIDENCE · rsi</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--inconclusive"></span>
+            <span>
+              <span class="runrow-id">j_20260821T234512Z_c0ffee01</span>
+              <span class="runrow-meta">completed · INCONCLUSIVE · budget</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--no-evidence"></span>
+            <span>
+              <span class="runrow-id">j_20260820T231907Z_5eed1234</span>
+              <span class="runrow-meta">completed · NO_EVIDENCE · macd</span>
+            </span>
+          </a>
+        </div>
+
+        <div class="rail-foot">
+          <strong>Local control plane</strong><br />
+          127.0.0.1:8787 · supervisor pid 48213<br />
+          <a href="00-overview.html" style="color: var(--ink-3)">Mockup index →</a>
+        </div>
+      </aside>
+
+      <!-- ============================ STAGE =========================== -->
+      <main class="stage">
+        <header class="topbar">
+          <div>
+            <div class="topbar-title">Morning review <span>· 早间复盘</span></div>
+            <div class="topbar-sub">
+              Five minutes: conclusion, primary evidence, stop reason.
+            </div>
+          </div>
+          <div class="topbar-spacer"></div>
+          <span class="chip"><span class="chip-dot"></span>Local</span>
+          <span class="chip chip--warn">Host awake</span>
+          <span class="chip chip--live"
+            ><span class="chip-dot"></span>1 running</span
+          >
+          <span class="clock">Mon 24 Aug 2026 · 06:42 <small>UTC+8</small></span>
+        </header>
+
+        <div class="canvas">
+          <!-- ---------------------- VERDICT HERO --------------------- -->
+          <section class="verdict">
+            <div class="verdict-grid">
+              <div class="verdict-main">
+                <div class="verdict-kicker">
+                  Overnight verdict · 隔夜结论
+                  <b>j_20260823T234118Z_a1b2c3d4</b>
+                </div>
+
+                <h1 class="verdict-word">FOUND</h1>
+
+                <p class="verdict-gloss">
+                  <b>2 of 60</b> candidates passed every predeclared hard gate.
+                  FOUND means the required evidence set is complete and every
+                  gate passed. It is <b>not</b> a promise of alpha or future
+                  profitability.
+                </p>
+
+                <div class="verdict-lead">
+                  <div class="lead-row">
+                    <span class="lead-k">Primary evidence</span>
+                    <span class="lead-v"
+                      >All 6 required hard gates passed net of 5&nbsp;bps ·
+                      <span class="mono"
+                        >dsr=0.972 (N=60) · oos_sharpe_median=0.69 ·
+                        pbo=0.31</span
+                      ></span
+                    >
+                  </div>
+                  <div class="lead-row">
+                    <span class="lead-k">Stop reason</span>
+                    <span class="lead-v"
+                      ><span class="mono">all_gates_passed</span> — the frozen
+                      grid was exhausted and no further experiment could
+                      credibly add evidence.</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <aside class="verdict-side">
+                <div>
+                  <div class="kv-k" style="margin-bottom: 5px">
+                    Frozen hypothesis
+                  </div>
+                  <p style="font-size: 12px; line-height: 1.55; color: var(--ink)">
+                    In low-volatility regimes, does 12-1 momentum produce
+                    net-of-cost, out-of-sample excess returns in US large-cap
+                    equities?
+                  </p>
+                </div>
+
+                <div class="kv">
+                  <div class="kv-row">
+                    <span class="kv-k">spec_id</span>
+                    <span class="kv-v">rs_8c4f2e1a9b0d7f6e5a4c3b2a1f0e9d8c</span>
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">profile</span>
+                    <span class="kv-v"
+                      ><b>us-equity-daily</b> · SPY · NYSE · 5.0 bps</span
+                    >
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">dataset</span>
+                    <span class="kv-v"
+                      >ds_spx100_2005_2026 · <b>0379…bc55</b></span
+                    >
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">trials</span>
+                    <span class="kv-v"
+                      ><b>60</b> unique <span class="dim">/ 48 planned</span> ·
+                      seed 7</span
+                    >
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">run</span>
+                    <span class="kv-v"
+                      >23:41 frozen → <b>05:58 sealed</b> · 6h 16m ·
+                      $2.81 / $5.00</span
+                    >
+                  </div>
+                </div>
+
+                <div class="btn-row mt-a">
+                  <a class="btn btn--primary" href="04-result-detail.html"
+                    >Open evidence</a
+                  >
+                  <a class="btn" href="#">Replay report</a>
+                  <a class="btn btn--quiet" href="#">report.md</a>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- ---------------------- EVIDENCE ROW -------------------- -->
+          <div class="section-label" style="margin-top: 16px">
+            <h2>Evidence</h2>
+            <span
+              >证据 — what qualified, what eliminated the rest, what the loop
+              repaired</span
+            >
+            <span class="rule"></span>
+          </div>
+
+          <div
+            class="cols cols--stretch"
+            style="
+              grid-template-columns:
+                minmax(0, 1.42fr) minmax(0, 0.9fr) minmax(0, 1fr);
+            "
+          >
+            <!-- ---- Qualifying candidates ---- -->
+            <section class="panel">
+              <div class="panel-hd">
+                <span class="panel-title"
+                  >Qualifying candidates <em>合格候选</em></span
+                >
+                <span class="spacer"></span>
+                <span class="badge badge--pass">2 of 60</span>
+              </div>
+              <div class="panel-bd panel-bd--tight">
+                <table class="tbl tbl--compact">
+                  <thead>
+                    <tr>
+                      <th>Candidate · momentum_12_1</th>
+                      <th class="r">Sharpe net</th>
+                      <th class="r">DSR</th>
+                      <th class="r">PBO</th>
+                      <th class="r">Max DD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="is-lead">
+                      <td class="nw">
+                        <span class="mono">c_f3e2d1c0b9a87654</span><br /><span
+                          class="cand-params"
+                          >lookback=126 skip=21 inverse_vol</span
+                        >
+                      </td>
+                      <td class="r num">1.04</td>
+                      <td class="r num">0.972</td>
+                      <td class="r num">0.31</td>
+                      <td class="r num neg">−11.4%</td>
+                    </tr>
+                    <tr>
+                      <td class="nw">
+                        <span class="mono">c_9b74a0e5c2d18f36</span><br /><span
+                          class="cand-params"
+                          >lookback=189 skip=21 inverse_vol</span
+                        >
+                      </td>
+                      <td class="r num">0.91</td>
+                      <td class="r num">0.958</td>
+                      <td class="r num">0.42</td>
+                      <td class="r num neg">−13.8%</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="hr" style="margin: 10px 0 8px"></div>
+
+                <div
+                  style="
+                    display: flex;
+                    align-items: baseline;
+                    gap: 8px;
+                    margin-bottom: 17px;
+                  "
+                >
+                  <span class="kv-k">Walk-forward fold Sharpe</span>
+                  <span class="panel-note mono" style="margin-left: auto"
+                    >c_f3e2… · 5 of 6 folds positive</span
+                  >
+                </div>
+                <div class="folds">
+                  <div class="folds-zero"></div>
+                  <div class="fold">
+                    <span class="fold-val">0.94</span>
+                    <span class="fold-up"><i style="height: 100%"></i></span>
+                    <span class="fold-dn"></span>
+                    <span class="fold-lab">F1</span>
+                  </div>
+                  <div class="fold">
+                    <span class="fold-val">0.71</span>
+                    <span class="fold-up"><i style="height: 76%"></i></span>
+                    <span class="fold-dn"></span>
+                    <span class="fold-lab">F2</span>
+                  </div>
+                  <div class="fold">
+                    <span class="fold-val">−0.18</span>
+                    <span class="fold-up"></span>
+                    <span class="fold-dn"><i style="height: 19%"></i></span>
+                    <span class="fold-lab">F3</span>
+                  </div>
+                  <div class="fold">
+                    <span class="fold-val">0.66</span>
+                    <span class="fold-up"><i style="height: 70%"></i></span>
+                    <span class="fold-dn"></span>
+                    <span class="fold-lab">F4</span>
+                  </div>
+                  <div class="fold">
+                    <span class="fold-val">0.83</span>
+                    <span class="fold-up"><i style="height: 88%"></i></span>
+                    <span class="fold-dn"></span>
+                    <span class="fold-lab">F5</span>
+                  </div>
+                  <div class="fold">
+                    <span class="fold-val">0.52</span>
+                    <span class="fold-up"><i style="height: 55%"></i></span>
+                    <span class="fold-dn"></span>
+                    <span class="fold-lab">F6</span>
+                  </div>
+                </div>
+
+                <div class="hr" style="margin: 26px 0 11px"></div>
+
+                <div class="metrics">
+                  <div class="metric">
+                    <div class="metric-k">CAGR net</div>
+                    <div class="metric-v">9.4<small>%</small></div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">Cost drag</div>
+                    <div class="metric-v">−1.8<small>%/y</small></div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">Turnover</div>
+                    <div class="metric-v">71<small>%/y</small></div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">Avg hold</div>
+                    <div class="metric-v">34<small>d</small></div>
+                  </div>
+                </div>
+
+                <div class="hr" style="margin: 11px 0 9px"></div>
+
+                <div class="kv-k" style="margin-bottom: 7px">
+                  Predeclared hard gates · all required
+                </div>
+                <div class="gate-strip">
+                  <span class="gtok gtok--pass">dsr 0.972</span>
+                  <span class="gtok gtok--pass">walk_forward</span>
+                  <span class="gtok gtok--pass">vs_benchmark 1.04 / 0.58</span>
+                  <span class="gtok gtok--pass">vs_buy_hold</span>
+                  <span class="gtok gtok--pass">vs_random p4</span>
+                  <span class="gtok gtok--pass">data_consistency 0.31%</span>
+                </div>
+              </div>
+              <div class="panel-ft">
+                Both candidates share one frozen economic hypothesis. Export is
+                a manual per-candidate action and does not authorize trading.
+              </div>
+            </section>
+
+            <!-- ---- Elimination funnel ---- -->
+            <section class="panel">
+              <div class="panel-hd">
+                <span class="panel-title"
+                  >Elimination funnel <em>淘汰漏斗</em></span
+                >
+                <span class="spacer"></span>
+                <span class="panel-note mono">60 → 2</span>
+              </div>
+              <div class="panel-bd">
+                <div class="funnel">
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Generated <small>DSL-constrained</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 100%"></i
+                    ></span>
+                    <span class="fn-n">60</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Evidence complete <small>−2 data gap</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 96.7%"></i
+                    ></span>
+                    <span class="fn-n">58</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Net of cost <small>5.0 bps per side</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 61.7%"></i
+                    ></span>
+                    <span class="fn-n">37</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Walk-forward OOS <small>6 folds · CPCV</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 26.7%"></i
+                    ></span>
+                    <span class="fn-n">16</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k"
+                      >Regime stability <small>half-sample sign</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 15%"></i
+                    ></span>
+                    <span class="fn-n">9</span>
+                  </div>
+                  <div class="fn-row">
+                    <span class="fn-k">DSR <small>N = 60 · ≥ 0.95</small></span>
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 6.7%"></i
+                    ></span>
+                    <span class="fn-n">4</span>
+                  </div>
+                  <div class="fn-row fn-row--final">
+                    <span class="fn-k"
+                      >Qualified <small>PBO &lt; 0.50 · 15 paths</small></span
+                    >
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 3.4%"></i
+                    ></span>
+                    <span class="fn-n">2</span>
+                  </div>
+                </div>
+                <div class="fn-legend">
+                  <span>evaluated <b>60</b></span>
+                  <span>passed <b>2</b></span>
+                  <span>failed <b>56</b></span>
+                  <span>incomplete <b>2</b></span>
+                </div>
+              </div>
+              <div class="panel-sub">
+                <span class="panel-title"
+                  >Dominant failure reasons <em>主要淘汰原因</em></span
+                >
+              </div>
+              <div class="panel-bd" style="padding-top: 4px">
+                <div class="reasons">
+                  <div class="reason">
+                    <span class="reason-k"
+                      >Cost drag exceeded gross edge
+                      <small>net_of_cost</small></span
+                    >
+                    <span class="reason-bar"><i style="width: 100%"></i></span>
+                    <span class="reason-n">21</span>
+                  </div>
+                  <div class="reason">
+                    <span class="reason-k"
+                      >OOS mean Sharpe ≤ 0 <small>walk_forward</small></span
+                    >
+                    <span class="reason-bar"><i style="width: 100%"></i></span>
+                    <span class="reason-n">21</span>
+                  </div>
+                  <div class="reason">
+                    <span class="reason-k"
+                      >Half-sample sign flip <small>regime_stable</small></span
+                    >
+                    <span class="reason-bar"><i style="width: 33%"></i></span>
+                    <span class="reason-n">7</span>
+                  </div>
+                  <div class="reason">
+                    <span class="reason-k"
+                      >Deflated Sharpe below 0.95 <small>dsr</small></span
+                    >
+                    <span class="reason-bar"><i style="width: 24%"></i></span>
+                    <span class="reason-n">5</span>
+                  </div>
+                  <div class="reason reason--warn">
+                    <span class="reason-k"
+                      >Incomplete evidence set <small>data gap</small></span
+                    >
+                    <span class="reason-bar"><i style="width: 10%"></i></span>
+                    <span class="reason-n">2</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---- Revisions + queued ---- -->
+            <div class="stack stack--sm">
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Methodological revisions <em>方法修正</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge">4 · method only</span>
+                </div>
+                <div class="panel-bd panel-bd--tight" style="padding-top: 8px">
+                  <table class="tbl tbl--compact">
+                    <tbody>
+                      <tr>
+                        <td class="mono dim" style="width: 42px">02:14</td>
+                        <td>
+                          Missing cost assumption
+                          <span class="cand-params"
+                            >— applied 5.0 bps profile default, 12 trials
+                            re-evaluated</span
+                          >
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono dim">03:41</td>
+                        <td>
+                          Insufficient parameter coverage
+                          <span class="cand-params"
+                            >— added skip=63 tier, +12 unique trials</span
+                          >
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono dim">04:52</td>
+                        <td>
+                          Invalid data
+                          <span class="cand-params"
+                            >— dropped 3 symbols &gt;2% missing bars, universe
+                            92 → 89</span
+                          >
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono dim">05:20</td>
+                        <td>
+                          Recoverable implementation error
+                          <span class="cand-params"
+                            >— CPCV group split off-by-one, 8 trials
+                            replayed</span
+                          >
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="note note--lock" style="margin-top: 10px">
+                    <span class="note-glyph">Σ</span>
+                    <span
+                      >Every revision enters multiple-testing accounting:
+                      <b>DSR N = 60</b>, not 48. The economic hypothesis was
+                      never changed mid-run.</span
+                    >
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title">AlphaStrategy handoff</span>
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">export unlocked</span>
+                </div>
+                <div class="panel-bd panel-bd--tight">
+                  <div class="note note--accent">
+                    <span class="note-glyph">↗</span>
+                    <span
+                      >Only a <b>FOUND</b> candidate can be exported, as an
+                      immutable <span class="mono">.asb</span> archive. Manual,
+                      one-way, no credentials, no executable files.</span
+                    >
+                  </div>
+                  <div class="btn-row" style="margin-top: 10px">
+                    <a class="btn btn--wide" href="04-result-detail.html"
+                      >Review evidence, then export .asb</a
+                    >
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- ---------------------- SUGGESTIONS --------------------- -->
+          <section class="panel" style="margin-top: 16px">
+            <div class="panel-hd">
+              <span class="panel-title"
+                >Suggestions for a future hypothesis
+                <em>recommendations.json · 待人工审阅</em></span
+              >
+              <span class="spacer"></span>
+              <span class="panel-note"
+                >A new economic hypothesis is never executed silently during the
+                same overnight run.</span
+              >
+              <span class="badge badge--pending"
+                >queued · never auto-executed</span
+              >
+            </div>
+            <div class="panel-bd" style="padding-top: 6px">
+              <div class="qrow">
+                <span class="q-n">01</span>
+                <span class="badge">economic_change_queued</span>
+                <span class="qrow-statement"
+                  >Condition 12-1 momentum on a realized-volatility tercile and
+                  test only the low-vol state, same universe and gates.
+                  <i
+                    >Evidence: 7 candidates failed regime stability with a
+                    positive first half and a negative second half.</i
+                  ></span
+                >
+                <a class="btn btn--sm" href="02-new-research-preflight.html"
+                  >Load into editor</a
+                >
+              </div>
+              <div class="qrow">
+                <span class="q-n">02</span>
+                <span class="badge">portability_test_queued</span>
+                <span class="qrow-statement"
+                  >Re-run the qualifying parameterization under crypto-daily as
+                  a portability test, not as a Sharpe comparison.
+                  <i
+                    >Evidence: 2 qualifying candidates; candidates from two
+                    market profiles are never placed in one ranking.</i
+                  ></span
+                >
+                <a class="btn btn--sm" href="02-new-research-preflight.html"
+                  >Load into editor</a
+                >
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

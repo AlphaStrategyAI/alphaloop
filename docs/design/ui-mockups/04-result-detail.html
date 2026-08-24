@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alphaloop — Result Detail &amp; .asb handoff · static mockup</title>
+    <meta name="viewport" content="width=1440" />
+    <link rel="stylesheet" href="assets/mockups.css" />
+  </head>
+  <body class="v-found">
+    <div class="frame">
+      <div class="foldline"></div>
+
+      <!-- ============================ RAIL ============================ -->
+      <aside class="rail">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <div class="brand-name">alphaloop</div>
+            <div class="brand-sub">Overnight lab</div>
+          </div>
+        </div>
+
+        <div class="rail-label">Console</div>
+        <nav class="nav">
+          <a class="nav-item" href="01-morning-home.html">
+            <span class="nav-glyph">M</span> Morning
+          </a>
+          <a class="nav-item" href="02-new-research-preflight.html">
+            <span class="nav-glyph">N</span> New research
+          </a>
+          <a class="nav-item" href="03-run-progress.html">
+            <span class="nav-glyph">R</span> Active run
+            <span class="nav-tail">1</span>
+          </a>
+          <a class="nav-item is-active" href="04-result-detail.html">
+            <span class="nav-glyph">E</span> Evidence
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">D</span> Datasets
+            <span class="nav-tail">4</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">?</span> Help
+          </a>
+        </nav>
+
+        <div class="rail-label">Candidates · 候选</div>
+        <div class="runlist">
+          <a class="runrow is-active" href="#">
+            <span class="dot dot--found"></span>
+            <span>
+              <span class="runrow-id">c_f3e2d1c0b9a87654</span>
+              <span class="runrow-meta">all gates · Sharpe 1.04</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--found"></span>
+            <span>
+              <span class="runrow-id">c_9b74a0e5c2d18f36</span>
+              <span class="runrow-meta">all gates · Sharpe 0.91</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--no-evidence"></span>
+            <span>
+              <span class="runrow-id">c_4c81f5a2e07b93d1</span>
+              <span class="runrow-meta">failed dsr · 0.41</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot dot--inconclusive"></span>
+            <span>
+              <span class="runrow-id">c_63c07ab8e1d5924f</span>
+              <span class="runrow-meta">incomplete · data gap</span>
+            </span>
+          </a>
+        </div>
+
+        <div class="rail-foot">
+          <strong>Artifacts</strong><br />
+          runs/j_20260823T234118Z_a1b2c3d4<br />
+          <a href="00-overview.html" style="color: var(--ink-3)">Mockup index →</a>
+        </div>
+      </aside>
+
+      <!-- ============================ STAGE =========================== -->
+      <main class="stage">
+        <header class="topbar">
+          <div>
+            <div class="topbar-title">
+              Evidence <span>· 证据核查 · c_f3e2d1c0b9a87654</span>
+            </div>
+            <div class="topbar-sub">
+              Sealed 05:58 · the report is a view of this evidence, not its
+              source of truth.
+            </div>
+          </div>
+          <div class="topbar-spacer"></div>
+          <span class="chip chip--accent"
+            ><span class="chip-dot"></span>FOUND</span
+          >
+          <span class="chip chip--mono">seed 7 · replayable</span>
+          <a class="btn btn--sm" href="#">Replay</a>
+          <a class="btn btn--sm" href="#">report.md</a>
+        </header>
+
+        <div class="canvas">
+          <!-- ---------------------- CANDIDATE HEAD ------------------- -->
+          <section class="verdict">
+            <div class="verdict-grid" style="grid-template-columns: minmax(0,1fr) 330px">
+              <div class="verdict-main" style="padding-bottom: 18px">
+                <div class="verdict-kicker">
+                  Qualifying candidate · 合格候选
+                  <b>momentum_12_1 — 12-1 momentum</b>
+                </div>
+
+                <h1 class="verdict-word verdict-word--sm">FOUND</h1>
+
+                <p class="verdict-gloss">
+                  <span class="mono">c_f3e2d1c0b9a87654</span> passed all 6
+                  predeclared hard gates on the sealed evidence set. FOUND is a
+                  statement about evidence completeness, not about future
+                  returns.
+                </p>
+
+                <div class="metrics" style="margin-top: 16px">
+                  <div class="metric metric--accent">
+                    <div class="metric-k">Sharpe net</div>
+                    <div class="metric-v">1.04</div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">DSR · N=60</div>
+                    <div class="metric-v">0.972</div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">PBO</div>
+                    <div class="metric-v">0.31</div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">CAGR net</div>
+                    <div class="metric-v">9.4<small>%</small></div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">Max DD</div>
+                    <div class="metric-v">−11.4<small>%</small></div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-k">Turnover</div>
+                    <div class="metric-v">71<small>%/y</small></div>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="verdict-side">
+                <div class="kv-k" style="margin-bottom: 6px">
+                  Frozen parameters
+                </div>
+                <table class="tbl tbl--compact">
+                  <tbody>
+                    <tr>
+                      <td>lookback</td>
+                      <td class="r num">126</td>
+                    </tr>
+                    <tr>
+                      <td>skip</td>
+                      <td class="r num">21</td>
+                    </tr>
+                    <tr>
+                      <td>rebalance</td>
+                      <td class="r mono">monthly</td>
+                    </tr>
+                    <tr>
+                      <td>weighting</td>
+                      <td class="r mono">inverse_vol</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="kv" style="margin-top: 10px">
+                  <div class="kv-row">
+                    <span class="kv-k">kind</span>
+                    <span class="kv-v">momentum_12_1 <span class="dim">· dsl.v1</span></span>
+                  </div>
+                  <div class="kv-row">
+                    <span class="kv-k">output</span>
+                    <span class="kv-v"
+                      >effective_at → {asset_id: target_weight}</span
+                    >
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- ---------------------- EVIDENCE ------------------------- -->
+          <div class="section-label" style="margin-top: 16px">
+            <h2>Hard gate evidence</h2>
+            <span>evidence/ — raw inputs to every gate decision</span>
+            <span class="rule"></span>
+          </div>
+
+          <div class="cols cols--wide-left">
+            <!-- ---- Gates ---- -->
+            <div class="stack stack--sm">
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >walk_forward <em>walk-forward OOS · expanded</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">pass</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="cols cols--2" style="gap: 20px">
+                    <div>
+                      <div class="kv-k" style="margin-bottom: 17px">
+                        Fold Sharpe · 6 purged folds, 21-bar embargo
+                      </div>
+                      <div class="folds">
+                        <div class="folds-zero"></div>
+                        <div class="fold">
+                          <span class="fold-val">0.94</span>
+                          <span class="fold-up"><i style="height: 100%"></i></span>
+                          <span class="fold-dn"></span>
+                          <span class="fold-lab">F1</span>
+                        </div>
+                        <div class="fold">
+                          <span class="fold-val">0.71</span>
+                          <span class="fold-up"><i style="height: 76%"></i></span>
+                          <span class="fold-dn"></span>
+                          <span class="fold-lab">F2</span>
+                        </div>
+                        <div class="fold">
+                          <span class="fold-val">−0.18</span>
+                          <span class="fold-up"></span>
+                          <span class="fold-dn"><i style="height: 19%"></i></span>
+                          <span class="fold-lab">F3</span>
+                        </div>
+                        <div class="fold">
+                          <span class="fold-val">0.66</span>
+                          <span class="fold-up"><i style="height: 70%"></i></span>
+                          <span class="fold-dn"></span>
+                          <span class="fold-lab">F4</span>
+                        </div>
+                        <div class="fold">
+                          <span class="fold-val">0.83</span>
+                          <span class="fold-up"><i style="height: 88%"></i></span>
+                          <span class="fold-dn"></span>
+                          <span class="fold-lab">F5</span>
+                        </div>
+                        <div class="fold">
+                          <span class="fold-val">0.52</span>
+                          <span class="fold-up"><i style="height: 55%"></i></span>
+                          <span class="fold-dn"></span>
+                          <span class="fold-lab">F6</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="gate-detail" style="margin: 0; padding: 0; border: 0">
+                      <div>
+                        <div class="gd-k">oos_sharpe_mean</div>
+                        <div class="gd-v">0.58</div>
+                      </div>
+                      <div>
+                        <div class="gd-k">oos_sharpe_median</div>
+                        <div class="gd-v">0.69</div>
+                      </div>
+                      <div>
+                        <div class="gd-k">n_positive_folds</div>
+                        <div class="gd-v">5 / 6</div>
+                      </div>
+                      <div>
+                        <div class="gd-k">first / second half</div>
+                        <div class="gd-v">0.63 / 0.54</div>
+                      </div>
+                      <div>
+                        <div class="gd-k">cpcv paths</div>
+                        <div class="gd-v">15</div>
+                      </div>
+                      <div>
+                        <div class="gd-k">nested holdout</div>
+                        <div class="gd-v">0.44</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="gate-line" style="margin-top: 22px">
+                    walk_forward — walk-forward OOS: <b>pass</b> ·
+                    returns_scope=oos · n_folds=6 · embargo=21 ·
+                    regime_stable=true · majority_stable=true ·
+                    cpcv_sharpe_mean=0.51 · cpcv_passes=true · pbo=0.31 ·
+                    pbo_n_strategies=60 · pbo_n_paths=15 · pbo_passes=true ·
+                    holdout_n=504 · holdout_passes=true · cost_bps=5
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Remaining gates <em>collapsed · 5 of 6</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">5 pass</span>
+                </div>
+                <div class="panel-bd panel-bd--tight">
+                  <div class="gates">
+                    <div class="gate">
+                      <span>
+                        <span class="gate-name">dsr</span>
+                        <span class="gate-gloss"
+                          >Deflated Sharpe Ratio ≥ 0.95 · returns_scope=inner_holdout
+                          · n_obs=1 259 · observed_sharpe=1.04 · skew=−0.21 ·
+                          kurtosis=4.8 · <b>N=60 unique ledger trials</b></span
+                        >
+                      </span>
+                      <span class="num" style="text-align: right">
+                        0.972
+                        <span class="badge badge--pass" style="margin-left: 8px"
+                          >pass</span
+                        >
+                      </span>
+                    </div>
+                    <div class="gate">
+                      <span>
+                        <span class="gate-name">vs_benchmark</span>
+                        <span class="gate-gloss"
+                          >Strategy Sharpe 1.04 vs SPY 0.58 on the same window,
+                          both net of 5.0 bps per side</span
+                        >
+                      </span>
+                      <span class="num" style="text-align: right">
+                        +0.46
+                        <span class="badge badge--pass" style="margin-left: 8px"
+                          >pass</span
+                        >
+                      </span>
+                    </div>
+                    <div class="gate">
+                      <span>
+                        <span class="gate-name">vs_buy_hold</span>
+                        <span class="gate-gloss"
+                          >Strategy Sharpe 1.04 vs equal-weight buy-and-hold of
+                          the same 89-name universe 0.61</span
+                        >
+                      </span>
+                      <span class="num" style="text-align: right">
+                        +0.43
+                        <span class="badge badge--pass" style="margin-left: 8px"
+                          >pass</span
+                        >
+                      </span>
+                    </div>
+                    <div class="gate">
+                      <span>
+                        <span class="gate-name">vs_random</span>
+                        <span class="gate-gloss"
+                          >Max drawdown −11.4% vs random median −19.2% · 200
+                          block-bootstrap sims, block 21 · 4th percentile</span
+                        >
+                      </span>
+                      <span class="num" style="text-align: right">
+                        p4
+                        <span class="badge badge--pass" style="margin-left: 8px"
+                          >pass</span
+                        >
+                      </span>
+                    </div>
+                    <div class="gate">
+                      <span>
+                        <span class="gate-name">data_consistency</span>
+                        <span class="gate-gloss"
+                          >Mean relative error against the secondary source
+                          0.31%, threshold 5% · 89 of 89 symbols reconciled</span
+                        >
+                      </span>
+                      <span class="num" style="text-align: right">
+                        0.31%
+                        <span class="badge badge--pass" style="margin-left: 8px"
+                          >pass</span
+                        >
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div class="panel-ft">
+                  Missing, corrupted, or partial evidence prevents
+                  <span class="mono">FOUND</span>. No narrative, judge, or
+                  console action can substitute for a gate.
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Trial ledger <em>trial-ledger.jsonl · 60 lines</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="panel-note mono"
+                    >append-only · 8 of 60 shown</span
+                  >
+                </div>
+                <div class="panel-bd panel-bd--tight">
+                  <table class="tbl tbl--compact">
+                    <thead>
+                      <tr>
+                        <th>trial_id</th>
+                        <th>parameters</th>
+                        <th>revision</th>
+                        <th class="r">Sharpe</th>
+                        <th class="r">DSR</th>
+                        <th>outcome</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="is-lead">
+                        <td class="mono nw">c_f3e2d1c0b9a87654</td>
+                        <td class="mono nw">126 / 21 / m / inv_vol</td>
+                        <td class="dim">none</td>
+                        <td class="r num">1.04</td>
+                        <td class="r num">0.972</td>
+                        <td>
+                          <span class="badge badge--pass">qualified</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono nw">c_9b74a0e5c2d18f36</td>
+                        <td class="mono nw">189 / 21 / m / inv_vol</td>
+                        <td class="dim">method</td>
+                        <td class="r num">0.91</td>
+                        <td class="r num">0.958</td>
+                        <td>
+                          <span class="badge badge--pass">qualified</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono nw">c_4c81f5a2e07b93d1</td>
+                        <td class="mono nw">252 / 21 / m / inv_vol</td>
+                        <td class="dim">none</td>
+                        <td class="r num">0.74</td>
+                        <td class="r num">0.412</td>
+                        <td><span class="badge badge--fail">dsr</span></td>
+                      </tr>
+                      <tr>
+                        <td class="mono nw">c_8e5a1c74b3902fd6</td>
+                        <td class="mono nw">252 / 63 / m / equal</td>
+                        <td class="dim">method</td>
+                        <td class="r num">0.61</td>
+                        <td class="r num">0.374</td>
+                        <td><span class="badge badge--fail">pbo 0.58</span></td>
+                      </tr>
+                      <tr>
+                        <td class="mono nw">c_2b6f8d31c95a07e4</td>
+                        <td class="mono nw">189 / 63 / w / inv_vol</td>
+                        <td class="dim">method</td>
+                        <td class="r num">0.55</td>
+                        <td class="r num">0.221</td>
+                        <td>
+                          <span class="badge badge--fail">regime</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono nw">c_ae03b6c9d4f21e78</td>
+                        <td class="mono nw">126 / 5 / w / equal</td>
+                        <td class="dim">none</td>
+                        <td class="r num">0.42</td>
+                        <td class="r num">0.083</td>
+                        <td>
+                          <span class="badge badge--fail">net cost</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono nw">c_71d9e4f0a2c85b63</td>
+                        <td class="mono nw">315 / 42 / m / equal</td>
+                        <td class="dim">none</td>
+                        <td class="r num">0.19</td>
+                        <td class="r dim">—</td>
+                        <td>
+                          <span class="badge badge--fail">oos ≤ 0</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="mono nw">c_63c07ab8e1d5924f</td>
+                        <td class="mono nw">315 / 5 / w / inv_vol</td>
+                        <td class="dim">none</td>
+                        <td class="r dim">—</td>
+                        <td class="r dim">—</td>
+                        <td>
+                          <span class="badge badge--warn">incomplete</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="panel-ft">
+                  Every candidate and every allowed methodological revision is
+                  represented in multiple-testing accounting. 60 unique ledger
+                  trials is the DSR <span class="mono">N</span>; it is not
+                  shrunk to an effective count.
+                </div>
+              </section>
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Run artifacts <em>runs/j_2026…a1b2c3d4</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="panel-note mono">1.1 GiB</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="tree">
+                    ├── research-spec.yaml <i>4 KiB</i><br />
+                    ├── manifest.yaml <i>engine, env, hashes</i><br />
+                    ├── trial-ledger.jsonl <i>60 lines</i><br />
+                    ├── checkpoints/ <i>14 · 331 MiB</i><br />
+                    ├── candidates.parquet <i>60 rows</i><br />
+                    ├── evidence/ <i>360 files</i><br />
+                    ├── recommendations.json <i>2 queued</i><br />
+                    └── report.md <i>sealed 05:58</i>
+                  </div>
+                  <div class="note" style="margin-top: 11px">
+                    <span class="note-glyph">#</span>
+                    <span
+                      >Replay from the frozen plan, dataset snapshot, engine
+                      version and seed 7 reproduces identical candidate results
+                      and evidence, or fails closed.</span
+                    >
+                  </div>
+                </div>
+              </section>
+
+            </div>
+
+            <!-- ---- Handoff column ---- -->
+            <div class="stack stack--sm">
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Strategy Candidate Bundle <em>strategy.asb</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">asb.v1</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="tree">
+                    <b>strategy.asb</b><br />
+                    ├── bundle.yaml <i>schema, hash, registry_uri</i><br />
+                    ├── strategy.dsl.yaml <i>canonical</i><br />
+                    ├── market-profile.yaml <i>us-equity-daily</i><br />
+                    ├── parameters.yaml <i>frozen</i><br />
+                    ├── risk-envelope.yaml <i>research-stage</i><br />
+                    ├── lineage.yaml <i>run + evidence</i><br />
+                    ├── evidence/ <i>6 gates</i><br />
+                    └── conformance/ <i>fixtures + expected</i>
+                  </div>
+
+                  <div class="hr"></div>
+
+                  <div class="kv kv--wide">
+                    <div class="kv-row">
+                      <span class="kv-k">bundle_id</span>
+                      <span class="kv-v"
+                        ><b>b_1a2b3c4d5e6f7890abcdef1234567890</b></span
+                      >
+                    </div>
+                    <div class="kv-row">
+                      <span class="kv-k">content_hash</span>
+                      <span class="kv-v">sha256:7d41…9e02</span>
+                    </div>
+                    <div class="kv-row">
+                      <span class="kv-k">registry_uri</span>
+                      <span class="kv-v dim">unset · no registry required</span>
+                    </div>
+                    <div class="kv-row">
+                      <span class="kv-k">executables</span>
+                      <span class="kv-v"
+                        ><span class="ok" style="color: #8ee8b9">none</span> · no
+                        .py, .pyc, wheels, notebooks or binaries</span
+                      >
+                    </div>
+                  </div>
+
+                  <div class="note note--accent" style="margin-top: 12px">
+                    <span class="note-glyph">↗</span>
+                    <span
+                      >YAML is the canonical source of truth. AlphaStrategy
+                      loads the bundle with a versioned DSL interpreter — it
+                      never imports Python from the archive.</span
+                    >
+                  </div>
+                </div>
+                <div class="panel-bd" style="padding-top: 0">
+                  <a class="btn btn--primary btn--wide" href="#"
+                    >Export .asb <kbd>⇧E</kbd></a
+                  >
+                  <pre class="code" style="margin-top: 10px">
+<span class="k">$</span> alphaloop export c_f3e2d1c0b9a87654 \
+    --output strategy.asb
+
+FOUND
+Qualifying: c_f3e2d1c0b9a87654
+Exported:   ~/alphaloop/exports/strategy.asb
+Bytes:      412 KiB · sha256 7d41…9e02
+<span class="s">This export does not claim alpha or
+future profitability.</span></pre>
+                </div>
+                <div class="panel-ft">
+                  Export is one-way and requires this human action. Import does
+                  not authorize trading; promotion to paper, shadow, or live is
+                  an independent AlphaStrategy workflow.
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Queued hypotheses <em>待人工审阅</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge badge--pending"
+                    >never auto-executed</span
+                  >
+                </div>
+                <div class="panel-bd panel-bd--tight">
+                  <div class="queued">
+                    <div class="q-item">
+                      <div class="q-hd">
+                        <span class="q-n">01</span>
+                        <span class="badge">economic_change_queued</span>
+                      </div>
+                      <p class="q-statement">
+                        Condition 12-1 momentum on a realized-volatility tercile
+                        and test only the low-vol state.
+                      </p>
+                      <div class="q-meta">
+                        <a
+                          class="btn btn--sm"
+                          href="02-new-research-preflight.html"
+                          >Load into editor</a
+                        >
+                        <span class="mono">requires human approval</span>
+                      </div>
+                    </div>
+                    <div class="q-item">
+                      <div class="q-hd">
+                        <span class="q-n">02</span>
+                        <span class="badge">portability_test_queued</span>
+                      </div>
+                      <p class="q-statement">
+                        Re-run the qualifying parameterization under
+                        crypto-daily as a portability test.
+                      </p>
+                      <div class="q-meta">
+                        <a
+                          class="btn btn--sm"
+                          href="02-new-research-preflight.html"
+                          >Load into editor</a
+                        >
+                        <span class="mono">new spec_id, new run</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="panel-ft">
+                  A new economic hypothesis is never executed silently during
+                  the same overnight run.
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

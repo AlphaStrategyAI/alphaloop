@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alphaloop — New Research / Preflight · static mockup</title>
+    <meta name="viewport" content="width=1440" />
+    <link rel="stylesheet" href="assets/mockups.css" />
+  </head>
+  <body class="v-running">
+    <div class="frame">
+      <div class="foldline"></div>
+
+      <!-- ============================ RAIL ============================ -->
+      <aside class="rail">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <div class="brand-name">alphaloop</div>
+            <div class="brand-sub">Overnight lab</div>
+          </div>
+        </div>
+
+        <div class="rail-label">Console</div>
+        <nav class="nav">
+          <a class="nav-item" href="01-morning-home.html">
+            <span class="nav-glyph">M</span> Morning
+          </a>
+          <a class="nav-item is-active" href="02-new-research-preflight.html">
+            <span class="nav-glyph">N</span> New research
+          </a>
+          <a class="nav-item" href="03-run-progress.html">
+            <span class="nav-glyph">R</span> Active run
+            <span class="nav-tail">1</span>
+          </a>
+          <a class="nav-item" href="04-result-detail.html">
+            <span class="nav-glyph">E</span> Evidence
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">D</span> Datasets
+            <span class="nav-tail">4</span>
+          </a>
+          <a class="nav-item" href="#">
+            <span class="nav-glyph">?</span> Help
+          </a>
+        </nav>
+
+        <div class="rail-label">Loaded from · 载入来源</div>
+        <div class="runlist">
+          <a class="runrow is-active" href="01-morning-home.html">
+            <span class="dot dot--found"></span>
+            <span>
+              <span class="runrow-id">recommendations.json · 01</span>
+              <span class="runrow-meta"
+                >economic_change_queued · vol tercile</span
+              >
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot"></span>
+            <span>
+              <span class="runrow-id">Load example spec</span>
+              <span class="runrow-meta">12-1 momentum, US large caps</span>
+            </span>
+          </a>
+          <a class="runrow" href="#">
+            <span class="dot"></span>
+            <span>
+              <span class="runrow-id">Blank spec</span>
+              <span class="runrow-meta">start from nothing</span>
+            </span>
+          </a>
+        </div>
+
+        <div class="rail-foot">
+          <strong>Local control plane</strong><br />
+          127.0.0.1:8787 · supervisor idle<br />
+          <a href="00-overview.html" style="color: var(--ink-3)">Mockup index →</a>
+        </div>
+      </aside>
+
+      <!-- ============================ STAGE =========================== -->
+      <main class="stage">
+        <header class="topbar">
+          <div>
+            <div class="topbar-title">
+              New research <span>· 睡前提交</span>
+            </div>
+            <div class="topbar-sub">
+              State a hypothesis, review budgets, freeze the protocol. One
+              minute.
+            </div>
+          </div>
+          <div class="topbar-spacer"></div>
+          <span class="chip"><span class="chip-dot"></span>Local</span>
+          <span class="chip chip--mono">dsl.v1</span>
+          <span class="chip chip--warn">Host must stay awake</span>
+          <span class="clock">Sun 23 Aug 2026 · 23:38 <small>UTC+8</small></span>
+        </header>
+
+        <div class="canvas">
+          <!-- ---------------------- STEPPER ------------------------- -->
+          <div class="stepper">
+            <div class="step is-done">
+              <span class="step-n">1</span>
+              <span>
+                <span class="step-k">Hypothesis &amp; market</span>
+                <span class="step-v"
+                  >Economic logic, signal mechanism, scope and profile — frozen
+                  at submit.</span
+                >
+              </span>
+            </div>
+            <div class="step is-done">
+              <span class="step-n">2</span>
+              <span>
+                <span class="step-k">Preflight &amp; protocol preview</span>
+                <span class="step-v"
+                  >7 checks, 1 warning · 48 planned trials · preview matches the
+                  current spec.</span
+                >
+              </span>
+            </div>
+            <div class="step is-now">
+              <span class="step-n">3</span>
+              <span>
+                <span class="step-k">Freeze &amp; submit</span>
+                <span class="step-v"
+                  >Returns a <span class="mono">run_id</span> immediately; the
+                  supervisor owns the run from then on.</span
+                >
+              </span>
+            </div>
+          </div>
+
+          <div
+            class="cols"
+            style="
+              margin-top: 16px;
+              grid-template-columns:
+                minmax(0, 1.12fr) minmax(0, 1fr) minmax(0, 1.02fr);
+            "
+          >
+            <!-- =================== COLUMN 1 =================== -->
+            <div class="stack stack--sm">
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title">Hypothesis <em>假设</em></span>
+                  <span class="spacer"></span>
+                  <span class="badge">immutable once frozen</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="form-grid">
+                    <div class="field">
+                      <span class="field-k"
+                        >Statement <em>economically meaningful</em></span
+                      >
+                      <div class="input input--area input--focus">
+                        In low-volatility regimes, does 12-1 momentum produce
+                        net-of-cost, out-of-sample excess returns in US
+                        large-cap equities?
+                      </div>
+                    </div>
+                    <div class="field">
+                      <span class="field-k">Economic logic</span>
+                      <div class="input">
+                        Past winners keep winning while realized volatility
+                        stays in its lower tercile.
+                      </div>
+                    </div>
+                    <div class="field">
+                      <span class="field-k">Signal mechanism</span>
+                      <div class="select">
+                        <div class="input input--mono">
+                          momentum_12_1 — 12-1 momentum
+                        </div>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <span class="field-k"
+                        >Market scope <em>92 names</em></span
+                      >
+                      <div class="input">
+                        SPX100 constituents, point-in-time, after liquidity
+                        filter
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="panel-ft">
+                  Changing the economic logic, signal mechanism, market scope, or
+                  success metric creates a new hypothesis — never a mid-run
+                  edit.
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Market profile <em>市场配置</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="panel-note"
+                    >Profiles are never ranked together</span
+                  >
+                </div>
+                <div class="panel-bd">
+                  <div class="tiles">
+                    <div class="tile is-on">
+                      <div class="tile-hd">
+                        <span class="radio"></span>
+                        <span class="tile-id">us-equity-daily</span>
+                      </div>
+                      <div class="tile-specs">
+                        <span class="tile-spec"
+                          >Calendar <b>NYSE · 252/y</b></span
+                        >
+                        <span class="tile-spec">Benchmark <b>SPY</b></span>
+                        <span class="tile-spec">Costs <b>5.0 bps/side</b></span>
+                        <span class="tile-spec"
+                          >Survivorship <b>point-in-time</b></span
+                        >
+                      </div>
+                    </div>
+                    <div class="tile">
+                      <div class="tile-hd">
+                        <span class="radio"></span>
+                        <span class="tile-id">crypto-daily</span>
+                      </div>
+                      <div class="tile-specs">
+                        <span class="tile-spec"
+                          >Calendar <b>24/7 · 365/y</b></span
+                        >
+                        <span class="tile-spec">Benchmark <b>BTC-USD</b></span>
+                        <span class="tile-spec"
+                          >Costs <b>10.0 bps/side</b></span
+                        >
+                        <span class="tile-spec"
+                          >Liquidity <b>venue depth</b></span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Dataset snapshot <em>数据快照</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">content-addressed</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="input-row input-row--2">
+                    <div class="field">
+                      <span class="field-k">dataset_id</span>
+                      <div class="input input--mono">ds_spx100_2005_2026</div>
+                    </div>
+                    <div class="field">
+                      <span class="field-k">sha256</span>
+                      <div class="input input--mono">03796e74…bc66bc55</div>
+                    </div>
+                  </div>
+                  <div class="kv kv--wide" style="margin-top: 11px">
+                    <div class="kv-row">
+                      <span class="kv-k">coverage</span>
+                      <span class="kv-v"
+                        >2005-01-03 → 2026-08-22 · <b>5 218</b> sessions</span
+                      >
+                    </div>
+                    <div class="kv-row">
+                      <span class="kv-k">universe</span>
+                      <span class="kv-v"
+                        >92 symbols · OHLCV + adjusted close</span
+                      >
+                    </div>
+                  </div>
+                  <div class="note" style="margin-top: 11px">
+                    <span class="note-glyph">#</span>
+                    <span
+                      >Replay fails closed if this exact content is unavailable
+                      or its hash differs.</span
+                    >
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- =================== COLUMN 2 =================== -->
+            <div class="stack stack--sm">
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Hard gates <em>预先声明的硬性门槛</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">6 required</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="gate-picks" style="grid-template-columns: 1fr">
+                    <div class="pick is-on">
+                      <span class="pick-box"></span>
+                      <span class="pick-k">dsr</span>
+                      <span class="pick-g">Deflated Sharpe Ratio ≥ 0.95</span>
+                    </div>
+                    <div class="pick is-on">
+                      <span class="pick-box"></span>
+                      <span class="pick-k">walk_forward</span>
+                      <span class="pick-g">OOS + CPCV + PBO &lt; 0.50</span>
+                    </div>
+                    <div class="pick is-on">
+                      <span class="pick-box"></span>
+                      <span class="pick-k">vs_benchmark</span>
+                      <span class="pick-g">beat SPY, net of cost</span>
+                    </div>
+                    <div class="pick is-on">
+                      <span class="pick-box"></span>
+                      <span class="pick-k">vs_buy_hold</span>
+                      <span class="pick-g">beat equal-weight hold</span>
+                    </div>
+                    <div class="pick is-on">
+                      <span class="pick-box"></span>
+                      <span class="pick-k">vs_random</span>
+                      <span class="pick-g">200 block-bootstrap sims</span>
+                    </div>
+                    <div class="pick is-on">
+                      <span class="pick-box"></span>
+                      <span class="pick-k">data_consistency</span>
+                      <span class="pick-g">2nd source &lt; 5% error</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="panel-ft">
+                  Only the deterministic gate evaluator can produce
+                  <span class="mono">FOUND</span>. A missing or partial
+                  diagnostic yields
+                  <span class="mono">INCONCLUSIVE</span>, never a pass.
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title">Preflight <em>飞行前检查</em></span>
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">6 pass</span>
+                  <span class="badge badge--warn">1 warn</span>
+                </div>
+                <div class="panel-bd panel-bd--tight">
+                  <div class="checks">
+                    <div class="check">
+                      <span class="check-mark">✓</span>
+                      <span class="check-k"
+                        >Dataset snapshot resolved
+                        <span class="check-v"
+                          >ds_spx100_2005_2026 · 0379…bc55</span
+                        ></span
+                      >
+                      <span class="badge badge--pass">pass</span>
+                    </div>
+                    <div class="check">
+                      <span class="check-mark">✓</span>
+                      <span class="check-k"
+                        >Benchmark aligned
+                        <span class="check-v"
+                          >SPY on NYSE calendar · 0 missing sessions</span
+                        ></span
+                      >
+                      <span class="badge badge--pass">pass</span>
+                    </div>
+                    <div class="check">
+                      <span class="check-mark">✓</span>
+                      <span class="check-k"
+                        >Survivorship &amp; availability
+                        <span class="check-v"
+                          >point-in-time membership present</span
+                        ></span
+                      >
+                      <span class="badge badge--pass">pass</span>
+                    </div>
+                    <div class="check">
+                      <span class="check-mark">✓</span>
+                      <span class="check-k"
+                        >Transaction costs declared
+                        <span class="check-v"
+                          >5.0 bps per side · profile default</span
+                        ></span
+                      >
+                      <span class="badge badge--pass">pass</span>
+                    </div>
+                    <div class="check">
+                      <span class="check-mark">✓</span>
+                      <span class="check-k"
+                        >Search space expressible in DSL
+                        <span class="check-v"
+                          >kind=momentum_12_1 · 48 grid points · dsl.v1</span
+                        ></span
+                      >
+                      <span class="badge badge--pass">pass</span>
+                    </div>
+                    <div class="check">
+                      <span class="check-mark">✓</span>
+                      <span class="check-k"
+                        >Disk headroom
+                        <span class="check-v"
+                          >3.4 GiB free ≥ 64 MiB required</span
+                        ></span
+                      >
+                      <span class="badge badge--pass">pass</span>
+                    </div>
+                    <div class="check check--warn">
+                      <span class="check-mark">!</span>
+                      <span class="check-k"
+                        >Data quality
+                        <span class="check-v"
+                          >2 symbols exceed 2% missing bars after 2007 — the
+                          loop may apply a method revision</span
+                        ></span
+                      >
+                      <span class="badge badge--warn">warn</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="panel-ft">
+                  A preflight error rejects the submission before a formal run
+                  begins. It is not a research outcome.
+                </div>
+              </section>
+            </div>
+
+            <!-- =================== COLUMN 3 =================== -->
+            <div class="stack stack--sm">
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title"
+                    >Protocol preview <em>协议预览</em></span
+                  >
+                  <span class="spacer"></span>
+                  <span class="badge badge--pass">matches spec</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="metrics">
+                    <div class="metric metric--accent">
+                      <div class="metric-k">Planned trials</div>
+                      <div class="metric-v">48</div>
+                    </div>
+                    <div class="metric">
+                      <div class="metric-k">Folds</div>
+                      <div class="metric-v">6<small>+CPCV</small></div>
+                    </div>
+                    <div class="metric">
+                      <div class="metric-k">Seed</div>
+                      <div class="metric-v">7</div>
+                    </div>
+                  </div>
+
+                  <div class="kv kv--wide" style="margin-top: 12px">
+                    <div class="kv-row">
+                      <span class="kv-k">spec_id</span>
+                      <span class="kv-v"
+                        >rs_8c4f2e1a9b0d7f6e5a4c3b2a1f0e9d8c</span
+                      >
+                    </div>
+                  </div>
+
+                  <div class="hr"></div>
+
+                  <div class="kv-k" style="margin-bottom: 8px">
+                    Frozen method grid · 4 × 3 × 2 × 2
+                  </div>
+                  <table class="tbl tbl--compact">
+                    <tbody>
+                      <tr>
+                        <td class="nw">lookback</td>
+                        <td class="mono">126 · 189 · 252 · 315</td>
+                      </tr>
+                      <tr>
+                        <td class="nw">skip</td>
+                        <td class="mono">5 · 21 · 42</td>
+                      </tr>
+                      <tr>
+                        <td class="nw">rebalance</td>
+                        <td class="mono">monthly · weekly</td>
+                      </tr>
+                      <tr>
+                        <td class="nw">weighting</td>
+                        <td class="mono">equal · inverse_vol</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="note note--lock" style="margin-top: 11px">
+                    <span class="note-glyph">Σ</span>
+                    <span
+                      >A method repair may add trials during the run. Every
+                      added trial enters multiple-testing accounting, so
+                      <b>DSR N grows with the ledger</b>.</span
+                    >
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title">Budgets <em>预算</em></span>
+                  <span class="spacer"></span>
+                  <span class="panel-note">estimates from the preview</span>
+                </div>
+                <div class="panel-bd">
+                  <div class="meters">
+                    <div>
+                      <div class="meter-hd">
+                        <span class="meter-k">Time</span>
+                        <span class="meter-v"
+                          >~4h 10m <small>/ 6h 00m</small></span
+                        >
+                      </div>
+                      <div class="meter-track">
+                        <i class="meter-fill meter-fill--live" style="width: 69%"></i>
+                      </div>
+                      <div class="meter-foot">
+                        time_budget_s = 21600 · exhaustion yields
+                        INCONCLUSIVE, not FOUND
+                      </div>
+                    </div>
+                    <div>
+                      <div class="meter-hd">
+                        <span class="meter-k">Compute</span>
+                        <span class="meter-v"
+                          >~$2.90 <small>/ $5.00</small></span
+                        >
+                      </div>
+                      <div class="meter-track">
+                        <i class="meter-fill meter-fill--live" style="width: 58%"></i>
+                      </div>
+                      <div class="meter-foot">
+                        cost_budget_usd = 5.0 · 6 of 8 local cores
+                      </div>
+                    </div>
+                    <div>
+                      <div class="meter-hd">
+                        <span class="meter-k">Disk</span>
+                        <span class="meter-v"
+                          >~1.2 GiB <small>/ 3.4 GiB free</small></span
+                        >
+                      </div>
+                      <div class="meter-track">
+                        <i class="meter-fill meter-fill--warn" style="width: 35%"></i>
+                      </div>
+                      <div class="meter-foot">
+                        checkpoints, evidence, candidates.parquet
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-hd">
+                  <span class="panel-title">On freeze <em>提交返回</em></span>
+                </div>
+                <div class="panel-bd">
+                  <div class="note note--awake">
+                    <span class="note-glyph">☾</span>
+                    <span
+                      ><b>The host must remain awake</b> while a local worker is
+                      running. Closing the browser or terminal does not stop a
+                      job, but suspending or powering off the host stops
+                      computation. Cloud workers are a future option.</span
+                    >
+                  </div>
+                  <label class="ack">
+                    <span class="pick-box"></span> I will leave this host awake
+                    until 07:00.
+                  </label>
+
+                  <div class="hr"></div>
+
+                  <div class="kv kv--wide">
+                    <div class="kv-row">
+                      <span class="kv-k">returns</span>
+                      <span class="kv-v"
+                        ><b>run_id</b> immediately, e.g.
+                        j_20260823T234118Z_a1b2c3d4</span
+                      >
+                    </div>
+                    <div class="kv-row">
+                      <span class="kv-k">job status</span>
+                      <span class="kv-v"
+                        >queued → running <span class="dim">(supervisor)</span></span
+                      >
+                    </div>
+                    <div class="kv-row">
+                      <span class="kv-k">outcome</span>
+                      <span class="kv-v"
+                        >NONE <span class="dim">until evidence is sealed</span></span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- ---------------------- SPEC YAML ----------------------- -->
+          <section class="panel" style="margin-top: 16px">
+            <div class="panel-hd">
+              <span class="panel-title"
+                >Research spec <em>research-spec.yaml · what gets frozen</em></span
+              >
+              <span class="spacer"></span>
+              <span class="badge badge--pass"
+                >preview hash matches this document</span
+              >
+            </div>
+            <div class="panel-bd">
+              <div class="cols cols--2">
+                <pre class="code">
+<span class="k">statement:</span> <span class="s">&gt;-</span>
+  In low-volatility regimes, does 12-1 momentum produce
+  net-of-cost, out-of-sample excess returns in US large-cap equities?
+<span class="k">economic_logic:</span> past winners keep winning while vol stays low
+<span class="k">signal_mechanism:</span> momentum_12_1
+<span class="k">market_scope:</span> SPX100 point-in-time, 92 names
+<span class="k">market_profile:</span> us-equity-daily
+<span class="k">benchmark:</span> SPY
+<span class="k">seed:</span> <span class="n">7</span>
+<span class="k">time_budget_s:</span> <span class="n">21600</span>
+<span class="k">cost_budget_usd:</span> <span class="n">5.0</span></pre>
+                <pre class="code">
+<span class="k">hard_gates:</span> [dsr, walk_forward, vs_benchmark,
+              vs_buy_hold, vs_random, data_consistency]
+<span class="k">dataset:</span>
+  <span class="k">dataset_id:</span> ds_spx100_2005_2026
+  <span class="k">sha256:</span> 03796e74d7eed2595bc882cd345ae796…
+<span class="k">method_grid:</span>
+  <span class="k">lookback:</span> [<span class="n">126</span>, <span class="n">189</span>, <span class="n">252</span>, <span class="n">315</span>]
+  <span class="k">skip:</span> [<span class="n">5</span>, <span class="n">21</span>, <span class="n">42</span>]
+  <span class="k">rebalance:</span> [monthly, weekly]
+  <span class="k">weighting:</span> [equal, inverse_vol]</pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- ---------------------- ACTION BAR ---------------------- -->
+          <div class="actionbar">
+            <span class="disclaimer" style="max-width: 62ch">
+              Freeze is immutable. Editing any field afterwards produces a new
+              <span class="mono">spec_id</span> and a new run. alphaloop does
+              not promise alpha or future profitability.
+            </span>
+            <span class="grow"></span>
+            <span class="chip chip--mono">planned_n_trials 48</span>
+            <a class="btn" href="#">Preview protocol <kbd>⌘⏎</kbd></a>
+            <a class="btn btn--primary" href="03-run-progress.html"
+              >Freeze and submit</a
+            >
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

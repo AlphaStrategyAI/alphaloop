@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>alphaloop — UI mockups index</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="assets/mockups.css" />
+  </head>
+  <body class="sheet v-found">
+    <div class="sheet-wrap">
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 26px;
+        "
+      >
+        <div class="brand-mark"></div>
+        <div>
+          <div class="brand-name">alphaloop</div>
+          <div class="brand-sub">Static UI mockups · 静态界面稿</div>
+        </div>
+      </div>
+
+      <h1>An overnight lab, not a <b>console</b>.</h1>
+      <p class="lede">
+        Four desktop screens for alphaloop's Web surface, drawn from
+        <span class="mono">docs/requirements/product-positioning-requirements.md</span>.
+        The product promise is one minute before bed, a reliable overnight run,
+        and a trustworthy conclusion in five minutes the next morning — so the
+        interface leads with a conclusion and only then shows the evidence
+        behind it. These are static HTML files with a single shared stylesheet.
+        No build step, no backend, no trading.
+      </p>
+
+      <h2>Screens</h2>
+      <div class="cards">
+        <a class="card" href="01-morning-home.html">
+          <span class="card-n">01 · MORNING HOME</span>
+          <h3>The five-minute verdict</h3>
+          <p>
+            One conclusion — <span class="mono">FOUND</span>,
+            <span class="mono">NO_EVIDENCE</span>, or
+            <span class="mono">INCONCLUSIVE</span> — set in display type, with
+            primary evidence and stop reason directly beneath it. Then
+            qualifying candidates, the elimination funnel with dominant failure
+            reasons, the methodological revisions the loop made overnight, and
+            the hypotheses queued for human review.
+          </p>
+          <span class="card-go">Open the FOUND state →</span>
+        </a>
+
+        <a class="card" href="02-new-research-preflight.html">
+          <span class="card-n">02 · NEW RESEARCH / PREFLIGHT</span>
+          <h3>Before bed, in one minute</h3>
+          <p>
+            State a hypothesis, choose a market profile, resolve a
+            content-addressed dataset snapshot, tick the predeclared hard gates,
+            read the seven preflight checks and the compute, time and disk
+            budgets, then freeze the protocol. Freeze returns a
+            <span class="mono">run_id</span> immediately — and discloses that the
+            host must stay awake.
+          </p>
+          <span class="card-go">Open the preflight state →</span>
+        </a>
+
+        <a class="card" href="03-run-progress.html">
+          <span class="card-n">03 · RUN PROGRESS</span>
+          <h3>Alive without the browser</h3>
+          <p>
+            Supervisor pid, heartbeat age, and the latest complete checkpoint
+            prove the job outlives this tab. Search progress runs one tick per
+            planned trial; budgets burn down; the funnel and trial ledger update
+            on a two-second poll. The outcome stays
+            <span class="mono">NONE</span>, and the console cannot override a
+            gate.
+          </p>
+          <span class="card-go">Open the running state →</span>
+        </a>
+
+        <a class="card" href="04-result-detail.html">
+          <span class="card-n">04 · RESULT DETAIL</span>
+          <h3>Evidence, ledger, handoff</h3>
+          <p>
+            One expanded gate with its fold Sharpes, CPCV paths, PBO and nested
+            holdout; five collapsed gates with their raw detail lines; the
+            append-only trial ledger; the run artifact tree. Then the immutable
+            <span class="mono">.asb</span> bundle — manual export, YAML only, no
+            executable files — and the queued hypotheses that are never
+            auto-executed.
+          </p>
+          <span class="card-go">Open the FOUND detail →</span>
+        </a>
+      </div>
+
+      <h2>Verdict palette</h2>
+      <div class="swatches">
+        <div class="swatch">
+          <i
+            style="
+              background: linear-gradient(150deg, #4ade9b, rgba(74, 222, 155, 0.25));
+            "
+          ></i>
+          <b>FOUND</b>
+          <span>#4ADE9B · emerald</span>
+          <span style="color: var(--ink-3); font-family: var(--sans)"
+            >Every predeclared gate passed. Never a promise of alpha.</span
+          >
+        </div>
+        <div class="swatch">
+          <i
+            style="
+              background: linear-gradient(150deg, #f5b544, rgba(245, 181, 68, 0.25));
+            "
+          ></i>
+          <b>INCONCLUSIVE</b>
+          <span>#F5B544 · amber</span>
+          <span style="color: var(--ink-3); font-family: var(--sans)"
+            >Evidence set incomplete: data, budget, or technical failure.</span
+          >
+        </div>
+        <div class="swatch">
+          <i
+            style="
+              background: linear-gradient(150deg, #e0798f, rgba(224, 121, 143, 0.25));
+            "
+          ></i>
+          <b>NO_EVIDENCE</b>
+          <span>#E0798F · muted rose</span>
+          <span style="color: var(--ink-3); font-family: var(--sans)"
+            >A required gate failed. Not proof that alpha is absent.</span
+          >
+        </div>
+        <div class="swatch">
+          <i
+            style="
+              background: linear-gradient(150deg, #7eb8ff, rgba(126, 184, 255, 0.25));
+            "
+          ></i>
+          <b>RUNNING · NONE</b>
+          <span>#7EB8FF · blue</span>
+          <span style="color: var(--ink-3); font-family: var(--sans)"
+            >In flight. Job status is never a research conclusion.</span
+          >
+        </div>
+      </div>
+
+      <h2>Visual system</h2>
+      <div class="cols cols--2" style="align-items: stretch">
+        <section class="panel">
+          <div class="panel-hd">
+            <span class="panel-title">Surface &amp; type</span>
+          </div>
+          <div class="panel-bd">
+            <div class="kv kv--wide">
+              <div class="kv-row">
+                <span class="kv-k">Base</span>
+                <span class="kv-v"
+                  >#05070B → #080B11, with three wide low-opacity light sources
+                  and a 96px hairline grid</span
+                >
+              </div>
+              <div class="kv-row">
+                <span class="kv-k">Panels</span>
+                <span class="kv-v"
+                  >2.6% white glass, 7% hairline border, 18px blur, 18px
+                  radius</span
+                >
+              </div>
+              <div class="kv-row">
+                <span class="kv-k">Display</span>
+                <span class="kv-v"
+                  >Inter 300 at 74–82px, −0.05em tracking, white→accent gradient
+                  fill — verdicts only</span
+                >
+              </div>
+              <div class="kv-row">
+                <span class="kv-k">UI text</span>
+                <span class="kv-v">Inter 400 / 500 / 600 at 10–13px</span>
+              </div>
+              <div class="kv-row">
+                <span class="kv-k">Data</span>
+                <span class="kv-v"
+                  >JetBrains Mono, tabular figures — every id, hash, metric and
+                  gate line</span
+                >
+              </div>
+              <div class="kv-row">
+                <span class="kv-k">Micro-label</span>
+                <span class="kv-v"
+                  >9.5–10px uppercase, 0.13–0.20em tracking, tertiary ink</span
+                >
+              </div>
+              <div class="kv-row">
+                <span class="kv-k">Accent rule</span>
+                <span class="kv-v"
+                  >One hue per screen, bound to the verdict; everything else is
+                  ink and hairline</span
+                >
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-hd">
+            <span class="panel-title">Components</span>
+          </div>
+          <div class="panel-bd">
+            <div class="stack stack--sm">
+              <div>
+                <div class="kv-k" style="margin-bottom: 7px">Verdict hero</div>
+                <div class="verdict-lead" style="margin: 0">
+                  <div class="lead-row">
+                    <span class="lead-k">Primary evidence</span>
+                    <span class="lead-v"
+                      >All 6 required hard gates passed net of 5 bps</span
+                    >
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="kv-k" style="margin-bottom: 7px">
+                  Elimination funnel
+                </div>
+                <div class="funnel">
+                  <div class="fn-row">
+                    <span class="fn-k">Net of cost</span>
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 61.7%"></i
+                    ></span>
+                    <span class="fn-n">37</span>
+                  </div>
+                  <div class="fn-row fn-row--final">
+                    <span class="fn-k">Qualified</span>
+                    <span class="fn-track"
+                      ><i class="fn-fill" style="width: 3.4%"></i
+                    ></span>
+                    <span class="fn-n">2</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="kv-k" style="margin-bottom: 7px">
+                  Gate tokens, badges, search ticks
+                </div>
+                <div class="gate-strip" style="margin-bottom: 8px">
+                  <span class="gtok gtok--pass">dsr 0.972</span>
+                  <span class="gtok gtok--fail">walk_forward</span>
+                  <span class="gtok gtok--warn">data gap</span>
+                  <span class="gtok gtok--pending">at seal</span>
+                </div>
+                <div class="ticks" style="height: 18px">
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--incomplete"></i>
+                  <i class="tick tick--fail"></i>
+                  <i class="tick tick--pass"></i>
+                  <i class="tick tick--active"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                  <i class="tick"></i>
+                </div>
+              </div>
+              <div>
+                <div class="kv-k" style="margin-bottom: 7px">Buttons</div>
+                <div class="btn-row">
+                  <a class="btn btn--primary" href="#">Freeze and submit</a>
+                  <a class="btn" href="#">Preview protocol</a>
+                  <a class="btn btn--quiet" href="#">report.md</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <h2>Scope of these mockups</h2>
+      <section class="panel">
+        <div class="panel-bd">
+          <div class="cols cols--3">
+            <div class="checks">
+              <div class="check">
+                <span class="check-mark">✓</span>
+                <span class="check-k"
+                  >Static HTML + one stylesheet
+                  <span class="check-v"
+                    >openable from disk, no build, no network</span
+                  ></span
+                >
+              </div>
+              <div class="check">
+                <span class="check-mark">✓</span>
+                <span class="check-k"
+                  >Single local user
+                  <span class="check-v"
+                    >no team, auth, or approval UI</span
+                  ></span
+                >
+              </div>
+            </div>
+            <div class="checks">
+              <div class="check check--deny">
+                <span class="check-mark">⊘</span>
+                <span class="check-k"
+                  >No backend or React app
+                  <span class="check-v"
+                    >nothing here is wired to the Job API</span
+                  ></span
+                >
+              </div>
+              <div class="check check--deny">
+                <span class="check-mark">⊘</span>
+                <span class="check-k"
+                  >No trading surface
+                  <span class="check-v"
+                    >export is the boundary; AlphaStrategy owns execution</span
+                  ></span
+                >
+              </div>
+            </div>
+            <div class="checks">
+              <div class="check check--deny">
+                <span class="check-mark">⊘</span>
+                <span class="check-k"
+                  >No requirements changed
+                  <span class="check-v"
+                    >this folder is additive documentation</span
+                  ></span
+                >
+              </div>
+              <div class="check check--warn">
+                <span class="check-mark">!</span>
+                <span class="check-k"
+                  >Sample data is fabricated
+                  <span class="check-v"
+                    >plausible quant research values, not real results</span
+                  ></span
+                >
+              </div>
+            </div>
+          </div>
+          <div class="hr"></div>
+          <p class="disclaimer">
+            alphaloop does not promise alpha or future profitability. The
+            percentage of runs that find alpha is explicitly not a product
+            success metric.
+          </p>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
