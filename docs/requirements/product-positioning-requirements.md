@@ -12,6 +12,8 @@ supersedes: "none — first product-positioning requirements document"
 **Date:** 2026-08-18
 **Status:** Draft for written review
 **Scope:** Product positioning and target architecture
+**Downstream design:** [product-design.md](product-design.md) — feature map,
+screen-level specs, and flows derive from this document.
 
 ## 1. Executive summary
 
