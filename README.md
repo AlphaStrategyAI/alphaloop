@@ -18,7 +18,8 @@ git checkout <commit> -- .   # restore the old tree locally
 ## What is here
 
 - `README.md` — this file
-- `docs/requirements/product-positioning.md` — the product positioning for alphaloop
+- [`docs/requirements/product-positioning.md`](./docs/requirements/product-positioning.md) — the product positioning for alphaloop
+- [`docs/requirements/product-design-v0_0_1.md`](./docs/requirements/product-design-v0_0_1.md) — the v0.0.1 product design (features, IA, flows)
 - `LICENSE` — MIT
 - `.gitignore` — minimal Python/generic ignores
 
