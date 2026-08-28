@@ -20,6 +20,7 @@ git checkout <commit> -- .   # restore the old tree locally
 - `README.md` — this file
 - [`docs/requirements/product-positioning.md`](./docs/requirements/product-positioning.md) — the product positioning for alphaloop
 - [`docs/requirements/product-design-v0_0_1.md`](./docs/requirements/product-design-v0_0_1.md) — the v0.0.1 product design (features, IA, flows)
+- [`docs/requirements/ui-design-v0_0_1.md`](./docs/requirements/ui-design-v0_0_1.md) — the v0.0.1 UI design (shell, tokens, seven screens)
 - `LICENSE` — MIT
 - `.gitignore` — minimal Python/generic ignores
 
