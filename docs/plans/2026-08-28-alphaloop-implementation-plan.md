@@ -110,6 +110,7 @@
 │           ├── capabilities/default.json
 │           ├── src/lib.rs                      # Tauri events and sidecar setup
 │           ├── src/main.rs
+│           ├── src/commands.rs                  # authenticated loopback desktop commands
 │           ├── src/sidecar.rs                  # owned/attached process supervisor
 │           └── tests/sidecar_lifecycle.rs
 ├── packaging/
@@ -144,7 +145,7 @@ Task order is intentionally coupled: each task consumes only interfaces already 
 
 **Interfaces:**
 - Consumes: no application interfaces; Python 3.12 standard library only
-- Produces: `new_research(research_id: str, now: datetime) -> Research`; `all_slots_locked(brief: ResearchBrief) -> bool`; `transition(research: Research, event: ResearchEvent, now: datetime, request: ConfirmRequest | None = None) -> Research`; `Research`, `Version`, `Round`, `Attempt`, `RoundDraft`, `ReviewReport`, `ResearchStatus`, `ResearchEvent`, `ChangeClass`, `ConfirmRequest`, `ResearchBrief`, `Universe`, `CoverageFloor`, `MethodRef`
+- Produces: `new_research(research_id: str, now: datetime) -> Research`; `all_slots_locked(brief: ResearchBrief) -> bool`; `transition(research: Research, event: ResearchEvent, now: datetime, request: ConfirmRequest | None = None) -> Research`; `Research`, `Version`, `Round`, `Attempt`, `RoundDraft`, `ReviewReport`, `Reverification`, `ResearchStatus`, `ResearchEvent`, `ChangeClass`, `ConfirmRequest`, `ResearchBrief`, `Universe`, `CoverageFloor`, `MethodRef`
 
 - [ ] **Step 1: Write the failing state-table test**
 
@@ -267,8 +268,15 @@ def test_running_can_wait_without_opening_a_version(kind: ConfirmKind) -> None:
     assert waiting.versions == research.versions
 
 
-def test_approval_opens_new_version_but_rejection_does_not() -> None:
-    request = ConfirmRequest("c-1", ConfirmKind.ECONOMIC, "改信号", "验证失败", "新版本")
+def test_approval_applies_patch_and_opens_version_but_rejection_does_not() -> None:
+    request = ConfirmRequest(
+        "c-1",
+        ConfirmKind.ECONOMIC,
+        "改信号",
+        "验证失败",
+        "新版本",
+        patch=(("thesis", "带拥挤过滤的低波动回归"),),
+    )
     waiting = replace(
         with_status(ResearchStatus.AWAITING_CONFIRM),
         pending_confirm=request,
@@ -280,6 +288,8 @@ def test_approval_opens_new_version_but_rejection_does_not() -> None:
     assert approved.status is ResearchStatus.RUNNING
     assert len(approved.versions) == 1
     assert approved.versions[0].number == 1
+    assert approved.brief.thesis.value == "带拥挤过滤的低波动回归"
+    assert approved.versions[0].confirmed_changes == request.patch
     assert rejected.status is ResearchStatus.RUNNING
     assert rejected.versions == waiting.versions
 
@@ -339,7 +349,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["build", "mypy", "pyinstaller", "pytest", "ruff"]
+dev = ["build", "mypy", "pandas-stubs", "pyinstaller", "pytest", "ruff"]
 
 [project.scripts]
 alphaloop = "apps.cli.main:main"
@@ -359,6 +369,7 @@ line-length = 100
 [tool.mypy]
 python_version = "3.12"
 strict = true
+ignore_missing_imports = true
 ```
 
 Create `engine/__init__.py`:
@@ -539,6 +550,7 @@ class Version:
     rounds: tuple[Round, ...]
     opened_at: datetime
     opened_by: str
+    confirmed_changes: tuple[tuple[str, object], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -548,6 +560,17 @@ class ConfirmRequest:
     proposed_change: str
     reason: str
     effect: str
+    change_class: ChangeClass = ChangeClass.ECONOMIC
+    patch: tuple[tuple[str, object], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Reverification:
+    round_id: str
+    method_id: str
+    report: VerificationReport
+    passed: bool
+    created_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -563,6 +586,7 @@ class Research:
     export_eligible: bool
     created_at: datetime
     updated_at: datetime
+    reverifications: tuple[Reverification, ...] = ()
 
 
 def new_research(research_id: str, now: datetime) -> Research:
@@ -580,6 +604,7 @@ def new_research(research_id: str, now: datetime) -> Research:
         export_eligible=False,
         created_at=now,
         updated_at=now,
+        reverifications=(),
     )
 ```
 
@@ -595,6 +620,7 @@ from engine.research.models import (
     ResearchBrief,
     ResearchEvent,
     ResearchStatus,
+    Slot,
     Version,
 )
 
@@ -615,18 +641,25 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
 
 
 def _open_version(research: Research, now: datetime, opened_by: str) -> Research:
+    brief = research.brief
+    changes = research.pending_confirm.patch if research.pending_confirm else ()
+    for field_name, value in changes:
+        if hasattr(brief, field_name):
+            brief = replace(brief, **{field_name: Slot(value, True)})
     number = len(research.versions) + 1
     version = Version(
         version_id=f"{research.research_id}-v{number}",
         number=number,
-        brief_snapshot=research.brief,
+        brief_snapshot=brief,
         rounds=(),
         opened_at=now,
         opened_by=opened_by,
+        confirmed_changes=changes,
     )
     return replace(
         research,
         status=ResearchStatus.RUNNING,
+        brief=brief,
         versions=research.versions + (version,),
         current_version_number=number,
         pending_confirm=None,
@@ -759,7 +792,6 @@ Create `tests/test_strategy.py`:
 
 ```python
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pandas as pd
 
@@ -828,10 +860,8 @@ def test_backtest_uses_previous_day_signal_without_lookahead() -> None:
     assert result.notna().all()
 
 
-def test_to_executable_reserves_a_real_path_contract() -> None:
-    path = strategy().to_executable()
-    assert isinstance(path, Path)
-    assert path.name == "run_backtest.py"
+def test_to_executable_is_part_of_the_strategy_contract() -> None:
+    assert callable(strategy().to_executable)
 ```
 
 - [ ] **Step 2: Run the reference strategy test and verify RED**
@@ -850,6 +880,7 @@ from __future__ import annotations
 import json
 import tempfile
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
@@ -865,7 +896,8 @@ Side = Literal["long_only", "long_short"]
 @dataclass(frozen=True, slots=True)
 class MarketPanel:
     prices: pd.DataFrame
-    observed_at: object
+    observed_at: datetime
+    benchmark_prices: pd.Series | None = None
 
     def __post_init__(self) -> None:
         if self.prices.empty or not self.prices.index.is_monotonic_increasing:
@@ -880,11 +912,11 @@ class StrategySpec:
     thesis_locked: str
     universe: Universe
     frequency: Frequency
-    side: Side
     method_set: tuple[MethodRef, ...]
     model_family: str
     lookback_days: int
     entry_z: float
+    side: Side = "long_only"
     max_drawdown_floor: float = -0.25
 
     def __post_init__(self) -> None:
@@ -1300,9 +1332,8 @@ Create `tests/test_gather_specify.py`:
 
 ```python
 from dataclasses import replace
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
-import pandas as pd
 import pytest
 
 from engine.research.gather import DataProfile, Material, MaterialPort, gather
@@ -1603,14 +1634,47 @@ class AkShareDataAdapter:
                     index=pd.to_datetime(raw["date"]),
                     name=symbol,
                 )
-            else:
-                provider_symbol = {
-                    "000300.SH": "sh000300",
-                }.get(symbol, symbol.lower().replace(".", ""))
-                raw = ak.stock_zh_index_daily_em(symbol=provider_symbol)
+            elif symbol.startswith("CN_BOND:"):
+                provider_symbol = symbol.removeprefix("CN_BOND:")
+                raw = ak.bond_zh_hs_daily(symbol=provider_symbol)
                 series = pd.Series(
                     raw["close"].to_numpy(),
                     index=pd.to_datetime(raw["date"]),
+                    name=symbol,
+                )
+            elif symbol.startswith("CN_FUND:"):
+                provider_symbol = symbol.removeprefix("CN_FUND:")
+                raw = ak.fund_etf_hist_em(
+                    symbol=provider_symbol,
+                    period="daily",
+                    start_date=start.strftime("%Y%m%d"),
+                    end_date=end.strftime("%Y%m%d"),
+                    adjust="qfq",
+                )
+                series = pd.Series(
+                    raw["收盘"].to_numpy(),
+                    index=pd.to_datetime(raw["日期"]),
+                    name=symbol,
+                )
+            elif symbol == "000300.SH":
+                raw = ak.stock_zh_index_daily_em(symbol="sh000300")
+                series = pd.Series(
+                    raw["close"].to_numpy(),
+                    index=pd.to_datetime(raw["date"]),
+                    name=symbol,
+                )
+            else:
+                provider_symbol = symbol.split(".")[0]
+                raw = ak.stock_zh_a_hist(
+                    symbol=provider_symbol,
+                    period="daily",
+                    start_date=start.strftime("%Y%m%d"),
+                    end_date=end.strftime("%Y%m%d"),
+                    adjust="qfq",
+                )
+                series = pd.Series(
+                    raw["收盘"].to_numpy(),
+                    index=pd.to_datetime(raw["日期"]),
                     name=symbol,
                 )
             columns[symbol] = series.loc[start.isoformat() : end.isoformat()]
@@ -1629,7 +1693,9 @@ class RoutingDataAdapter:
         end: date,
     ) -> pd.DataFrame:
         is_cn = all(
-            symbol == "CBA00101.CS" or symbol.endswith((".SH", ".SZ"))
+            symbol == "CBA00101.CS"
+            or symbol.startswith(("CN_BOND:", "CN_FUND:"))
+            or symbol.endswith((".SH", ".SZ"))
             for symbol in symbols
         )
         return (
@@ -1850,6 +1916,8 @@ def test_required_metrics_are_compounded_and_finite() -> None:
         oos_segment_returns=(0.02, 0.03, 0.01),
         top_20_crowding_sharpe_impact=0.05,
         annual_turnover=1.0,
+        covered_assets=2,
+        missing_pct=0.0,
     )
 
     report = calculate_metrics(strategy, benchmark, "SPX", diagnostics)
@@ -1950,6 +2018,8 @@ class SimulationDiagnostics:
     oos_segment_returns: tuple[float, ...]
     top_20_crowding_sharpe_impact: float
     annual_turnover: float
+    covered_assets: int
+    missing_pct: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -1970,6 +2040,8 @@ class SimulationReport:
     top_20_crowding_sharpe_impact: float
     annual_turnover: float
     observations: int
+    covered_assets: int
+    missing_pct: float
 
 
 def benchmark_for(universe: Universe) -> BenchmarkSpec:
@@ -2026,6 +2098,8 @@ def calculate_metrics(
         top_20_crowding_sharpe_impact=diagnostics.top_20_crowding_sharpe_impact,
         annual_turnover=diagnostics.annual_turnover,
         observations=len(aligned),
+        covered_assets=diagnostics.covered_assets,
+        missing_pct=diagnostics.missing_pct,
     )
 ```
 
@@ -2033,7 +2107,9 @@ Create `engine/research/simulate.py`:
 
 ```python
 from datetime import UTC, date, datetime
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from engine.metrics import (
@@ -2060,25 +2136,46 @@ def simulate_daily(
     benchmark_prices = data_port.load_daily((benchmark.benchmark_id,), start, end)
     if snapshot_path is not None:
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-        prices.to_csv(snapshot_path, index_label="date")
-    panel = MarketPanel(prices, datetime.now(UTC))
+        snapshot = prices.copy()
+        snapshot["__benchmark__"] = benchmark_prices[benchmark.benchmark_id].reindex(
+            snapshot.index
+        )
+        snapshot.to_csv(snapshot_path, index_label="date")
+    panel = MarketPanel(
+        prices,
+        datetime.now(UTC),
+        benchmark_prices[benchmark.benchmark_id],
+    )
     strategy_returns = run_daily_backtest(strategy, panel)
     benchmark_returns = benchmark_prices[benchmark.benchmark_id].pct_change(fill_method=None).fillna(0.0)
-    split = max(1, len(strategy_returns) // 2)
-    in_sample = strategy_returns.iloc[:split]
-    out_sample = strategy_returns.iloc[split:]
 
     def sharpe(values: pd.Series) -> float:
         std = float(values.std(ddof=1))
         return 0.0 if std == 0.0 else float(values.mean() / std * (252**0.5))
 
-    segments = tuple(float(segment.sum()) for segment in pd.array_split(out_sample, 3))
+    split_points = np.linspace(0, len(strategy_returns), 7, dtype=int)
+    in_sample_sharpes = []
+    out_sample_sharpes = []
+    segment_returns = []
+    for split in range(1, 6):
+        train = strategy_returns.iloc[: split_points[split]]
+        test = strategy_returns.iloc[split_points[split] : split_points[split + 1]]
+        in_sample_sharpes.append(sharpe(train))
+        out_sample_sharpes.append(sharpe(test))
+        segment_returns.append(float((1.0 + test).prod() - 1.0))
+    raw_signals = strategy.generate_signals(panel).shift(1).fillna(0.0)
+    gross = raw_signals.abs().sum(axis=1).replace(0.0, 1.0)
+    weights = raw_signals.div(gross, axis=0)
+    concentration = weights.abs().max(axis=1)
+    crowded = strategy_returns[concentration >= concentration.quantile(0.8)]
     diagnostics = SimulationDiagnostics(
-        sharpe_oos=sharpe(out_sample),
-        sharpe_is=sharpe(in_sample),
-        oos_segment_returns=segments,
-        top_20_crowding_sharpe_impact=0.0,
-        annual_turnover=float(strategy.generate_signals(panel).diff().abs().sum().sum() / len(prices)),
+        sharpe_oos=float(np.mean(out_sample_sharpes)),
+        sharpe_is=float(np.mean(in_sample_sharpes)),
+        oos_segment_returns=tuple(segment_returns),
+        top_20_crowding_sharpe_impact=sharpe(crowded),
+        annual_turnover=float(weights.diff().abs().sum().sum() / len(prices) * 252),
+        covered_assets=int(prices.notna().any(axis=0).sum()),
+        missing_pct=float(prices.isna().to_numpy().mean() * 100),
     )
     return calculate_metrics(
         strategy_returns,
@@ -2160,6 +2257,8 @@ def passing_report() -> SimulationReport:
         top_20_crowding_sharpe_impact=0.01,
         annual_turnover=1.0,
         observations=756,
+        covered_assets=1,
+        missing_pct=0.0,
     )
 
 
@@ -2194,6 +2293,7 @@ def test_each_locked_gate_can_fail(field: str, value: object, failed: str) -> No
 
 
 def test_costs_are_10bp_us_and_20bp_cn() -> None:
+    assert VERIFIER_REVISIONS["overfit.walk"]["n_splits"] == 5
     assert VERIFIER_REVISIONS["cost.turnover"]["us_cost_bp"] == 10
     assert VERIFIER_REVISIONS["cost.turnover"]["cn_cost_bp"] == 20
     us = run_verifiers(passing_report(), spec(Market.US))
@@ -2235,6 +2335,7 @@ VERIFIER_REVISIONS = MappingProxyType(
         },
         "overfit.walk": {
             "revision": "walk-v1",
+            "n_splits": 5,
             "oos_to_is_min": 0.6,
             "sharpe_oos_min_exclusive": 0.0,
         },
@@ -2300,9 +2401,13 @@ def run_verifiers(report: SimulationReport, spec: StrategySpec) -> VerificationR
         "sharpe_oos > 0 and sharpe_oos / sharpe_is >= 0.6",
     )
     segments = report.oos_segment_returns
-    positives = sum(value > 0 for value in segments)
-    negatives = sum(value < 0 for value in segments)
-    same_sign_ratio = max(positives, negatives) / len(segments) if segments else 0.0
+    sign = lambda value: (value > 0) - (value < 0)
+    first_sign = sign(segments[0]) if segments else 0
+    same_sign_ratio = (
+        sum(sign(value) == first_sign for value in segments) / len(segments)
+        if segments
+        else 0.0
+    )
     stability = VerifierResult(
         "stability.oos",
         "stability-v1",
@@ -2352,14 +2457,13 @@ git commit -m "feat(engine): enforce benchmark and robustness gates"
 
 **Interfaces:**
 - Consumes: `RoundDraft`, `Attempt`, `Round`, `ReviewReport`, `ReviewFinding`, `ConfirmRequest`, `ConfirmKind`
-- Produces: `ReviewerPort.run(self, round_draft: RoundDraft) -> ReviewReport`; `LLMPort.complete(self, system: str, user: str) -> str`; `OpenAICompatibleLLM`; `SubagentReviewer`; `run_review_gate(initial: RoundDraft, reviewer: ReviewerPort, retry: RetryFactory, now: datetime) -> ReviewGateOutcome`; `FROZEN_REVIEW_RUBRIC`; `MAX_CONSECUTIVE_REVIEW_FAILURES = 3`
+- Produces: `ReviewerPort.run(self, round_draft: RoundDraft) -> ReviewReport`; `LLMPort.complete(self, system: str, user: str) -> str`; `OpenAICompatibleLLM`; `SubagentReviewer`; `run_review_gate(initial: RoundDraft, reviewer: ReviewerPort, retry: RetryFactory, now: datetime, prior_failures: int = 0, on_attempt: AttemptSink | None = None) -> ReviewGateOutcome`; `FROZEN_REVIEW_RUBRIC`; `MAX_CONSECUTIVE_REVIEW_FAILURES = 3`
 
 - [ ] **Step 1: Write the failing strict-result, retry, pass, and cap tests**
 
 Create `tests/test_reviewer.py`:
 
 ```python
-from dataclasses import replace
 from datetime import UTC, datetime
 
 from engine.research.models import (
@@ -2483,6 +2587,25 @@ def test_three_failures_never_create_a_round_or_advance_version() -> None:
     assert outcome.confirm_request is not None
     assert outcome.confirm_request.kind.value == "review_blocked"
     assert outcome.version_number == 1
+
+
+def test_restart_with_two_persisted_failures_runs_only_attempt_three() -> None:
+    failed = (
+        '{"passed":false,"findings":[{"code":"lookahead","message":"future data"}],'
+        '"required_changes":"lag inputs"}'
+    )
+    recorded = []
+    outcome = run_review_gate(
+        draft(3),
+        SubagentReviewer(SequenceLLM([failed])),
+        lambda prior, report: draft(prior.attempt.number + 1),
+        NOW,
+        prior_failures=2,
+        on_attempt=recorded.append,
+    )
+    assert [attempt.number for attempt in recorded] == [3]
+    assert outcome.successful_round is None
+    assert outcome.confirm_request is not None
 ```
 
 - [ ] **Step 2: Run the reviewer test and verify RED**
@@ -2590,11 +2713,11 @@ class SubagentReviewer:
             "metrics": repr(attempt.simulation),
             "verification": repr(attempt.verification),
         }
-        raw = self.llm.complete(
-            FROZEN_REVIEW_RUBRIC,
-            json.dumps(payload, sort_keys=True, default=str),
-        )
         try:
+            raw = self.llm.complete(
+                FROZEN_REVIEW_RUBRIC,
+                json.dumps(payload, sort_keys=True, default=str),
+            )
             parsed = json.loads(raw)
             if set(parsed) - {"passed", "findings", "required_changes"}:
                 raise ValueError("unexpected review field")
@@ -2608,7 +2731,15 @@ class SubagentReviewer:
             if not parsed["passed"] and not required:
                 raise ValueError("failed review requires required_changes")
             return ReviewReport(parsed["passed"], findings, required)
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+            json.JSONDecodeError,
+            httpx.HTTPError,
+            TimeoutError,
+            OSError,
+        ) as error:
             return ReviewReport(
                 passed=False,
                 findings=(ReviewFinding("review_protocol", str(error)),),
@@ -2617,6 +2748,7 @@ class SubagentReviewer:
 
 
 RetryFactory = Callable[[RoundDraft, ReviewReport], RoundDraft]
+AttemptSink = Callable[[Attempt], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -2632,13 +2764,22 @@ def run_review_gate(
     reviewer: ReviewerPort,
     retry: RetryFactory,
     now: datetime,
+    prior_failures: int = 0,
+    on_attempt: AttemptSink | None = None,
 ) -> ReviewGateOutcome:
+    if not 0 <= prior_failures < MAX_CONSECUTIVE_REVIEW_FAILURES:
+        raise ValueError("prior_failures must be 0, 1, or 2")
     current = initial
     attempts: list[Attempt] = []
-    for failure_count in range(MAX_CONSECUTIVE_REVIEW_FAILURES):
+    for failure_count in range(
+        prior_failures,
+        MAX_CONSECUTIVE_REVIEW_FAILURES,
+    ):
         report = reviewer.run(current)
         reviewed_attempt = replace(current.attempt, review=report)
         attempts.append(reviewed_attempt)
+        if on_attempt is not None:
+            on_attempt(reviewed_attempt)
         if report.passed:
             return ReviewGateOutcome(
                 version_number=initial.version_number,
@@ -2675,7 +2816,7 @@ def run_review_gate(
 
 Run: `python -m pytest tests/test_reviewer.py -q && python -m mypy engine/review`
 
-Expected: PASS with `4 passed`; mypy exits `0`.
+Expected: PASS with `5 passed`; mypy exits `0`.
 
 - [ ] **Step 5: Commit the mandatory review gate**
 
@@ -2688,6 +2829,7 @@ git commit -m "feat(engine): gate every round on subagent review"
 
 **Files:**
 - Modify: `pyproject.toml`
+- Modify: `engine/research/models.py`
 - Create: `engine/research/clock.py`
 - Create: `engine/research/store.py`
 - Create: `engine/research/runtime.py`
@@ -2717,14 +2859,17 @@ from engine.research.models import (
     Attempt,
     ChangeClass,
     ConfirmKind,
+    CoverageFloor,
     Market,
     ResearchStatus,
     ReviewReport,
     RoundDraft,
+    Slot,
     Universe,
     new_research,
 )
 from engine.research.runtime import EngineLock, RuntimePaths, read_live_owner
+from engine.research.specify import ProposedChange
 from engine.research.store import SQLiteStore
 from engine.review.subagent import ReviewerPort
 from engine.strategy import StrategySpec
@@ -2770,6 +2915,8 @@ def simulation() -> SimulationReport:
         top_20_crowding_sharpe_impact=0.01,
         annual_turnover=1.0,
         observations=756,
+        covered_assets=1,
+        missing_pct=0.0,
     )
 
 
@@ -2810,6 +2957,25 @@ class FakeBuilder(RoundBuilder):
 
     def build_for_retry(self, attempt_number: int) -> RoundDraft:
         return self.build(new_research("ignored", NOW), attempt_number)
+
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange(
+            "lookback_days",
+            accepted.spec.lookback_days,
+            accepted.spec.lookback_days + 5,
+        )
+
+
+class EconomicBuilder(FakeBuilder):
+    def build(self, research, attempt_number: int) -> RoundDraft:
+        draft = super().build(research, attempt_number)
+        return replace(
+            draft,
+            attempt=replace(draft.attempt, verification=report(False)),
+        )
+
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange("max_drawdown_floor", -0.25, -0.30)
 
 
 class PassReviewer(ReviewerPort):
@@ -2876,6 +3042,7 @@ def test_three_review_failures_wait_without_round_or_version_advance(tmp_path: P
     assert result.current_version_number == 1
     assert result.versions[0].rounds == ()
     assert store.last_completed_round("r-loop") == 0
+    assert store.review_failure_count("r-loop", 1, 1) == 3
 
 
 def test_paused_loop_does_no_work_or_clock_charge(tmp_path: Path) -> None:
@@ -2893,6 +3060,49 @@ def test_paused_loop_does_no_work_or_clock_charge(tmp_path: Path) -> None:
     assert result == paused
     assert builder.calls == 0
     assert result.effective_seconds == 3.0
+
+
+def test_economic_next_change_waits_and_applies_only_after_approval(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    loop = ResearchLoop(
+        store,
+        EconomicBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    )
+
+    waiting = loop.run_once("r-loop")
+
+    assert waiting.status is ResearchStatus.AWAITING_CONFIRM
+    assert waiting.current_version_number == 1
+    assert waiting.pending_confirm is not None
+    assert waiting.pending_confirm.kind is ConfirmKind.ECONOMIC
+    assert waiting.pending_confirm.patch == (("max_drawdown_floor", -0.30),)
+
+
+def test_coverage_below_any_locked_floor_dimension_waits(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    research = running_research()
+    research = replace(
+        research,
+        brief=replace(
+            research.brief,
+            coverage_floor=Slot(CoverageFloor(2, 10, 0.0), True),
+        ),
+    )
+    store.create(research)
+    waiting = ResearchLoop(
+        store,
+        FakeBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert waiting.status is ResearchStatus.AWAITING_CONFIRM
+    assert waiting.pending_confirm is not None
+    assert waiting.pending_confirm.kind is ConfirmKind.COVERAGE
 
 
 def test_sqlite_round_trip_and_heartbeat(tmp_path: Path) -> None:
@@ -2916,11 +3126,179 @@ Expected: FAIL during collection with `ModuleNotFoundError: No module named 'eng
 
 - [ ] **Step 3: Implement the running clock, lifetime lock, transactional store, and one-round orchestration**
 
-Add `"cattrs",` to the `[project].dependencies` array in `pyproject.toml`.
+Replace `pyproject.toml` with the complete dependency set:
 
-Modify `engine/research/models.py` so the `Attempt` review is absent before the mandatory reviewer runs, and guard `Round` accordingly:
+```toml
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alphaloop"
+version = "0.2.0"
+requires-python = ">=3.12"
+dependencies = [
+  "akshare",
+  "cattrs",
+  "httpx",
+  "jsonschema",
+  "numpy",
+  "pandas",
+  "platformdirs",
+  "portalocker",
+  "yfinance",
+]
+
+[project.optional-dependencies]
+dev = ["build", "mypy", "pandas-stubs", "pyinstaller", "pytest", "ruff"]
+
+[project.scripts]
+alphaloop = "apps.cli.main:main"
+alphaloop-engine = "engine.main:main"
+
+[tool.setuptools.packages.find]
+include = ["engine*", "apps*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+```
+
+Replace `engine/research/models.py` with this complete final domain model:
 
 ```python
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import StrEnum
+from pathlib import Path
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+if TYPE_CHECKING:
+    from engine.metrics import SimulationReport
+    from engine.strategy import StrategySpec
+    from engine.verifiers import VerificationReport
+
+T = TypeVar("T")
+
+
+class ResearchStatus(StrEnum):
+    DRAFT = "draft"
+    RUNNING = "running"
+    AWAITING_CONFIRM = "awaiting_confirm"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    ENDED = "ended"
+
+
+class ResearchEvent(StrEnum):
+    EDIT_DRAFT = "edit_draft"
+    CONFIRM_RUN = "confirm_run"
+    AUTO_CONTINUE = "auto_continue"
+    REQUEST_CONFIRM = "request_confirm"
+    PAUSE = "pause"
+    CONFIRM_APPROVE = "confirm_approve"
+    CONFIRM_REJECT = "confirm_reject"
+    CONFIRM_PAUSE = "confirm_pause"
+    RESUME = "resume"
+    COMPLETE = "complete"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    REVERIFY_PASS = "reverify_pass"
+    REVERIFY_FAIL = "reverify_fail"
+    MODIFY_CONFIRM = "modify_confirm"
+    EXTEND_CONFIRM = "extend_confirm"
+    WAIT = "wait"
+
+
+class Market(StrEnum):
+    US = "US"
+    CN = "CN"
+
+
+class AssetClass(StrEnum):
+    EQUITY = "equity"
+    BOND = "bond"
+    FUND = "fund"
+
+
+class ChangeClass(StrEnum):
+    PARAM = "param"
+    MODEL = "model"
+    ECONOMIC = "economic"
+    COVERAGE = "coverage"
+
+
+class ConfirmKind(StrEnum):
+    ECONOMIC = "economic"
+    COVERAGE = "coverage"
+    REVIEW_BLOCKED = "review_blocked"
+
+
+@dataclass(frozen=True, slots=True)
+class Slot(Generic[T]):
+    value: T | None = None
+    locked: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Universe:
+    market: Market
+    asset_class: AssetClass
+    underlying_asset_class: AssetClass
+    symbols: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.asset_class is not AssetClass.FUND and self.underlying_asset_class is not self.asset_class:
+            raise ValueError("non-fund underlying asset class must match asset class")
+        if self.underlying_asset_class is AssetClass.FUND:
+            raise ValueError("fund underlying asset class must be equity or bond")
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageFloor:
+    min_assets: int
+    min_years: int
+    max_missing_pct: float
+
+
+@dataclass(frozen=True, slots=True)
+class MethodRef:
+    method_id: str
+    revision_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchBrief:
+    thesis: Slot[str] = field(default_factory=Slot)
+    universe: Slot[Universe] = field(default_factory=Slot)
+    max_effective_hours: Slot[float] = field(default_factory=Slot)
+    round1_methods: Slot[tuple[MethodRef, ...]] = field(default_factory=Slot)
+    coverage_floor: Slot[CoverageFloor] = field(default_factory=Slot)
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewFinding:
+    code: str
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewReport:
+    passed: bool
+    findings: tuple[ReviewFinding, ...]
+    required_changes: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class Attempt:
     attempt_id: str
@@ -2944,6 +3322,79 @@ class Round:
     def __post_init__(self) -> None:
         if self.accepted_attempt.review is None or not self.accepted_attempt.review.passed:
             raise ValueError("a successful Round requires a passed review")
+
+
+@dataclass(frozen=True, slots=True)
+class RoundDraft:
+    version_number: int
+    round_number: int
+    attempt: Attempt
+
+
+@dataclass(frozen=True, slots=True)
+class Version:
+    version_id: str
+    number: int
+    brief_snapshot: ResearchBrief
+    rounds: tuple[Round, ...]
+    opened_at: datetime
+    opened_by: str
+    confirmed_changes: tuple[tuple[str, object], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmRequest:
+    request_id: str
+    kind: ConfirmKind
+    proposed_change: str
+    reason: str
+    effect: str
+    change_class: ChangeClass = ChangeClass.ECONOMIC
+    patch: tuple[tuple[str, object], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Reverification:
+    round_id: str
+    method_id: str
+    report: VerificationReport
+    passed: bool
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class Research:
+    research_id: str
+    status: ResearchStatus
+    brief: ResearchBrief
+    versions: tuple[Version, ...]
+    current_version_number: int | None
+    pending_confirm: ConfirmRequest | None
+    consecutive_review_failures: int
+    effective_seconds: float
+    export_eligible: bool
+    created_at: datetime
+    updated_at: datetime
+    reverifications: tuple[Reverification, ...] = ()
+
+
+def new_research(research_id: str, now: datetime) -> Research:
+    if now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    return Research(
+        research_id=research_id,
+        status=ResearchStatus.DRAFT,
+        brief=ResearchBrief(),
+        versions=(),
+        current_version_number=None,
+        pending_confirm=None,
+        consecutive_review_failures=0,
+        effective_seconds=0.0,
+        export_eligible=False,
+        created_at=now,
+        updated_at=now,
+        reverifications=(),
+    )
 ```
 
 Create `engine/research/clock.py`:
@@ -3073,7 +3524,7 @@ from pathlib import Path
 
 import cattrs
 
-from engine.research.models import Research
+from engine.research.models import Attempt, Research
 from engine.research.runtime import OwnerRecord
 
 CONVERTER = cattrs.Converter()
@@ -3096,6 +3547,15 @@ CREATE TABLE IF NOT EXISTS engine_heartbeat (
     pid INTEGER NOT NULL,
     heartbeat_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS review_attempts (
+    attempt_id TEXT PRIMARY KEY,
+    research_id TEXT NOT NULL,
+    version_number INTEGER NOT NULL,
+    round_number INTEGER NOT NULL,
+    passed INTEGER NOT NULL,
+    attempt_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -3113,7 +3573,7 @@ class ConcurrentWrite(RuntimeError):
 class SQLiteStore:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.connection = sqlite3.connect(path)
+        self.connection = sqlite3.connect(path, check_same_thread=False)
         self.connection.executescript(SCHEMA)
 
     @staticmethod
@@ -3167,6 +3627,50 @@ class SQLiteStore:
         ).fetchone()
         return int(row[0]) if row else 0
 
+    def record_review_attempt(
+        self,
+        research_id: str,
+        version_number: int,
+        round_number: int,
+        attempt: Attempt,
+        now: datetime,
+    ) -> None:
+        if attempt.review is None:
+            raise ValueError("review attempt must contain ReviewReport")
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO review_attempts(
+                    attempt_id,research_id,version_number,round_number,
+                    passed,attempt_json,created_at
+                ) VALUES(?,?,?,?,?,?,?)
+                """,
+                (
+                    attempt.attempt_id,
+                    research_id,
+                    version_number,
+                    round_number,
+                    int(attempt.review.passed),
+                    json.dumps(CONVERTER.unstructure(attempt), sort_keys=True),
+                    now.isoformat(),
+                ),
+            )
+
+    def review_failure_count(
+        self,
+        research_id: str,
+        version_number: int,
+        round_number: int,
+    ) -> int:
+        row = self.connection.execute(
+            """
+            SELECT COUNT(*) FROM review_attempts
+             WHERE research_id=? AND version_number=? AND round_number=? AND passed=0
+            """,
+            (research_id, version_number, round_number),
+        ).fetchone()
+        return int(row[0])
+
     def heartbeat(self, owner: OwnerRecord, now: datetime) -> None:
         with self.connection:
             self.connection.execute(
@@ -3193,6 +3697,7 @@ Create `engine/research/loop.py`:
 ```python
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime
@@ -3204,6 +3709,9 @@ from engine.research.clock import TimeBudget
 from engine.research.models import (
     Attempt,
     ChangeClass,
+    ConfirmKind,
+    ConfirmRequest,
+    CoverageFloor,
     Research,
     ResearchEvent,
     ResearchStatus,
@@ -3211,7 +3719,12 @@ from engine.research.models import (
     RoundDraft,
 )
 from engine.research.simulate import simulate_daily
-from engine.research.specify import ModelProposal, specify
+from engine.research.specify import (
+    ModelProposal,
+    ProposedChange,
+    classify_change,
+    specify,
+)
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.review.subagent import ReviewerPort, run_review_gate
@@ -3226,6 +3739,10 @@ class RoundBuilder(Protocol):
 
     def retry(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
         """Choose a different param/model/research auto-change under the same version."""
+        raise NotImplementedError
+
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        """Propose the next change; the loop classifies it before proceeding."""
         raise NotImplementedError
 
 
@@ -3248,7 +3765,8 @@ class DefaultRoundBuilder:
         evidence_root.mkdir(parents=True, exist_ok=True)
         evidence_paths = []
         for material in materials:
-            path = evidence_root / f"{material.material_id.replace(':', '-')}.json"
+            digest = hashlib.sha256(material.material_id.encode("utf-8")).hexdigest()
+            path = evidence_root / f"{digest}.json"
             path.write_text(
                 json.dumps(asdict(material), sort_keys=True, default=str),
                 encoding="utf-8",
@@ -3256,7 +3774,7 @@ class DefaultRoundBuilder:
             evidence_paths.append(path)
         version = research.versions[research.current_version_number - 1]
         prior = version.rounds[-1].accepted_attempt.spec if version.rounds else None
-        lookback = prior.lookback_days + 5 if prior else 20
+        lookback = prior.lookback_days + 5 if prior else 20 + 5 * (attempt_number - 1)
         proposal = ModelProposal(
             model_family=prior.model_family if prior else "mean_reversion",
             lookback_days=lookback,
@@ -3264,6 +3782,13 @@ class DefaultRoundBuilder:
             side=prior.side if prior else "long_only",
         )
         spec = specify(research, prior, proposal)
+        spec_patch = {
+            name: value
+            for name, value in version.confirmed_changes
+            if name in {"model_family", "lookback_days", "entry_z", "side", "max_drawdown_floor"}
+        }
+        if spec_patch:
+            spec = replace(spec, **spec_patch)
         strategy = MeanReversionStrategy(spec)
         round_number = len(version.rounds) + 1
         snapshot = self.snapshot_root / (
@@ -3283,7 +3808,11 @@ class DefaultRoundBuilder:
             attempt=Attempt(
                 attempt_id=f"v{version.number}-r{round_number}-a{attempt_number}",
                 number=attempt_number,
-                change_class=ChangeClass.MODEL if prior is None else ChangeClass.PARAM,
+                change_class=(
+                    ChangeClass.MODEL
+                    if prior is None and attempt_number == 1
+                    else ChangeClass.PARAM
+                ),
                 spec=spec,
                 simulation=simulation,
                 verification=verification,
@@ -3323,6 +3852,13 @@ class DefaultRoundBuilder:
             ),
         )
 
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange(
+            field="lookback_days",
+            before=accepted.spec.lookback_days,
+            after=accepted.spec.lookback_days + 5,
+        )
+
 
 class ResearchLoop:
     def __init__(
@@ -3345,13 +3881,35 @@ class ResearchLoop:
             return research
         expected_updated_at = research.updated_at
         self.budget.begin(research.status)
-        draft = self.builder.build(research, 1)
-        outcome = run_review_gate(draft, self.reviewer, self.builder.retry, self.now())
+        version_number = research.current_version_number
+        if version_number is None:
+            raise ValueError("running research must have a current version")
+        round_number = len(research.versions[version_number - 1].rounds) + 1
+        prior_failures = self.store.review_failure_count(
+            research.research_id,
+            version_number,
+            round_number,
+        )
+        draft = self.builder.build(research, prior_failures + 1)
+        outcome = run_review_gate(
+            draft,
+            self.reviewer,
+            self.builder.retry,
+            self.now(),
+            prior_failures=prior_failures,
+            on_attempt=lambda attempt: self.store.record_review_attempt(
+                research.research_id,
+                version_number,
+                round_number,
+                attempt,
+                self.now(),
+            ),
+        )
         if outcome.successful_round is None:
             blocked = transition(
                 replace(
                     research,
-                    consecutive_review_failures=len(outcome.attempts),
+                    consecutive_review_failures=prior_failures + len(outcome.attempts),
                 ),
                 ResearchEvent.REQUEST_CONFIRM,
                 self.now(),
@@ -3361,9 +3919,7 @@ class ResearchLoop:
             self.store.save(result, expected_updated_at)
             return result
 
-        version_index = research.current_version_number
-        if version_index is None:
-            raise ValueError("running research must have a current version")
+        version_index = version_number
         versions = list(research.versions)
         current = versions[version_index - 1]
         versions[version_index - 1] = replace(
@@ -3377,7 +3933,36 @@ class ResearchLoop:
             updated_at=self.now(),
         )
         charged = self.budget.finish(running)
-        if outcome.successful_round.accepted_attempt.verification.passed:
+        accepted = outcome.successful_round.accepted_attempt
+        floor = charged.brief.coverage_floor.value
+        coverage_breached = floor is not None and (
+            accepted.simulation.observations < floor.min_years * 252
+            or accepted.simulation.covered_assets < floor.min_assets
+            or accepted.simulation.missing_pct > floor.max_missing_pct
+        )
+        if floor is not None and coverage_breached:
+            observed_years = max(1, accepted.simulation.observations // 252)
+            lowered = CoverageFloor(
+                min_assets=accepted.simulation.covered_assets,
+                min_years=observed_years,
+                max_missing_pct=accepted.simulation.missing_pct,
+            )
+            request = ConfirmRequest(
+                request_id=f"coverage-v{version_number}-r{round_number}",
+                kind=ConfirmKind.COVERAGE,
+                proposed_change=f"最低历史覆盖从{floor.min_years}年降为{observed_years}年",
+                reason="可用日频历史低于已确认的数据覆盖底线",
+                effect="确认后开新版本；拒绝则保持底线并寻找其他数据来源",
+                change_class=ChangeClass.COVERAGE,
+                patch=(("coverage_floor", lowered),),
+            )
+            result = transition(
+                charged,
+                ResearchEvent.REQUEST_CONFIRM,
+                self.now(),
+                request,
+            )
+        elif accepted.verification.passed:
             result = transition(charged, ResearchEvent.COMPLETE, self.now())
         elif (
             charged.brief.max_effective_hours.value is not None
@@ -3386,7 +3971,30 @@ class ResearchLoop:
         ):
             result = transition(charged, ResearchEvent.BUDGET_EXHAUSTED, self.now())
         else:
-            result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
+            change = self.builder.next_change(accepted)
+            change_class = classify_change(change)
+            if change_class in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE}:
+                request = ConfirmRequest(
+                    request_id=f"change-v{version_number}-r{round_number}",
+                    kind=(
+                        ConfirmKind.COVERAGE
+                        if change_class is ChangeClass.COVERAGE
+                        else ConfirmKind.ECONOMIC
+                    ),
+                    proposed_change=f"{change.field}: {change.before!r} → {change.after!r}",
+                    reason="当前冻结验证未全部通过",
+                    effect="确认后应用改动并开新版本",
+                    change_class=change_class,
+                    patch=((change.field, change.after),),
+                )
+                result = transition(
+                    charged,
+                    ResearchEvent.REQUEST_CONFIRM,
+                    self.now(),
+                    request,
+                )
+            else:
+                result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
         self.store.save(result, expected_updated_at)
         return result
 ```
@@ -3395,7 +4003,7 @@ class ResearchLoop:
 
 Run: `python -m pytest tests/test_loop_runtime.py -q && python -m pytest tests -q`
 
-Expected: the runtime file passes with `5 passed`; the accumulated suite passes. Inspect the SQLite row and confirm `last_completed_round` remains `0` after the review-blocked test.
+Expected: the runtime file passes with `7 passed`; the accumulated suite passes. Inspect the SQLite row and confirm `last_completed_round` remains `0` after the review-blocked test.
 
 - [ ] **Step 5: Commit resumable runtime ownership**
 
@@ -3407,9 +4015,11 @@ git commit -m "feat(engine): persist resumable owned research loop"
 ### Task 9: Self-Contained Strategy Pack and Disabled Execution Port
 
 **Files:**
+- Modify: `engine/strategy.py`
 - Create: `engine/execution.py`
 - Create: `engine/export.py`
 - Create: `contracts/strategy-pack.schema.json`
+- Modify: `tests/test_strategy.py`
 - Test: `tests/test_export_pack.py`
 
 **Interfaces:**
@@ -3424,8 +4034,9 @@ Create `tests/test_export_pack.py`:
 
 ```python
 import json
+import os
 import subprocess
-import sys
+import venv
 import zipfile
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -3441,6 +4052,7 @@ from engine.research.models import (
     Attempt,
     ChangeClass,
     Market,
+    Reverification,
     ReviewReport,
     Round,
     ResearchStatus,
@@ -3448,8 +4060,13 @@ from engine.research.models import (
     Version,
     new_research,
 )
-from engine.strategy import MarketPanel, MeanReversionStrategy, StrategySpec
-from engine.metrics import SimulationReport
+from engine.strategy import (
+    MarketPanel,
+    MeanReversionStrategy,
+    StrategySpec,
+    run_daily_backtest,
+)
+from engine.metrics import SimulationDiagnostics, SimulationReport, calculate_metrics
 from engine.verifiers import VerificationReport, VerifierResult
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
@@ -3458,24 +4075,7 @@ NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 def completed_research():
     base = new_research("r-export", NOW)
     gate = VerifierResult("scorecard.market", "scorecard-v1", True, {}, "fixture pass")
-    simulation = SimulationReport(
-        r_total=0.2,
-        r_ann=0.12,
-        sharpe=0.9,
-        vol_ann=0.13,
-        max_drawdown=-0.2,
-        benchmark_id="SPX",
-        r_bench_ann=0.08,
-        excess_ann=0.04,
-        tracking_error=0.06,
-        information_ratio=2 / 3,
-        sharpe_oos=0.7,
-        sharpe_is=1.0,
-        oos_segment_returns=(0.02, 0.01, -0.005),
-        top_20_crowding_sharpe_impact=0.01,
-        annual_turnover=1.0,
-        observations=756,
-    )
+    simulation = accepted_report()
     attempt = Attempt(
         attempt_id="a-export",
         number=1,
@@ -3519,7 +4119,34 @@ def snapshot() -> MarketPanel:
         {"AAA": [10.0, 9.0, 10.0, 11.0], "BBB": [10.0, 11.0, 10.0, 9.0]},
         index=pd.date_range("2026-01-01", periods=4, tz=UTC),
     )
-    return MarketPanel(prices, NOW)
+    benchmark = pd.Series(
+        [100.0, 100.5, 100.0, 101.0],
+        index=prices.index,
+        name="SPX",
+    )
+    return MarketPanel(prices, NOW, benchmark)
+
+
+def accepted_report() -> SimulationReport:
+    strategy = reference_strategy()
+    data = snapshot()
+    strategy_returns = run_daily_backtest(strategy, data)
+    assert data.benchmark_prices is not None
+    benchmark_returns = data.benchmark_prices.pct_change(fill_method=None).fillna(0.0)
+    return calculate_metrics(
+        strategy_returns,
+        benchmark_returns,
+        "SPX",
+        SimulationDiagnostics(
+            sharpe_oos=0.7,
+            sharpe_is=1.0,
+            oos_segment_returns=(0.02, 0.01, -0.005),
+            top_20_crowding_sharpe_impact=0.01,
+            annual_turnover=1.0,
+            covered_assets=2,
+            missing_pct=0.0,
+        ),
+    )
 
 
 def test_execution_port_is_explicitly_unavailable() -> None:
@@ -3534,8 +4161,16 @@ def test_export_requires_completed_all_passed_no_pending_and_valid_reverify() ->
     assert not strategy_pack_eligibility(
         replace(research, status=ResearchStatus.RUNNING)
     ).eligible
+    failed_gate = VerifierResult("overfit.walk", "walk-v1", False, {}, "failed rerun")
+    failed_rerun = Reverification(
+        round_id="r-export-v1-r1",
+        method_id="overfit.walk",
+        report=VerificationReport((failed_gate,)),
+        passed=False,
+        created_at=NOW,
+    )
     assert not strategy_pack_eligibility(
-        replace(research, export_eligible=False)
+        replace(research, reverifications=(failed_rerun,))
     ).eligible
 
 
@@ -3557,6 +4192,7 @@ def test_pack_runs_without_alphaloop_installed(tmp_path: Path) -> None:
         "execution.py",
         "run_backtest.py",
         "data/prices.csv",
+        "data/benchmark.csv",
         "reports/metrics.json",
         "reports/verification.json",
         "reports/review.json",
@@ -3565,8 +4201,15 @@ def test_pack_runs_without_alphaloop_installed(tmp_path: Path) -> None:
         "schemas/strategy-pack.schema.json",
     } <= names
 
+    environment = tmp_path / "clean-python"
+    venv.EnvBuilder(with_pip=False).create(environment)
+    isolated_python = (
+        environment / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else environment / "bin" / "python"
+    )
     completed = subprocess.run(
-        [sys.executable, "-I", "run_backtest.py"],
+        [isolated_python, "run_backtest.py"],
         cwd=extracted,
         check=False,
         capture_output=True,
@@ -3577,7 +4220,29 @@ def test_pack_runs_without_alphaloop_installed(tmp_path: Path) -> None:
     result = json.loads((extracted / "results.json").read_text(encoding="utf-8"))
     assert result["strategy_id"] == "mean-reversion-pack"
     assert result["observations"] == 4
+    accepted = completed_research().versions[-1].rounds[-1].accepted_attempt.simulation
+    for field in (
+        "r_total",
+        "r_ann",
+        "sharpe",
+        "vol_ann",
+        "max_drawdown",
+        "r_bench_ann",
+        "excess_ann",
+        "tracking_error",
+        "information_ratio",
+    ):
+        assert result[field] == pytest.approx(getattr(accepted, field), abs=1e-12)
     assert "alphaloop" not in (extracted / "run_backtest.py").read_text(encoding="utf-8")
+
+
+def test_to_executable_uses_the_accepted_research_snapshot() -> None:
+    strategy = reference_strategy()
+    strategy.data_snapshot = snapshot()
+    strategy.accepted_research = completed_research()
+    archive = strategy.to_executable()
+    assert archive.name == "strategy-pack.zip"
+    assert archive.is_file()
 ```
 
 - [ ] **Step 2: Run the export test and verify RED**
@@ -3620,9 +4285,9 @@ Create `engine/export.py`:
 ```python
 from __future__ import annotations
 
-import csv
 import hashlib
 import json
+import sys
 import zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -3640,11 +4305,24 @@ class ExportEligibility:
 
 
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
+    current_attempt = (
+        research.versions[-1].rounds[-1].accepted_attempt
+        if research.versions and research.versions[-1].rounds
+        else None
+    )
     checks = {
         "completed": research.status is ResearchStatus.COMPLETED,
-        "all_current_methods_passed": research.export_eligible,
+        "all_current_methods_passed": (
+            current_attempt is not None and current_attempt.verification.passed
+        ),
         "no_pending_confirm": research.pending_confirm is None,
-        "all_reverifies_passed": research.export_eligible,
+        "all_reverifies_passed": all(
+            reverification.passed
+            for reverification in research.reverifications
+            if current_attempt is not None
+            and reverification.round_id
+            == research.versions[-1].rounds[-1].round_id
+        ),
     }
     return ExportEligibility(
         eligible=all(checks.values()),
@@ -3666,34 +4344,99 @@ def _sha256(path: Path) -> str:
 
 STRATEGY_MODULE = """import csv
 import json
+import math
+import statistics
 from pathlib import Path
+
+TRADING_DAYS = 252
+
+
+def _returns(values):
+    return [0.0] + [
+        values[index] / values[index - 1] - 1.0
+        for index in range(1, len(values))
+    ]
+
+
+def _annualized(values):
+    total = math.prod(1.0 + value for value in values) - 1.0
+    return (1.0 + total) ** (TRADING_DAYS / len(values)) - 1.0
+
+
+def _metrics(strategy, benchmark):
+    total = math.prod(1.0 + value for value in strategy) - 1.0
+    r_ann = _annualized(strategy)
+    r_bench_ann = _annualized(benchmark)
+    vol = statistics.stdev(strategy) * math.sqrt(TRADING_DAYS)
+    wealth = 1.0
+    peak = 1.0
+    max_drawdown = 0.0
+    for value in strategy:
+        wealth *= 1.0 + value
+        peak = max(peak, wealth)
+        max_drawdown = min(max_drawdown, wealth / peak - 1.0)
+    active = [left - right for left, right in zip(strategy, benchmark)]
+    tracking_error = statistics.stdev(active) * math.sqrt(TRADING_DAYS)
+    excess = r_ann - r_bench_ann
+    return {
+        "r_total": total,
+        "r_ann": r_ann,
+        "sharpe": 0.0 if vol == 0.0 else statistics.mean(strategy) * TRADING_DAYS / vol,
+        "vol_ann": vol,
+        "max_drawdown": max_drawdown,
+        "r_bench_ann": r_bench_ann,
+        "excess_ann": excess,
+        "tracking_error": tracking_error,
+        "information_ratio": 0.0 if tracking_error == 0.0 else excess / tracking_error,
+    }
 
 
 def backtest(root: Path) -> dict:
     spec = json.loads((root / "spec.json").read_text(encoding="utf-8"))
     with (root / "data" / "prices.csv").open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
+    with (root / "data" / "benchmark.csv").open(newline="", encoding="utf-8") as handle:
+        benchmark_rows = list(csv.DictReader(handle))
     symbols = spec["universe"]["symbols"]
     lookback = int(spec["lookback_days"])
+    entry_z = float(spec["entry_z"])
     values = {symbol: [float(row[symbol]) for row in rows] for symbol in symbols}
-    returns = []
+    asset_returns = {symbol: _returns(series) for symbol, series in values.items()}
+    signals = []
     for index in range(len(rows)):
-        if index <= lookback:
-            returns.append(0.0)
-            continue
-        prior_changes = {
-            symbol: values[symbol][index - 1] / values[symbol][index - lookback - 1] - 1.0
-            for symbol in symbols
-        }
-        selected = min(prior_changes, key=prior_changes.get)
-        returns.append(values[selected][index] / values[selected][index - 1] - 1.0)
-    total = 1.0
-    for value in returns:
-        total *= 1.0 + value
+        scores = {}
+        for symbol in symbols:
+            window = asset_returns[symbol][max(0, index - lookback + 1) : index + 1]
+            scores[symbol] = -statistics.mean(window) if len(window) == lookback else 0.0
+        dispersion = statistics.stdev(scores.values()) if len(scores) > 1 else 0.0
+        center = statistics.mean(scores.values())
+        row = {}
+        for symbol, score in scores.items():
+            zscore = 0.0 if dispersion == 0.0 else (score - center) / dispersion
+            row[symbol] = (
+                1.0
+                if zscore >= entry_z
+                else -1.0
+                if spec["side"] == "long_short" and zscore <= -entry_z
+                else 0.0
+            )
+        signals.append(row)
+    strategy_returns = []
+    for index in range(len(rows)):
+        prior = signals[index - 1] if index > 0 else {symbol: 0.0 for symbol in symbols}
+        gross = sum(abs(value) for value in prior.values()) or 1.0
+        strategy_returns.append(
+            sum(
+                prior[symbol] / gross * asset_returns[symbol][index]
+                for symbol in symbols
+            )
+        )
+    benchmark_returns = _returns([float(row["benchmark"]) for row in benchmark_rows])
     return {
         "strategy_id": spec["id"],
+        "benchmark_id": spec["benchmark_id"],
         "observations": len(rows),
-        "r_total": total - 1.0,
+        **_metrics(strategy_returns, benchmark_returns),
     }
 """
 
@@ -3744,7 +4487,12 @@ def build_strategy_pack(
         raise TypeError("v1 exporter supports the canonical mean-reversion StrategySpec")
     if not research.versions or not research.versions[-1].rounds:
         raise ValueError("strategy pack requires a completed reviewed round")
+    benchmark_prices = data.benchmark_prices
+    if benchmark_prices is None:
+        raise ValueError("strategy pack requires a frozen benchmark series")
     attempt = research.versions[-1].rounds[-1].accepted_attempt
+    if attempt.review is None:
+        raise ValueError("strategy pack requires the accepted ReviewReport")
     with TemporaryDirectory(prefix="alphaloop-pack-") as temporary:
         root = Path(temporary)
         spec = asdict(strategy.spec)
@@ -3754,12 +4502,17 @@ def build_strategy_pack(
             strategy.spec.universe.underlying_asset_class.value
         )
         spec["method_set"] = [asdict(item) for item in strategy.spec.method_set]
+        spec["benchmark_id"] = attempt.simulation.benchmark_id
         _json(root / "spec.json", spec)
         (root / "strategy.py").write_text(STRATEGY_MODULE, encoding="utf-8")
         (root / "run_backtest.py").write_text(RUNNER, encoding="utf-8")
         (root / "execution.py").write_text(EXECUTION_STUB, encoding="utf-8")
         (root / "data").mkdir()
         data.prices.to_csv(root / "data" / "prices.csv", index_label="date")
+        benchmark_prices.rename("benchmark").to_csv(
+            root / "data" / "benchmark.csv",
+            index_label="date",
+        )
         _json(root / "reports" / "metrics.json", asdict(attempt.simulation))
         _json(root / "reports" / "verification.json", asdict(attempt.verification))
         _json(root / "reports" / "review.json", asdict(attempt.review))
@@ -3782,7 +4535,10 @@ def build_strategy_pack(
                 "effective_seconds": research.effective_seconds,
             },
         )
-        schema_source = Path("contracts/strategy-pack.schema.json")
+        bundle_root = Path(
+            getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
+        )
+        schema_source = bundle_root / "contracts" / "strategy-pack.schema.json"
         schema_target = root / "schemas" / "strategy-pack.schema.json"
         schema_target.parent.mkdir(parents=True)
         schema_target.write_bytes(schema_source.read_bytes())
@@ -3850,31 +4606,70 @@ Finally, replace `MeanReversionStrategy.to_executable` in `engine/strategy.py` w
 class MeanReversionStrategy:
     spec: StrategySpec
     data_snapshot: MarketPanel | None = None
+    accepted_research: Research | None = None
+
+    @property
+    def id(self) -> str:
+        return self.spec.id
+
+    @property
+    def thesis(self) -> str:
+        return self.spec.thesis_locked
+
+    @property
+    def universe(self) -> Universe:
+        return self.spec.universe
+
+    @property
+    def frequency(self) -> Frequency:
+        return self.spec.frequency
+
+    @property
+    def side(self) -> Side:
+        return self.spec.side
+
+    def generate_signals(self, data: MarketPanel) -> pd.DataFrame:
+        returns = data.prices.pct_change(fill_method=None)
+        score = -returns.rolling(self.spec.lookback_days).mean()
+        dispersion = score.std(axis=1).replace(0.0, np.nan)
+        zscore = score.sub(score.mean(axis=1), axis=0).div(dispersion, axis=0)
+        signals = pd.DataFrame(0.0, index=data.prices.index, columns=data.prices.columns)
+        signals[zscore >= self.spec.entry_z] = 1.0
+        if self.spec.side == "long_short":
+            signals[zscore <= -self.spec.entry_z] = -1.0
+        return signals
 
     def to_executable(self) -> Path:
-        if self.data_snapshot is None:
-            raise ValueError("to_executable requires a bundled MarketPanel snapshot")
+        if self.data_snapshot is None or self.accepted_research is None:
+            raise ValueError(
+                "to_executable requires accepted Research and bundled MarketPanel snapshots"
+            )
         from engine.export import build_strategy_pack
-        from engine.research.models import ResearchStatus, new_research
 
-        now = datetime.now(UTC)
-        research = replace(
-            new_research(f"export-{self.id}", now),
-            status=ResearchStatus.COMPLETED,
-            export_eligible=True,
-        )
         archive = Path(tempfile.mkdtemp(prefix="alphaloop-strategy-")) / "strategy-pack.zip"
-        build_strategy_pack(research, self, self.data_snapshot, archive)
+        build_strategy_pack(
+            self.accepted_research,
+            self,
+            self.data_snapshot,
+            archive,
+        )
         return archive
 ```
 
-Add imports `replace`, `UTC`, and `datetime` to `engine/strategy.py`, and update Task 2's path assertion to `assert path.name == "strategy-pack.zip"` while constructing that test strategy with `data_snapshot=panel()`.
+Update the typing imports in `engine/strategy.py` exactly as follows:
+
+```python
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from engine.research.models import Research
+```
 
 - [ ] **Step 4: Run the isolated pack and full engine suites**
 
 Run: `python -m pytest tests/test_export_pack.py -q && python -m pytest tests -q`
 
-Expected: the export file passes with `3 passed`; the extracted pack command exits `0` under `python -I`, proving it does not import the installed alphaloop package.
+Expected: the export file passes with `4 passed`; the extracted pack command exits `0` in a clean standard-library-only virtual environment, proving it does not import the installed alphaloop package.
 
 - [ ] **Step 5: Commit the independent pack boundary**
 
@@ -3917,10 +4712,14 @@ import { App, AwaitingConfirmCard, ConfirmRunCard, routeFor } from "./App";
 import type { DesktopApi, DesktopView } from "./contracts";
 
 const api: DesktopApi = {
+  fetchView: vi.fn(() => new Promise<DesktopView>(() => undefined)),
   createDraft: vi.fn(async () => "r-new"),
   confirmRun: vi.fn(async () => undefined),
   sendDialogue: vi.fn(async () => undefined),
   pauseResearch: vi.fn(async () => undefined),
+  resumeResearch: vi.fn(async () => undefined),
+  confirmModification: vi.fn(async () => undefined),
+  extendResearch: vi.fn(async () => undefined),
   deleteResearch: vi.fn(async () => undefined),
   resolveConfirm: vi.fn(async () => undefined),
   exportArtifact: vi.fn(async () => undefined),
@@ -3953,6 +4752,7 @@ const views: DesktopView[] = [
   {
     kind: "running",
     researchId: "r-1",
+    status: "running",
     version: 2,
     effective: "3h12 / 12h",
     coverage: "覆盖仍在底线之上",
@@ -3969,7 +4769,10 @@ const views: DesktopView[] = [
   {
     kind: "completed",
     researchId: "r-1",
+    status: "completed",
     title: "低波动量价回归 + 拥挤度过滤",
+    selectedRoundId: "r-export-v1-r1",
+    selectedMethodId: "overfit.walk",
     eligibility: {
       allMethodsPassed: true,
       noPendingConfirm: true,
@@ -4184,6 +4987,7 @@ export type DesktopView =
   | {
       kind: "running";
       researchId: string;
+      status: "running" | "paused";
       version: number;
       effective: string;
       coverage: string;
@@ -4200,7 +5004,10 @@ export type DesktopView =
   | {
       kind: "completed";
       researchId: string;
+      status: "completed" | "ended";
       title: string;
+      selectedRoundId: string;
+      selectedMethodId: string;
       eligibility: {
         allMethodsPassed: boolean;
         noPendingConfirm: boolean;
@@ -4210,14 +5017,18 @@ export type DesktopView =
   | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]};
 
 export interface DesktopApi {
+  fetchView(route: string): Promise<DesktopView>;
   createDraft(): Promise<string>;
   confirmRun(researchId: string): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;
+  resumeResearch(researchId: string): Promise<void>;
+  confirmModification(researchId: string): Promise<void>;
+  extendResearch(researchId: string, hours: number): Promise<void>;
   deleteResearch(researchId: string): Promise<void>;
   resolveConfirm(researchId: string, decision: ConfirmationDecision): Promise<void>;
   exportArtifact(researchId: string, kind: ExportKind): Promise<void>;
-  reverify(researchId: string): Promise<void>;
+  reverify(researchId: string, roundId: string, methodId: string): Promise<void>;
   reviseMethod(methodId: string, definition: string): Promise<void>;
 }
 ```
@@ -4225,7 +5036,7 @@ export interface DesktopApi {
 Create `apps/desktop/src/App.tsx`:
 
 ```tsx
-import {FormEvent, useState} from "react";
+import {FormEvent, useEffect, useState} from "react";
 
 import type {
   DesktopApi,
@@ -4306,7 +5117,12 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
             <div><h3>{row.title}</h3><p>最近活动保留在本机</p></div>
             <div className="row-actions">
               <a href={`#/research/${row.id}`}>进入</a>
-              <button onClick={() => void api.deleteResearch(row.id)}>删除</button>
+              <button onClick={() => {
+                const accepted = window.confirm(
+                  "删除会永久移除对话、版本、迭代与验证记录及导出资格；已导出的本机文件不受影响。",
+                );
+                if (accepted) void api.deleteResearch(row.id);
+              }}>删除</button>
               <StatusPill status={row.status} />
             </div>
           </article>
@@ -4374,9 +5190,10 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
 }
 
 function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "running"}>}) {
+  const [modification, setModification] = useState("");
   return (
     <div className="focus running-screen">
-      <header><StatusPill status="running" /> 第 {view.version} 版 · 有效研究 {view.effective} · {view.coverage}</header>
+      <header><StatusPill status={view.status} /> 第 {view.version} 版 · 有效研究 {view.effective} · {view.coverage}</header>
       <h1>迭代与验证</h1>
       {view.rounds.map((round, index) => (
         <article className="round-card" key={round}>
@@ -4385,7 +5202,18 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
           <p>每轮都显示市场基准指标、四项验证和独立审查。</p>
         </article>
       ))}
-      <button className="quiet-button" onClick={() => void api.pauseResearch(view.researchId)}>暂停</button>
+      {view.status === "running" ? (
+        <button className="quiet-button" onClick={() => void api.pauseResearch(view.researchId)}>暂停</button>
+      ) : (
+        <>
+          <button className="quiet-button" onClick={() => void api.resumeResearch(view.researchId)}>按当前版本继续</button>
+          <input value={modification} onChange={(event) => setModification(event.target.value)} placeholder="说明要改的研究设定" />
+          <button className="quiet-button" disabled={!modification.trim()} onClick={() => void (async () => {
+            await api.sendDialogue(view.researchId, modification.trim());
+            await api.confirmModification(view.researchId);
+          })()}>确认修改并开新版</button>
+        </>
+      )}
     </div>
   );
 }
@@ -4408,6 +5236,8 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
 }
 
 function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
+  const [extensionHours, setExtensionHours] = useState("4");
+  const [modification, setModification] = useState("");
   const checks = [
     ["当前验证方法全部通过", view.eligibility.allMethodsPassed],
     ["没有待确认", view.eligibility.noPendingConfirm],
@@ -4416,15 +5246,30 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
   const eligible = checks.every(([, passed]) => passed);
   return (
     <div className="focus completed-screen">
-      <StatusPill status="completed" />
+      <StatusPill status={view.status} />
       <p>alphaloop 到这里结束，不提供执行入口。</p>
       <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
       <article className="result-card">
         <h1>{view.title}</h1>
         <p>美股 · 股票 · 经过市场基准和全部额外验证</p>
-        <button disabled={!eligible} onClick={() => void api.exportArtifact(view.researchId, "strategy_pack")}>导出策略包</button>
-        <button className="text-button" onClick={() => void api.reverify(view.researchId)}>对某一步重新验证</button>
+        <button disabled={!eligible || view.status === "ended"} onClick={() => void api.exportArtifact(view.researchId, "strategy_pack")}>导出策略包</button>
+        <button className="text-button" onClick={() => void api.reverify(view.researchId, view.selectedRoundId, view.selectedMethodId)}>对某一步重新验证</button>
         <button className="text-button" onClick={() => void api.exportArtifact(view.researchId, "research_record")}>导出研究记录包</button>
+        <label>
+          改策略再跑
+          <input value={modification} onChange={(event) => setModification(event.target.value)} placeholder="说明要改的研究设定" />
+          <button disabled={!modification.trim()} onClick={() => void (async () => {
+            await api.sendDialogue(view.researchId, modification.trim());
+            await api.confirmModification(view.researchId);
+          })()}>确认修改并开新版</button>
+        </label>
+        {view.status === "ended" && (
+          <label>
+            延长有效研究小时
+            <input value={extensionHours} onChange={(event) => setExtensionHours(event.target.value)} inputMode="decimal" />
+            <button onClick={() => void api.extendResearch(view.researchId, Number(extensionHours))}>确认延长并开新版</button>
+          </label>
+        )}
       </article>
     </div>
   );
@@ -4468,7 +5313,21 @@ function Screen({api, initialView: view}: AppProps) {
 }
 
 export function App({api, initialView}: AppProps) {
-  return <NightShell view={initialView}><Screen api={api} initialView={initialView} /></NightShell>;
+  const [view, setView] = useState(initialView);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      void api.fetchView(routeFor(view)).then((next) => {
+        if (active) setView(next);
+      });
+    };
+    const timer = window.setInterval(refresh, 1_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [api, view]);
+  return <NightShell view={view}><Screen api={api} initialView={view} /></NightShell>;
 }
 ```
 
@@ -4622,10 +5481,14 @@ import {App} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
 
 const previewApi: DesktopApi = {
+  async fetchView() { return preview; },
   async createDraft() { return "preview-draft"; },
   async confirmRun() { return undefined; },
   async sendDialogue() { return undefined; },
   async pauseResearch() { return undefined; },
+  async resumeResearch() { return undefined; },
+  async confirmModification() { return undefined; },
+  async extendResearch() { return undefined; },
   async deleteResearch() { return undefined; },
   async resolveConfirm() { return undefined; },
   async exportArtifact() { return undefined; },
@@ -4650,6 +5513,15 @@ Create `contracts/desktop-api.schema.json`:
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["type", "route"],
+      "properties": {
+        "type": {"const": "fetch_view"},
+        "route": {"type": "string", "pattern": "^#/(research|methods)"}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["type"],
       "properties": {"type": {"const": "create_draft"}}
     },
@@ -4658,7 +5530,15 @@ Create `contracts/desktop-api.schema.json`:
       "additionalProperties": false,
       "required": ["type", "research_id"],
       "properties": {
-        "type": {"enum": ["confirm_run", "pause", "reverify", "delete_research"]},
+        "type": {
+          "enum": [
+            "confirm_run",
+            "pause",
+            "resume",
+            "confirm_modification",
+            "delete_research"
+          ]
+        },
         "research_id": {"type": "string", "minLength": 1}
       }
     },
@@ -4672,6 +5552,27 @@ Create `contracts/desktop-api.schema.json`:
         "decision": {
           "enum": ["approve_new_version", "reject_keep_logic", "pause_and_edit"]
         }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "hours"],
+      "properties": {
+        "type": {"const": "extend_research"},
+        "research_id": {"type": "string", "minLength": 1},
+        "hours": {"type": "number", "exclusiveMinimum": 0, "maximum": 720}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "round_id", "method_id"],
+      "properties": {
+        "type": {"const": "reverify"},
+        "research_id": {"type": "string", "minLength": 1},
+        "round_id": {"type": "string", "minLength": 1},
+        "method_id": {"type": "string", "minLength": 1}
       }
     },
     {
@@ -4741,15 +5642,15 @@ git commit -m "feat(desktop): add Night seven-screen shell"
 - Consumes: `alphaloop-engine --owner desktop`; JSON first-line handshake `{"protocol_version":1,"status":"ready"|"already_running","owner":"desktop"|"cli","pid":int,"endpoint":str,"auth_token":str}`; `DesktopApi`
 - Produces: `EngineSupervisor.adopt_owned(child: Box<dyn ManagedChild>, owner: OwnerRecord) -> Result<(), SidecarError>`; `EngineSupervisor.attach(owner: OwnerRecord) -> Result<(), SidecarError>`; `EngineSupervisor.close_last_window() -> Result<bool, SidecarError>`; `EngineSupervisor.quit() -> Result<bool, SidecarError>`; Tauri commands implementing `DesktopApi`
 
-Use a PyInstaller `onedir` build, not `onefile`: onefile starts a bootloader child that can outlive a naive parent kill on Windows. The onedir engine must not spawn grandchildren. Rust retains the one `CommandChild`; Python also exits on desktop stdin EOF and handles SIGINT/SIGTERM, so graceful and abrupt native shutdown both end the app-owned process tree.
+Use a PyInstaller `onedir` build, not `onefile`: onefile starts a bootloader child that can outlive a naive parent kill on Windows. The onedir engine must not spawn grandchildren. Rust retains the one `std::process::Child`; Python also exits on desktop stdin EOF and handles SIGINT/SIGTERM, so graceful and abrupt native shutdown both end the app-owned process tree.
 
 Native bundles are built on their matching host because PyInstaller and Tauri are not general cross-compilers:
 
 | Host runner | Rust target | Tauri bundles | Staged engine |
 |---|---|---|---|
-| Apple Silicon macOS | `aarch64-apple-darwin` | `.app`, `.dmg` | `alphaloop-engine-aarch64-apple-darwin` plus onedir runtime |
-| Windows x64 | `x86_64-pc-windows-msvc` | `.msi`, NSIS `.exe` | `alphaloop-engine-x86_64-pc-windows-msvc.exe` plus onedir runtime |
-| Linux x64 | `x86_64-unknown-linux-gnu` | `.deb`, `.AppImage` | `alphaloop-engine-x86_64-unknown-linux-gnu` plus onedir runtime |
+| Apple Silicon macOS | `aarch64-apple-darwin` | `.app`, `.dmg` | resource directory `engine/alphaloop-engine` with sibling `_internal/` |
+| Windows x64 | `x86_64-pc-windows-msvc` | `.msi`, NSIS `.exe` | resource directory `engine/alphaloop-engine.exe` with sibling `_internal/` |
+| Linux x64 | `x86_64-unknown-linux-gnu` | `.deb`, `.AppImage` | resource directory `engine/alphaloop-engine` with sibling `_internal/` |
 
 The GUI never installs launchd, systemd, a Windows Service, a scheduled task, or a login item. Native last-window close and app Quit kill only a desktop-owned child. If the handshake says an existing CLI owner is running, the app attaches to it and never kills it. Browser unload has no native lifecycle event and therefore cannot stop a CLI-owned engine.
 
@@ -4898,7 +5799,7 @@ tauri-build = { version = "2" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2" }
-tauri-plugin-shell = "2"
+tauri-plugin-notification = "2"
 reqwest = { version = "0.12", features = ["json"] }
 ```
 
@@ -4913,7 +5814,7 @@ fn main() {
 Create `apps/desktop/src-tauri/src/sidecar.rs`:
 
 ```rust
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
@@ -5052,11 +5953,12 @@ impl EngineSupervisor {
 Create `apps/desktop/src-tauri/src/commands.rs`:
 
 ```rust
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use reqwest::Client;
 use serde_json::{json, Value};
-use tauri::State;
+use tauri::{AppHandle, State};
+use tauri_plugin_notification::NotificationExt;
 
 #[derive(Clone)]
 struct Connection {
@@ -5067,6 +5969,11 @@ struct Connection {
 #[derive(Clone, Default)]
 pub struct EngineConnection {
     connection: Arc<Mutex<Option<Connection>>>,
+}
+
+#[derive(Default)]
+pub struct NotificationTracker {
+    last_event: Mutex<Option<String>>,
 }
 
 impl EngineConnection {
@@ -5102,6 +6009,47 @@ impl EngineConnection {
             .await
             .map_err(|error| error.to_string())
     }
+}
+
+#[tauri::command]
+pub async fn fetch_view(
+    route: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+    tracker: State<'_, NotificationTracker>,
+) -> Result<Value, String> {
+    let view = connection
+        .post(json!({"type": "fetch_view", "route": route}))
+        .await?;
+    let kind = view["kind"].as_str().unwrap_or_default();
+    let status = view["status"].as_str().unwrap_or_default();
+    let body = match (kind, status) {
+        ("awaiting_confirm", _) => Some("研究需要你确认"),
+        ("completed", "completed") => Some("研究已完成"),
+        ("completed", "ended") => Some("研究已结束"),
+        _ => None,
+    };
+    if let Some(body) = body {
+        let event_id = format!(
+            "{}:{}",
+            view["researchId"].as_str().unwrap_or_default(),
+            status
+        );
+        let mut last = tracker
+            .last_event
+            .lock()
+            .map_err(|_| "notification tracker lock poisoned")?;
+        if last.as_deref() != Some(&event_id) {
+            app.notification()
+                .builder()
+                .title("alphaloop")
+                .body(body)
+                .show()
+                .map_err(|error| error.to_string())?;
+            *last = Some(event_id);
+        }
+    }
+    Ok(view)
 }
 
 #[tauri::command]
@@ -5148,6 +6096,44 @@ pub async fn pause_research(
 }
 
 #[tauri::command]
+pub async fn resume_research(
+    research_id: String,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    connection
+        .post(json!({"type": "resume", "research_id": research_id}))
+        .await
+        .map(|_| ())
+}
+
+#[tauri::command]
+pub async fn confirm_modification(
+    research_id: String,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    connection
+        .post(json!({"type": "confirm_modification", "research_id": research_id}))
+        .await
+        .map(|_| ())
+}
+
+#[tauri::command]
+pub async fn extend_research(
+    research_id: String,
+    hours: f64,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    connection
+        .post(json!({
+            "type": "extend_research",
+            "research_id": research_id,
+            "hours": hours
+        }))
+        .await
+        .map(|_| ())
+}
+
+#[tauri::command]
 pub async fn delete_research(
     research_id: String,
     connection: State<'_, EngineConnection>,
@@ -5189,10 +6175,17 @@ pub async fn export_artifact(
 #[tauri::command]
 pub async fn reverify(
     research_id: String,
+    round_id: String,
+    method_id: String,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
     connection
-        .post(json!({"type": "reverify", "research_id": research_id}))
+        .post(json!({
+            "type": "reverify",
+            "research_id": research_id,
+            "round_id": round_id,
+            "method_id": method_id
+        }))
         .await
         .map(|_| ())
 }
@@ -5224,26 +6217,30 @@ pub use sidecar::{
     BindingSnapshot, EngineOwner, EngineSupervisor, ManagedChild, OwnerRecord, SidecarError,
 };
 
-use std::sync::Arc;
+use std::{
+    io::{BufRead, BufReader},
+    process::{Child, Command, Stdio},
+    sync::Arc,
+    thread,
+};
 
 use serde::Deserialize;
 use tauri::{Manager, RunEvent, WindowEvent};
-use tauri_plugin_shell::{
-    process::{CommandChild, CommandEvent},
-    ShellExt,
-};
 
 use commands::EngineConnection;
+use commands::NotificationTracker;
 
-struct TauriChild(CommandChild);
+struct TauriChild(Child);
 
 impl ManagedChild for TauriChild {
     fn pid(&self) -> u32 {
-        self.0.pid()
+        self.0.id()
     }
 
-    fn kill(self: Box<Self>) -> Result<(), String> {
-        self.0.kill().map_err(|error| error.to_string())
+    fn kill(mut self: Box<Self>) -> Result<(), String> {
+        self.0.kill().map_err(|error| error.to_string())?;
+        self.0.wait().map_err(|error| error.to_string())?;
+        Ok(())
     }
 }
 
@@ -5257,24 +6254,47 @@ struct Handshake {
     auth_token: String,
 }
 
-async fn start_desktop_sidecar(
+fn start_desktop_sidecar(
     app: tauri::AppHandle,
     supervisor: Arc<EngineSupervisor>,
     connection: EngineConnection,
 ) -> Result<(), String> {
-    let command = app
-        .shell()
-        .sidecar("alphaloop-engine")
-        .map_err(|error| error.to_string())?
-        .args(["--owner", "desktop"]);
-    let (mut events, child) = command.spawn().map_err(|error| error.to_string())?;
-    let first = events.recv().await.ok_or("engine exited before handshake")?;
-    let bytes = match first {
-        CommandEvent::Stdout(bytes) => bytes,
-        _ => return Err("engine first event was not a stdout handshake".into()),
+    let resource_dir = app.path().resource_dir().map_err(|error| error.to_string())?;
+    let executable = resource_dir
+        .join("engine")
+        .join(if cfg!(windows) {
+            "alphaloop-engine.exe"
+        } else {
+            "alphaloop-engine"
+        });
+    let mut child = Command::new(executable)
+        .args(["--owner", "desktop"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    let stderr = child.stderr.take().ok_or("engine stderr was not piped")?;
+    thread::spawn(move || {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+            eprintln!("alphaloop-engine stderr: {line}");
+        }
+    });
+    let stdout = child.stdout.take().ok_or("engine stdout was not piped")?;
+    let mut lines = BufReader::new(stdout).lines();
+    let first = lines
+        .next()
+        .ok_or("engine exited before handshake")?
+        .map_err(|error| error.to_string())?;
+    let handshake: Handshake = match serde_json::from_str(&first) {
+        Ok(handshake) => handshake,
+        Err(error) => {
+            child.kill().map_err(|kill_error| kill_error.to_string())?;
+            return Err(error.to_string());
+        }
     };
-    let handshake: Handshake = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
     if handshake.protocol_version != 1 {
+        child.kill().map_err(|error| error.to_string())?;
         return Err("engine protocol version mismatch".into());
     }
     let owner = OwnerRecord {
@@ -5289,14 +6309,23 @@ async fn start_desktop_sidecar(
         "ready" => supervisor.adopt_owned(Box::new(TauriChild(child)), owner)?,
         "already_running" => {
             if owner.owner != EngineOwner::Cli {
+                child.kill().map_err(|error| error.to_string())?;
                 return Err("another desktop instance already owns the engine".into());
             }
             supervisor.attach(owner)?;
+            child.wait().map_err(|error| error.to_string())?;
         }
-        _ => return Err("unknown engine handshake status".into()),
+        _ => {
+            child.kill().map_err(|error| error.to_string())?;
+            return Err("unknown engine handshake status".into());
+        }
     }
-    tauri::async_runtime::spawn(async move {
-        while events.recv().await.is_some() {}
+    thread::spawn(move || {
+        for line in lines {
+            if let Ok(line) = line {
+                eprintln!("alphaloop-engine: {line}");
+            }
+        }
     });
     Ok(())
 }
@@ -5309,14 +6338,19 @@ pub fn run() {
     let window_supervisor = supervisor.clone();
     let exit_supervisor = supervisor.clone();
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(supervisor.clone())
         .manage(connection)
+        .manage(NotificationTracker::default())
         .invoke_handler(tauri::generate_handler![
+            commands::fetch_view,
             commands::create_draft,
             commands::confirm_run,
             commands::send_dialogue,
             commands::pause_research,
+            commands::resume_research,
+            commands::confirm_modification,
+            commands::extend_research,
             commands::delete_research,
             commands::resolve_confirm,
             commands::export_artifact,
@@ -5327,13 +6361,9 @@ pub fn run() {
             let handle = app.handle().clone();
             let sidecar = setup_supervisor.clone();
             let engine_connection = setup_connection.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(error) =
-                    start_desktop_sidecar(handle, sidecar, engine_connection).await
-                {
-                    eprintln!("alphaloop sidecar startup failed: {error}");
-                }
-            });
+            if let Err(error) = start_desktop_sidecar(handle, sidecar, engine_connection) {
+                eprintln!("alphaloop sidecar startup failed: {error}");
+            }
             Ok(())
         })
         .on_window_event(move |window, event| {
@@ -5394,8 +6424,9 @@ Create `apps/desktop/src-tauri/tauri.conf.json`:
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/alphaloop-engine"],
-    "resources": ["binaries/alphaloop-engine-runtime/**/*"]
+    "resources": {
+      "resources/engine/**/*": "engine/"
+    }
   }
 }
 ```
@@ -5408,7 +6439,7 @@ Create `apps/desktop/src-tauri/capabilities/default.json`:
   "identifier": "default",
   "description": "Main alphaloop webview; process spawn is Rust-owned.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "notification:default"]
 }
 ```
 
@@ -5468,16 +6499,12 @@ def stage(target: str, source: Path, tauri_root: Path) -> None:
     source_executable = source / executable_name
     if not source_executable.is_file():
         raise FileNotFoundError(source_executable)
-    binaries = tauri_root / "binaries"
-    runtime = binaries / "alphaloop-engine-runtime"
-    binaries.mkdir(parents=True, exist_ok=True)
-    staged_name = f"alphaloop-engine-{target}{'.exe' if 'windows' in target else ''}"
-    shutil.copy2(source_executable, binaries / staged_name)
-    if runtime.exists():
-        shutil.rmtree(runtime)
-    internal = source / "_internal"
-    if internal.exists():
-        shutil.copytree(internal, runtime / "_internal")
+    destination = tauri_root / "resources" / "engine"
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(source, destination)
+    staged_executable = destination / executable_name
+    staged_executable.chmod(staged_executable.stat().st_mode | 0o111)
 
 
 def main() -> None:
@@ -5512,22 +6539,32 @@ import {App} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
 
 const desktopApi: DesktopApi = {
+  async fetchView(route) { return invoke<DesktopView>("fetch_view", {route}); },
   async createDraft() { return invoke<string>("create_draft"); },
   async confirmRun(researchId) { await invoke("confirm_run", {researchId}); },
   async sendDialogue(researchId, message) { await invoke("send_dialogue", {researchId, message}); },
   async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },
+  async resumeResearch(researchId) { await invoke("resume_research", {researchId}); },
+  async confirmModification(researchId) { await invoke("confirm_modification", {researchId}); },
+  async extendResearch(researchId, hours) { await invoke("extend_research", {researchId, hours}); },
   async deleteResearch(researchId) { await invoke("delete_research", {researchId}); },
   async resolveConfirm(researchId, decision) { await invoke("resolve_confirm", {researchId, decision}); },
   async exportArtifact(researchId, kind) { await invoke("export_artifact", {researchId, kind}); },
-  async reverify(researchId) { await invoke("reverify", {researchId}); },
+  async reverify(researchId, roundId, methodId) {
+    await invoke("reverify", {researchId, roundId, methodId});
+  },
   async reviseMethod(methodId, definition) { await invoke("revise_method", {methodId, definition}); },
 };
 
 const previewApi: DesktopApi = {
+  async fetchView() { return preview; },
   async createDraft() { return "preview-draft"; },
   async confirmRun() { return undefined; },
   async sendDialogue() { return undefined; },
   async pauseResearch() { return undefined; },
+  async resumeResearch() { return undefined; },
+  async confirmModification() { return undefined; },
+  async extendResearch() { return undefined; },
   async deleteResearch() { return undefined; },
   async resolveConfirm() { return undefined; },
   async exportArtifact() { return undefined; },
@@ -5544,29 +6581,37 @@ createRoot(document.getElementById("root")!).render(
 
 - [ ] **Step 4: Run lifecycle checks and build all native targets on their matching hosts**
 
-Run on every host:
+Run on Apple Silicon macOS:
 
 ```bash
 python -m PyInstaller --clean --noconfirm packaging/alphaloop-engine.spec
-python scripts/stage_sidecar.py --target "$(rustc -vV | awk '/host:/ {print $2}')"
+python scripts/stage_sidecar.py --target aarch64-apple-darwin
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets
 cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+npm --prefix apps/desktop run tauri -- build --target aarch64-apple-darwin --bundles app,dmg
 ```
 
-Then run the host-specific bundle command:
+Run in Windows PowerShell:
+
+```powershell
+py -m PyInstaller --clean --noconfirm packaging/alphaloop-engine.spec
+py scripts/stage_sidecar.py --target x86_64-pc-windows-msvc
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+npm --prefix apps/desktop run tauri -- build --target x86_64-pc-windows-msvc --bundles msi,nsis
+```
+
+Run on Linux x64:
 
 ```bash
-# Apple Silicon macOS
-npm --prefix apps/desktop run tauri -- build --target aarch64-apple-darwin --bundles app,dmg
-
-# Windows x64
-npm --prefix apps/desktop run tauri -- build --target x86_64-pc-windows-msvc --bundles msi,nsis
-
-# Linux x64
+python -m PyInstaller --clean --noconfirm packaging/alphaloop-engine.spec
+python scripts/stage_sidecar.py --target x86_64-unknown-linux-gnu
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
 npm --prefix apps/desktop run tauri -- build --target x86_64-unknown-linux-gnu --bundles deb,appimage
 ```
 
-Expected: Rust tests PASS with `6 passed`; Clippy exits `0`; each native package contains the target-suffixed engine and onedir runtime. Manual smoke checks on each host: desktop starts one child, closing a non-last window leaves it running, closing the last window kills it, app Quit kills it, a second desktop does not double-start, a desktop attached to a CLI owner does not kill that owner, and closing a Vite browser tab leaves the CLI owner running. Verify the nested engine signature before release with `codesign --verify --deep --strict` on macOS and `signtool verify /pa` on Windows; build Linux on the oldest supported glibc image and inspect with `ldd`.
+Expected: Rust tests PASS with `6 passed`; Clippy exits `0`; each native package contains the complete `engine/` onedir resource with executable and sibling `_internal/`. Manual smoke checks on each host: desktop starts one child, closing a non-last window leaves it running, closing the last window kills it, app Quit kills it, a second desktop does not double-start, a desktop attached to a CLI owner does not kill that owner, and closing a Vite browser tab leaves the CLI owner running. Verify the nested engine signature before release with `codesign --verify --deep --strict` on macOS and `signtool verify /pa` on Windows; build Linux on the oldest supported glibc image and inspect with `ldd`.
 
 - [ ] **Step 5: Commit native lifecycle and packaging**
 
@@ -5723,10 +6768,23 @@ Create `apps/cli/__init__.py`:
 """Two-command headless client."""
 ```
 
-Extend `RuntimePaths` and `OwnerRecord` in `engine/research/runtime.py` without changing the constructor used by earlier tasks:
+Replace `engine/research/runtime.py` with this complete final ownership implementation:
 
 ```python
+from __future__ import annotations
+
+import json
+import os
 from dataclasses import asdict, dataclass, replace
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Literal, Self
+
+import portalocker
+from platformdirs import user_runtime_path
+
+OwnerKind = Literal["desktop", "cli"]
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimePaths:
@@ -5742,14 +6800,71 @@ class RuntimePaths:
     def engine_log(self) -> Path:
         return self.root / "engine.log"
 
+    @classmethod
+    def default(cls) -> Self:
+        root = Path(user_runtime_path("alphaloop", ensure_exists=True))
+        return cls(root, root / "engine.lock", root / "owner.json")
+
 
 @dataclass(frozen=True, slots=True)
 class OwnerRecord:
     owner: OwnerKind
     pid: int
     started_at: str
+    phase: Literal["starting", "ready"] = "starting"
     endpoint: str | None = None
     auth_token: str | None = None
+
+
+@dataclass(slots=True)
+class EngineLock:
+    paths: RuntimePaths
+    owner: OwnerRecord
+    _handle: object
+
+    @classmethod
+    def acquire(cls, paths: RuntimePaths, owner: OwnerKind) -> Self:
+        paths.root.mkdir(parents=True, exist_ok=True)
+        handle = open(paths.lock_file, "a+", encoding="utf-8")
+        try:
+            portalocker.lock(handle, portalocker.LOCK_EX | portalocker.LOCK_NB)
+        except portalocker.LockException:
+            handle.close()
+            raise RuntimeError("alphaloop engine already has an owner")
+        record = OwnerRecord(owner, os.getpid(), datetime.now(UTC).isoformat())
+        temporary = paths.owner_file.with_suffix(".tmp")
+        temporary.write_text(json.dumps(asdict(record), sort_keys=True), encoding="utf-8")
+        os.replace(temporary, paths.owner_file)
+        return cls(paths, record, handle)
+
+    def close(self) -> None:
+        if not getattr(self._handle, "closed", True):
+            portalocker.unlock(self._handle)
+            self._handle.close()
+        self.paths.owner_file.unlink(missing_ok=True)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        self.close()
+
+
+def read_live_owner(paths: RuntimePaths) -> OwnerRecord | None:
+    if not paths.owner_file.exists():
+        return None
+    probe = open(paths.lock_file, "a+", encoding="utf-8")
+    try:
+        portalocker.lock(probe, portalocker.LOCK_EX | portalocker.LOCK_NB)
+    except portalocker.LockException:
+        payload = json.loads(paths.owner_file.read_text(encoding="utf-8"))
+        return OwnerRecord(**payload)
+    else:
+        portalocker.unlock(probe)
+        paths.owner_file.unlink(missing_ok=True)
+        return None
+    finally:
+        probe.close()
 
 
 def publish_ready(
@@ -5757,7 +6872,12 @@ def publish_ready(
     endpoint: str,
     auth_token: str,
 ) -> OwnerRecord:
-    ready = replace(lock.owner, endpoint=endpoint, auth_token=auth_token)
+    ready = replace(
+        lock.owner,
+        phase="ready",
+        endpoint=endpoint,
+        auth_token=auth_token,
+    )
     temporary = lock.paths.owner_file.with_suffix(".tmp")
     temporary.write_text(json.dumps(asdict(ready), sort_keys=True), encoding="utf-8")
     os.replace(temporary, lock.paths.owner_file)
@@ -5765,9 +6885,52 @@ def publish_ready(
     return ready
 ```
 
-Add runtime query, immutable method-revision, and error-audit methods to `SQLiteStore` in `engine/research/store.py`; add the two tables to `SCHEMA` before these methods:
+Replace `engine/research/store.py` with this complete final store:
 
-```sql
+```python
+from __future__ import annotations
+
+import hashlib
+import json
+import sqlite3
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+import cattrs
+
+from engine.research.models import Attempt, Research
+from engine.research.runtime import OwnerRecord
+
+CONVERTER = cattrs.Converter()
+CONVERTER.register_unstructure_hook(datetime, lambda value: value.isoformat())
+CONVERTER.register_structure_hook(datetime, lambda value, _: datetime.fromisoformat(value))
+CONVERTER.register_unstructure_hook(Path, str)
+CONVERTER.register_structure_hook(Path, lambda value, _: Path(value))
+
+SCHEMA = """
+PRAGMA journal_mode=WAL;
+CREATE TABLE IF NOT EXISTS researches (
+    research_id TEXT PRIMARY KEY,
+    state_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_completed_round INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS engine_heartbeat (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    owner TEXT NOT NULL,
+    pid INTEGER NOT NULL,
+    heartbeat_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS review_attempts (
+    attempt_id TEXT PRIMARY KEY,
+    research_id TEXT NOT NULL,
+    version_number INTEGER NOT NULL,
+    round_number INTEGER NOT NULL,
+    passed INTEGER NOT NULL,
+    attempt_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS method_revisions (
     method_id TEXT NOT NULL,
     revision_hash TEXT NOT NULL,
@@ -5781,54 +6944,198 @@ CREATE TABLE IF NOT EXISTS engine_errors (
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
-```
+"""
 
-Add these complete methods to `SQLiteStore`:
 
-```python
-def status_flags(self) -> tuple[bool, bool]:
-    rows = self.connection.execute("SELECT state_json FROM researches").fetchall()
-    states = [json.loads(row[0])["status"] for row in rows]
-    return "running" in states, "awaiting_confirm" in states
+@dataclass(frozen=True, slots=True)
+class Heartbeat:
+    owner: str
+    pid: int
+    heartbeat_at: datetime
 
-def running_ids(self) -> tuple[str, ...]:
-    rows = self.connection.execute(
-        "SELECT research_id,state_json FROM researches ORDER BY research_id"
-    ).fetchall()
-    return tuple(
-        research_id
-        for research_id, payload in rows
-        if json.loads(payload)["status"] == "running"
-    )
 
-def delete(self, research_id: str) -> None:
-    with self.connection:
-        self.connection.execute(
-            "DELETE FROM researches WHERE research_id=?",
+class ConcurrentWrite(RuntimeError):
+    """The stored research changed after it was loaded."""
+
+
+class SQLiteStore:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.connection = sqlite3.connect(path, check_same_thread=False)
+        self.connection.executescript(SCHEMA)
+
+    @staticmethod
+    def _encode(research: Research) -> str:
+        return json.dumps(CONVERTER.unstructure(research), sort_keys=True)
+
+    @staticmethod
+    def _decode(payload: str) -> Research:
+        return CONVERTER.structure(json.loads(payload), Research)
+
+    def create(self, research: Research) -> None:
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO researches(research_id,state_json,updated_at) VALUES(?,?,?)",
+                (research.research_id, self._encode(research), research.updated_at.isoformat()),
+            )
+
+    def load(self, research_id: str) -> Research:
+        row = self.connection.execute(
+            "SELECT state_json FROM researches WHERE research_id=?",
             (research_id,),
-        )
+        ).fetchone()
+        if row is None:
+            raise KeyError(research_id)
+        return self._decode(row[0])
 
-def revise_method(self, method_id: str, definition: str, now: datetime) -> str:
-    import hashlib
+    def save(self, research: Research, expected_updated_at: datetime) -> None:
+        completed = sum(len(version.rounds) for version in research.versions)
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE researches
+                   SET state_json=?, updated_at=?, last_completed_round=?
+                 WHERE research_id=? AND updated_at=?
+                """,
+                (
+                    self._encode(research),
+                    research.updated_at.isoformat(),
+                    completed,
+                    research.research_id,
+                    expected_updated_at.isoformat(),
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ConcurrentWrite(research.research_id)
 
-    revision = hashlib.sha256(definition.encode("utf-8")).hexdigest()
-    with self.connection:
-        self.connection.execute(
+    def last_completed_round(self, research_id: str) -> int:
+        row = self.connection.execute(
+            "SELECT last_completed_round FROM researches WHERE research_id=?",
+            (research_id,),
+        ).fetchone()
+        return int(row[0]) if row else 0
+
+    def record_review_attempt(
+        self,
+        research_id: str,
+        version_number: int,
+        round_number: int,
+        attempt: Attempt,
+        now: datetime,
+    ) -> None:
+        if attempt.review is None:
+            raise ValueError("review attempt must contain ReviewReport")
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO review_attempts(
+                    attempt_id,research_id,version_number,round_number,
+                    passed,attempt_json,created_at
+                ) VALUES(?,?,?,?,?,?,?)
+                """,
+                (
+                    attempt.attempt_id,
+                    research_id,
+                    version_number,
+                    round_number,
+                    int(attempt.review.passed),
+                    json.dumps(CONVERTER.unstructure(attempt), sort_keys=True),
+                    now.isoformat(),
+                ),
+            )
+
+    def review_failure_count(
+        self,
+        research_id: str,
+        version_number: int,
+        round_number: int,
+    ) -> int:
+        row = self.connection.execute(
             """
-            INSERT OR IGNORE INTO method_revisions(
-                method_id,revision_hash,definition,created_at
-            ) VALUES(?,?,?,?)
+            SELECT COUNT(*) FROM review_attempts
+             WHERE research_id=? AND version_number=? AND round_number=? AND passed=0
             """,
-            (method_id, revision, definition, now.isoformat()),
-        )
-    return revision
+            (research_id, version_number, round_number),
+        ).fetchone()
+        return int(row[0])
 
-def record_error(self, research_id: str, message: str, now: datetime) -> None:
-    with self.connection:
-        self.connection.execute(
-            "INSERT INTO engine_errors(research_id,message,created_at) VALUES(?,?,?)",
-            (research_id, message, now.isoformat()),
+    def heartbeat(self, owner: OwnerRecord, now: datetime) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO engine_heartbeat(singleton,owner,pid,heartbeat_at)
+                VALUES(1,?,?,?)
+                ON CONFLICT(singleton) DO UPDATE SET
+                    owner=excluded.owner,pid=excluded.pid,heartbeat_at=excluded.heartbeat_at
+                """,
+                (owner.owner, owner.pid, now.isoformat()),
+            )
+
+    def read_heartbeat(self) -> Heartbeat:
+        row = self.connection.execute(
+            "SELECT owner,pid,heartbeat_at FROM engine_heartbeat WHERE singleton=1"
+        ).fetchone()
+        if row is None:
+            raise LookupError("heartbeat unavailable")
+        return Heartbeat(row[0], int(row[1]), datetime.fromisoformat(row[2]))
+
+    def status_flags(self) -> tuple[bool, bool]:
+        rows = self.connection.execute("SELECT state_json FROM researches").fetchall()
+        states = [json.loads(row[0])["status"] for row in rows]
+        return "running" in states, "awaiting_confirm" in states
+
+    def list_research(self) -> tuple[Research, ...]:
+        rows = self.connection.execute(
+            "SELECT state_json FROM researches ORDER BY updated_at DESC"
+        ).fetchall()
+        return tuple(self._decode(row[0]) for row in rows)
+
+    def list_methods(self) -> tuple[tuple[str, str, str], ...]:
+        rows = self.connection.execute(
+            """
+            SELECT method_id,revision_hash,definition
+              FROM method_revisions
+             ORDER BY method_id,created_at DESC
+            """
+        ).fetchall()
+        return tuple((row[0], row[1], row[2]) for row in rows)
+
+    def running_ids(self) -> tuple[str, ...]:
+        rows = self.connection.execute(
+            "SELECT research_id,state_json FROM researches ORDER BY research_id"
+        ).fetchall()
+        return tuple(
+            research_id
+            for research_id, payload in rows
+            if json.loads(payload)["status"] == "running"
         )
+
+    def delete(self, research_id: str) -> None:
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM researches WHERE research_id=?",
+                (research_id,),
+            )
+
+    def revise_method(self, method_id: str, definition: str, now: datetime) -> str:
+        revision = hashlib.sha256(definition.encode("utf-8")).hexdigest()
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT OR IGNORE INTO method_revisions(
+                    method_id,revision_hash,definition,created_at
+                ) VALUES(?,?,?,?)
+                """,
+                (method_id, revision, definition, now.isoformat()),
+            )
+        return revision
+
+    def record_error(self, research_id: str, message: str, now: datetime) -> None:
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO engine_errors(research_id,message,created_at) VALUES(?,?,?)",
+                (research_id, message, now.isoformat()),
+            )
 ```
 
 Create `apps/cli/main.py`:
@@ -5897,12 +7204,21 @@ class DetachedLauncher:
             )
         else:
             kwargs["start_new_session"] = True
-        subprocess.Popen(self._command() + ["--owner", owner], **kwargs)
+        process = subprocess.Popen(self._command() + ["--owner", owner], **kwargs)
+        log.close()
         deadline = time.monotonic() + 10.0
         while time.monotonic() < deadline:
-            if read_live_owner(self.paths) is not None:
+            record = read_live_owner(self.paths)
+            if (
+                record is not None
+                and record.phase == "ready"
+                and record.endpoint
+                and record.auth_token
+            ):
                 return
             time.sleep(0.05)
+        process.terminate()
+        process.wait(timeout=5.0)
         raise TimeoutError("alphaloop engine did not publish readiness within 10 seconds")
 
 
@@ -5966,7 +7282,7 @@ import time
 import uuid
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -5987,7 +7303,7 @@ from engine.research.gather import (
     YahooDataAdapter,
 )
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
-from engine.research.models import Research, ResearchEvent, new_research
+from engine.research.models import Research, ResearchEvent, Reverification, Slot, new_research
 from engine.research.runtime import (
     EngineLock,
     OwnerKind,
@@ -5996,8 +7312,9 @@ from engine.research.runtime import (
     publish_ready,
     read_live_owner,
 )
-from engine.research.state_machine import transition
+from engine.research.state_machine import all_slots_locked, transition
 from engine.research.store import CONVERTER, SQLiteStore
+from engine.research.simulate import simulate_daily
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
 from engine.strategy import MarketPanel, MeanReversionStrategy
 from engine.verifiers import run_verifiers
@@ -6100,9 +7417,108 @@ class ResearchCommandService:
     def _save(self, before: Research, after: Research) -> None:
         self.store.save(after, before.updated_at)
 
+    @staticmethod
+    def _settings(research: Research) -> dict[str, str]:
+        brief = research.brief
+        return {
+            "thesis": str(brief.thesis.value or ""),
+            "universe": str(brief.universe.value or ""),
+            "max_effective_hours": str(brief.max_effective_hours.value or ""),
+            "round1_methods": " · ".join(
+                method.method_id for method in (brief.round1_methods.value or ())
+            ),
+            "coverage_floor": str(brief.coverage_floor.value or ""),
+        }
+
+    def view_for(self, route: str) -> dict[str, Any]:
+        if route.startswith("#/methods"):
+            methods = [
+                {
+                    "id": method_id,
+                    "name": method_id,
+                    "revision": revision,
+                    "description": definition,
+                }
+                for method_id, revision, definition in self.store.list_methods()
+            ]
+            selected = route.removeprefix("#/methods/") if route.startswith("#/methods/") else None
+            return {"kind": "methods", "selected": selected, "methods": methods}
+        if route == "#/research":
+            summaries = [
+                {
+                    "id": research.research_id,
+                    "title": str(research.brief.thesis.value or "新研究"),
+                    "status": research.status.value,
+                }
+                for research in self.store.list_research()
+            ]
+            awaiting = next(
+                (item for item in summaries if item["status"] == "awaiting_confirm"),
+                None,
+            )
+            rows = [item for item in summaries if item is not awaiting]
+            return {"kind": "research_list", "awaiting": awaiting, "rows": rows}
+        research_id = route.removeprefix("#/research/")
+        research = self.store.load(research_id)
+        if research.status.value == "draft":
+            kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
+            return {
+                "kind": kind,
+                "researchId": research_id,
+                "messages": [],
+                "settings": self._settings(research),
+            }
+        if research.status.value in {"running", "paused"}:
+            version = research.current_version_number or 1
+            rounds = research.versions[version - 1].rounds if research.versions else ()
+            return {
+                "kind": "running",
+                "researchId": research_id,
+                "status": research.status.value,
+                "version": version,
+                "effective": f"{research.effective_seconds / 3600:.2f}h",
+                "coverage": str(research.brief.coverage_floor.value or ""),
+                "rounds": [round_.accepted_attempt.spec.id for round_ in reversed(rounds)],
+            }
+        if research.status.value == "awaiting_confirm":
+            request = research.pending_confirm
+            if request is None:
+                raise ValueError("awaiting_confirm research requires ConfirmRequest")
+            return {
+                "kind": "awaiting_confirm",
+                "researchId": research_id,
+                "version": research.current_version_number or 1,
+                "proposed": request.proposed_change,
+                "reason": request.reason,
+                "effect": request.effect,
+            }
+        rounds = research.versions[-1].rounds if research.versions else ()
+        selected = rounds[-1] if rounds else None
+        return {
+            "kind": "completed",
+            "researchId": research_id,
+            "status": research.status.value,
+            "title": str(research.brief.thesis.value or "研究结果"),
+            "selectedRoundId": selected.round_id if selected else "",
+            "selectedMethodId": "overfit.walk",
+            "eligibility": {
+                "allMethodsPassed": (
+                    selected is not None and selected.accepted_attempt.verification.passed
+                ),
+                "noPendingConfirm": research.pending_confirm is None,
+                "reverifiesPassed": all(
+                    item.passed
+                    for item in research.reverifications
+                    if selected is not None and item.round_id == selected.round_id
+                ),
+            },
+        }
+
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         kind = request["type"]
         now = datetime.now(UTC)
+        if kind == "fetch_view":
+            return self.view_for(request["route"])
         if kind == "create_draft":
             research_id = str(uuid.uuid4())
             self.store.create(new_research(research_id, now))
@@ -6129,6 +7545,24 @@ class ResearchCommandService:
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
         elif kind == "pause":
             updated = transition(research, ResearchEvent.PAUSE, now)
+        elif kind == "resume":
+            updated = transition(research, ResearchEvent.RESUME, now)
+        elif kind == "confirm_modification":
+            updated = transition(research, ResearchEvent.MODIFY_CONFIRM, now)
+        elif kind == "extend_research":
+            current_hours = research.brief.max_effective_hours.value or 0.0
+            extended = replace(
+                research,
+                brief=replace(
+                    research.brief,
+                    max_effective_hours=Slot(
+                        current_hours + float(request["hours"]),
+                        True,
+                    ),
+                ),
+                updated_at=now,
+            )
+            updated = transition(extended, ResearchEvent.EXTEND_CONFIRM, now)
         elif kind == "resolve_confirm":
             event = {
                 "approve_new_version": ResearchEvent.CONFIRM_APPROVE,
@@ -6137,22 +7571,66 @@ class ResearchCommandService:
             }[request["decision"]]
             updated = transition(research, event, now)
         elif kind == "reverify":
-            if not research.versions or not research.versions[-1].rounds:
-                raise ValueError("reverify requires a completed round")
-            versions = list(research.versions)
-            rounds = list(versions[-1].rounds)
-            accepted = rounds[-1].accepted_attempt
-            rerun = run_verifiers(accepted.simulation, accepted.spec)
-            rounds[-1] = replace(
-                rounds[-1],
-                accepted_attempt=replace(accepted, verification=rerun),
+            matching = [
+                round_
+                for version in research.versions
+                for round_ in version.rounds
+                if round_.round_id == request["round_id"]
+            ]
+            if len(matching) != 1:
+                raise ValueError("reverify requires one frozen round_id")
+            accepted = matching[0].accepted_attempt
+            if accepted.data_snapshot_path is None:
+                raise ValueError("reverify requires the selected round's frozen data")
+            frozen = pd.read_csv(
+                accepted.data_snapshot_path,
+                index_col="date",
+                parse_dates=True,
             )
-            versions[-1] = replace(versions[-1], rounds=tuple(rounds))
-            with_rerun = replace(research, versions=tuple(versions), updated_at=now)
+
+            class FrozenDataPort:
+                def load_daily(
+                    self,
+                    symbols: tuple[str, ...],
+                    start: date,
+                    end: date,
+                ) -> pd.DataFrame:
+                    if symbols == (accepted.simulation.benchmark_id,):
+                        return frozen[["__benchmark__"]].rename(
+                            columns={"__benchmark__": accepted.simulation.benchmark_id}
+                        )
+                    return frozen[list(symbols)]
+
+            rerun_simulation = simulate_daily(
+                MeanReversionStrategy(accepted.spec),
+                FrozenDataPort(),
+                frozen.index.min().date(),
+                frozen.index.max().date(),
+            )
+            rerun = run_verifiers(rerun_simulation, accepted.spec)
+            matching_method = [
+                result
+                for result in rerun.results
+                if result.verifier_id == request["method_id"]
+            ]
+            if len(matching_method) != 1:
+                raise ValueError("method_id is not frozen on the selected round")
+            record = Reverification(
+                round_id=request["round_id"],
+                method_id=request["method_id"],
+                report=rerun,
+                passed=matching_method[0].passed,
+                created_at=now,
+            )
+            with_rerun = replace(
+                research,
+                reverifications=research.reverifications + (record,),
+                updated_at=now,
+            )
             updated = transition(
                 with_rerun,
                 ResearchEvent.REVERIFY_PASS
-                if rerun.passed
+                if record.passed
                 else ResearchEvent.REVERIFY_FAIL,
                 now,
             )
@@ -6234,16 +7712,21 @@ class EngineApiHandler(BaseHTTPRequestHandler):
 def start_api(
     service: ResearchCommandService,
     token: str,
-) -> tuple[ThreadingHTTPServer, str]:
+) -> tuple[HTTPServer, str]:
+    bundle_root = Path(
+        getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
+    )
     schema = json.loads(
-        Path("contracts/desktop-api.schema.json").read_text(encoding="utf-8")
+        (bundle_root / "contracts" / "desktop-api.schema.json").read_text(
+            encoding="utf-8"
+        )
     )
     handler = type(
         "BoundEngineApiHandler",
         (EngineApiHandler,),
         {"service": service, "auth_token": token, "request_schema": schema},
     )
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server = HTTPServer(("127.0.0.1", 0), handler)
     endpoint = f"http://127.0.0.1:{server.server_port}"
     threading.Thread(
         target=server.serve_forever,
@@ -6257,8 +7740,22 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
     try:
         lock = EngineLock.acquire(paths, owner_kind)
     except RuntimeError:
+        deadline = time.monotonic() + 10.0
         owner = read_live_owner(paths)
+        while (
+            owner is not None
+            and (
+                owner.phase != "ready"
+                or owner.endpoint is None
+                or owner.auth_token is None
+            )
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.05)
+            owner = read_live_owner(paths)
         if owner is None:
+            return 1
+        if owner.phase != "ready" or owner.endpoint is None or owner.auth_token is None:
             return 1
         _handshake("already_running", owner)
         return 0
@@ -6268,7 +7765,7 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     store = SQLiteStore(paths.database_file)
     loop = build_loop(store, paths)
-    service = ResearchCommandService(store, paths)
+    service = ResearchCommandService(SQLiteStore(paths.database_file), paths)
     token = secrets.token_urlsafe(32)
     server, endpoint = start_api(service, token)
     owner = publish_ready(lock, endpoint, token)
@@ -6317,7 +7814,7 @@ alphaloop start
 alphaloop status
 ```
 
-Expected: pytest PASS with `10 passed`; Ruff and mypy exit `0`; before `start`, status reports `"running": false`; after `start`, status reports `"running": true` and `"owner": "cli"` without endpoint or token. Start a native desktop while CLI owns the engine and verify the desktop reports attached, then quit it and verify CLI status remains running. Stop the smoke-test CLI owner with SIGTERM by pid after verification; this is test cleanup, not a third public CLI command.
+Expected: pytest PASS with `12 passed`; Ruff and mypy exit `0`; before `start`, status reports `"running": false`; after `start`, status reports `"running": true` and `"owner": "cli"` without endpoint or token. Start a native desktop while CLI owns the engine and verify the desktop reports attached, then quit it and verify CLI status remains running. Stop the smoke-test CLI owner with SIGTERM by pid after verification; this is test cleanup, not a third public CLI command.
 
 - [ ] **Step 5: Commit the closed CLI surface**
 
