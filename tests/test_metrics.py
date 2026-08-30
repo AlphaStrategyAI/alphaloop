@@ -1,5 +1,4 @@
-from datetime import UTC, date, datetime
-from pathlib import Path
+from datetime import UTC, date
 
 import pandas as pd
 import pytest
@@ -11,7 +10,7 @@ from engine.metrics import (
 )
 from engine.research.models import AssetClass, Market, Universe
 from engine.research.simulate import simulate_daily
-from engine.strategy import MarketPanel, MeanReversionStrategy, StrategySpec
+from engine.strategy import MeanReversionStrategy, StrategySpec
 
 
 @pytest.mark.parametrize(

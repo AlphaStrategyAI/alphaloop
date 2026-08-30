@@ -65,8 +65,7 @@ def test_frozen_rubric_names_all_non_negotiable_checks() -> None:
 
 def test_second_llm_result_has_exact_review_shape() -> None:
     llm = SequenceLLM(
-        ['{"passed":false,"findings":[{"code":"lookahead","message":"future data"}],'
-         '"required_changes":"lag the signal"}']
+        ['{"passed":false,"findings":[{"code":"lookahead","message":"future data"}],"required_changes":"lag the signal"}']
     )
     report = SubagentReviewer(llm).run(draft())
     assert report.passed is False
@@ -78,8 +77,7 @@ def test_second_llm_result_has_exact_review_shape() -> None:
 def test_a_passed_retry_creates_one_round_under_same_version() -> None:
     llm = SequenceLLM(
         [
-            '{"passed":false,"findings":[{"code":"snoop","message":"tuned on OOS"}],'
-            '"required_changes":"freeze OOS"}',
+            '{"passed":false,"findings":[{"code":"snoop","message":"tuned on OOS"}],"required_changes":"freeze OOS"}',
             '{"passed":true,"findings":[]}',
         ]
     )

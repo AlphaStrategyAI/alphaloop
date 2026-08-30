@@ -4,12 +4,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any, Generic, TypeVar
 
-if TYPE_CHECKING:
-    from engine.metrics import SimulationReport
-    from engine.strategy import StrategySpec
-    from engine.verifiers import VerificationReport
+T = TypeVar("T")
 
 
 class ResearchStatus(StrEnum):
@@ -64,8 +61,8 @@ class ConfirmKind(StrEnum):
     REVIEW_BLOCKED = "review_blocked"
 
 
-@dataclass(frozen=True, slots=True)
-class Slot[T]:
+@dataclass(frozen=True)
+class Slot(Generic[T]):  # noqa: UP046 - cattrs requires Generic[T] syntax
     value: T | None = None
     locked: bool = False
 
@@ -124,10 +121,10 @@ class Attempt:
     attempt_id: str
     number: int
     change_class: ChangeClass
-    spec: StrategySpec
-    simulation: SimulationReport
-    verification: VerificationReport
-    review: ReviewReport
+    spec: Any
+    simulation: Any
+    verification: Any
+    review: ReviewReport | None = None
     data_snapshot_path: Path | None = None
     evidence_paths: tuple[Path, ...] = ()
 
@@ -147,7 +144,7 @@ class Round:
     completed_at: datetime
 
     def __post_init__(self) -> None:
-        if not self.accepted_attempt.review.passed:
+        if self.accepted_attempt.review is None or not self.accepted_attempt.review.passed:
             raise ValueError("a successful Round requires a passed review")
 
 
@@ -177,7 +174,7 @@ class ConfirmRequest:
 class Reverification:
     round_id: str
     method_id: str
-    report: VerificationReport
+    report: Any
     passed: bool
     created_at: datetime
 
