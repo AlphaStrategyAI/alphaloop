@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass, fields, is_dataclass
@@ -57,11 +58,9 @@ def _structure_slot(data: dict[str, Any], typ: type) -> Slot[Any]:
     return Slot(structured_value, data["locked"])
 
 
-def _structure_patch_value(val: Any) -> Any:
-    """Structure values within ConfirmRequest.patch based on content."""
-    if isinstance(val, dict) and set(val.keys()) == {"min_assets", "min_years", "max_missing_pct"}:
-        return CoverageFloor(**val)
-    return val
+def _is_slot_type(cls: type) -> bool:
+    """Check if cls is Slot or a generic instantiation of Slot."""
+    return cls is Slot or get_origin(cls) is Slot
 
 
 CONVERTER = cattrs.Converter()
@@ -69,11 +68,6 @@ CONVERTER.register_unstructure_hook(datetime, lambda value: value.isoformat())
 CONVERTER.register_structure_hook(datetime, lambda value, _: datetime.fromisoformat(value))
 CONVERTER.register_unstructure_hook(Path, str)
 CONVERTER.register_structure_hook(Path, lambda value, _: Path(value))
-def _is_slot_type(cls: type) -> bool:
-    """Check if cls is Slot or a generic instantiation of Slot."""
-    return cls is Slot or get_origin(cls) is Slot
-
-
 CONVERTER.register_structure_hook_func(
     _is_slot_type,
     _structure_slot,
@@ -100,6 +94,19 @@ CREATE TABLE IF NOT EXISTS review_attempts (
     round_number INTEGER NOT NULL,
     passed INTEGER NOT NULL,
     attempt_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS method_revisions (
+    method_id TEXT NOT NULL,
+    revision_hash TEXT NOT NULL,
+    definition TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (method_id, revision_hash)
+);
+CREATE TABLE IF NOT EXISTS engine_errors (
+    error_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    research_id TEXT NOT NULL,
+    message TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
 """
@@ -236,3 +243,61 @@ class SQLiteStore:
         if row is None:
             raise LookupError("heartbeat unavailable")
         return Heartbeat(row[0], int(row[1]), datetime.fromisoformat(row[2]))
+
+    def status_flags(self) -> tuple[bool, bool]:
+        rows = self.connection.execute("SELECT state_json FROM researches").fetchall()
+        states = [json.loads(row[0])["status"] for row in rows]
+        return "running" in states, "awaiting_confirm" in states
+
+    def list_research(self) -> tuple[Research, ...]:
+        rows = self.connection.execute(
+            "SELECT state_json FROM researches ORDER BY updated_at DESC"
+        ).fetchall()
+        return tuple(self._decode(row[0]) for row in rows)
+
+    def list_methods(self) -> tuple[tuple[str, str, str], ...]:
+        rows = self.connection.execute(
+            """
+            SELECT method_id,revision_hash,definition
+              FROM method_revisions
+             ORDER BY method_id,created_at DESC
+            """
+        ).fetchall()
+        return tuple((row[0], row[1], row[2]) for row in rows)
+
+    def running_ids(self) -> tuple[str, ...]:
+        rows = self.connection.execute(
+            "SELECT research_id,state_json FROM researches ORDER BY research_id"
+        ).fetchall()
+        return tuple(
+            research_id
+            for research_id, payload in rows
+            if json.loads(payload)["status"] == "running"
+        )
+
+    def delete(self, research_id: str) -> None:
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM researches WHERE research_id=?",
+                (research_id,),
+            )
+
+    def revise_method(self, method_id: str, definition: str, now: datetime) -> str:
+        revision = hashlib.sha256(definition.encode("utf-8")).hexdigest()
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT OR IGNORE INTO method_revisions(
+                    method_id,revision_hash,definition,created_at
+                ) VALUES(?,?,?,?)
+                """,
+                (method_id, revision, definition, now.isoformat()),
+            )
+        return revision
+
+    def record_error(self, research_id: str, message: str, now: datetime) -> None:
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO engine_errors(research_id,message,created_at) VALUES(?,?,?)",
+                (research_id, message, now.isoformat()),
+            )
