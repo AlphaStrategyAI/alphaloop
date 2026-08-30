@@ -1,6 +1,8 @@
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
+*.pyc
 *.so
 build/
 dist/
@@ -27,4 +29,14 @@ coverage.xml
 
 # Logs
 *.log
+
+# Node.js
+node_modules/
+apps/desktop/node_modules/
+
+# Vite
+.vite/
+
+# Desktop build artifacts
+apps/desktop/dist/
 apps/desktop/src-tauri/target/
