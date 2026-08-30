@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphaloop.local/contracts/strategy-pack.schema.json",
+  "title": "StrategyPackManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema_version",
+    "tradable_by_alphaloop",
+    "research_id",
+    "strategy_id",
+    "files",
+    "disclaimer"
+  ],
+  "properties": {
+    "kind": {"const": "strategy_pack"},
+    "schema_version": {"const": "1"},
+    "tradable_by_alphaloop": {"const": false},
+    "research_id": {"type": "string", "minLength": 1},
+    "strategy_id": {"type": "string", "minLength": 1},
+    "files": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+    },
+    "disclaimer": {"type": "string", "minLength": 1}
+  }
+}

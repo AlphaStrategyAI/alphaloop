@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-import json
 import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 import numpy as np
 import pandas as pd
 
 from engine.research.models import MethodRef, Universe
+
+if TYPE_CHECKING:
+    from engine.research.models import Research
 
 Frequency = Literal["1d"]
 Side = Literal["long_only", "long_short"]
@@ -51,11 +53,20 @@ class StrategySpec:
 
 @runtime_checkable
 class AlphaStrategy(Protocol):
-    id: str
-    thesis: str
-    universe: Universe
-    frequency: Frequency
-    side: Side
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def thesis(self) -> str: ...
+
+    @property
+    def universe(self) -> Universe: ...
+
+    @property
+    def frequency(self) -> Frequency: ...
+
+    @property
+    def side(self) -> Side: ...
 
     def generate_signals(self, data: MarketPanel) -> pd.DataFrame:
         raise NotImplementedError
@@ -67,6 +78,8 @@ class AlphaStrategy(Protocol):
 @dataclass(slots=True)
 class MeanReversionStrategy:
     spec: StrategySpec
+    data_snapshot: MarketPanel | None = None
+    accepted_research: Research | None = None
 
     @property
     def id(self) -> str:
@@ -100,26 +113,20 @@ class MeanReversionStrategy:
         return signals
 
     def to_executable(self) -> Path:
-        target = Path(tempfile.mkdtemp(prefix="alphaloop-strategy-"))
-        spec = asdict(self.spec)
-        spec["universe"]["market"] = self.spec.universe.market.value
-        spec["universe"]["asset_class"] = self.spec.universe.asset_class.value
-        spec["universe"]["underlying_asset_class"] = (
-            self.spec.universe.underlying_asset_class.value
+        if self.data_snapshot is None or self.accepted_research is None:
+            raise ValueError(
+                "to_executable requires accepted Research and bundled MarketPanel snapshots"
+            )
+        from engine.export import build_strategy_pack
+
+        archive = Path(tempfile.mkdtemp(prefix="alphaloop-strategy-")) / "strategy-pack.zip"
+        build_strategy_pack(
+            self.accepted_research,
+            self,
+            self.data_snapshot,
+            archive,
         )
-        spec["method_set"] = [asdict(item) for item in self.spec.method_set]
-        (target / "spec.json").write_text(
-            json.dumps(spec, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        runner = target / "run_backtest.py"
-        runner.write_text(
-            "from pathlib import Path\n"
-            "import json\n"
-            "print(json.loads(Path('spec.json').read_text(encoding='utf-8'))['id'])\n",
-            encoding="utf-8",
-        )
-        return runner
+        return archive
 
 
 def run_daily_backtest(strategy: AlphaStrategy, data: MarketPanel) -> pd.Series:
