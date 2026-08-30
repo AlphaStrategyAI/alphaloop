@@ -109,10 +109,8 @@ fn start_desktop_sidecar(
         }
     }
     thread::spawn(move || {
-        for line in lines {
-            if let Ok(line) = line {
-                eprintln!("alphaloop-engine: {line}");
-            }
+        for line in lines.map_while(Result::ok) {
+            eprintln!("alphaloop-engine: {line}");
         }
     });
     Ok(())

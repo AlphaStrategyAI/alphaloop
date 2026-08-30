@@ -45,8 +45,8 @@ fn last_window_close_kills_owned_sidecar_exactly_once() {
         )
         .unwrap();
 
-    assert_eq!(supervisor.close_last_window().unwrap(), true);
-    assert_eq!(supervisor.quit().unwrap(), false);
+    assert!(supervisor.close_last_window().unwrap());
+    assert!(!supervisor.quit().unwrap());
     assert_eq!(kills.load(Ordering::SeqCst), 1);
 }
 
@@ -63,8 +63,8 @@ fn app_quit_kills_owned_sidecar_exactly_once() {
         )
         .unwrap();
 
-    assert_eq!(supervisor.quit().unwrap(), true);
-    assert_eq!(supervisor.quit().unwrap(), false);
+    assert!(supervisor.quit().unwrap());
+    assert!(!supervisor.quit().unwrap());
     assert_eq!(kills.load(Ordering::SeqCst), 1);
 }
 
@@ -73,8 +73,8 @@ fn attached_cli_owner_is_never_killed_by_desktop() {
     let supervisor = EngineSupervisor::default();
     supervisor.attach(owner(EngineOwner::Cli)).unwrap();
 
-    assert_eq!(supervisor.close_last_window().unwrap(), false);
-    assert_eq!(supervisor.quit().unwrap(), false);
+    assert!(!supervisor.close_last_window().unwrap());
+    assert!(!supervisor.quit().unwrap());
     assert_eq!(supervisor.snapshot().owner(), Some(EngineOwner::Cli));
 }
 
@@ -99,7 +99,7 @@ fn closing_one_of_multiple_windows_does_not_call_shutdown() {
         )
         .unwrap();
 
-    assert_eq!(supervisor.window_close_requested(2).unwrap(), false);
+    assert!(!supervisor.window_close_requested(2).unwrap());
     assert_eq!(kills.load(Ordering::SeqCst), 0);
 }
 
