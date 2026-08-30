@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphaloop.local/contracts/research.schema.json",
+  "title": "ResearchEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["research_id", "status", "current_version_number", "effective_seconds"],
+  "properties": {
+    "research_id": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": ["draft", "running", "awaiting_confirm", "paused", "completed", "ended"]
+    },
+    "current_version_number": {"type": ["integer", "null"], "minimum": 1},
+    "effective_seconds": {"type": "number", "minimum": 0}
+  }
+}
