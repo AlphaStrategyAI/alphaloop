@@ -3024,8 +3024,11 @@ def test_passed_review_commits_round_and_completes(tmp_path: Path) -> None:
     result = loop.run_once("r-loop")
 
     assert result.status is ResearchStatus.COMPLETED
-    assert len(result.versions[0].rounds) == 1
-    assert result.versions[0].rounds[0].accepted_attempt.review.passed
+    rounds = result.versions[0].rounds
+    assert len(rounds) == 1
+    accepted_review = rounds[0].accepted_attempt.review
+    assert accepted_review is not None
+    assert accepted_review.passed
     assert store.last_completed_round("r-loop") == 1
 
 
