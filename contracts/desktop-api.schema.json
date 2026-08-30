@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphaloop.local/contracts/desktop-api.schema.json",
+  "title": "DesktopRequest",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "route"],
+      "properties": {
+        "type": {"const": "fetch_view"},
+        "route": {"type": "string", "pattern": "^#/(research|methods)"}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {"type": {"const": "create_draft"}}
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id"],
+      "properties": {
+        "type": {
+          "enum": [
+            "confirm_run",
+            "pause",
+            "resume",
+            "confirm_modification",
+            "delete_research"
+          ]
+        },
+        "research_id": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "decision"],
+      "properties": {
+        "type": {"const": "resolve_confirm"},
+        "research_id": {"type": "string", "minLength": 1},
+        "decision": {
+          "enum": ["approve_new_version", "reject_keep_logic", "pause_and_edit"]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "hours"],
+      "properties": {
+        "type": {"const": "extend_research"},
+        "research_id": {"type": "string", "minLength": 1},
+        "hours": {"type": "number", "exclusiveMinimum": 0, "maximum": 720}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "round_id", "method_id"],
+      "properties": {
+        "type": {"const": "reverify"},
+        "research_id": {"type": "string", "minLength": 1},
+        "round_id": {"type": "string", "minLength": 1},
+        "method_id": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "message"],
+      "properties": {
+        "type": {"const": "send_dialogue"},
+        "research_id": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "kind"],
+      "properties": {
+        "type": {"const": "export_artifact"},
+        "research_id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["strategy_pack", "research_record"]}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "method_id", "definition"],
+      "properties": {
+        "type": {"const": "revise_method"},
+        "method_id": {"type": "string", "minLength": 1},
+        "definition": {"type": "string", "minLength": 1}
+      }
+    }
+  ]
+}
