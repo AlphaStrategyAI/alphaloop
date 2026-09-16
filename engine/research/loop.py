@@ -26,6 +26,7 @@ from engine.research.simulate import simulate_daily
 from engine.research.specify import ModelProposal, ProposedChange, classify_change, specify
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
+from engine.review.subagent import MAX_CONSECUTIVE_REVIEW_FAILURES
 from engine.strategy import MeanReversionStrategy
 from engine.verifiers import run_verifiers
 
@@ -197,6 +198,25 @@ class ResearchLoop:
             version_number,
             round_number,
         )
+        if prior_failures >= MAX_CONSECUTIVE_REVIEW_FAILURES:
+            blocked = transition(
+                replace(
+                    research,
+                    consecutive_review_failures=prior_failures,
+                ),
+                ResearchEvent.REQUEST_CONFIRM,
+                self.now(),
+                ConfirmRequest(
+                    request_id=f"review-blocked-v{version_number}-r{round_number}",
+                    kind=ConfirmKind.REVIEW_BLOCKED,
+                    proposed_change="人工检查审查发现，或确认经济逻辑调整后再继续",
+                    reason="连续3次独立审查未通过",
+                    effect="研究保持当前版本并停止消耗有效研究时间",
+                ),
+            )
+            result = self.budget.finish(blocked)
+            self.store.save(result, expected_updated_at)
+            return result
         draft = self.builder.build(research, prior_failures + 1)
         outcome = run_review_gate(
             draft,

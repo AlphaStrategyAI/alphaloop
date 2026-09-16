@@ -198,6 +198,47 @@ def test_three_review_failures_wait_without_round_or_version_advance(tmp_path: P
     assert store.review_failure_count("r-loop", 1, 1) == 3
 
 
+def test_reload_with_three_persisted_failures_self_heals_to_review_blocked(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    for number in range(1, 4):
+        store.record_review_attempt(
+            "r-loop",
+            1,
+            1,
+            Attempt(
+                attempt_id=f"a-{number}",
+                number=number,
+                change_class=ChangeClass.PARAM,
+                spec=strategy(number),
+                simulation=simulation(),
+                verification=report(),
+                review=ReviewReport(False, (), "choose a different automatic change"),
+            ),
+            NOW,
+        )
+    assert store.load("r-loop").status is ResearchStatus.RUNNING
+    assert store.review_failure_count("r-loop", 1, 1) == 3
+
+    builder = FakeBuilder()
+    result = ResearchLoop(
+        store,
+        builder,
+        FailReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+
+    assert result.status is ResearchStatus.AWAITING_CONFIRM
+    assert result.pending_confirm is not None
+    assert result.pending_confirm.kind is ConfirmKind.REVIEW_BLOCKED
+    assert result.versions[0].rounds == ()
+    assert store.last_completed_round("r-loop") == 0
+    assert builder.calls == 0
+
+
 def test_paused_loop_does_no_work_or_clock_charge(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "research.db")
     paused = replace(running_research(), status=ResearchStatus.PAUSED, effective_seconds=3.0)
