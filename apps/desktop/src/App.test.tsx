@@ -23,6 +23,7 @@ const api: DesktopApi = {
   exportArtifact: vi.fn(async () => undefined),
   reverify: vi.fn(async () => undefined),
   reviseMethod: vi.fn(async () => undefined),
+  createMethod: vi.fn(async () => undefined),
 };
 
 const settings = {
@@ -180,6 +181,20 @@ describe("Night desktop contract", () => {
     );
     expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+  });
+
+  it("can pre-create a method from the library screen", async () => {
+    const createMethod = vi.fn(async () => undefined);
+    render(
+      <App
+        api={{...api, createMethod}}
+        initialView={{kind: "methods", methods: []}}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("新方法名称"), {target: {value: "换手冲击"}});
+    fireEvent.change(screen.getByPlaceholderText("方法定义"), {target: {value: "换手超过阈值则失败"}});
+    fireEvent.click(screen.getByRole("button", {name: "预先新建方法"}));
+    expect(createMethod).toHaveBeenCalledWith("换手冲击", "换手超过阈值则失败");
   });
 
   it("keeps overturned banner but enables strategy-pack export when eligibility checks pass", () => {

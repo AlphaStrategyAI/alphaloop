@@ -25,6 +25,7 @@ const desktopApi: DesktopApi = {
     await invoke("reverify", {researchId, roundId, methodId});
   },
   async reviseMethod(methodId, definition) { await invoke("revise_method", {methodId, definition}); },
+  async createMethod(name, definition) { await invoke("create_method", {name, definition}); },
 };
 
 const previewApi: DesktopApi = {
@@ -41,6 +42,7 @@ const previewApi: DesktopApi = {
   async exportArtifact() { return undefined; },
   async reverify() { return undefined; },
   async reviseMethod() { return undefined; },
+  async createMethod() { return undefined; },
 };
 
 const preview: DesktopView = {kind: "research_list", rows: []};

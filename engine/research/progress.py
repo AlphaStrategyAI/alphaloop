@@ -70,3 +70,17 @@ def thesis_divergence_hint(previous: str, proposed: str) -> str | None:
     if not old or len(old & new) / len(old) >= 0.4:
         return None
     return "这也可以作为一条新研究重新开始。"
+
+
+def notification_event(
+    before: ResearchStatus,
+    after: ResearchStatus,
+) -> Literal["awaiting_confirm", "completed", "ended"] | None:
+    if after is ResearchStatus.AWAITING_CONFIRM and before is not ResearchStatus.AWAITING_CONFIRM:
+        return "awaiting_confirm"
+    if after is ResearchStatus.COMPLETED and before is not ResearchStatus.COMPLETED:
+        return "completed"
+    if after is ResearchStatus.ENDED and before is not ResearchStatus.ENDED:
+        return "ended"
+    return None
+

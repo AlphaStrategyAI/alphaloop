@@ -308,6 +308,7 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
       <h1>{method.name}</h1>
       <p>{method.description}</p>
       <p>当前冻结定义：{method.revision}</p>
+      {method.usageCount != null && <p>被 {method.usageCount} 次研究用过</p>}
       <button className="quiet-button" onClick={() => void api.reviseMethod(method.id, method.description)}>编辑为新定义</button>
       <p>旧研究和已导出的策略包仍引用原定义。</p>
     </section>
@@ -316,11 +317,26 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
 
 function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "methods"}>}) {
   const selected = view.methods.find((item) => item.id === view.selected) ?? view.methods[0];
+  const [name, setName] = useState("");
+  const [definition, setDefinition] = useState("");
   return (
     <div className="methods-layout">
       <aside className="method-list">
         <p>编辑得到新定义，旧研究不改写。</p>
-        {view.methods.map((method) => <a href={`#/methods/${method.id}`} key={method.id}>{method.name}<small>{method.revision}</small></a>)}
+        <div className="method-create">
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="新方法名称" />
+          <input value={definition} onChange={(event) => setDefinition(event.target.value)} placeholder="方法定义" />
+          <button className="quiet-button" onClick={() => {
+            if (name.trim() && definition.trim()) void api.createMethod(name.trim(), definition.trim());
+          }}>预先新建方法</button>
+        </div>
+        {view.methods.map((method) => (
+          <a href={`#/methods/${method.id}`} key={method.id}>
+            {method.name}
+            <small>{method.revision}</small>
+            {method.usageCount != null ? <small>被 {method.usageCount} 次研究用过</small> : null}
+          </a>
+        ))}
       </aside>
       {selected && <MethodDetail api={api} method={selected} />}
     </div>

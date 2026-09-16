@@ -135,3 +135,11 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .method-list a:first-of-type { background: var(--glass); border: 1px solid var(--line); }
 .method-list small { margin-top: 4px; }
 .method-detail { padding: 52px 64px; background: var(--glass); }
+.method-create { display: grid; gap: 8px; margin: 16px 0 24px; }
+.method-create input {
+  color: var(--ink);
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 10px 12px;
+}

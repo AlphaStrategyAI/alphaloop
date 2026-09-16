@@ -54,3 +54,11 @@ def test_confirmation_cannot_be_inferred_from_casual_affirmation() -> None:
     research = new_research("r-yes", NOW)
     intent = interpret("好啊", research)
     assert intent.kind is IntentKind.OFF_TOPIC
+
+
+def test_fund_message_locks_fund_universe_with_equity_underlying() -> None:
+    research = new_research("r-fund", NOW)
+    intent = interpret("研究沪深300ETF基金的低波动回归", research)
+    assert intent.universe is not None
+    assert intent.universe.asset_class is AssetClass.FUND
+    assert intent.universe.underlying_asset_class is AssetClass.EQUITY

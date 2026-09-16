@@ -37,6 +37,7 @@ export interface ValidationMethod {
   name: string;
   revision: string;
   description: string;
+  usageCount?: number;
 }
 
 type ViewBody =
@@ -100,4 +101,5 @@ export interface DesktopApi {
   exportArtifact(researchId: string, kind: ExportKind): Promise<void>;
   reverify(researchId: string, roundId: string, methodId: string): Promise<void>;
   reviseMethod(methodId: string, definition: string): Promise<void>;
+  createMethod(name: string, definition: string): Promise<void>;
 }

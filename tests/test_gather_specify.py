@@ -114,6 +114,16 @@ def test_specify_preserves_locked_thesis_universe_and_methods() -> None:
     assert second.lookback_days == 30
 
 
+def test_bond_fund_message_uses_bond_underlying() -> None:
+    proposal = propose_brief_updates(
+        "中国债券基金的久期",
+        (),
+        DataProfile(("510050.SH",), 10, 1.0),
+    )
+    assert proposal.universe.asset_class is AssetClass.FUND
+    assert proposal.universe.underlying_asset_class is AssetClass.BOND
+
+
 def test_specify_rejects_a_prior_spec_from_another_economic_version() -> None:
     research = locked_research()
     first = specify(research, None, ModelProposal("mean_reversion", 20, 1.0, "long_only"))

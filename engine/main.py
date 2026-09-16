@@ -41,6 +41,7 @@ from engine.research.methods import (
     as_method_refs,
     create_method,
     deposit_confirmed_methods,
+    list_method_usage,
     record_method_usage,
     revise_method,
     seed_preset_methods,
@@ -62,6 +63,7 @@ from engine.research.progress import (
     ResearchListItem,
     host_status,
     list_items,
+    notification_event,
     thesis_divergence_hint,
 )
 from engine.research.runtime import (
@@ -182,10 +184,40 @@ class ResearchCommandService:
     def __init__(self, store: SQLiteStore, paths: RuntimePaths) -> None:
         self.store = store
         self.paths = paths
+        self._observed_status: dict[str, ResearchStatus] = {}
         seed_preset_methods(store)
 
-    def _save(self, before: Research, after: Research) -> None:
+    def _save(self, before: Research, after: Research) -> dict[str, Any]:
         self.store.save(after, before.updated_at)
+        self._observed_status[after.research_id] = after.status
+        payload: dict[str, Any] = {
+            "research_id": after.research_id,
+            "status": after.status.value,
+        }
+        event = notification_event(before.status, after.status)
+        if event is not None:
+            payload["notify"] = event
+        return payload
+
+    def _attach_notify(self, payload: dict[str, Any]) -> dict[str, Any]:
+        pending: list[tuple[Research, str]] = []
+        for item in self.store.list_research():
+            before = self._observed_status.get(item.research_id)
+            if before is None:
+                self._observed_status[item.research_id] = item.status
+                continue
+            event = notification_event(before, item.status)
+            if event is None:
+                self._observed_status[item.research_id] = item.status
+            else:
+                pending.append((item, event))
+        if pending:
+            rank = {"awaiting_confirm": 0, "completed": 1, "ended": 2}
+            pending.sort(key=lambda pair: rank[pair[1]])
+            chosen, kind = pending[0]
+            self._observed_status[chosen.research_id] = chosen.status
+            payload["notify"] = kind
+        return payload
 
     def _record_version_methods(
         self,
@@ -223,7 +255,7 @@ class ResearchCommandService:
         payload["hostStatus"] = host_status(self.store.list_research())
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
-        return payload
+        return self._attach_notify(payload)
 
     @staticmethod
     def _list_summary(item: ResearchListItem) -> dict[str, str]:
@@ -279,6 +311,10 @@ class ResearchCommandService:
                     "source": item.source.value,
                     "depositedFromResearchId": item.deposited_from_research_id,
                     "supersedes": item.supersedes,
+                    "usageCount": len({
+                        row.research_id
+                        for row in list_method_usage(self.store, item.method_id)
+                    }),
                 }
                 for item in self.store.list_method_definitions()
             ]
@@ -620,12 +656,12 @@ class ResearchCommandService:
                 ),
                 updated_at=now,
             )
-            self._save(research, updated)
-            return {"path": str(destination)}
+            payload = self._save(research, updated)
+            payload["path"] = str(destination)
+            return payload
         else:
             raise ValueError(f"unknown desktop request type: {kind}")
-        self._save(research, updated)
-        return {"research_id": research.research_id, "status": updated.status.value}
+        return self._save(research, updated)
 
 
 class EngineApiHandler(BaseHTTPRequestHandler):

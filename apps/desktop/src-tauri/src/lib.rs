@@ -16,7 +16,6 @@ use serde::Deserialize;
 use tauri::{Manager, RunEvent, WindowEvent};
 
 use commands::EngineConnection;
-use commands::NotificationTracker;
 
 struct TauriChild(Child);
 
@@ -127,7 +126,6 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(supervisor.clone())
         .manage(connection)
-        .manage(NotificationTracker::default())
         .invoke_handler(tauri::generate_handler![
             commands::fetch_view,
             commands::create_draft,
@@ -142,6 +140,7 @@ pub fn run() {
             commands::export_artifact,
             commands::reverify,
             commands::revise_method,
+            commands::create_method,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

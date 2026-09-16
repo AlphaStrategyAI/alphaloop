@@ -16,11 +16,6 @@ pub struct EngineConnection {
     connection: Arc<Mutex<Option<Connection>>>,
 }
 
-#[derive(Default)]
-pub struct NotificationTracker {
-    last_event: Mutex<Option<String>>,
-}
-
 impl EngineConnection {
     pub fn set(&self, endpoint: String, auth_token: String) -> Result<(), String> {
         let mut connection = self
@@ -56,45 +51,47 @@ impl EngineConnection {
     }
 }
 
+fn notification_title(kind: &str) -> Option<&'static str> {
+    match kind {
+        "awaiting_confirm" => Some("有研究在等你确认"),
+        "completed" => Some("研究已完成"),
+        "ended" => Some("研究已结束"),
+        _ => None,
+    }
+}
+
+fn maybe_notify(app: &tauri::AppHandle, payload: &serde_json::Value) {
+    let Some(kind) = payload.get("notify").and_then(|value| value.as_str()) else {
+        return;
+    };
+    let Some(title) = notification_title(kind) else {
+        return;
+    };
+    let _ = app.notification().builder().title(title).show();
+}
+
+async fn mutate(
+    app: &AppHandle,
+    connection: &EngineConnection,
+    request: Value,
+) -> Result<Value, String> {
+    let payload = connection.post(request).await?;
+    maybe_notify(app, &payload);
+    Ok(payload)
+}
+
 #[tauri::command]
 pub async fn fetch_view(
     route: String,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
-    tracker: State<'_, NotificationTracker>,
 ) -> Result<Value, String> {
-    let view = connection
-        .post(json!({"type": "fetch_view", "route": route}))
-        .await?;
-    let kind = view["kind"].as_str().unwrap_or_default();
-    let status = view["status"].as_str().unwrap_or_default();
-    let body = match (kind, status) {
-        ("awaiting_confirm", _) => Some("研究需要你确认"),
-        ("completed", "completed") => Some("研究已完成"),
-        ("completed", "ended") => Some("研究已结束"),
-        _ => None,
-    };
-    if let Some(body) = body {
-        let event_id = format!(
-            "{}:{}",
-            view["researchId"].as_str().unwrap_or_default(),
-            status
-        );
-        let mut last = tracker
-            .last_event
-            .lock()
-            .map_err(|_| "notification tracker lock poisoned")?;
-        if last.as_deref() != Some(&event_id) {
-            app.notification()
-                .builder()
-                .title("alphaloop")
-                .body(body)
-                .show()
-                .map_err(|error| error.to_string())?;
-            *last = Some(event_id);
-        }
-    }
-    Ok(view)
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "fetch_view", "route": route}),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -109,112 +106,148 @@ pub async fn create_draft(connection: State<'_, EngineConnection>) -> Result<Str
 #[tauri::command]
 pub async fn confirm_run(
     research_id: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({"type": "confirm_run", "research_id": research_id}))
-        .await
-        .map(|_| ())
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "confirm_run", "research_id": research_id}),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn send_dialogue(
     research_id: String,
     message: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({"type": "send_dialogue", "research_id": research_id, "message": message}))
-        .await
-        .map(|_| ())
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "send_dialogue", "research_id": research_id, "message": message}),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn pause_research(
     research_id: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({"type": "pause", "research_id": research_id}))
-        .await
-        .map(|_| ())
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "pause", "research_id": research_id}),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn resume_research(
     research_id: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({"type": "resume", "research_id": research_id}))
-        .await
-        .map(|_| ())
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "resume", "research_id": research_id}),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn confirm_modification(
     research_id: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({"type": "confirm_modification", "research_id": research_id}))
-        .await
-        .map(|_| ())
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "confirm_modification", "research_id": research_id}),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn extend_research(
     research_id: String,
     hours: f64,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({
+    mutate(
+        &app,
+        &connection,
+        json!({
             "type": "extend_research",
             "research_id": research_id,
             "hours": hours
-        }))
-        .await
-        .map(|_| ())
+        }),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn delete_research(
     research_id: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({"type": "delete_research", "research_id": research_id}))
-        .await
-        .map(|_| ())
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "delete_research", "research_id": research_id}),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn resolve_confirm(
     research_id: String,
     decision: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({
+    mutate(
+        &app,
+        &connection,
+        json!({
             "type": "resolve_confirm",
             "research_id": research_id,
             "decision": decision
-        }))
-        .await
-        .map(|_| ())
+        }),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
 pub async fn export_artifact(
     research_id: String,
     kind: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({"type": "export_artifact", "research_id": research_id, "kind": kind}))
-        .await
-        .map(|_| ())
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "export_artifact", "research_id": research_id, "kind": kind}),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
@@ -222,17 +255,21 @@ pub async fn reverify(
     research_id: String,
     round_id: String,
     method_id: String,
+    app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    connection
-        .post(json!({
+    mutate(
+        &app,
+        &connection,
+        json!({
             "type": "reverify",
             "research_id": research_id,
             "round_id": round_id,
             "method_id": method_id
-        }))
-        .await
-        .map(|_| ())
+        }),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[tauri::command]
@@ -249,4 +286,40 @@ pub async fn revise_method(
         }))
         .await
         .map(|_| ())
+}
+
+#[tauri::command]
+pub async fn create_method(
+    name: String,
+    definition: String,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    connection
+        .post(json!({
+            "type": "create_method",
+            "method_id": format!("user.{name}"),
+            "name": name,
+            "description": definition,
+            "body": definition
+        }))
+        .await
+        .map(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::notification_title;
+
+    #[test]
+    fn notify_titles_cover_only_awaiting_and_terminal_states() {
+        assert_eq!(
+            notification_title("awaiting_confirm"),
+            Some("有研究在等你确认")
+        );
+        assert_eq!(notification_title("completed"), Some("研究已完成"));
+        assert_eq!(notification_title("ended"), Some("研究已结束"));
+        assert_eq!(notification_title("paused"), None);
+        assert_eq!(notification_title("running"), None);
+        assert_eq!(notification_title("draft"), None);
+    }
 }

@@ -30,6 +30,14 @@ class Intent:
     unlocks: tuple[str, ...] = ()
     response: str = ""
 
+    @property
+    def universe(self) -> Universe | None:
+        for key, value in self.updates:
+            if key == "universe" and isinstance(value, Universe):
+                return value
+        return None
+
+
 
 METHOD_WORDS = {
     "走样检验": MethodRef("overfit.walk", "walk-v1"),
@@ -50,13 +58,19 @@ SLOT_WORDS = {
 def _universe(message: str) -> Universe | None:
     market = Market.US if re.search(r"美股|美国|US", message, re.IGNORECASE) else None
     market = Market.CN if re.search(r"A股|中国|沪深|CN", message, re.IGNORECASE) else market
-    asset = AssetClass.BOND if "债" in message else None
-    asset = AssetClass.FUND if "基金" in message else asset
-    asset = AssetClass.EQUITY if re.search(r"股|股票", message) else asset
-    if market is None or asset is None:
-        return None
-    underlying = AssetClass.BOND if asset is AssetClass.FUND and "债" in message else asset
-    if asset is AssetClass.FUND and underlying is AssetClass.FUND:
+    if re.search(r"基金|ETF", message, re.IGNORECASE):
+        asset = AssetClass.FUND
+        underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
+    elif "债" in message:
+        asset = AssetClass.BOND
+        underlying = AssetClass.BOND
+    elif re.search(r"股|股票", message):
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
+    else:
+        asset = None
+        underlying = None
+    if market is None or asset is None or underlying is None:
         return None
     return Universe(market, asset, underlying, ())
 

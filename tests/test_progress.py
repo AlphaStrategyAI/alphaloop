@@ -1,9 +1,9 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from engine.research.models import (
     AssetClass,
     Market,
-    ResearchAction,
     ResearchStatus,
     Slot,
     Universe,
@@ -12,11 +12,9 @@ from engine.research.models import (
 from engine.research.progress import (
     host_status,
     list_items,
+    notification_event,
     thesis_divergence_hint,
 )
-from engine.research.state_machine import transition
-from engine.research.models import ResearchEvent
-from dataclasses import replace
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
@@ -57,3 +55,12 @@ def test_thesis_hint_is_non_blocking() -> None:
     hint = thesis_divergence_hint("低波动量价回归", "用宏观利率做国债久期")
     assert hint == "这也可以作为一条新研究重新开始。"
     assert thesis_divergence_hint("低波动量价回归", "低波动量价回归加拥挤过滤") is None
+
+
+def test_notifications_fire_only_for_awaiting_and_terminal_states() -> None:
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.AWAITING_CONFIRM) == "awaiting_confirm"
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.COMPLETED) == "completed"
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.ENDED) == "ended"
+    assert notification_event(ResearchStatus.DRAFT, ResearchStatus.RUNNING) is None
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.PAUSED) is None
+    assert notification_event(ResearchStatus.AWAITING_CONFIRM, ResearchStatus.RUNNING) is None
