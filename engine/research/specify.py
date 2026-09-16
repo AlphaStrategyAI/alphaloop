@@ -74,6 +74,7 @@ def classify_change(change: ProposedChange) -> ChangeClass:
         "thesis_locked",
         "universe",
         "method_set",
+        "round1_methods",
         "max_drawdown_floor",
         "validation_thresholds",
     }:

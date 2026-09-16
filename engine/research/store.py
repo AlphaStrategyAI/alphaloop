@@ -14,6 +14,10 @@ import cattrs
 from engine.research.models import (
     Attempt,
     CoverageFloor,
+    MethodDefinition,
+    MethodRef,
+    MethodSource,
+    MethodUsage,
     Research,
     Slot,
 )
@@ -105,9 +109,21 @@ CREATE TABLE IF NOT EXISTS review_attempts (
 CREATE TABLE IF NOT EXISTS method_revisions (
     method_id TEXT NOT NULL,
     revision_hash TEXT NOT NULL,
-    definition TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL,
+    body TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'preset',
+    deposited_from_research_id TEXT,
+    supersedes TEXT,
     created_at TEXT NOT NULL,
     PRIMARY KEY (method_id, revision_hash)
+);
+CREATE TABLE IF NOT EXISTS method_usage (
+    method_id TEXT NOT NULL,
+    revision_hash TEXT NOT NULL,
+    research_id TEXT NOT NULL,
+    version_number INTEGER NOT NULL,
+    PRIMARY KEY (method_id, revision_hash, research_id, version_number)
 );
 CREATE TABLE IF NOT EXISTS engine_errors (
     error_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,6 +150,39 @@ class SQLiteStore:
         self.path = path
         self.connection = sqlite3.connect(path, check_same_thread=False)
         self.connection.executescript(SCHEMA)
+        self._migrate_method_schema()
+
+    def _migrate_method_schema(self) -> None:
+        columns = {
+            row[1]
+            for row in self.connection.execute("PRAGMA table_info(method_revisions)").fetchall()
+        }
+        if "body" in columns:
+            return
+        with self.connection:
+            self.connection.executescript(
+                """
+                CREATE TABLE method_revisions_v2 (
+                    method_id TEXT NOT NULL,
+                    revision_hash TEXT NOT NULL,
+                    name TEXT NOT NULL DEFAULT '',
+                    description TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    source TEXT NOT NULL DEFAULT 'preset',
+                    deposited_from_research_id TEXT,
+                    supersedes TEXT,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (method_id, revision_hash)
+                );
+                INSERT INTO method_revisions_v2 (
+                    method_id, revision_hash, name, description, body, source, created_at
+                )
+                SELECT method_id, revision_hash, '', definition, definition, 'preset', created_at
+                  FROM method_revisions;
+                DROP TABLE method_revisions;
+                ALTER TABLE method_revisions_v2 RENAME TO method_revisions;
+                """
+            )
 
     @staticmethod
     def _encode(research: Research) -> str:
@@ -262,14 +311,95 @@ class SQLiteStore:
         return tuple(self._decode(row[0]) for row in rows)
 
     def list_methods(self) -> tuple[tuple[str, str, str], ...]:
+        return tuple(
+            (item.method_id, item.revision_hash, item.description)
+            for item in self.list_method_definitions()
+        )
+
+    def list_method_definitions(self) -> tuple[MethodDefinition, ...]:
         rows = self.connection.execute(
             """
-            SELECT method_id,revision_hash,definition
+            SELECT method_id,revision_hash,name,description,body,source,
+                   deposited_from_research_id,supersedes,created_at
               FROM method_revisions
-             ORDER BY method_id,created_at DESC
+             ORDER BY rowid
             """
         ).fetchall()
-        return tuple((row[0], row[1], row[2]) for row in rows)
+        return tuple(
+            MethodDefinition(
+                method_id=row[0],
+                revision_hash=row[1],
+                name=row[2],
+                description=row[3],
+                body=row[4],
+                source=MethodSource(row[5]),
+                deposited_from_research_id=row[6],
+                created_at=datetime.fromisoformat(row[8]),
+                supersedes=row[7],
+            )
+            for row in rows
+        )
+
+    def latest_method_definition(self, method_id: str) -> MethodDefinition | None:
+        rows = [item for item in self.list_method_definitions() if item.method_id == method_id]
+        if not rows:
+            return None
+        superseded = {item.supersedes for item in rows if item.supersedes}
+        heads = [item for item in rows if item.revision_hash not in superseded]
+        return heads[-1] if heads else rows[-1]
+
+    def insert_method_definition(self, definition: MethodDefinition) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT OR IGNORE INTO method_revisions(
+                    method_id,revision_hash,name,description,body,source,
+                    deposited_from_research_id,supersedes,created_at
+                ) VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    definition.method_id,
+                    definition.revision_hash,
+                    definition.name,
+                    definition.description,
+                    definition.body,
+                    definition.source.value,
+                    definition.deposited_from_research_id,
+                    definition.supersedes,
+                    definition.created_at.isoformat(),
+                ),
+            )
+
+    def list_method_usage(self, method_id: str) -> tuple[MethodUsage, ...]:
+        rows = self.connection.execute(
+            """
+            SELECT method_id,revision_hash,research_id,version_number
+              FROM method_usage
+             WHERE method_id=?
+             ORDER BY rowid
+            """,
+            (method_id,),
+        ).fetchall()
+        return tuple(MethodUsage(row[0], row[1], row[2], int(row[3])) for row in rows)
+
+    def record_method_usage(
+        self,
+        research_id: str,
+        version_number: int,
+        method_set: tuple[MethodRef, ...],
+    ) -> None:
+        with self.connection:
+            self.connection.executemany(
+                """
+                INSERT OR IGNORE INTO method_usage(
+                    method_id,revision_hash,research_id,version_number
+                ) VALUES(?,?,?,?)
+                """,
+                [
+                    (item.method_id, item.revision_hash, research_id, version_number)
+                    for item in method_set
+                ],
+            )
 
     def running_ids(self) -> tuple[str, ...]:
         rows = self.connection.execute(
@@ -288,18 +418,31 @@ class SQLiteStore:
                 (research_id,),
             )
 
-    def revise_method(self, method_id: str, definition: str, now: datetime) -> str:
-        revision = hashlib.sha256(definition.encode("utf-8")).hexdigest()
-        with self.connection:
-            self.connection.execute(
-                """
-                INSERT OR IGNORE INTO method_revisions(
-                    method_id,revision_hash,definition,created_at
-                ) VALUES(?,?,?,?)
-                """,
-                (method_id, revision, definition, now.isoformat()),
-            )
-        return revision
+    def revise_method(
+        self,
+        method_id: str,
+        definition: str,
+        now: datetime,
+        name: str = "",
+        body: str | None = None,
+        source: str = "preset",
+        supersedes: str | None = None,
+        deposited_from_research_id: str | None = None,
+    ) -> str:
+        text = definition if body is None else body
+        row = MethodDefinition(
+            method_id=method_id,
+            revision_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            name=name,
+            description=definition,
+            body=text,
+            source=source if isinstance(source, MethodSource) else MethodSource(source),
+            deposited_from_research_id=deposited_from_research_id,
+            created_at=now,
+            supersedes=supersedes,
+        )
+        self.insert_method_definition(row)
+        return row.revision_hash
 
     def record_error(self, research_id: str, message: str, now: datetime) -> None:
         with self.connection:

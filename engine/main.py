@@ -32,7 +32,16 @@ from engine.research.gather import (
     YahooDataAdapter,
 )
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
+from engine.research.methods import (
+    as_method_refs,
+    create_method,
+    deposit_confirmed_methods,
+    record_method_usage,
+    revise_method,
+    seed_preset_methods,
+)
 from engine.research.models import (
+    MethodSource,
     Research,
     ResearchEvent,
     Reverification,
@@ -149,9 +158,25 @@ class ResearchCommandService:
     def __init__(self, store: SQLiteStore, paths: RuntimePaths) -> None:
         self.store = store
         self.paths = paths
+        seed_preset_methods(store)
 
     def _save(self, before: Research, after: Research) -> None:
         self.store.save(after, before.updated_at)
+
+    def _record_version_methods(
+        self,
+        research: Research,
+        method_set: object | None = None,
+    ) -> None:
+        selected = as_method_refs(method_set) or research.brief.round1_methods.value or ()
+        if research.current_version_number is None or not selected:
+            return
+        record_method_usage(
+            self.store,
+            research.research_id,
+            research.current_version_number,
+            selected,
+        )
 
     @staticmethod
     def _settings(research: Research) -> dict[str, str]:
@@ -170,12 +195,15 @@ class ResearchCommandService:
         if route.startswith("#/methods"):
             methods = [
                 {
-                    "id": method_id,
-                    "name": method_id,
-                    "revision": revision,
-                    "description": definition,
+                    "id": item.method_id,
+                    "name": item.name or item.method_id,
+                    "revision": item.revision_hash,
+                    "description": item.description,
+                    "source": item.source.value,
+                    "depositedFromResearchId": item.deposited_from_research_id,
+                    "supersedes": item.supersedes,
                 }
-                for method_id, revision, definition in self.store.list_methods()
+                for item in self.store.list_method_definitions()
             ]
             selected = route.removeprefix("#/methods/") if route.startswith("#/methods/") else None
             return {"kind": "methods", "selected": selected, "methods": methods}
@@ -260,13 +288,58 @@ class ResearchCommandService:
             research_id = str(uuid.uuid4())
             self.store.create(new_research(research_id, now))
             return {"research_id": research_id}
-        if kind == "revise_method":
-            revision = self.store.revise_method(
+        if kind == "create_method":
+            source = MethodSource(request.get("source", MethodSource.PRESET.value))
+            definition = create_method(
+                self.store,
                 request["method_id"],
+                request["name"],
+                request["description"],
+                request["body"],
+                source,
+                now,
+            )
+            return {
+                "method_id": definition.method_id,
+                "revision_hash": definition.revision_hash,
+            }
+        if kind == "list_methods":
+            return {
+                "methods": [
+                    {
+                        "method_id": item.method_id,
+                        "revision_hash": item.revision_hash,
+                        "name": item.name,
+                        "description": item.description,
+                        "body": item.body,
+                        "source": item.source.value,
+                        "deposited_from_research_id": item.deposited_from_research_id,
+                        "supersedes": item.supersedes,
+                        "created_at": item.created_at.isoformat(),
+                    }
+                    for item in self.store.list_method_definitions()
+                ]
+            }
+        if kind == "revise_method":
+            latest = self.store.latest_method_definition(request["method_id"])
+            if latest is None:
+                revision = self.store.revise_method(
+                    request["method_id"],
+                    request["definition"],
+                    now,
+                    name=request["method_id"],
+                    body=request["definition"],
+                )
+                return {"revision_hash": revision}
+            updated_method = revise_method(
+                self.store,
+                request["method_id"],
+                latest.name,
+                latest.description,
                 request["definition"],
                 now,
             )
-            return {"revision_hash": revision}
+            return {"revision_hash": updated_method.revision_hash}
 
         research = self.store.load(request["research_id"])
         if kind == "delete_research":
@@ -280,12 +353,14 @@ class ResearchCommandService:
             )
         elif kind == "confirm_run":
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
+            self._record_version_methods(updated)
         elif kind == "pause":
             updated = transition(research, ResearchEvent.PAUSE, now)
         elif kind == "resume":
             updated = transition(research, ResearchEvent.RESUME, now)
         elif kind == "confirm_modification":
             updated = transition(research, ResearchEvent.MODIFY_CONFIRM, now)
+            self._record_version_methods(updated)
         elif kind == "extend_research":
             current_hours = research.brief.max_effective_hours.value or 0.0
             extended = replace(
@@ -300,13 +375,22 @@ class ResearchCommandService:
                 updated_at=now,
             )
             updated = transition(extended, ResearchEvent.EXTEND_CONFIRM, now)
+            self._record_version_methods(updated)
         elif kind == "resolve_confirm":
             event = {
                 "approve_new_version": ResearchEvent.CONFIRM_APPROVE,
                 "reject_keep_logic": ResearchEvent.CONFIRM_REJECT,
                 "pause_and_edit": ResearchEvent.CONFIRM_PAUSE,
             }[request["decision"]]
+            if event is ResearchEvent.CONFIRM_APPROVE:
+                deposit_confirmed_methods(self.store, research, now)
             updated = transition(research, event, now)
+            if event is ResearchEvent.CONFIRM_APPROVE:
+                patch = dict(research.pending_confirm.patch) if research.pending_confirm else {}
+                self._record_version_methods(
+                    updated,
+                    patch.get("round1_methods") or patch.get("method_set"),
+                )
         elif kind == "reverify":
             matching = [
                 round_
@@ -501,6 +585,7 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     store = SQLiteStore(paths.database_file)
+    seed_preset_methods(store)
     loop = build_loop(store, paths)
     service = ResearchCommandService(SQLiteStore(paths.database_file), paths)
     token = secrets.token_urlsafe(32)

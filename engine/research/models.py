@@ -108,10 +108,36 @@ class CoverageShrink:
     within_floor: bool
 
 
+class MethodSource(StrEnum):
+    PRESET = "preset"
+    DEPOSITED = "deposited"
+
+
 @dataclass(frozen=True, slots=True)
 class MethodRef:
     method_id: str
     revision_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class MethodDefinition:
+    method_id: str
+    revision_hash: str
+    name: str
+    description: str
+    body: str
+    source: MethodSource
+    deposited_from_research_id: str | None
+    created_at: datetime
+    supersedes: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MethodUsage:
+    method_id: str
+    revision_hash: str
+    research_id: str
+    version_number: int
 
 
 @dataclass(frozen=True, slots=True)

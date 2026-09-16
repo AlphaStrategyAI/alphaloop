@@ -3,7 +3,7 @@ from dataclasses import replace
 import pytest
 
 from engine.metrics import SimulationReport
-from engine.research.models import AssetClass, Market, Universe
+from engine.research.models import AssetClass, Market, MethodRef, Universe
 from engine.strategy import StrategySpec
 from engine.verifiers import VERIFIER_REVISIONS, run_verifiers
 
@@ -16,7 +16,12 @@ def spec(market: Market = Market.US) -> StrategySpec:
         universe=universe,
         frequency="1d",
         side="long_only",
-        method_set=(),
+        method_set=(
+            MethodRef("overfit.walk", "walk-v1"),
+            MethodRef("stability.oos", "stability-v1"),
+            MethodRef("crowding.load", "crowding-v1"),
+            MethodRef("cost.turnover", "cost-v1"),
+        ),
         model_family="mean_reversion",
         lookback_days=20,
         entry_z=1.0,

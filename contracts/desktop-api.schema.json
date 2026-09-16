@@ -97,6 +97,25 @@
         "method_id": {"type": "string", "minLength": 1},
         "definition": {"type": "string", "minLength": 1}
       }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "method_id", "name", "description", "body"],
+      "properties": {
+        "type": {"const": "create_method"},
+        "method_id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "body": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "enum": ["preset", "deposited"]}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {"type": {"const": "list_methods"}}
     }
   ]
 }
