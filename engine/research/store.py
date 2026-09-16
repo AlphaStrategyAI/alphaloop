@@ -4,7 +4,7 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass, fields, is_dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, get_args, get_origin
@@ -27,6 +27,8 @@ def _deep_unstructure(value: Any) -> Any:
     if isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, Path):
         return str(value)
@@ -66,6 +68,10 @@ def _is_slot_type(cls: type) -> bool:
 CONVERTER = cattrs.Converter()
 CONVERTER.register_unstructure_hook(datetime, lambda value: value.isoformat())
 CONVERTER.register_structure_hook(datetime, lambda value, _: datetime.fromisoformat(value))
+CONVERTER.register_unstructure_hook(date, lambda value: value.isoformat())
+CONVERTER.register_structure_hook(
+    date, lambda value, _: date.fromisoformat(value) if isinstance(value, str) else value
+)
 CONVERTER.register_unstructure_hook(Path, str)
 CONVERTER.register_structure_hook(Path, lambda value, _: Path(value))
 CONVERTER.register_structure_hook_func(

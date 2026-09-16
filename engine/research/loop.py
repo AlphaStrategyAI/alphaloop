@@ -9,13 +9,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from engine.research.clock import TimeBudget
+from engine.research.coverage import decide_coverage, within_floor
 from engine.research.gather import DataPort, MaterialPort, gather
 from engine.research.models import (
     Attempt,
     ChangeClass,
     ConfirmKind,
     ConfirmRequest,
-    CoverageFloor,
+    CoverageSnapshot,
     Research,
     ResearchEvent,
     ResearchStatus,
@@ -265,34 +266,42 @@ class ResearchLoop:
         charged = self.budget.finish(running)
         accepted = outcome.successful_round.accepted_attempt
         floor = charged.brief.coverage_floor.value
-        coverage_breached = floor is not None and (
-            accepted.simulation.observations < floor.min_years * 252
-            or accepted.simulation.covered_assets < floor.min_assets
-            or accepted.simulation.missing_pct > floor.max_missing_pct
+        observed = CoverageSnapshot(
+            assets=tuple(charged.brief.universe.value.symbols)[: accepted.simulation.covered_assets]
+            if charged.brief.universe.value is not None
+            else (),
+            years=accepted.simulation.observations / 252,
+            missing_pct=accepted.simulation.missing_pct,
+            start=self.now().date(),
+            end=self.now().date(),
+            as_of=self.now(),
         )
-        if floor is not None and coverage_breached:
-            observed_years = max(1, accepted.simulation.observations // 252)
-            lowered = CoverageFloor(
-                min_assets=accepted.simulation.covered_assets,
-                min_years=observed_years,
-                max_missing_pct=accepted.simulation.missing_pct,
+        previous = charged.coverage_history[-1].after if charged.coverage_history else None
+        if floor is not None:
+            decision = decide_coverage(
+                previous,
+                observed,
+                floor,
+                version_number,
+                round_number,
             )
-            request = ConfirmRequest(
-                request_id=f"coverage-v{version_number}-r{round_number}",
-                kind=ConfirmKind.COVERAGE,
-                proposed_change=f"最低历史覆盖从{floor.min_years}年降为{observed_years}年",
-                reason="可用日频历史低于已确认的数据覆盖底线",
-                effect="确认后开新版本；拒绝则保持底线并寻找其他数据来源",
-                change_class=ChangeClass.COVERAGE,
-                patch=(("coverage_floor", lowered),),
-            )
-            result = transition(
-                charged,
-                ResearchEvent.REQUEST_CONFIRM,
-                self.now(),
-                request,
-            )
-        elif accepted.verification.passed:
+            if decision.shrink is not None:
+                charged = replace(
+                    charged,
+                    coverage_history=charged.coverage_history + (decision.shrink,),
+                )
+            if decision.action == "confirm":
+                result = transition(
+                    charged,
+                    ResearchEvent.REQUEST_CONFIRM,
+                    self.now(),
+                    decision.request,
+                )
+                self.store.save(result, expected_updated_at)
+                return result
+            if not within_floor(observed, floor):
+                raise RuntimeError("below-floor coverage cannot complete or auto-pass")
+        if accepted.verification.passed:
             result = transition(charged, ResearchEvent.COMPLETE, self.now())
         elif (
             charged.brief.max_effective_hours.value is not None

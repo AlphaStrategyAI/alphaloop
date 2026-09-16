@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -85,6 +85,27 @@ class CoverageFloor:
     min_assets: int
     min_years: int
     max_missing_pct: float
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageSnapshot:
+    assets: tuple[str, ...]
+    years: float
+    missing_pct: float
+    start: date
+    end: date
+    as_of: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageShrink:
+    shrink_id: str
+    version_number: int
+    round_number: int
+    before: CoverageSnapshot
+    after: CoverageSnapshot
+    reason: str
+    within_floor: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +213,7 @@ class Research:
     created_at: datetime
     updated_at: datetime
     reverifications: tuple[Reverification, ...] = ()
+    coverage_history: tuple[CoverageShrink, ...] = ()
 
 
 def new_research(research_id: str, now: datetime) -> Research:
@@ -210,4 +232,5 @@ def new_research(research_id: str, now: datetime) -> Research:
         created_at=now,
         updated_at=now,
         reverifications=(),
+        coverage_history=(),
     )
