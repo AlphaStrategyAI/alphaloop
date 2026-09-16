@@ -4,9 +4,11 @@ import hashlib
 import json
 import sys
 import zipfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pandas as pd
 
 from engine.research.models import Research, ResearchStatus
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
@@ -43,6 +45,38 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
         eligible=all(checks.values()),
         failed_checks=tuple(name for name, passed in checks.items() if not passed),
     )
+
+
+def importer_accepts(manifest: dict) -> bool:
+    return (
+        manifest.get("kind") == "strategy_pack"
+        and manifest.get("live_handoff_eligible") is True
+    )
+
+
+def mark_exports_overturned(research: Research) -> Research:
+    return replace(
+        research,
+        export_eligible=False,
+        exports=tuple(replace(item, overturned=True) for item in research.exports),
+    )
+
+
+def _frozen_benchmark(data: MarketPanel) -> pd.Series:
+    if data.benchmark_prices is not None:
+        return data.benchmark_prices
+    observed = data.observed_at
+    if isinstance(observed, pd.Series):
+        return observed
+    if "__benchmark__" in data.prices.columns:
+        return data.prices["__benchmark__"]
+    raise ValueError("strategy pack requires a frozen benchmark series")
+
+
+def _asset_prices(data: MarketPanel) -> pd.DataFrame:
+    if "__benchmark__" in data.prices.columns:
+        return data.prices.drop(columns=["__benchmark__"])
+    return data.prices
 
 
 def _json(path: Path, payload: object) -> None:
@@ -216,9 +250,7 @@ def build_strategy_pack(
         raise TypeError("v1 exporter supports the canonical mean-reversion StrategySpec")
     if not research.versions or not research.versions[-1].rounds:
         raise ValueError("strategy pack requires a completed reviewed round")
-    benchmark_prices = data.benchmark_prices
-    if benchmark_prices is None:
-        raise ValueError("strategy pack requires a frozen benchmark series")
+    benchmark_prices = _frozen_benchmark(data)
     attempt = research.versions[-1].rounds[-1].accepted_attempt
     if attempt.review is None:
         raise ValueError("strategy pack requires the accepted ReviewReport")
@@ -237,7 +269,7 @@ def build_strategy_pack(
         (root / "run_backtest.py").write_text(RUNNER, encoding="utf-8")
         (root / "execution.py").write_text(EXECUTION_STUB, encoding="utf-8")
         (root / "data").mkdir()
-        data.prices.to_csv(root / "data" / "prices.csv", index_label="date")
+        _asset_prices(data).to_csv(root / "data" / "prices.csv", index_label="date")
         benchmark_prices.rename("benchmark").to_csv(
             root / "data" / "benchmark.csv",
             index_label="date",
@@ -251,6 +283,18 @@ def build_strategy_pack(
             for path in attempt.evidence_paths
         ]
         _json(root / "materials" / "sources.json", {"sources": sources})
+        _json(
+            root / "data" / "provenance.json",
+            {
+                "sources": sources,
+                "assets": list(strategy.spec.universe.symbols),
+                "coverage_floor": asdict(research.brief.coverage_floor.value)
+                if research.brief.coverage_floor.value
+                else None,
+                "shrinks": [asdict(item) for item in research.coverage_history],
+                "cutoff": None if not research.coverage_history else research.coverage_history[-1].after.end.isoformat(),
+            },
+        )
         _json(
             root / "history" / "research.json",
             {
@@ -277,6 +321,7 @@ def build_strategy_pack(
             {
                 "kind": "strategy_pack",
                 "schema_version": "1",
+                "live_handoff_eligible": True,
                 "tradable_by_alphaloop": False,
                 "research_id": research.research_id,
                 "strategy_id": strategy.id,
@@ -285,6 +330,73 @@ def build_strategy_pack(
                     for path in payloads
                 },
                 "disclaimer": "Research artifact, not investment advice; alphaloop places no orders.",
+            },
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(root.rglob("*")):
+                if path.is_file():
+                    archive.write(path, path.relative_to(root).as_posix())
+    return destination
+
+
+def build_research_record_pack(research: Research, destination: Path) -> Path:
+    eligibility = strategy_pack_eligibility(research)
+    with TemporaryDirectory(prefix="alphaloop-record-") as temporary:
+        root = Path(temporary)
+        _json(
+            root / "history" / "research.json",
+            {
+                "research_id": research.research_id,
+                "status": research.status.value,
+                "current_version_number": research.current_version_number,
+                "round_numbers": [
+                    round_.number
+                    for version in research.versions
+                    for round_ in version.rounds
+                ],
+                "effective_seconds": research.effective_seconds,
+                "export_eligible": research.export_eligible,
+            },
+        )
+        _json(
+            root / "history" / "verification_attempts.json",
+            [
+                {
+                    "round_id": round_.round_id,
+                    "attempt_id": round_.accepted_attempt.attempt_id,
+                    "verification": asdict(round_.accepted_attempt.verification),
+                }
+                for version in research.versions
+                for round_ in version.rounds
+            ],
+        )
+        _json(
+            root / "history" / "reverifications.json",
+            [asdict(item) for item in research.reverifications],
+        )
+        _json(
+            root / "why_not_live.json",
+            {"failed_checks": list(eligibility.failed_checks)},
+        )
+        bundle_root = Path(
+            getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
+        )
+        schema_source = bundle_root / "contracts" / "research-record.schema.json"
+        schema_target = root / "schemas" / "research-record.schema.json"
+        schema_target.parent.mkdir(parents=True)
+        schema_target.write_bytes(schema_source.read_bytes())
+        _json(
+            root / "manifest.json",
+            {
+                "kind": "research_record",
+                "schema_version": "1",
+                "live_handoff_eligible": False,
+                "research_id": research.research_id,
+                "disclaimer": (
+                    "Research record only; not a live-handoff strategy pack. "
+                    "alphaloop places no orders."
+                ),
             },
         )
         destination.parent.mkdir(parents=True, exist_ok=True)

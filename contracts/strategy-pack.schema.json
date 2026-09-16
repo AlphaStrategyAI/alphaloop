@@ -7,6 +7,7 @@
   "required": [
     "kind",
     "schema_version",
+    "live_handoff_eligible",
     "tradable_by_alphaloop",
     "research_id",
     "strategy_id",
@@ -16,6 +17,7 @@
   "properties": {
     "kind": {"const": "strategy_pack"},
     "schema_version": {"const": "1"},
+    "live_handoff_eligible": {"const": true},
     "tradable_by_alphaloop": {"const": false},
     "research_id": {"type": "string", "minLength": 1},
     "strategy_id": {"type": "string", "minLength": 1},

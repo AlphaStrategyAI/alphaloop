@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphaloop.local/contracts/research-record.schema.json",
+  "title": "ResearchRecordManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema_version",
+    "live_handoff_eligible",
+    "research_id",
+    "disclaimer"
+  ],
+  "properties": {
+    "kind": {"const": "research_record"},
+    "schema_version": {"const": "1"},
+    "live_handoff_eligible": {"const": false},
+    "research_id": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 1}
+  }
+}

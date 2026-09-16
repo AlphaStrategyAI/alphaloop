@@ -158,6 +158,8 @@ def test_pack_runs_without_alphaloop_installed(tmp_path: Path) -> None:
         "run_backtest.py",
         "data/prices.csv",
         "data/benchmark.csv",
+        "data/provenance.json",
+        "methods/definitions.json",
         "reports/metrics.json",
         "reports/verification.json",
         "reports/review.json",
@@ -165,6 +167,9 @@ def test_pack_runs_without_alphaloop_installed(tmp_path: Path) -> None:
         "history/research.json",
         "schemas/strategy-pack.schema.json",
     } <= names
+    manifest = json.loads((extracted / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["kind"] == "strategy_pack"
+    assert manifest["live_handoff_eligible"] is True
 
     environment = tmp_path / "clean-python"
     # uv/cpython builds resolve libpython via @executable_path; copy-mode

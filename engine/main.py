@@ -21,7 +21,12 @@ import pandas as pd
 
 from engine.dialogue.intent import interpret
 from engine.dialogue.slots import apply_intent
-from engine.export import build_strategy_pack
+from engine.export import (
+    build_research_record_pack,
+    build_strategy_pack,
+    mark_exports_overturned,
+    strategy_pack_eligibility,
+)
 from engine.research.clock import TimeBudget
 from engine.research.gather import (
     AkShareDataAdapter,
@@ -41,6 +46,8 @@ from engine.research.methods import (
     seed_preset_methods,
 )
 from engine.research.models import (
+    ExportKind,
+    ExportRecord,
     MethodSource,
     Research,
     ResearchEvent,
@@ -59,7 +66,7 @@ from engine.research.runtime import (
 )
 from engine.research.simulate import simulate_daily
 from engine.research.state_machine import all_slots_locked, transition
-from engine.research.store import CONVERTER, SQLiteStore
+from engine.research.store import SQLiteStore
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
 from engine.strategy import MarketPanel, MeanReversionStrategy
 from engine.verifiers import run_verifiers
@@ -448,6 +455,8 @@ class ResearchCommandService:
                 reverifications=research.reverifications + (record,),
                 updated_at=now,
             )
+            if not record.passed:
+                with_rerun = mark_exports_overturned(with_rerun)
             updated = transition(
                 with_rerun,
                 ResearchEvent.REVERIFY_PASS
@@ -458,34 +467,59 @@ class ResearchCommandService:
         elif kind == "export_artifact":
             export_root = self.paths.root / "exports"
             export_root.mkdir(parents=True, exist_ok=True)
+            eligibility = strategy_pack_eligibility(research)
             if request["kind"] == "research_record":
-                destination = export_root / f"{research.research_id}-research-record.json"
-                destination.write_text(
-                    json.dumps(
-                        CONVERTER.unstructure(research),
-                        sort_keys=True,
-                        default=str,
-                    ),
-                    encoding="utf-8",
+                destination = export_root / f"{research.research_id}-research-record.zip"
+                build_research_record_pack(research, destination)
+                export_kind = ExportKind.RESEARCH_RECORD
+                failed_checks = eligibility.failed_checks
+            else:
+                if not eligibility.eligible:
+                    raise ValueError(
+                        f"research is not strategy-pack eligible: {eligibility.failed_checks}"
+                    )
+                if not research.versions or not research.versions[-1].rounds:
+                    raise ValueError("strategy pack requires a completed round")
+                attempt = research.versions[-1].rounds[-1].accepted_attempt
+                if attempt.data_snapshot_path is None:
+                    raise ValueError("strategy pack requires a frozen data snapshot")
+                snapshot = pd.read_csv(
+                    attempt.data_snapshot_path,
+                    index_col="date",
+                    parse_dates=True,
                 )
-                return {"path": str(destination)}
-            if not research.versions or not research.versions[-1].rounds:
-                raise ValueError("strategy pack requires a completed round")
-            attempt = research.versions[-1].rounds[-1].accepted_attempt
-            if attempt.data_snapshot_path is None:
-                raise ValueError("strategy pack requires a frozen data snapshot")
-            prices = pd.read_csv(
-                attempt.data_snapshot_path,
-                index_col="date",
-                parse_dates=True,
-            )
-            destination = export_root / f"{research.research_id}-strategy-pack.zip"
-            build_strategy_pack(
+                prices = snapshot.drop(columns=["__benchmark__"], errors="ignore")
+                benchmark = (
+                    snapshot["__benchmark__"]
+                    if "__benchmark__" in snapshot.columns
+                    else None
+                )
+                destination = export_root / f"{research.research_id}-strategy-pack.zip"
+                build_strategy_pack(
+                    research,
+                    MeanReversionStrategy(attempt.spec),
+                    MarketPanel(prices, now, benchmark),
+                    destination,
+                )
+                export_kind = ExportKind.STRATEGY_PACK
+                failed_checks = ()
+            updated = replace(
                 research,
-                MeanReversionStrategy(attempt.spec),
-                MarketPanel(prices, now),
-                destination,
+                exports=research.exports
+                + (
+                    ExportRecord(
+                        str(uuid.uuid4()),
+                        export_kind,
+                        str(destination),
+                        research.current_version_number,
+                        now,
+                        failed_checks,
+                        False,
+                    ),
+                ),
+                updated_at=now,
             )
+            self._save(research, updated)
             return {"path": str(destination)}
         else:
             raise ValueError(f"unknown desktop request type: {kind}")

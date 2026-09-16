@@ -225,6 +225,22 @@ class Reverification:
     created_at: datetime
 
 
+class ExportKind(StrEnum):
+    STRATEGY_PACK = "strategy_pack"
+    RESEARCH_RECORD = "research_record"
+
+
+@dataclass(frozen=True, slots=True)
+class ExportRecord:
+    export_id: str
+    kind: ExportKind
+    path: str
+    version_number: int | None
+    created_at: datetime
+    failed_checks: tuple[str, ...]
+    overturned: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class Research:
     research_id: str
@@ -241,6 +257,7 @@ class Research:
     reverifications: tuple[Reverification, ...] = ()
     coverage_history: tuple[CoverageShrink, ...] = ()
     last_coverage: CoverageSnapshot | None = None
+    exports: tuple[ExportRecord, ...] = ()
 
 
 def new_research(research_id: str, now: datetime) -> Research:
@@ -261,4 +278,5 @@ def new_research(research_id: str, now: datetime) -> Research:
         reverifications=(),
         coverage_history=(),
         last_coverage=None,
+        exports=(),
     )
