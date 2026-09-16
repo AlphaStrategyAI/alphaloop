@@ -58,7 +58,6 @@ class ChangeClass(StrEnum):
 class ConfirmKind(StrEnum):
     ECONOMIC = "economic"
     COVERAGE = "coverage"
-    REVIEW_BLOCKED = "review_blocked"
 
 
 @dataclass(frozen=True)

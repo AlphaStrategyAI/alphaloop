@@ -29,10 +29,13 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
 
 def _open_version(research: Research, now: datetime, opened_by: str) -> Research:
     brief = research.brief
-    changes = research.pending_confirm.patch if research.pending_confirm else ()
-    for field_name, value in changes:
-        if hasattr(brief, field_name):
-            brief = replace(brief, **{field_name: Slot(value, True)})  # type: ignore[arg-type]
+    if opened_by != "modified_settings_confirm":
+        changes = research.pending_confirm.patch if research.pending_confirm else ()
+        for field_name, value in changes:
+            if hasattr(brief, field_name):
+                brief = replace(brief, **{field_name: Slot(value, True)})  # type: ignore[arg-type]
+    else:
+        changes = ()
     number = len(research.versions) + 1
     version = Version(
         version_id=f"{research.research_id}-v{number}",
@@ -114,7 +117,13 @@ def transition(
     if status is ResearchStatus.COMPLETED and event is ResearchEvent.REVERIFY_FAIL:
         return replace(research, export_eligible=False, updated_at=now)
     if (
-        status in {ResearchStatus.PAUSED, ResearchStatus.COMPLETED, ResearchStatus.ENDED}
+        status
+        in {
+            ResearchStatus.AWAITING_CONFIRM,
+            ResearchStatus.PAUSED,
+            ResearchStatus.COMPLETED,
+            ResearchStatus.ENDED,
+        }
         and event is ResearchEvent.MODIFY_CONFIRM
     ):
         return _open_version(research, now, "modified_settings_confirm")

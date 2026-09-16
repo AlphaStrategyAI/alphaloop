@@ -4,7 +4,10 @@ from engine.research.models import (
     AssetClass,
     Attempt,
     ChangeClass,
+    ConfirmKind,
     Market,
+    ReviewFinding,
+    ReviewReport,
     RoundDraft,
     Universe,
 )
@@ -54,6 +57,15 @@ def draft(number: int = 1) -> RoundDraft:
         review=object(),  # type: ignore[arg-type]
     )
     return RoundDraft(version_number=1, round_number=1, attempt=attempt)
+
+
+class FailReviewer:
+    def run(self, round_draft: RoundDraft) -> ReviewReport:
+        return ReviewReport(False, (), "choose a different automatic change")
+
+
+def retry(prior: RoundDraft, report: ReviewReport) -> RoundDraft:
+    return draft(prior.attempt.number + 1)
 
 
 def test_frozen_rubric_names_all_non_negotiable_checks() -> None:
@@ -115,9 +127,43 @@ def test_three_failures_never_create_a_round_or_advance_version() -> None:
     assert outcome.successful_round is None
     assert len(outcome.attempts) == 3
     assert {item.spec.id for item in outcome.attempts} == {"s-1", "s-2", "s-3"}
-    assert outcome.confirm_request is not None
-    assert outcome.confirm_request.kind.value == "review_blocked"
+    assert outcome.confirm_request is None
     assert outcome.version_number == 1
+
+
+def test_three_technical_review_failures_do_not_create_a_user_confirm() -> None:
+    outcome = run_review_gate(
+        draft(),
+        FailReviewer(),
+        retry,
+        NOW,
+        prior_failures=0,
+        on_attempt=lambda attempt: None,
+    )
+    assert outcome.successful_round is None
+    assert outcome.confirm_request is None
+    assert len(outcome.attempts) == 3
+
+
+def test_economic_drift_finding_surfaces_as_economic_confirm() -> None:
+    class DriftReviewer:
+        def run(self, round_draft: RoundDraft) -> ReviewReport:
+            return ReviewReport(
+                False,
+                (ReviewFinding("economic-logic drift", "method_set changed"),),
+            )
+
+    outcome = run_review_gate(
+        draft(),
+        DriftReviewer(),
+        retry,
+        NOW,
+        prior_failures=0,
+        on_attempt=lambda attempt: None,
+    )
+    assert outcome.successful_round is None
+    assert outcome.confirm_request is not None
+    assert outcome.confirm_request.kind is ConfirmKind.ECONOMIC
 
 
 def test_restart_with_two_persisted_failures_runs_only_attempt_three() -> None:
@@ -136,4 +182,4 @@ def test_restart_with_two_persisted_failures_runs_only_attempt_three() -> None:
     )
     assert [attempt.number for attempt in recorded] == [3]
     assert outcome.successful_round is None
-    assert outcome.confirm_request is not None
+    assert outcome.confirm_request is None

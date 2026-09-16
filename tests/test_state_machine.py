@@ -96,7 +96,38 @@ def test_product_state_table(
     assert transition(research, event, NOW).status is expected
 
 
-@pytest.mark.parametrize("kind", (ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE, ConfirmKind.REVIEW_BLOCKED))
+def test_confirm_kind_has_only_economic_and_coverage() -> None:
+    assert set(ConfirmKind) == {ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE}
+
+
+def test_awaiting_modify_confirm_opens_a_version_from_user_patch() -> None:
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=ConfirmRequest(
+            "c-engine",
+            ConfirmKind.ECONOMIC,
+            "改信号",
+            "验证失败",
+            "引擎提议",
+            patch=(("thesis", Slot("引擎提议的原理", True)),),
+        ),
+        brief=replace(locked_brief(), thesis=Slot("用户改过的原理", True)),
+    )
+
+    running = transition(waiting, ResearchEvent.MODIFY_CONFIRM, NOW)
+
+    assert running.status is ResearchStatus.RUNNING
+    assert running.pending_confirm is None
+    assert running.versions[-1].opened_by == "modified_settings_confirm"
+    assert running.brief.thesis.value == "用户改过的原理"
+
+
+def test_review_blocked_is_not_a_confirm_kind() -> None:
+    assert not hasattr(ConfirmKind, "REVIEW_BLOCKED")
+    assert "review_blocked" not in {kind.value for kind in ConfirmKind}
+
+
+@pytest.mark.parametrize("kind", (ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE))
 def test_running_can_wait_without_opening_a_version(kind: ConfirmKind) -> None:
     research = with_status(ResearchStatus.RUNNING)
     request = ConfirmRequest(

@@ -182,23 +182,22 @@ def test_passed_review_commits_round_and_completes(tmp_path: Path) -> None:
     assert store.last_completed_round("r-loop") == 1
 
 
-def test_three_review_failures_wait_without_round_or_version_advance(tmp_path: Path) -> None:
+def test_three_technical_review_failures_stay_running_without_a_round(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "research.db")
     store.create(running_research())
     loop = ResearchLoop(store, FakeBuilder(), FailReviewer(), TimeBudget(lambda: 10.0), lambda: NOW)
 
     result = loop.run_once("r-loop")
 
-    assert result.status is ResearchStatus.AWAITING_CONFIRM
-    assert result.pending_confirm is not None
-    assert result.pending_confirm.kind is ConfirmKind.REVIEW_BLOCKED
+    assert result.status is ResearchStatus.RUNNING
+    assert result.pending_confirm is None
     assert result.current_version_number == 1
     assert result.versions[0].rounds == ()
     assert store.last_completed_round("r-loop") == 0
     assert store.review_failure_count("r-loop", 1, 1) == 3
 
 
-def test_reload_with_three_persisted_failures_self_heals_to_review_blocked(
+def test_reload_with_three_persisted_failures_stays_running_without_confirm(
     tmp_path: Path,
 ) -> None:
     store = SQLiteStore(tmp_path / "research.db")
@@ -231,9 +230,8 @@ def test_reload_with_three_persisted_failures_self_heals_to_review_blocked(
         lambda: NOW,
     ).run_once("r-loop")
 
-    assert result.status is ResearchStatus.AWAITING_CONFIRM
-    assert result.pending_confirm is not None
-    assert result.pending_confirm.kind is ConfirmKind.REVIEW_BLOCKED
+    assert result.status is ResearchStatus.RUNNING
+    assert result.pending_confirm is None
     assert result.versions[0].rounds == ()
     assert store.last_completed_round("r-loop") == 0
     assert builder.calls == 0

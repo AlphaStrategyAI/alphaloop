@@ -172,15 +172,25 @@ def run_review_gate(
                 raise ValueError("automatic review retry cannot advance version")
             if current.attempt.attempt_id in {item.attempt_id for item in attempts}:
                 raise ValueError("automatic review retry must be a different attempt")
+    last = attempts[-1] if attempts else None
+    economic = False
+    if last is not None and last.review is not None:
+        economic = any(
+            finding.code == "economic-logic drift" for finding in last.review.findings
+        )
     return ReviewGateOutcome(
         version_number=initial.version_number,
         attempts=tuple(attempts),
         successful_round=None,
-        confirm_request=ConfirmRequest(
-            request_id=f"review-blocked-v{initial.version_number}-r{initial.round_number}",
-            kind=ConfirmKind.REVIEW_BLOCKED,
-            proposed_change="人工检查审查发现，或确认经济逻辑调整后再继续",
-            reason="连续3次独立审查未通过",
-            effect="研究保持当前版本并停止消耗有效研究时间",
+        confirm_request=(
+            ConfirmRequest(
+                request_id=f"economic-v{initial.version_number}-r{initial.round_number}",
+                kind=ConfirmKind.ECONOMIC,
+                proposed_change="审查发现经济逻辑已经漂移，需要人确认后再继续",
+                reason="独立审查报告了 economic-logic drift",
+                effect="确认后开新版本；拒绝则维持当前版本另找出路",
+            )
+            if economic
+            else None
         ),
     )

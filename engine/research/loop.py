@@ -204,15 +204,8 @@ class ResearchLoop:
                     research,
                     consecutive_review_failures=prior_failures,
                 ),
-                ResearchEvent.REQUEST_CONFIRM,
+                ResearchEvent.AUTO_CONTINUE,
                 self.now(),
-                ConfirmRequest(
-                    request_id=f"review-blocked-v{version_number}-r{round_number}",
-                    kind=ConfirmKind.REVIEW_BLOCKED,
-                    proposed_change="人工检查审查发现，或确认经济逻辑调整后再继续",
-                    reason="连续3次独立审查未通过",
-                    effect="研究保持当前版本并停止消耗有效研究时间",
-                ),
             )
             result = self.budget.finish(blocked)
             self.store.save(result, expected_updated_at)
@@ -233,15 +226,25 @@ class ResearchLoop:
             ),
         )
         if outcome.successful_round is None:
-            blocked = transition(
-                replace(
-                    research,
-                    consecutive_review_failures=prior_failures + len(outcome.attempts),
-                ),
-                ResearchEvent.REQUEST_CONFIRM,
-                self.now(),
-                outcome.confirm_request,
-            )
+            if outcome.confirm_request is None:
+                blocked = transition(
+                    replace(
+                        research,
+                        consecutive_review_failures=prior_failures + len(outcome.attempts),
+                    ),
+                    ResearchEvent.AUTO_CONTINUE,
+                    self.now(),
+                )
+            else:
+                blocked = transition(
+                    replace(
+                        research,
+                        consecutive_review_failures=prior_failures + len(outcome.attempts),
+                    ),
+                    ResearchEvent.REQUEST_CONFIRM,
+                    self.now(),
+                    outcome.confirm_request,
+                )
             result = self.budget.finish(blocked)
             self.store.save(result, expected_updated_at)
             return result
