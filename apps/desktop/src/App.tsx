@@ -269,7 +269,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     ["没有待确认", view.eligibility.noPendingConfirm],
     ["重验仍然成立", view.eligibility.reverifiesPassed],
   ] as const;
-  const eligible = checks.every(([, passed]) => passed) && !view.overturnedExports;
+  const eligible = checks.every(([, passed]) => passed);
   return (
     <div className="focus completed-screen">
       <StatusPill status={view.status} />

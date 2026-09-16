@@ -181,4 +181,25 @@ describe("Night desktop contract", () => {
     expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
   });
+
+  it("keeps overturned banner but enables strategy-pack export when eligibility checks pass", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "completed",
+          researchId: "r-1",
+          status: "completed",
+          title: "美股低波动回归",
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: true},
+          overturnedExports: true,
+          currentAction: "idle",
+        }}
+      />,
+    );
+    expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "导出策略包"})).toBeEnabled();
+  });
 });
