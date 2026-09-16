@@ -36,13 +36,20 @@ const settings = {
 const views: DesktopView[] = [
   {
     kind: "research_list",
-    awaiting: {id: "r-wait", title: "美股低波动量价回归", status: "awaiting_confirm"},
+    awaiting: {
+      id: "r-wait",
+      title: "美股低波动量价回归",
+      status: "awaiting_confirm",
+      universeLabel: "美股 · 股票",
+      createdAt: "2026-08-28T12:00:00+00:00",
+      updatedAt: "2026-08-28T14:00:00+00:00",
+    },
     rows: [
-      {id: "r-run", title: "中债期限利差交换", status: "running"},
-      {id: "r-draft", title: "沪深300波动收缩", status: "draft"},
-      {id: "r-pause", title: "美债收益率曲线", status: "paused"},
-      {id: "r-done", title: "行业动量", status: "completed"},
-      {id: "r-end", title: "转债估值修复", status: "ended"},
+      {id: "r-run", title: "中债期限利差交换", status: "running", universeLabel: "A股 · 债券"},
+      {id: "r-draft", title: "沪深300波动收缩", status: "draft", universeLabel: "A股 · 股票"},
+      {id: "r-pause", title: "美债收益率曲线", status: "paused", universeLabel: "美股 · 债券"},
+      {id: "r-done", title: "行业动量", status: "completed", universeLabel: "A股 · 股票"},
+      {id: "r-end", title: "转债估值修复", status: "ended", universeLabel: "A股 · 债券"},
     ],
   },
   {kind: "draft", researchId: "r-1", messages: ["我想研究美股低波动回归"], settings},
@@ -143,5 +150,35 @@ describe("Night desktop contract", () => {
     expect(routeFor(views[5])).toBe("#/research/r-1");
     expect(routeFor(views[0])).toBe("#/research");
     expect(routeFor(views[6])).toBe("#/methods/overfit.walk");
+  });
+
+  it("filters the research list by status and shows universe plus timestamps", async () => {
+    const view = views[0];
+    render(<App api={api} initialView={view} />);
+    expect(screen.getByText("美股 · 股票")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "已暂停"}));
+    expect(screen.getByText("美债收益率曲线")).toBeInTheDocument();
+    expect(screen.queryByText("沪深300波动收缩")).not.toBeInTheDocument();
+  });
+
+  it("shows overturned prior exports on a completed research that failed reverify", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "completed",
+          researchId: "r-1",
+          status: "completed",
+          title: "美股低波动回归",
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: false},
+          overturnedExports: true,
+          currentAction: "idle",
+        }}
+      />,
+    );
+    expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
   });
 });

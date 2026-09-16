@@ -3,6 +3,7 @@ import {FormEvent, useEffect, useState} from "react";
 import type {
   DesktopApi,
   DesktopView,
+  HostStatus,
   ResearchStatus,
   ValidationMethod,
 } from "./contracts";
@@ -22,6 +23,22 @@ const statusLabels: Record<ResearchStatus, string> = {
   ended: "已结束（未通过）",
 };
 
+const hostStatusLabels: Record<HostStatus, string> = {
+  awaiting_confirm: "等待确认",
+  running: "运行中",
+  completed: "已完成",
+  idle: "本机静",
+};
+
+const listFilters: readonly ResearchStatus[] = [
+  "draft",
+  "running",
+  "awaiting_confirm",
+  "paused",
+  "completed",
+  "ended",
+];
+
 export function routeFor(view: DesktopView): string {
   if (view.kind === "research_list") return "#/research";
   if (view.kind === "methods") return `#/methods${view.selected ? `/${view.selected}` : ""}`;
@@ -34,10 +51,12 @@ function Logo() {
 
 function NightShell({view, children}: {view: DesktopView; children: React.ReactNode}) {
   const methods = view.kind === "methods";
-  const hostStatus =
-    view.kind === "awaiting_confirm" ? "等待确认" :
-    view.kind === "running" ? "运行中" :
-    view.kind === "completed" ? "已完成" : "本机静";
+  const hostKey: HostStatus = view.hostStatus ?? (
+    view.kind === "awaiting_confirm" ? "awaiting_confirm" :
+    view.kind === "running" ? "running" :
+    view.kind === "completed" ? "completed" : "idle"
+  );
+  const hostStatus = hostStatusLabels[hostKey];
   return (
     <main className="night-shell" data-testid="night-shell" data-view={view.kind}>
       <aside className="rail" data-testid="rail">
@@ -48,9 +67,12 @@ function NightShell({view, children}: {view: DesktopView; children: React.ReactN
             <a className={methods ? "active" : ""} href="#/methods">方法库</a>
           </nav>
         </div>
-        <div className={`host-status ${view.kind}`}>● {hostStatus}</div>
+        <div className={`host-status ${hostKey}`}>● {hostStatus}</div>
       </aside>
-      <section className={`content ${view.kind}`}>{children}</section>
+      <section className={`content ${view.kind}`}>
+        {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
+        {children}
+      </section>
     </main>
   );
 }
@@ -60,23 +82,50 @@ function StatusPill({status}: {status: ResearchStatus}) {
 }
 
 function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
+  const [statusFilter, setStatusFilter] = useState<ResearchStatus | null>(null);
+  const awaiting = statusFilter && statusFilter !== "awaiting_confirm" ? undefined : view.awaiting;
+  const rows = statusFilter ? view.rows.filter((row) => row.status === statusFilter) : view.rows;
   return (
     <div className="browse list-screen">
       <header className="list-header">
         <p>一条对话，一次研究。等你确认的会排在最上面。</p>
         <button className="quiet-button" onClick={() => void api.createDraft()}>新建研究</button>
       </header>
-      {view.awaiting && (
+      <div className="list-filters">
+        {listFilters.map((status) => (
+          <button
+            key={status}
+            className={statusFilter === status ? "quiet-button active" : "quiet-button"}
+            onClick={() => {
+              setStatusFilter(status);
+              void api.fetchView(`#/research?status=${status}`);
+            }}
+          >
+            {statusLabels[status]}
+          </button>
+        ))}
+      </div>
+      {awaiting && (
         <article className="awaiting-primary" data-kind="awaiting-primary">
           <StatusPill status="awaiting_confirm" />
-          <h2>{view.awaiting.title}</h2>
-          <p>美股 · 股票 · 等了 2 小时</p>
+          <h2>{awaiting.title}</h2>
+          <p>
+            <span>{awaiting.universeLabel ?? "未锁定"}</span>
+            {awaiting.createdAt ? ` · ${awaiting.createdAt}` : " · 等了 2 小时"}
+          </p>
         </article>
       )}
       <div className="research-rows">
-        {view.rows.map((row) => (
+        {rows.map((row) => (
           <article className="research-row" data-testid="research-row" key={row.id}>
-            <div><h3>{row.title}</h3><p>最近活动保留在本机</p></div>
+            <div>
+              <h3>{row.title}</h3>
+              <p>
+                <span>{row.universeLabel ?? "未锁定"}</span>
+                {row.createdAt ? ` · ${row.createdAt}` : ""}
+                {row.updatedAt ? ` · ${row.updatedAt}` : ""}
+              </p>
+            </div>
             <div className="row-actions">
               <a href={`#/research/${row.id}`}>进入</a>
               <button onClick={() => {
@@ -142,6 +191,8 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     <article className="confirm-card" data-testid="confirm-run-card">
       <h1>确认开跑</h1>
       <p>认下这次研究做什么、跑多久、拿什么验证。确认前不会自己开始。</p>
+      <p>研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。</p>
+      <p>最长研究时间只计有效研究时间，暂停和等你确认的时间不算。</p>
       <Settings values={view.settings} />
       <div className="actions">
         <button className="cyan-button" onClick={() => void api.confirmRun(view.researchId)}>确认开跑</button>
@@ -155,7 +206,20 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
   const [modification, setModification] = useState("");
   return (
     <div className="focus running-screen">
-      <header><StatusPill status={view.status} /> 第 {view.version} 版 · 有效研究 {view.effective} · {view.coverage}</header>
+      <header>
+        <StatusPill status={view.status} />
+        {view.currentAction ? ` ${view.currentAction} · ` : " "}
+        第 {view.version} 版 · 有效研究 {view.effective}
+        {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
+        {" · "}{view.coverage}
+      </header>
+      <section className="materials-note">
+        <p className="eyebrow">资料与数据说明</p>
+        <p>用到的资料：{view.sources ?? "公开资料与本机材料"}</p>
+        <p>数据截止：{view.dataCutoff || "以本轮冻结快照为准"}</p>
+        <p>当前覆盖相对底线：{view.coverage}</p>
+        <p>这里只说明结论的适用范围，不是行情终端。</p>
+      </section>
       <h1>迭代与验证</h1>
       {view.rounds.map((round, index) => (
         <article className="round-card" key={round}>
@@ -205,11 +269,12 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     ["没有待确认", view.eligibility.noPendingConfirm],
     ["重验仍然成立", view.eligibility.reverifiesPassed],
   ] as const;
-  const eligible = checks.every(([, passed]) => passed);
+  const eligible = checks.every(([, passed]) => passed) && !view.overturnedExports;
   return (
     <div className="focus completed-screen">
       <StatusPill status={view.status} />
       <p>alphaloop 到这里结束，不提供执行入口。</p>
+      {view.overturnedExports && <p>此前导出的策略包所依据的验证已被推翻</p>}
       <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
       <article className="result-card">
         <h1>{view.title}</h1>

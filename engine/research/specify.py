@@ -47,7 +47,16 @@ def propose_brief_updates(
     profile: DataProfile,
 ) -> BriefProposal:
     market = Market.US if "美股" in message or "美国" in message else Market.CN
-    asset = AssetClass.BOND if "债" in message else AssetClass.EQUITY
+    if any(token in message for token in ("基金", "ETF", "etf", "fund")):
+        asset = AssetClass.FUND
+        underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
+    elif "债" in message:
+        asset = AssetClass.BOND
+        underlying = AssetClass.BOND
+    else:
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
+    universe = Universe(market, asset, underlying, profile.symbols)
     methods = (
         MethodRef("overfit.walk", "walk-v1"),
         MethodRef("stability.oos", "stability-v1"),
@@ -56,7 +65,7 @@ def propose_brief_updates(
     )
     return BriefProposal(
         thesis=message.strip(),
-        universe=Universe(market, asset, asset, profile.symbols),
+        universe=universe,
         round1_methods=methods,
         coverage_floor=CoverageFloor(
             min_assets=len(profile.symbols),

@@ -50,11 +50,19 @@ from engine.research.models import (
     ExportRecord,
     MethodSource,
     Research,
+    ResearchAction,
     ResearchEvent,
+    ResearchStatus,
     Reverification,
     Round,
     Slot,
     new_research,
+)
+from engine.research.progress import (
+    ResearchListItem,
+    host_status,
+    list_items,
+    thesis_divergence_hint,
 )
 from engine.research.runtime import (
     EngineLock,
@@ -72,6 +80,15 @@ from engine.strategy import MarketPanel, MeanReversionStrategy
 from engine.verifiers import run_verifiers
 
 PROTOCOL_VERSION = 1
+
+_ACTION_LABELS = {
+    ResearchAction.GATHER: "查资料",
+    ResearchAction.SPECIFY: "补细节",
+    ResearchAction.SIMULATE: "历史模拟",
+    ResearchAction.VERIFY: "验证",
+    ResearchAction.ITERATE: "迭代",
+    ResearchAction.IDLE: "idle",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -198,6 +215,59 @@ class ResearchCommandService:
             "coverage_floor": str(brief.coverage_floor.value or ""),
         }
 
+    def _host_payload(
+        self,
+        payload: dict[str, Any],
+        research: Research | None = None,
+    ) -> dict[str, Any]:
+        payload["hostStatus"] = host_status(self.store.list_research())
+        if research is not None and research.thesis_change_hint:
+            payload["thesisChangeHint"] = research.thesis_change_hint
+        return payload
+
+    @staticmethod
+    def _list_summary(item: ResearchListItem) -> dict[str, str]:
+        return {
+            "id": item.research_id,
+            "title": item.title,
+            "status": item.status.value,
+            "universeLabel": item.universe_label,
+            "createdAt": item.created_at.isoformat(),
+            "updatedAt": item.updated_at.isoformat(),
+        }
+
+    @staticmethod
+    def _coverage_vs_floor(research: Research) -> str:
+        floor = research.brief.coverage_floor.value
+        observed = research.last_coverage
+        if observed is None:
+            return str(floor or "")
+        current = (
+            f"{len(observed.assets)}资产/{observed.years:.1f}年/缺失{observed.missing_pct:.1f}%"
+        )
+        if floor is None:
+            return current
+        return (
+            f"{current} vs 底线 {floor.min_assets}资产/{floor.min_years}年/"
+            f"缺失≤{floor.max_missing_pct:.1f}%"
+        )
+
+    @staticmethod
+    def _remaining(research: Research) -> str:
+        max_hours = research.brief.max_effective_hours.value
+        used = research.effective_seconds / 3600
+        if max_hours is None:
+            return ""
+        return f"{max(0.0, max_hours - used):.2f}h"
+
+    @staticmethod
+    def _sources(research: Research) -> str:
+        if research.versions and research.versions[-1].rounds:
+            evidence = research.versions[-1].rounds[-1].accepted_attempt.evidence_paths
+            if evidence:
+                return "公开资料已落成本机材料"
+        return "公开资料与本机材料"
+
     def view_for(self, route: str) -> dict[str, Any]:
         if route.startswith("#/methods"):
             methods = [
@@ -213,78 +283,101 @@ class ResearchCommandService:
                 for item in self.store.list_method_definitions()
             ]
             selected = route.removeprefix("#/methods/") if route.startswith("#/methods/") else None
-            return {"kind": "methods", "selected": selected, "methods": methods}
-        if route == "#/research":
-            summaries = [
-                {
-                    "id": research.research_id,
-                    "title": str(research.brief.thesis.value or "新研究"),
-                    "status": research.status.value,
-                }
-                for research in self.store.list_research()
-            ]
+            return self._host_payload({"kind": "methods", "selected": selected, "methods": methods})
+        if route == "#/research" or route.startswith("#/research?"):
+            status_raw = None
+            if "?" in route:
+                for part in route.split("?", 1)[1].split("&"):
+                    if part.startswith("status="):
+                        status_raw = part.split("=", 1)[1]
+                        break
+            status_filter = ResearchStatus(status_raw) if status_raw else None
+            items = list_items(self.store.list_research(), status_filter)
+            summaries = [self._list_summary(item) for item in items]
             awaiting = next(
                 (item for item in summaries if item["status"] == "awaiting_confirm"),
                 None,
             )
             rows = [item for item in summaries if item is not awaiting]
-            return {"kind": "research_list", "awaiting": awaiting, "rows": rows}
+            return self._host_payload({"kind": "research_list", "awaiting": awaiting, "rows": rows})
         research_id = route.removeprefix("#/research/")
         research = self.store.load(research_id)
         if research.status.value == "draft":
             kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
-            return {
-                "kind": kind,
-                "researchId": research_id,
-                "messages": [],
-                "settings": self._settings(research),
-            }
+            return self._host_payload(
+                {
+                    "kind": kind,
+                    "researchId": research_id,
+                    "messages": [],
+                    "settings": self._settings(research),
+                },
+                research,
+            )
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
             rounds = research.versions[version - 1].rounds if research.versions else ()
-            return {
-                "kind": "running",
-                "researchId": research_id,
-                "status": research.status.value,
-                "version": version,
-                "effective": f"{research.effective_seconds / 3600:.2f}h",
-                "coverage": str(research.brief.coverage_floor.value or ""),
-                "rounds": [round_.accepted_attempt.spec.id for round_ in reversed(rounds)],
-            }
+            return self._host_payload(
+                {
+                    "kind": "running",
+                    "researchId": research_id,
+                    "status": research.status.value,
+                    "version": version,
+                    "effective": f"{research.effective_seconds / 3600:.2f}h",
+                    "remaining": self._remaining(research),
+                    "coverage": self._coverage_vs_floor(research),
+                    "rounds": [round_.accepted_attempt.spec.id for round_ in reversed(rounds)],
+                    "currentAction": _ACTION_LABELS[research.current_action],
+                    "sources": self._sources(research),
+                    "dataCutoff": (
+                        research.last_coverage.end.isoformat()
+                        if research.last_coverage is not None
+                        else ""
+                    ),
+                },
+                research,
+            )
         if research.status.value == "awaiting_confirm":
             request = research.pending_confirm
             if request is None:
                 raise ValueError("awaiting_confirm research requires ConfirmRequest")
-            return {
-                "kind": "awaiting_confirm",
-                "researchId": research_id,
-                "version": research.current_version_number or 1,
-                "proposed": request.proposed_change,
-                "reason": request.reason,
-                "effect": request.effect,
-            }
+            return self._host_payload(
+                {
+                    "kind": "awaiting_confirm",
+                    "researchId": research_id,
+                    "version": research.current_version_number or 1,
+                    "proposed": request.proposed_change,
+                    "reason": request.reason,
+                    "effect": request.effect,
+                },
+                research,
+            )
         rounds = research.versions[-1].rounds if research.versions else ()
         selected_round: Round | None = rounds[-1] if rounds else None
-        return {
-            "kind": "completed",
-            "researchId": research_id,
-            "status": research.status.value,
-            "title": str(research.brief.thesis.value or "研究结果"),
-            "selectedRoundId": selected_round.round_id if selected_round else "",
-            "selectedMethodId": "overfit.walk",
-            "eligibility": {
-                "allMethodsPassed": (
-                    selected_round is not None
-                    and selected_round.accepted_attempt.verification.passed
-                ),
-                "noPendingConfirm": research.pending_confirm is None,
-                "reverifiesPassed": all(
-                    item.passed
-                    for item in research.reverifications
-                    if selected_round is not None and item.round_id == selected_round.round_id
-                ),
+        return self._host_payload(
+            {
+                "kind": "completed",
+                "researchId": research_id,
+                "status": research.status.value,
+                "title": str(research.brief.thesis.value or "研究结果"),
+                "selectedRoundId": selected_round.round_id if selected_round else "",
+                "selectedMethodId": "overfit.walk",
+                "eligibility": {
+                    "allMethodsPassed": (
+                        selected_round is not None
+                        and selected_round.accepted_attempt.verification.passed
+                    ),
+                    "noPendingConfirm": research.pending_confirm is None,
+                    "reverifiesPassed": all(
+                        item.passed
+                        for item in research.reverifications
+                        if selected_round is not None and item.round_id == selected_round.round_id
+                    ),
+                },
+                "overturnedExports": any(item.overturned for item in research.exports),
+                "currentAction": _ACTION_LABELS[research.current_action],
             },
-        }
+            research,
+        )
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         kind = request["type"]
@@ -366,7 +459,15 @@ class ResearchCommandService:
         elif kind == "resume":
             updated = transition(research, ResearchEvent.RESUME, now)
         elif kind == "confirm_modification":
+            previous = ""
+            if research.versions:
+                previous = research.versions[-1].brief_snapshot.thesis.value or ""
+            proposed = research.brief.thesis.value or ""
             updated = transition(research, ResearchEvent.MODIFY_CONFIRM, now)
+            updated = replace(
+                updated,
+                thesis_change_hint=thesis_divergence_hint(previous, proposed),
+            )
             self._record_version_methods(updated)
         elif kind == "extend_research":
             current_hours = research.brief.max_effective_hours.value or 0.0

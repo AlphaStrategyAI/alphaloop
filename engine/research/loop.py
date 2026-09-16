@@ -18,6 +18,7 @@ from engine.research.models import (
     ConfirmRequest,
     CoverageSnapshot,
     Research,
+    ResearchAction,
     ResearchEvent,
     ResearchStatus,
     ReviewReport,
@@ -69,11 +70,17 @@ class DefaultRoundBuilder:
     start: date
     end: date
     snapshot_root: Path
+    on_action: Callable[[ResearchAction], None] | None = None
+
+    def _emit(self, action: ResearchAction) -> None:
+        if self.on_action is not None:
+            self.on_action(action)
 
     def build(self, research: Research, attempt_number: int) -> RoundDraft:
         thesis = research.brief.thesis.value
         if thesis is None or research.current_version_number is None:
             raise ValueError("running research requires a locked thesis and version")
+        self._emit(ResearchAction.GATHER)
         materials = gather(thesis, self.material_ports)
         if not materials:
             raise RuntimeError("no public or local evidence was gathered")
@@ -97,6 +104,7 @@ class DefaultRoundBuilder:
             entry_z=prior.entry_z if prior else 1.0,
             side=prior.side if prior else "long_only",
         )
+        self._emit(ResearchAction.SPECIFY)
         spec = specify(research, prior, proposal)
         spec_patch = {
             name: value
@@ -110,6 +118,7 @@ class DefaultRoundBuilder:
         snapshot = self.snapshot_root / (
             f"{research.research_id}-v{version.number}-r{round_number}-a{attempt_number}.csv"
         )
+        self._emit(ResearchAction.SIMULATE)
         simulation = simulate_daily(
             strategy,
             self.data_port,
@@ -117,6 +126,7 @@ class DefaultRoundBuilder:
             self.end,
             snapshot_path=snapshot,
         )
+        self._emit(ResearchAction.VERIFY)
         verification = run_verifiers(simulation, spec)
         return RoundDraft(
             version_number=version.number,
@@ -138,6 +148,7 @@ class DefaultRoundBuilder:
         )
 
     def retry(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
+        self._emit(ResearchAction.SPECIFY)
         spec = replace(
             prior.attempt.spec,
             id=f"{prior.attempt.spec.id}-retry-{prior.attempt.number + 1}",
@@ -147,6 +158,7 @@ class DefaultRoundBuilder:
         snapshot = self.snapshot_root / (
             f"retry-v{prior.version_number}-r{prior.round_number}-a{prior.attempt.number + 1}.csv"
         )
+        self._emit(ResearchAction.SIMULATE)
         simulation = simulate_daily(
             strategy,
             self.data_port,
@@ -154,6 +166,7 @@ class DefaultRoundBuilder:
             self.end,
             snapshot_path=snapshot,
         )
+        self._emit(ResearchAction.VERIFY)
         return replace(
             prior,
             attempt=Attempt(
@@ -186,154 +199,190 @@ class ResearchLoop:
 
     def run_once(self, research_id: str) -> Research:
         research = self.store.load(research_id)
-        if research.status is not ResearchStatus.RUNNING:
-            return research
         expected_updated_at = research.updated_at
-        self.budget.begin(research.status)
-        version_number = research.current_version_number
-        if version_number is None:
-            raise ValueError("running research must have a current version")
-        round_number = len(research.versions[version_number - 1].rounds) + 1
-        prior_failures = self.store.review_failure_count(
-            research.research_id,
-            version_number,
-            round_number,
-        )
-        if prior_failures >= MAX_CONSECUTIVE_REVIEW_FAILURES:
-            blocked = transition(
-                replace(
-                    research,
-                    consecutive_review_failures=prior_failures,
-                ),
-                ResearchEvent.AUTO_CONTINUE,
-                self.now(),
+        action = research.current_action
+        if research.status is not ResearchStatus.RUNNING:
+            if action is ResearchAction.IDLE:
+                return research
+            idle = replace(
+                research,
+                current_action=ResearchAction.IDLE,
+                updated_at=self.now(),
             )
-            result = self.budget.finish(blocked)
+            self.store.save(idle, expected_updated_at)
+            return idle
+
+        def persist_action(next_action: ResearchAction) -> None:
+            nonlocal expected_updated_at, action
+            action = next_action
+            current = self.store.load(research_id)
+            if current.current_action is next_action:
+                return
+            snapshot = replace(
+                current,
+                current_action=next_action,
+                updated_at=self.now(),
+            )
+            self.store.save(snapshot, expected_updated_at)
+            expected_updated_at = snapshot.updated_at
+
+        def finish(result: Research) -> Research:
+            final_action = (
+                action if result.status is ResearchStatus.RUNNING else ResearchAction.IDLE
+            )
+            result = replace(result, current_action=final_action)
             self.store.save(result, expected_updated_at)
             return result
-        draft = self.builder.build(research, prior_failures + 1)
-        outcome = run_review_gate(
-            draft,
-            self.reviewer,
-            self.builder.retry,
-            self.now(),
-            prior_failures=prior_failures,
-            on_attempt=lambda attempt: self.store.record_review_attempt(
+
+        previous_hook = None
+        if isinstance(self.builder, DefaultRoundBuilder):
+            previous_hook = self.builder.on_action
+            self.builder.on_action = persist_action
+        try:
+            self.budget.begin(research.status)
+            version_number = research.current_version_number
+            if version_number is None:
+                raise ValueError("running research must have a current version")
+            round_number = len(research.versions[version_number - 1].rounds) + 1
+            prior_failures = self.store.review_failure_count(
                 research.research_id,
                 version_number,
                 round_number,
-                attempt,
-                self.now(),
-            ),
-        )
-        if outcome.successful_round is None:
-            if outcome.confirm_request is None:
+            )
+            if prior_failures >= MAX_CONSECUTIVE_REVIEW_FAILURES:
                 blocked = transition(
                     replace(
                         research,
-                        consecutive_review_failures=prior_failures + len(outcome.attempts),
+                        consecutive_review_failures=prior_failures,
                     ),
                     ResearchEvent.AUTO_CONTINUE,
                     self.now(),
                 )
-            else:
-                blocked = transition(
-                    replace(
-                        research,
-                        consecutive_review_failures=prior_failures + len(outcome.attempts),
-                    ),
-                    ResearchEvent.REQUEST_CONFIRM,
+                return finish(self.budget.finish(blocked))
+            persist_action(ResearchAction.GATHER)
+            draft = self.builder.build(research, prior_failures + 1)
+            outcome = run_review_gate(
+                draft,
+                self.reviewer,
+                self.builder.retry,
+                self.now(),
+                prior_failures=prior_failures,
+                on_attempt=lambda attempt: self.store.record_review_attempt(
+                    research.research_id,
+                    version_number,
+                    round_number,
+                    attempt,
                     self.now(),
-                    outcome.confirm_request,
-                )
-            result = self.budget.finish(blocked)
-            self.store.save(result, expected_updated_at)
-            return result
-
-        version_index = version_number
-        versions = list(research.versions)
-        current = versions[version_index - 1]
-        versions[version_index - 1] = replace(
-            current,
-            rounds=current.rounds + (outcome.successful_round,),
-        )
-        running = replace(
-            research,
-            versions=tuple(versions),
-            consecutive_review_failures=0,
-            updated_at=self.now(),
-        )
-        charged = self.budget.finish(running)
-        accepted = outcome.successful_round.accepted_attempt
-        floor = charged.brief.coverage_floor.value
-        observed = CoverageSnapshot(
-            assets=tuple(charged.brief.universe.value.symbols)[: accepted.simulation.covered_assets]
-            if charged.brief.universe.value is not None
-            else (),
-            years=accepted.simulation.observations / 252,
-            missing_pct=accepted.simulation.missing_pct,
-            start=self.now().date(),
-            end=self.now().date(),
-            as_of=self.now(),
-        )
-        previous = charged.last_coverage
-        charged = replace(charged, last_coverage=observed)
-        if floor is not None:
-            decision = decide_coverage(
-                previous,
-                observed,
-                floor,
-                version_number,
-                round_number,
+                ),
             )
-            if decision.shrink is not None:
-                charged = replace(
-                    charged,
-                    coverage_history=charged.coverage_history + (decision.shrink,),
+            if outcome.successful_round is None:
+                if outcome.confirm_request is None:
+                    blocked = transition(
+                        replace(
+                            research,
+                            consecutive_review_failures=prior_failures + len(outcome.attempts),
+                        ),
+                        ResearchEvent.AUTO_CONTINUE,
+                        self.now(),
+                    )
+                else:
+                    blocked = transition(
+                        replace(
+                            research,
+                            consecutive_review_failures=prior_failures + len(outcome.attempts),
+                        ),
+                        ResearchEvent.REQUEST_CONFIRM,
+                        self.now(),
+                        outcome.confirm_request,
+                    )
+                return finish(self.budget.finish(blocked))
+
+            version_index = version_number
+            versions = list(research.versions)
+            current = versions[version_index - 1]
+            versions[version_index - 1] = replace(
+                current,
+                rounds=current.rounds + (outcome.successful_round,),
+            )
+            running = replace(
+                research,
+                versions=tuple(versions),
+                consecutive_review_failures=0,
+                updated_at=self.now(),
+            )
+            charged = self.budget.finish(running)
+            accepted = outcome.successful_round.accepted_attempt
+            floor = charged.brief.coverage_floor.value
+            observed = CoverageSnapshot(
+                assets=tuple(charged.brief.universe.value.symbols)[: accepted.simulation.covered_assets]
+                if charged.brief.universe.value is not None
+                else (),
+                years=accepted.simulation.observations / 252,
+                missing_pct=accepted.simulation.missing_pct,
+                start=self.now().date(),
+                end=self.now().date(),
+                as_of=self.now(),
+            )
+            previous = charged.last_coverage
+            charged = replace(charged, last_coverage=observed)
+            if floor is not None:
+                decision = decide_coverage(
+                    previous,
+                    observed,
+                    floor,
+                    version_number,
+                    round_number,
                 )
-            if decision.action == "confirm":
-                result = transition(
-                    charged,
-                    ResearchEvent.REQUEST_CONFIRM,
-                    self.now(),
-                    decision.request,
-                )
-                self.store.save(result, expected_updated_at)
-                return result
-            if not within_floor(observed, floor):
-                raise RuntimeError("below-floor coverage cannot complete or auto-pass")
-        if accepted.verification.passed:
-            result = transition(charged, ResearchEvent.COMPLETE, self.now())
-        elif (
-            charged.brief.max_effective_hours.value is not None
-            and charged.effective_seconds
-            >= charged.brief.max_effective_hours.value * 3600
-        ):
-            result = transition(charged, ResearchEvent.BUDGET_EXHAUSTED, self.now())
-        else:
-            change = self.builder.next_change(accepted)
-            change_class = classify_change(change)
-            if change_class in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE}:
-                request = ConfirmRequest(
-                    request_id=f"change-v{version_number}-r{round_number}",
-                    kind=(
-                        ConfirmKind.COVERAGE
-                        if change_class is ChangeClass.COVERAGE
-                        else ConfirmKind.ECONOMIC
-                    ),
-                    proposed_change=f"{change.field}: {change.before!r} → {change.after!r}",
-                    reason="当前冻结验证未全部通过",
-                    effect="确认后应用改动并开新版本",
-                    change_class=change_class,
-                    patch=((change.field, change.after),),
-                )
-                result = transition(
-                    charged,
-                    ResearchEvent.REQUEST_CONFIRM,
-                    self.now(),
-                    request,
-                )
+                if decision.shrink is not None:
+                    charged = replace(
+                        charged,
+                        coverage_history=charged.coverage_history + (decision.shrink,),
+                    )
+                if decision.action == "confirm":
+                    result = transition(
+                        charged,
+                        ResearchEvent.REQUEST_CONFIRM,
+                        self.now(),
+                        decision.request,
+                    )
+                    return finish(result)
+                if not within_floor(observed, floor):
+                    raise RuntimeError("below-floor coverage cannot complete or auto-pass")
+            if accepted.verification.passed:
+                result = transition(charged, ResearchEvent.COMPLETE, self.now())
+            elif (
+                charged.brief.max_effective_hours.value is not None
+                and charged.effective_seconds
+                >= charged.brief.max_effective_hours.value * 3600
+            ):
+                result = transition(charged, ResearchEvent.BUDGET_EXHAUSTED, self.now())
             else:
-                result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
-        self.store.save(result, expected_updated_at)
-        return result
+                persist_action(ResearchAction.ITERATE)
+                change = self.builder.next_change(accepted)
+                change_class = classify_change(change)
+                if change_class in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE}:
+                    request = ConfirmRequest(
+                        request_id=f"change-v{version_number}-r{round_number}",
+                        kind=(
+                            ConfirmKind.COVERAGE
+                            if change_class is ChangeClass.COVERAGE
+                            else ConfirmKind.ECONOMIC
+                        ),
+                        proposed_change=f"{change.field}: {change.before!r} → {change.after!r}",
+                        reason="当前冻结验证未全部通过",
+                        effect="确认后应用改动并开新版本",
+                        change_class=change_class,
+                        patch=((change.field, change.after),),
+                    )
+                    result = transition(
+                        charged,
+                        ResearchEvent.REQUEST_CONFIRM,
+                        self.now(),
+                        request,
+                    )
+                else:
+                    result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
+            return finish(result)
+        finally:
+            if isinstance(self.builder, DefaultRoundBuilder):
+                self.builder.on_action = previous_hook

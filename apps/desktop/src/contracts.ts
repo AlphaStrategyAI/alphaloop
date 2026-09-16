@@ -6,6 +6,8 @@ export type ResearchStatus =
   | "completed"
   | "ended";
 
+export type HostStatus = "awaiting_confirm" | "running" | "completed" | "idle";
+
 export type ConfirmationDecision =
   | "approve_new_version"
   | "reject_keep_logic"
@@ -25,6 +27,9 @@ export interface ResearchSummary {
   id: string;
   title: string;
   status: ResearchStatus;
+  universeLabel?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ValidationMethod {
@@ -34,7 +39,7 @@ export interface ValidationMethod {
   description: string;
 }
 
-export type DesktopView =
+type ViewBody =
   | {kind: "research_list"; awaiting?: ResearchSummary; rows: readonly ResearchSummary[]}
   | {kind: "draft"; researchId: string; messages: readonly string[]; settings: BriefSettings}
   | {kind: "confirm_run"; researchId: string; settings: BriefSettings}
@@ -46,6 +51,10 @@ export type DesktopView =
       effective: string;
       coverage: string;
       rounds: readonly string[];
+      currentAction?: string;
+      remaining?: string;
+      sources?: string;
+      dataCutoff?: string;
     }
   | {
       kind: "awaiting_confirm";
@@ -67,8 +76,15 @@ export type DesktopView =
         noPendingConfirm: boolean;
         reverifiesPassed: boolean;
       };
+      overturnedExports?: boolean;
+      currentAction?: string;
     }
   | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]};
+
+export type DesktopView = ViewBody & {
+  hostStatus?: HostStatus;
+  thesisChangeHint?: string;
+};
 
 export interface DesktopApi {
   fetchView(route: string): Promise<DesktopView>;

@@ -1,0 +1,59 @@
+from datetime import UTC, datetime
+
+from engine.research.models import (
+    AssetClass,
+    Market,
+    ResearchAction,
+    ResearchStatus,
+    Slot,
+    Universe,
+    new_research,
+)
+from engine.research.progress import (
+    host_status,
+    list_items,
+    thesis_divergence_hint,
+)
+from engine.research.state_machine import transition
+from engine.research.models import ResearchEvent
+from dataclasses import replace
+
+NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
+
+
+def test_host_status_priority_is_awaiting_then_running_then_completed_then_idle() -> None:
+    idle = new_research("r-idle", NOW)
+    running = replace(new_research("r-run", NOW), status=ResearchStatus.RUNNING)
+    awaiting = replace(new_research("r-wait", NOW), status=ResearchStatus.AWAITING_CONFIRM)
+    done = replace(new_research("r-done", NOW), status=ResearchStatus.COMPLETED)
+    assert host_status(()) == "idle"
+    assert host_status((idle, done)) == "completed"
+    assert host_status((idle, done, running)) == "running"
+    assert host_status((idle, done, running, awaiting)) == "awaiting_confirm"
+
+
+def test_list_items_include_universe_timestamps_and_status_filter() -> None:
+    research = replace(
+        new_research("r-1", NOW),
+        brief=replace(
+            new_research("r-1", NOW).brief,
+            thesis=Slot("美股低波动回归", True),
+            universe=Slot(
+                Universe(Market.US, AssetClass.EQUITY, AssetClass.EQUITY, ("AAPL",)),
+                True,
+            ),
+        ),
+        status=ResearchStatus.DRAFT,
+    )
+    rows = list_items((research,), None)
+    assert rows[0].title == "美股低波动回归"
+    assert rows[0].universe_label == "美股 · 股票"
+    assert rows[0].created_at == NOW
+    assert list_items((research,), ResearchStatus.RUNNING) == ()
+    assert list_items((research,), ResearchStatus.DRAFT)[0].research_id == "r-1"
+
+
+def test_thesis_hint_is_non_blocking() -> None:
+    hint = thesis_divergence_hint("低波动量价回归", "用宏观利率做国债久期")
+    assert hint == "这也可以作为一条新研究重新开始。"
+    assert thesis_divergence_hint("低波动量价回归", "低波动量价回归加拥挤过滤") is None

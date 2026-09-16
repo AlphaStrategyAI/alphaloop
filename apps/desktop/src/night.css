@@ -55,6 +55,7 @@ nav a.active { color: var(--ink); background: var(--glass); border-color: var(--
 .host-status.running { color: var(--run); }
 .host-status.completed { color: var(--ok); }
 .host-status.awaiting_confirm { color: var(--cyan); }
+.host-status.idle { color: var(--mute); }
 .content { min-width: 0; min-height: 900px; }
 .content.confirm_run, .content.awaiting_confirm {
   background: radial-gradient(ellipse at 50% 38%, rgba(94, 234, 212, .12), transparent 28%);
@@ -68,6 +69,11 @@ button { color: var(--ink); background: var(--glass); border: 1px solid var(--li
 button:disabled { cursor: not-allowed; opacity: .45; }
 .quiet-button:hover { border-color: var(--mute); }
 .list-header { display: flex; justify-content: space-between; align-items: center; }
+.list-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 8px; }
+.list-filters button.active { border-color: var(--ink); color: var(--ink); }
+.thesis-hint { margin: 24px 64px 0; color: var(--mute); }
+.materials-note { margin: 16px 0 28px; padding: 16px 18px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-card); }
+.materials-note p { margin: 6px 0; }
 .awaiting-primary {
   margin: 36px 0 52px;
   padding: 28px 32px;

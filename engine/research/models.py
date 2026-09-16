@@ -60,6 +60,15 @@ class ConfirmKind(StrEnum):
     COVERAGE = "coverage"
 
 
+class ResearchAction(StrEnum):
+    GATHER = "gather"
+    SPECIFY = "specify"
+    SIMULATE = "simulate"
+    VERIFY = "verify"
+    ITERATE = "iterate"
+    IDLE = "idle"
+
+
 @dataclass(frozen=True)
 class Slot(Generic[T]):  # noqa: UP046 - cattrs requires Generic[T] syntax
     value: T | None = None
@@ -258,6 +267,8 @@ class Research:
     coverage_history: tuple[CoverageShrink, ...] = ()
     last_coverage: CoverageSnapshot | None = None
     exports: tuple[ExportRecord, ...] = ()
+    current_action: ResearchAction = ResearchAction.IDLE
+    thesis_change_hint: str | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:
@@ -279,4 +290,6 @@ def new_research(research_id: str, now: datetime) -> Research:
         coverage_history=(),
         last_coverage=None,
         exports=(),
+        current_action=ResearchAction.IDLE,
+        thesis_change_hint=None,
     )
