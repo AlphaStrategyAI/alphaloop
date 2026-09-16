@@ -81,6 +81,13 @@ function StatusPill({status}: {status: ResearchStatus}) {
   return <span className={`status-pill ${status}`}>{statusLabels[status]}</span>;
 }
 
+const deleteWarning =
+  "删除会永久移除对话、版本、迭代与验证记录及导出资格；已导出的本机文件不受影响。";
+
+function confirmDelete(api: DesktopApi, researchId: string) {
+  if (window.confirm(deleteWarning)) void api.deleteResearch(researchId);
+}
+
 function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
   const [statusFilter, setStatusFilter] = useState<ResearchStatus | null>(null);
   const awaiting = statusFilter && statusFilter !== "awaiting_confirm" ? undefined : view.awaiting;
@@ -107,12 +114,18 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
       </div>
       {awaiting && (
         <article className="awaiting-primary" data-kind="awaiting-primary">
-          <StatusPill status="awaiting_confirm" />
-          <h2>{awaiting.title}</h2>
-          <p>
-            <span>{awaiting.universeLabel ?? "未锁定"}</span>
-            {awaiting.createdAt ? ` · ${awaiting.createdAt}` : " · 等了 2 小时"}
-          </p>
+          <a className="awaiting-primary-body" href={`#/research/${awaiting.id}`}>
+            <h2>{awaiting.title}</h2>
+            <p>
+              <span>{awaiting.universeLabel ?? "未锁定"}</span>
+              {awaiting.createdAt ? ` · ${awaiting.createdAt}` : " · 等了 2 小时"}
+            </p>
+          </a>
+          <div className="row-actions">
+            <a href={`#/research/${awaiting.id}`}>进入</a>
+            <button onClick={() => confirmDelete(api, awaiting.id)}>删除</button>
+            <StatusPill status="awaiting_confirm" />
+          </div>
         </article>
       )}
       <div className="research-rows">
@@ -128,12 +141,7 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
             </div>
             <div className="row-actions">
               <a href={`#/research/${row.id}`}>进入</a>
-              <button onClick={() => {
-                const accepted = window.confirm(
-                  "删除会永久移除对话、版本、迭代与验证记录及导出资格；已导出的本机文件不受影响。",
-                );
-                if (accepted) void api.deleteResearch(row.id);
-              }}>删除</button>
+              <button onClick={() => confirmDelete(api, row.id)}>删除</button>
               <StatusPill status={row.status} />
             </div>
           </article>
@@ -248,7 +256,7 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
   return (
     <article className="awaiting-card" data-testid="awaiting-confirm-card">
       <p className="eyebrow">等待确认 · 第 {view.version} 版 · 这段时间不计入额度</p>
-      <h1>经济逻辑要改了</h1>
+      <h1>{view.confirmKind === "coverage" ? "数据覆盖要跌破底线" : "经济逻辑要改了"}</h1>
       <section><small>现在打算改什么</small><p>{view.proposed}</p></section>
       <section><small>为什么要改</small><p>{view.reason}</p></section>
       <section><small>改了之后会变成什么样</small><p>{view.effect}</p></section>

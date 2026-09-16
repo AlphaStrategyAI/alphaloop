@@ -61,6 +61,7 @@ type ViewBody =
       kind: "awaiting_confirm";
       researchId: string;
       version: number;
+      confirmKind?: "economic" | "coverage";
       proposed: string;
       reason: string;
       effect: string;

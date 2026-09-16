@@ -75,6 +75,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .materials-note { margin: 16px 0 28px; padding: 16px 18px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-card); }
 .materials-note p { margin: 6px 0; }
 .awaiting-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   margin: 36px 0 52px;
   padding: 28px 32px;
   background: var(--glass);
@@ -83,6 +87,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   box-shadow: 0 0 38px rgba(94, 234, 212, .22);
   animation: waiting-breath 2.4s ease-in-out infinite;
 }
+.awaiting-primary-body { color: inherit; text-decoration: none; min-width: 0; }
+.awaiting-primary-body h2, .awaiting-primary-body p { margin: 8px 0; }
 @keyframes waiting-breath { 50% { opacity: .88; transform: scale(.998); } }
 .research-row { display: flex; align-items: center; justify-content: space-between; min-height: 74px; }
 .research-row h3, .research-row p { margin: 4px 0; }

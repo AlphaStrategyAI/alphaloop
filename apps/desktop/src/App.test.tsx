@@ -68,6 +68,7 @@ const views: DesktopView[] = [
     kind: "awaiting_confirm",
     researchId: "r-1",
     version: 2,
+    confirmKind: "economic",
     proposed: "信号从量价回归改成回归 + 拥挤度过滤",
     reason: "第 6 轮样本外走样，单纯回归在拥挤月份失效",
     effect: "确认后开出第 3 版；验证方法不变，经济逻辑改变",
@@ -108,6 +109,41 @@ describe("Night desktop contract", () => {
     const articles = screen.getAllByRole("article");
     expect(articles[0]).toHaveAttribute("data-kind", "awaiting-primary");
     expect(screen.getAllByTestId("research-row")).toHaveLength(5);
+  });
+
+  it("lets the awaiting primary card enter and delete like ordinary rows", () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App api={api} initialView={views[0]} />);
+    const card = screen.getAllByRole("article")[0];
+    expect(card.querySelector('a[href="#/research/r-wait"]')).not.toBeNull();
+    const enter = screen.getAllByRole("link", {name: "进入"})[0];
+    expect(enter).toHaveAttribute("href", "#/research/r-wait");
+    fireEvent.click(card.querySelectorAll("button")[0]);
+    expect(confirm).toHaveBeenCalled();
+    expect(api.deleteResearch).toHaveBeenCalledWith("r-wait");
+    confirm.mockRestore();
+  });
+
+  it("titles coverage awaiting cards differently from economic ones", () => {
+    const {rerender} = render(
+      <AwaitingConfirmCard api={api} view={views[4] as Extract<DesktopView, {kind: "awaiting_confirm"}>} />,
+    );
+    expect(screen.getByRole("heading", {level: 1})).toHaveTextContent("经济逻辑要改了");
+    rerender(
+      <AwaitingConfirmCard
+        api={api}
+        view={{
+          kind: "awaiting_confirm",
+          researchId: "r-1",
+          version: 2,
+          confirmKind: "coverage",
+          proposed: "覆盖将低于认下的底线",
+          reason: "可用历史不够十年",
+          effect: "确认后改写覆盖底线并开新版本",
+        }}
+      />,
+    );
+    expect(screen.getByRole("heading", {level: 1})).toHaveTextContent("数据覆盖要跌破底线");
   });
 
   it("shows exactly five read-only setting slots in draft", () => {

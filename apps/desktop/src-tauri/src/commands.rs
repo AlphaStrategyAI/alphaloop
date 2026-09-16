@@ -60,14 +60,23 @@ fn notification_title(kind: &str) -> Option<&'static str> {
     }
 }
 
+fn notify_kinds(payload: &serde_json::Value) -> Vec<&str> {
+    if let Some(items) = payload.get("notifies").and_then(|value| value.as_array()) {
+        return items.iter().filter_map(|item| item.as_str()).collect();
+    }
+    payload
+        .get("notify")
+        .and_then(|value| value.as_str())
+        .into_iter()
+        .collect()
+}
+
 fn maybe_notify(app: &tauri::AppHandle, payload: &serde_json::Value) {
-    let Some(kind) = payload.get("notify").and_then(|value| value.as_str()) else {
-        return;
-    };
-    let Some(title) = notification_title(kind) else {
-        return;
-    };
-    let _ = app.notification().builder().title(title).show();
+    for kind in notify_kinds(payload) {
+        if let Some(title) = notification_title(kind) {
+            let _ = app.notification().builder().title(title).show();
+        }
+    }
 }
 
 async fn mutate(
@@ -300,7 +309,8 @@ pub async fn create_method(
             "method_id": format!("user.{name}"),
             "name": name,
             "description": definition,
-            "body": definition
+            "body": definition,
+            "source": "deposited"
         }))
         .await
         .map(|_| ())
@@ -308,7 +318,7 @@ pub async fn create_method(
 
 #[cfg(test)]
 mod tests {
-    use super::notification_title;
+    use super::{notification_title, notify_kinds};
 
     #[test]
     fn notify_titles_cover_only_awaiting_and_terminal_states() {
@@ -321,5 +331,17 @@ mod tests {
         assert_eq!(notification_title("paused"), None);
         assert_eq!(notification_title("running"), None);
         assert_eq!(notification_title("draft"), None);
+    }
+
+    #[test]
+    fn notify_kinds_drains_every_pending_event() {
+        let payload = serde_json::json!({
+            "notify": "awaiting_confirm",
+            "notifies": ["awaiting_confirm", "completed"]
+        });
+        assert_eq!(
+            notify_kinds(&payload),
+            vec!["awaiting_confirm", "completed"]
+        );
     }
 }
