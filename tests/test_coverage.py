@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 
-from engine.research.coverage import CoverageDecision, decide_coverage, within_floor
+from engine.research.coverage import CoverageDecision, decide_coverage, observed_floor, within_floor
 from engine.research.models import ConfirmKind, CoverageFloor, CoverageSnapshot
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
@@ -53,4 +53,17 @@ def test_breach_confirms_and_never_auto_lowers_the_floor() -> None:
     assert decision.request.kind is ConfirmKind.COVERAGE
     assert decision.shrink is not None
     assert decision.shrink.within_floor is False
-    assert decision.request.patch == ()
+    assert decision.request.patch == (("coverage_floor", observed_floor(observed)),)
+    assert observed_floor(observed) == CoverageFloor(3, 4, 20.0)
+
+
+def test_approve_rewrites_floor_so_the_same_snapshot_does_not_reconfirm() -> None:
+    previous = snap(10, 10.0, 2.0)
+    observed = snap(3, 4.0, 20.0)
+    decision = decide_coverage(previous, observed, FLOOR, 2, 3)
+    assert decision.request is not None
+    lowered = decision.request.patch[0][1]
+    assert isinstance(lowered, CoverageFloor)
+    second = decide_coverage(observed, observed, lowered, 3, 1)
+    assert second.action == "continue"
+    assert second.request is None

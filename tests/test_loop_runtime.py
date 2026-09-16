@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from engine.metrics import SimulationReport
@@ -12,6 +12,7 @@ from engine.research.models import (
     ConfirmKind,
     CoverageFloor,
     Market,
+    ResearchEvent,
     ResearchStatus,
     ReviewReport,
     RoundDraft,
@@ -20,6 +21,7 @@ from engine.research.models import (
     Version,
     new_research,
 )
+from engine.research.state_machine import transition
 from engine.research.runtime import EngineLock, RuntimePaths, read_live_owner
 from engine.research.specify import ProposedChange
 from engine.research.store import SQLiteStore
@@ -69,6 +71,8 @@ def simulation() -> SimulationReport:
         observations=756,
         covered_assets=1,
         missing_pct=0.0,
+        start=date(2014, 1, 2),
+        end=date(2016, 12, 30),
     )
 
 
@@ -93,8 +97,9 @@ class FakeBuilder(RoundBuilder):
 
     def build(self, research, attempt_number: int) -> RoundDraft:
         self.calls += 1
+        version = research.current_version_number or 1
         attempt = Attempt(
-            attempt_id=f"a-{attempt_number}",
+            attempt_id=f"a-{version}-{attempt_number}",
             number=attempt_number,
             change_class=ChangeClass.PARAM,
             spec=strategy(attempt_number),
@@ -197,7 +202,7 @@ def test_three_technical_review_failures_stay_running_without_a_round(tmp_path: 
     assert store.review_failure_count("r-loop", 1, 1) == 3
 
 
-def test_reload_with_three_persisted_failures_stays_running_without_confirm(
+def test_reload_with_three_persisted_failures_resets_and_retries_while_budget_remains(
     tmp_path: Path,
 ) -> None:
     store = SQLiteStore(tmp_path / "research.db")
@@ -234,6 +239,44 @@ def test_reload_with_three_persisted_failures_stays_running_without_confirm(
     assert result.pending_confirm is None
     assert result.versions[0].rounds == ()
     assert store.last_completed_round("r-loop") == 0
+    assert builder.calls >= 1
+    assert result.consecutive_review_failures == 3
+
+
+def test_three_technical_failures_with_exhausted_budget_end(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    research = replace(
+        running_research(),
+        brief=replace(running_research().brief, max_effective_hours=Slot(1.0, True)),
+        effective_seconds=3600.0,
+    )
+    store.create(research)
+    for number in range(1, 4):
+        store.record_review_attempt(
+            "r-loop",
+            1,
+            1,
+            Attempt(
+                attempt_id=f"a-{number}",
+                number=number,
+                change_class=ChangeClass.PARAM,
+                spec=strategy(number),
+                simulation=simulation(),
+                verification=report(),
+                review=ReviewReport(False, (), "choose a different automatic change"),
+            ),
+            NOW,
+        )
+    builder = FakeBuilder()
+    result = ResearchLoop(
+        store,
+        builder,
+        FailReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert result.status is ResearchStatus.ENDED
+    assert result.pending_confirm is None
     assert builder.calls == 0
 
 
@@ -360,6 +403,26 @@ def test_coverage_below_any_locked_floor_dimension_waits(tmp_path: Path) -> None
     assert waiting.status is ResearchStatus.AWAITING_CONFIRM
     assert waiting.pending_confirm is not None
     assert waiting.pending_confirm.kind is ConfirmKind.COVERAGE
+    assert waiting.pending_confirm.patch
+    assert waiting.pending_confirm.patch[0][0] == "coverage_floor"
+    assert waiting.last_coverage is not None
+    assert waiting.last_coverage.start == date(2014, 1, 2)
+    assert waiting.last_coverage.end == date(2016, 12, 30)
+
+    approved = transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW)
+    observed_floor = waiting.pending_confirm.patch[0][1]
+    assert approved.brief.coverage_floor.value == observed_floor
+    store.save(approved, waiting.updated_at)
+
+    continued = ResearchLoop(
+        store,
+        FakeBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert continued.brief.coverage_floor.value == observed_floor
+    assert continued.pending_confirm is None or continued.pending_confirm.kind is not ConfirmKind.COVERAGE
 
 
 def test_sqlite_round_trip_and_heartbeat(tmp_path: Path) -> None:

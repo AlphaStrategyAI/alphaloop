@@ -57,6 +57,8 @@ def test_required_metrics_are_compounded_and_finite() -> None:
     assert report.information_ratio == pytest.approx(
         report.excess_ann / report.tracking_error
     )
+    assert report.start == date(2026, 1, 1)
+    assert report.end == date(2026, 1, 4)
 
 
 class FakeData:

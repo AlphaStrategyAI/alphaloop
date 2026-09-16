@@ -3,6 +3,7 @@ from datetime import datetime
 
 from engine.research.models import (
     ConfirmRequest,
+    CoverageFloor,
     Research,
     ResearchBrief,
     ResearchEvent,
@@ -32,6 +33,8 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
     if opened_by != "modified_settings_confirm":
         changes = research.pending_confirm.patch if research.pending_confirm else ()
         for field_name, value in changes:
+            if field_name == "coverage_floor" and isinstance(value, dict):
+                value = CoverageFloor(**value)
             if hasattr(brief, field_name):
                 brief = replace(brief, **{field_name: Slot(value, True)})  # type: ignore[arg-type]
     else:

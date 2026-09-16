@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import floor
 from typing import Literal
 
 from engine.research.models import (
@@ -18,6 +19,14 @@ def within_floor(snapshot: CoverageSnapshot, floor: CoverageFloor) -> bool:
         len(snapshot.assets) >= floor.min_assets
         and snapshot.years >= float(floor.min_years)
         and snapshot.missing_pct <= floor.max_missing_pct
+    )
+
+
+def observed_floor(snapshot: CoverageSnapshot) -> CoverageFloor:
+    return CoverageFloor(
+        min_assets=len(snapshot.assets),
+        min_years=floor(snapshot.years),
+        max_missing_pct=snapshot.missing_pct,
     )
 
 
@@ -71,7 +80,7 @@ def decide_coverage(
                 reason="继续研究需要低于用户认下的覆盖底线",
                 effect="确认后开新版本并改写覆盖底线；拒绝则保持底线另找数据",
                 change_class=ChangeClass.COVERAGE,
-                patch=(),
+                patch=(("coverage_floor", observed_floor(observed)),),
             ),
         )
     if shrink is not None:

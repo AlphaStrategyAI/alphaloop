@@ -1,6 +1,8 @@
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 
+from engine.main import ResearchCommandService
 from engine.research.models import (
     AssetClass,
     Market,
@@ -15,6 +17,8 @@ from engine.research.progress import (
     notification_event,
     thesis_divergence_hint,
 )
+from engine.research.runtime import RuntimePaths
+from engine.research.store import SQLiteStore
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
@@ -64,3 +68,29 @@ def test_notifications_fire_only_for_awaiting_and_terminal_states() -> None:
     assert notification_event(ResearchStatus.DRAFT, ResearchStatus.RUNNING) is None
     assert notification_event(ResearchStatus.RUNNING, ResearchStatus.PAUSED) is None
     assert notification_event(ResearchStatus.AWAITING_CONFIRM, ResearchStatus.RUNNING) is None
+
+
+def test_fetch_view_drains_every_pending_notification(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    service = ResearchCommandService(
+        store,
+        RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json"),
+    )
+    first = replace(new_research("r-wait", NOW), status=ResearchStatus.RUNNING)
+    second = replace(new_research("r-done", NOW), status=ResearchStatus.RUNNING)
+    store.create(first)
+    store.create(second)
+    primed = service.view_for("#/research")
+    assert "notify" not in primed
+
+    later = datetime(2026, 8, 28, 13, 0, tzinfo=UTC)
+    store.save(replace(first, status=ResearchStatus.AWAITING_CONFIRM, updated_at=later), NOW)
+    store.save(replace(second, status=ResearchStatus.COMPLETED, updated_at=later), NOW)
+
+    drained = service.view_for("#/research")
+    assert drained["notify"] == "awaiting_confirm"
+    assert drained["notifies"] == ["awaiting_confirm", "completed"]
+
+    quiet = service.view_for("#/research")
+    assert "notify" not in quiet
+    assert "notifies" not in quiet

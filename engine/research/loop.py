@@ -36,6 +36,22 @@ if TYPE_CHECKING:
     from engine.review.subagent import ReviewerPort, ReviewGateOutcome
 
 
+def _as_coverage_date(value: object) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return None
+
+
+def _coverage_window(simulation: object, fallback: date) -> tuple[date, date]:
+    start = _as_coverage_date(getattr(simulation, "start", None))
+    end = _as_coverage_date(getattr(simulation, "end", None))
+    if start is None or end is None:
+        return fallback, fallback
+    return start, end
+
+
 def run_review_gate(
     draft: RoundDraft,
     reviewer: ReviewerPort,
@@ -250,15 +266,28 @@ class ResearchLoop:
                 round_number,
             )
             if prior_failures >= MAX_CONSECUTIVE_REVIEW_FAILURES:
-                blocked = transition(
-                    replace(
+                max_hours = research.brief.max_effective_hours.value
+                if (
+                    max_hours is not None
+                    and research.effective_seconds >= max_hours * 3600
+                ):
+                    blocked = replace(
                         research,
                         consecutive_review_failures=prior_failures,
-                    ),
-                    ResearchEvent.AUTO_CONTINUE,
-                    self.now(),
+                    )
+                    ended = transition(
+                        blocked,
+                        ResearchEvent.BUDGET_EXHAUSTED,
+                        self.now(),
+                    )
+                    return finish(self.budget.finish(ended))
+                self.store.clear_review_attempts(
+                    research.research_id,
+                    version_number,
+                    round_number,
                 )
-                return finish(self.budget.finish(blocked))
+                research = replace(research, consecutive_review_failures=0)
+                prior_failures = 0
             persist_action(ResearchAction.GATHER)
             draft = self.builder.build(research, prior_failures + 1)
             outcome = run_review_gate(
@@ -313,14 +342,18 @@ class ResearchLoop:
             charged = self.budget.finish(running)
             accepted = outcome.successful_round.accepted_attempt
             floor = charged.brief.coverage_floor.value
+            window_start, window_end = _coverage_window(
+                accepted.simulation,
+                self.now().date(),
+            )
             observed = CoverageSnapshot(
                 assets=tuple(charged.brief.universe.value.symbols)[: accepted.simulation.covered_assets]
                 if charged.brief.universe.value is not None
                 else (),
                 years=accepted.simulation.observations / 252,
                 missing_pct=accepted.simulation.missing_pct,
-                start=self.now().date(),
-                end=self.now().date(),
+                start=window_start,
+                end=window_end,
                 as_of=self.now(),
             )
             previous = charged.last_coverage

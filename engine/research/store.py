@@ -69,6 +69,17 @@ def _is_slot_type(cls: type) -> bool:
     return cls is Slot or get_origin(cls) is Slot
 
 
+def _is_named_change(cls: type) -> bool:
+    return get_origin(cls) is tuple and get_args(cls) == (str, object)
+
+
+def _structure_named_change(value: Any, _: type) -> tuple[str, object]:
+    field_name, raw = value[0], value[1]
+    if field_name == "coverage_floor" and isinstance(raw, dict):
+        raw = CoverageFloor(**raw)
+    return (str(field_name), raw)
+
+
 CONVERTER = cattrs.Converter()
 CONVERTER.register_unstructure_hook(datetime, lambda value: value.isoformat())
 CONVERTER.register_structure_hook(datetime, lambda value, _: datetime.fromisoformat(value))
@@ -78,6 +89,7 @@ CONVERTER.register_structure_hook(
 )
 CONVERTER.register_unstructure_hook(Path, str)
 CONVERTER.register_structure_hook(Path, lambda value, _: Path(value))
+CONVERTER.register_structure_hook_func(_is_named_change, _structure_named_change)
 CONVERTER.register_structure_hook_func(
     _is_slot_type,
     _structure_slot,
@@ -278,6 +290,21 @@ class SQLiteStore:
             (research_id, version_number, round_number),
         ).fetchone()
         return int(row[0])
+
+    def clear_review_attempts(
+        self,
+        research_id: str,
+        version_number: int,
+        round_number: int,
+    ) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                DELETE FROM review_attempts
+                 WHERE research_id=? AND version_number=? AND round_number=?
+                """,
+                (research_id, version_number, round_number),
+            )
 
     def heartbeat(self, owner: OwnerRecord, now: datetime) -> None:
         with self.connection:

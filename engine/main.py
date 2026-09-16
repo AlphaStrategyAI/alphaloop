@@ -200,23 +200,22 @@ class ResearchCommandService:
         return payload
 
     def _attach_notify(self, payload: dict[str, Any]) -> dict[str, Any]:
-        pending: list[tuple[Research, str]] = []
+        pending: list[str] = []
         for item in self.store.list_research():
             before = self._observed_status.get(item.research_id)
             if before is None:
                 self._observed_status[item.research_id] = item.status
                 continue
             event = notification_event(before, item.status)
-            if event is None:
-                self._observed_status[item.research_id] = item.status
-            else:
-                pending.append((item, event))
+            self._observed_status[item.research_id] = item.status
+            if event is not None:
+                pending.append(event)
         if pending:
             rank = {"awaiting_confirm": 0, "completed": 1, "ended": 2}
-            pending.sort(key=lambda pair: rank[pair[1]])
-            chosen, kind = pending[0]
-            self._observed_status[chosen.research_id] = chosen.status
-            payload["notify"] = kind
+            pending.sort(key=lambda kind: rank[kind])
+            payload["notify"] = pending[0]
+            if len(pending) > 1:
+                payload["notifies"] = pending
         return payload
 
     def _record_version_methods(
@@ -381,6 +380,7 @@ class ResearchCommandService:
                     "kind": "awaiting_confirm",
                     "researchId": research_id,
                     "version": research.current_version_number or 1,
+                    "confirmKind": request.kind.value,
                     "proposed": request.proposed_change,
                     "reason": request.reason,
                     "effect": request.effect,
@@ -425,7 +425,7 @@ class ResearchCommandService:
             self.store.create(new_research(research_id, now))
             return {"research_id": research_id}
         if kind == "create_method":
-            source = MethodSource(request.get("source", MethodSource.PRESET.value))
+            source = MethodSource(request.get("source", MethodSource.DEPOSITED.value))
             definition = create_method(
                 self.store,
                 request["method_id"],
@@ -434,6 +434,7 @@ class ResearchCommandService:
                 request["body"],
                 source,
                 now,
+                deposited_from_research_id=request.get("deposited_from_research_id"),
             )
             return {
                 "method_id": definition.method_id,

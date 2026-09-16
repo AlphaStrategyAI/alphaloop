@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
+from engine.main import ResearchCommandService
 from engine.research.methods import (
     create_method,
     deposit_method,
@@ -7,6 +9,7 @@ from engine.research.methods import (
     record_method_usage,
     revise_method,
 )
+from engine.research.runtime import RuntimePaths
 from engine.research.models import (
     MethodRef,
     MethodSource,
@@ -51,6 +54,40 @@ def test_deposit_marks_source_and_survives_research_delete(tmp_path) -> None:
     assert store.list_method_definitions()[0].source is MethodSource.DEPOSITED
     assert store.list_method_definitions()[0].deposited_from_research_id == "r-dep"
     assert list_method_usage(store, "custom.gap")[0].research_id == "r-dep"
+
+
+def test_library_create_method_is_deposited_not_preset(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "m.db")
+    service = ResearchCommandService(
+        store,
+        RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json"),
+    )
+    service.handle(
+        {
+            "type": "create_method",
+            "method_id": "user.gap",
+            "name": "缺口",
+            "description": "user authored",
+            "body": "body",
+        }
+    )
+    created = store.latest_method_definition("user.gap")
+    assert created is not None
+    assert created.source is MethodSource.DEPOSITED
+    assert created.deposited_from_research_id is None
+    presets = {
+        item.method_id
+        for item in store.list_method_definitions()
+        if item.source is MethodSource.PRESET
+    }
+    assert "user.gap" not in presets
+    assert presets == {
+        "scorecard.market",
+        "overfit.walk",
+        "stability.oos",
+        "crowding.load",
+        "cost.turnover",
+    }
 
 
 def test_selected_method_set_must_all_pass_and_does_not_inherit_old_passes() -> None:

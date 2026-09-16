@@ -47,6 +47,19 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
     )
 
 
+def _provenance_cutoff(research: Research) -> str | None:
+    if research.last_coverage is not None:
+        return research.last_coverage.end.isoformat()
+    if research.coverage_history:
+        return research.coverage_history[-1].after.end.isoformat()
+    if research.versions and research.versions[-1].rounds:
+        simulation = research.versions[-1].rounds[-1].accepted_attempt.simulation
+        end = getattr(simulation, "end", None)
+        if end is not None and hasattr(end, "isoformat"):
+            return str(end.isoformat())
+    return None
+
+
 def importer_accepts(manifest: dict) -> bool:
     return (
         manifest.get("kind") == "strategy_pack"
@@ -292,7 +305,7 @@ def build_strategy_pack(
                 if research.brief.coverage_floor.value
                 else None,
                 "shrinks": [asdict(item) for item in research.coverage_history],
-                "cutoff": None if not research.coverage_history else research.coverage_history[-1].after.end.isoformat(),
+                "cutoff": _provenance_cutoff(research),
             },
         )
         _json(

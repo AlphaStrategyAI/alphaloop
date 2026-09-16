@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from math import sqrt
 
 import numpy as np
@@ -61,10 +62,22 @@ class SimulationReport:
     observations: int
     covered_assets: int
     missing_pct: float
+    start: date | None = None
+    end: date | None = None
 
 
 def benchmark_for(universe: Universe) -> BenchmarkSpec:
     return BENCHMARKS[(universe.market, universe.underlying_asset_class)]
+
+
+def _index_date(value: object) -> date | None:
+    if hasattr(value, "date"):
+        converted = value.date()
+        if isinstance(converted, date):
+            return converted
+    if isinstance(value, date):
+        return value
+    return None
 
 
 def _annualized_return(returns: pd.Series) -> float:
@@ -119,4 +132,6 @@ def calculate_metrics(
         observations=len(aligned),
         covered_assets=diagnostics.covered_assets,
         missing_pct=diagnostics.missing_pct,
+        start=_index_date(aligned.index.min()),
+        end=_index_date(aligned.index.max()),
     )
