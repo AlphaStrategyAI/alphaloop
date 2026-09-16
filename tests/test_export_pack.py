@@ -167,7 +167,9 @@ def test_pack_runs_without_alphaloop_installed(tmp_path: Path) -> None:
     } <= names
 
     environment = tmp_path / "clean-python"
-    venv.EnvBuilder(with_pip=False).create(environment)
+    # uv/cpython builds resolve libpython via @executable_path; copy-mode
+    # venvs break that on macOS, so prefer symlinks on POSIX.
+    venv.EnvBuilder(with_pip=False, symlinks=os.name != "nt").create(environment)
     isolated_python = (
         environment / "Scripts" / "python.exe"
         if os.name == "nt"
