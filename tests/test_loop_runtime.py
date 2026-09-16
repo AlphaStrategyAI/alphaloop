@@ -274,6 +274,71 @@ def test_economic_next_change_waits_and_applies_only_after_approval(tmp_path: Pa
     assert waiting.pending_confirm.patch == (("max_drawdown_floor", -0.30),)
 
 
+class InFloorShrinkBuilder(FakeBuilder):
+    def build(self, research, attempt_number: int) -> RoundDraft:
+        self.calls += 1
+        round_number = len(research.versions[0].rounds) + 1
+        if round_number == 1:
+            covered_assets, years, missing_pct, passed = 10, 10.0, 2.0, False
+        else:
+            covered_assets, years, missing_pct, passed = 9, 9.0, 4.0, True
+        attempt = Attempt(
+            attempt_id=f"a-{round_number}-{attempt_number}",
+            number=attempt_number,
+            change_class=ChangeClass.PARAM,
+            spec=strategy(attempt_number),
+            simulation=replace(
+                simulation(),
+                covered_assets=covered_assets,
+                observations=int(years * 252),
+                missing_pct=missing_pct,
+            ),
+            verification=report(passed),
+            review=None,
+        )
+        return RoundDraft(1, round_number, attempt)
+
+
+def test_in_floor_shrink_across_rounds_is_recorded_and_can_complete(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    research = running_research()
+    symbols = tuple(f"S{i}" for i in range(10))
+    research = replace(
+        research,
+        brief=replace(
+            research.brief,
+            universe=Slot(
+                Universe(Market.US, AssetClass.EQUITY, AssetClass.EQUITY, symbols),
+                True,
+            ),
+            coverage_floor=Slot(CoverageFloor(8, 8, 8.0), True),
+        ),
+    )
+    store.create(research)
+    loop = ResearchLoop(
+        store,
+        InFloorShrinkBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    )
+
+    first = loop.run_once("r-loop")
+    assert first.status is ResearchStatus.RUNNING
+    assert first.coverage_history == ()
+    assert first.last_coverage is not None
+    assert len(first.last_coverage.assets) == 10
+
+    second = loop.run_once("r-loop")
+    assert len(second.coverage_history) == 1
+    shrink = second.coverage_history[0]
+    assert shrink.within_floor is True
+    assert len(shrink.before.assets) == 10
+    assert len(shrink.after.assets) == 9
+    assert second.status is ResearchStatus.COMPLETED
+    assert second.pending_confirm is None
+
+
 def test_coverage_below_any_locked_floor_dimension_waits(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "research.db")
     research = running_research()

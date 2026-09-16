@@ -276,7 +276,8 @@ class ResearchLoop:
             end=self.now().date(),
             as_of=self.now(),
         )
-        previous = charged.coverage_history[-1].after if charged.coverage_history else None
+        previous = charged.last_coverage
+        charged = replace(charged, last_coverage=observed)
         if floor is not None:
             decision = decide_coverage(
                 previous,

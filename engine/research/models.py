@@ -214,6 +214,7 @@ class Research:
     updated_at: datetime
     reverifications: tuple[Reverification, ...] = ()
     coverage_history: tuple[CoverageShrink, ...] = ()
+    last_coverage: CoverageSnapshot | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:
@@ -233,4 +234,5 @@ def new_research(research_id: str, now: datetime) -> Research:
         updated_at=now,
         reverifications=(),
         coverage_history=(),
+        last_coverage=None,
     )
