@@ -1,54 +1,232 @@
-# alphaloop Alpha Engine Implementation Plan
+# alphaloop Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a local-first alpha research engine and Night desktop that turns a five-slot strategy brief into a benchmarked, independently runnable strategy pack without placing orders.
-**Architecture:** A Python 3.12 engine owns the canonical research state machine, strategy simulation, verification, mandatory reviewer gate, persistence, and export contracts. A Tauri 2 process owns the engine sidecar for native sessions while React renders the seven Night views; the two-command CLI can own the same engine for headless sessions under a single pid/lock contract. SQLite stores transactional state and heartbeats, files store frozen materials and exported packs, and JSON Schema defines process boundaries.
-**Tech Stack:** Python 3.12, pandas, NumPy, httpx, yfinance-style and AKShare adapters, SQLite, JSON Schema, pytest, Tauri 2, Rust, React, TypeScript, Vite, Vitest, Testing Library, PyInstaller
+**Goal:** Build the v0.0.1 local-first strategy workshop: one conversation is one research, the engine studies unattended, and the only live-trading handoff is a self-contained strategy pack that another project can import and execute.
+**Architecture:** A Python 3.12 engine owns the product 4.8 state machine, five-slot brief, versioned rounds, method library, coverage floor, verification, persistence, and the two export kinds. A Tauri 2 process owns the engine sidecar and native notifications while React renders the seven Night views of one research workbench plus the research list and method library. The two-command CLI can own the same engine under one pid/lock. SQLite stores transactional state; files store frozen materials and exported packs; JSON Schema is the process boundary.
+**Tech Stack:** Python 3.12, pandas, NumPy, httpx, yfinance and AKShare adapters, SQLite, JSON Schema, pytest, Tauri 2, Rust, React, TypeScript, Vite, Vitest, Testing Library, PyInstaller
+
 ## Global Constraints
-**Source of truth:** This implementation plan is the source of truth for coding and supersedes `docs/plans/2026-08-28-alphaloop-tech-design.md`.
-**Order execution:** alphaloop does NOT place orders in v1.
-**Strategy handoff:** Strategy pack must be independently backtest-runnable.
-**Reserved live-trading port:** `ExecutionPort` / `Broker` is a typed interface with a `NotImplemented` stub that is never called by the desktop.
-**Trading UI:** No 下单 UI.
+
+Product source of truth is [product design v0.0.1](../requirements/product-design-v0_0_1.md). Positioning wins over design; design wins over UI; this plan is the source of truth for coding. Every task implicitly includes this section.
+
+**One conversation is one research.** Mid-research economic changes open a new *version* of the same research, never a new conversation.
+**Five locked slots before confirm-run:** 大致原理 (`thesis`), 资产类别 (`universe`), 最长研究时间 (`max_effective_hours`), 第一轮验证方法 (`round1_methods`), 最低数据覆盖容忍度 (`coverage_floor`).
+**Confirm-run is the only start.** The engine never begins research from chat alone.
+**Auto-advance only:** 研究方法, 建模方法, 参数. These do not notify and do not confirm.
+**Never auto-advance:** any change to 验证标准, the research's selected verification methods (add/replace/remove), or the method library. Those are economic confirmations.
+**Confirm cards exist for exactly two user-facing kinds:** economic-logic change and coverage-floor breach. There is no third confirmation kind, including reviewer blockage.
+**User absence never auto-decides.** Awaiting confirm does not timeout, does not pick a default, and does not consume effective time.
+**Six statuses only:** `draft` / `running` / `awaiting_confirm` / `paused` / `completed` / `ended`. `confirm_run` is a draft view, not a seventh status.
+**Only `running` consumes effective research time.** Draft, awaiting confirm, paused, completed, and ended do not.
+**Max research time is effective time**, not a wall-clock deadline.
+**Coverage:** shrink automatically and record it while still inside the user-locked floor; stop and confirm before going below the floor; never declare verification passed on below-floor data.
+**Method definitions are append-only.** Editing a method creates a new definition. Existing rounds, researches, and exported packs keep the revision they used.
+**Deleting a research** deletes its dialogue, versions, and export eligibility. It does not delete deposited methods or already-exported local files.
+**Two export kinds, not two grades of one kind:** `strategy_pack` (live-handoff eligible) and `research_record` (`live_handoff_eligible: false`, an importer may reject on identity alone).
+**Live-handoff eligibility requires all three:** current selected methods all passed; no pending confirm; reverifications of the current round still passed.
+**Reverify fail immediately revokes live-handoff eligibility.** There is no "ignore this reverify" switch. Already-exported local packs are not rewritten; the workbench marks them overturned.
+**alphaloop does not place orders, connect brokers, run paper trading, or show 下单 / 上线 / 连接账户 / 收益承诺.**
+**CLI closed list:** `start` and `status` only.
+**Desktop owns all user features.** CLI is not a second UI.
+**v1 notifications only:** entering awaiting confirm; research completed or stopped.
+**v1 markets:** US and CN mainland; assets 股票 / 债券 / 基金. Funds follow `underlying_asset_class` for the benchmark.
 **US equity benchmark:** S&P 500 (`SPX`).
 **CN equity benchmark:** CSI 300 (`000300.SH`).
 **US bond benchmark:** Bloomberg US Agg proxy (`AGG`).
-**CN bond benchmark:** ChinaBond New Composite Wealth Index / 中债-新综合财富（总值）指数 (`CBA00101.CS`, fetched with AKShare `bond_new_composite_index_cbond(indicator="财富", period="总值")`).
-**Fund benchmark:** Funds follow their declared underlying asset class.
-**Required round metrics:** total/annualized return, excess vs benchmark, Sharpe, volatility, max drawdown.
-**Primary pass rules:** `sharpe_oos > 0`, `excess_ann > 0`, and `max_drawdown >= max_drawdown_floor` where the default floor is `-0.25`.
-**Additional verifier gates:** walk-forward, OOS stability, crowding, and transaction cost.
-**Threshold change:** Changing any validation threshold is a new method revision and an economic confirmation.
-**Reviewer:** Every automatic research round runs a subagent review.
-**Reviewer result:** `{passed: bool, findings: [...], required_changes?: ...}`.
-**Reviewer failure:** A failed review cannot append a successful `Round` and cannot advance `Version`.
-**Reviewer retry cap:** `3` consecutive review failures under the same version.
-**Reviewer timeout:** Never timeout-auto-approve the reviewer.
-**Native lifecycle:** Native Tauri app Quit / last window closed on Mac/Win/Linux ⇒ stop the engine sidecar; one process tree; no orphan daemon after app exit.
-**Web lifecycle:** Web UI tab close ⇒ engine keeps running; the desktop app is a process owner and a browser is not.
-**Headless lifecycle:** CLI `start` owns the engine for research without the GUI.
-**Single owner:** Desktop and CLI owners use one pid/lock file and must not double-start.
-**Dialogue scope:** Dialogue is not a general chatbot; it only elicits `thesis`, `universe`, `max_effective_hours`, `round1_methods`, and `coverage_floor`, enriches them with public materials, locks them, shows confirm-run, and then starts research.
+**CN bond benchmark:** ChinaBond New Composite Wealth Index (`CBA00101.CS`, AKShare `bond_new_composite_index_cbond(indicator="财富", period="总值")`).
 **Frequency:** v1 bar = daily (`1d`).
 **Strategy side:** `long_only` or `long_short`; default `long_only`.
-**Desktop frame:** `1440×900`.
-**Rail:** `148px`.
-**Logo:** `148×148`, with Logo + nav vertically centered.
-**Theme:** Night / Dark only.
-**Night colors:** `void #07090C`, `glass #12161C`, `ink #E8EEF5`, `mute #8B97A8`, `line #1E2530`, `cyan #5EEAD4`, `run #60A5FA`, `ok #34D399`, `stop #F87171`, `hold #FBBF24`.
-**Cyan:** Only confirm-run and awaiting-confirm use cyan/glow.
-**Research list:** awaiting-confirm is a primary card, not an ordinary row.
-**Confirmation UI:** confirm-run and awaiting-confirm are two cards, never one modal.
-**CLI surface:** only `start` and `status`.
-**Desktop stack:** Tauri 2 + React + TypeScript.
-**Engine stack:** Python 3.12.
-**Persistence:** SQLite + files.
-**Contracts:** JSON Schema.
-**Tests:** pytest for engine and Vitest for UI.
+**Reserved live-trading port:** `ExecutionPort` / `Broker` is a typed `NotImplemented` stub never called by the desktop.
+**Strategy pack must be independently backtest-runnable** from the extracted directory with no alphaloop install.
+**Internal reviewer:** every automatic round still runs an independent review. A failed review cannot append a `Round` or advance `Version`. Timeout or malformed output is a failure, never an auto-approval. Reviewer findings with economic-logic drift surface as `ConfirmKind.ECONOMIC`. Other review failures stay inside auto-advance (model/param retry) until the effective-time budget is exhausted.
+**Native lifecycle:** Tauri Quit / last window closed on Mac/Win/Linux stops the owned sidecar; no orphan daemon.
+**Web lifecycle:** closing a browser tab does not stop a CLI-owned engine.
+**Single owner:** desktop and CLI share one pid/lock and must not double-start.
+**Dialogue is not a general chatbot.** It only elicits and locks the five slots, handles confirms, pause/modify/extend, inspects results, reverifies, and exports.
+**Desktop frame:** `1440×900`. Rail `148px`. Logo `148×148`, Logo + nav vertically centered.
+**Theme:** Night / Dark only. Tokens: `void #07090C`, `glass #12161C`, `ink #E8EEF5`, `mute #8B97A8`, `line #1E2530`, `cyan #5EEAD4`, `run #60A5FA`, `ok #34D399`, `stop #F87171`, `hold #FBBF24`.
+**Cyan / glow only** on confirm-run and awaiting-confirm.
+**Research list:** awaiting-confirm is the primary card. List actions are enter and delete only.
+**Tests:** pytest for the engine, Vitest for the UI.
+**Persistence:** SQLite + files. **Contracts:** JSON Schema.
+
 ---
 
 **References:** [product positioning](../requirements/product-positioning.md), [product design v0.0.1](../requirements/product-design-v0_0_1.md), [UI design v0.0.1](../requirements/ui-design-v0_0_1.md), and [Issue #111](https://github.com/AlphaStrategyAI/alphaloop/issues/111).
+
+## Technical Design
+
+This section is the coding contract for product concepts. Tasks 13+ implement the rows that the bootstrap (Tasks 1–12) does not yet match. Where a Task 1–12 snippet disagrees with this section, this section wins.
+
+### Product → code map
+
+| Product | Code |
+| --- | --- |
+| 3.1 研究对话 / 五项设定 | `ResearchBrief` slots `thesis`, `universe`, `max_effective_hours`, `round1_methods`, `coverage_floor` |
+| 3.2 确认开跑 | `ResearchEvent.CONFIRM_RUN` from `draft` only when `all_slots_locked` |
+| 3.3 进展 | `ResearchAction` + `TimeBudget` + coverage snapshot vs floor |
+| 3.4 / 4.4 / 4.5 经济逻辑确认 | `ConfirmKind.ECONOMIC` only |
+| 4.6 覆盖底线 | `ConfirmKind.COVERAGE` + `CoverageShrink` |
+| 3.5 / 4.5 验证方法库 | `MethodDefinition` append-only revisions; `deposit_method` after confirmed add |
+| 3.6 研究列表 | `ResearchListItem`; filter by `ResearchStatus`; delete |
+| 3.7 策略包 vs 研究记录包 | `ExportKind.STRATEGY_PACK` / `RESEARCH_RECORD` |
+| 3.8 CLI | `alphaloop start`, `alphaloop status` |
+| 4.8 状态表 | `transition(research, event, now, request=None)` |
+| 5.5 不做交易暗示 | no order CTA; pack `tradable_by_alphaloop: false` |
+| 6.1 通知 | native notify on `awaiting_confirm` and on `completed`/`ended` only |
+
+### Canonical types (additions and corrections)
+
+```python
+class ConfirmKind(StrEnum):
+    ECONOMIC = "economic"
+    COVERAGE = "coverage"
+
+
+class ResearchAction(StrEnum):
+    GATHER = "gather"
+    SPECIFY = "specify"
+    SIMULATE = "simulate"
+    VERIFY = "verify"
+    ITERATE = "iterate"
+    IDLE = "idle"
+
+
+class MethodSource(StrEnum):
+    PRESET = "preset"
+    DEPOSITED = "deposited"
+
+
+class ExportKind(StrEnum):
+    STRATEGY_PACK = "strategy_pack"
+    RESEARCH_RECORD = "research_record"
+
+
+@dataclass(frozen=True, slots=True)
+class MethodDefinition:
+    method_id: str
+    revision_hash: str
+    name: str
+    description: str
+    body: str
+    source: MethodSource
+    deposited_from_research_id: str | None
+    created_at: datetime
+    supersedes: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MethodUsage:
+    method_id: str
+    revision_hash: str
+    research_id: str
+    version_number: int
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageSnapshot:
+    assets: tuple[str, ...]
+    years: float
+    missing_pct: float
+    start: date
+    end: date
+    as_of: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageShrink:
+    shrink_id: str
+    version_number: int
+    round_number: int
+    before: CoverageSnapshot
+    after: CoverageSnapshot
+    reason: str
+    within_floor: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ExportRecord:
+    export_id: str
+    kind: ExportKind
+    path: str
+    version_number: int | None
+    created_at: datetime
+    failed_checks: tuple[str, ...]
+    overturned: bool = False
+```
+
+`Research` keeps the Task 1 fields and adds:
+
+```python
+current_action: ResearchAction = ResearchAction.IDLE
+coverage_history: tuple[CoverageShrink, ...] = ()
+exports: tuple[ExportRecord, ...] = ()
+thesis_change_hint: str | None = None
+```
+
+`export_eligible` remains a cached boolean that `recompute_eligibility(research)` refreshes from `strategy_pack_eligibility`. It is never set `True` except when the three 3.7 checks all pass.
+
+### State table (product 4.8)
+
+| From | Event | To | Opens version? |
+| --- | --- | --- | --- |
+| draft | EDIT_DRAFT | draft | no |
+| draft | CONFIRM_RUN (five slots locked) | running | yes, v1 |
+| running | AUTO_CONTINUE | running | no |
+| running | REQUEST_CONFIRM (ECONOMIC or COVERAGE) | awaiting_confirm | no |
+| running | PAUSE | paused | no |
+| running | COMPLETE | completed | no |
+| running | BUDGET_EXHAUSTED | ended | no |
+| awaiting_confirm | CONFIRM_APPROVE | running | yes |
+| awaiting_confirm | CONFIRM_REJECT | running | no |
+| awaiting_confirm | CONFIRM_PAUSE | paused | no |
+| awaiting_confirm | MODIFY_CONFIRM | running | yes, user's patch |
+| awaiting_confirm | WAIT | awaiting_confirm | no |
+| paused | RESUME | running | no |
+| paused | MODIFY_CONFIRM | running | yes |
+| completed | REVERIFY_PASS | completed | no |
+| completed | REVERIFY_FAIL | completed, eligibility revoked | no |
+| completed | MODIFY_CONFIRM | running | yes |
+| ended | EXTEND_CONFIRM | running | yes |
+| ended | MODIFY_CONFIRM | running | yes |
+| ended / paused / awaiting_confirm | WAIT | same | no |
+
+`ConfirmKind.REVIEW_BLOCKED` is removed. Internal review failures never create a user-facing confirm unless a finding is economic-logic drift, in which case the kind is `ECONOMIC`.
+
+### Method library
+
+Preset v1 methods (always in the library, never deleted):
+
+- `scorecard.market` — required built-in gate, not user-removable from a research
+- `overfit.walk`, `stability.oos`, `crowding.load`, `cost.turnover` — selectable round-1 methods
+
+`VerificationReport.passed` is true iff the built-in scorecard passed **and** every currently selected `method_set` item passed. A new method set does not inherit previous passes.
+
+`create_method` inserts a `PRESET` or user-authored definition. `revise_method` inserts a new row with a new `revision_hash` and `supersedes` pointing at the old hash. `deposit_method` after a confirmed in-research add uses `MethodSource.DEPOSITED` and `deposited_from_research_id`.
+
+### Export identity
+
+`strategy_pack` manifest requires `kind: "strategy_pack"`, `live_handoff_eligible: true`, frozen method bodies, data provenance (sources, assets, range, cutoff, shrinks, locked floor), version/round history, research meta, and the handoff disclaimer. Importers accept only this kind.
+
+`research_record` manifest requires `kind: "research_record"`, `live_handoff_eligible: false`. It is allowed from any non-deleted research. It is not a runnable live-handoff pack.
+
+### Coverage decision
+
+```text
+observed = snapshot(data)
+if within_floor(observed, locked_floor):
+    if observed is a shrink of the previous snapshot:
+        append CoverageShrink(within_floor=True) and AUTO_CONTINUE
+    else:
+        AUTO_CONTINUE
+else:
+    REQUEST_CONFIRM(COVERAGE)  # never verify-pass, never auto-lower the floor
+```
+
+### Soft thesis hint
+
+If a user-proposed thesis looks like a different earning mechanism, set `thesis_change_hint` to `这也可以作为一条新研究重新开始。` The transition still proceeds. The hint never blocks and never opens a new research.
 
 ## File-Structure Map
 
@@ -58,7 +236,8 @@
 ├── contracts/
 │   ├── research.schema.json                    # persisted and IPC-safe research envelope
 │   ├── desktop-api.schema.json                 # desktop request/response contract
-│   └── strategy-pack.schema.json               # exported manifest contract
+│   ├── strategy-pack.schema.json               # live-handoff pack manifest
+│   └── research-record.schema.json             # rejectable research-record manifest
 ├── engine/
 │   ├── __init__.py
 │   ├── strategy.py                             # AlphaStrategy, MarketPanel, StrategySpec, reference mean reversion, backtest
@@ -80,6 +259,9 @@
 │   │   ├── simulate.py                         # one-day simulation orchestration
 │   │   ├── loop.py                             # gather→specify→simulate→verify→review→decide loop
 │   │   ├── clock.py                            # running-only TimeBudget
+│   │   ├── coverage.py                         # within-floor shrink vs floor-breach confirm
+│   │   ├── methods.py                          # append-only method library, usage, deposit
+│   │   ├── progress.py                         # ResearchAction, host status, list items, thesis hint
 │   │   ├── store.py                            # SQLite transactions, completed-round resume, heartbeat
 │   │   └── runtime.py                          # cross-platform lifetime pid/lock and owner record
 │   └── review/
@@ -127,8 +309,14 @@
     ├── test_reviewer.py
     ├── test_loop_runtime.py
     ├── test_export_pack.py
-    └── test_cli.py
+    ├── test_cli.py
+    ├── test_methods.py
+    ├── test_coverage.py
+    ├── test_research_record.py
+    └── test_progress.py
 ```
+
+**Working-tree note.** This repository already contains the files created by Tasks 1–12. Do not recreate those files. If a Task 1–12 test is red, fix that regression first. New product-alignment work starts at Task 13. Where a Task 1–12 snippet disagrees with Product Design v0.0.1 or the Technical Design section, Task 13+ and the Technical Design section win.
 
 Task order is intentionally coupled: each task consumes only interfaces already produced, and each commit leaves a testable vertical increment. Keep code DRY, apply YAGNI to every new abstraction, write each failing test before production code, and do not combine task commits.
 
@@ -7826,9 +8014,1316 @@ git add apps/__init__.py apps/cli engine/main.py engine/research/runtime.py engi
 git commit -m "feat(cli): add start and status ownership"
 ```
 
+### Task 13: Product 4.8 Confirm Kinds and Modify-from-Awaiting
+
+**Files:**
+- Modify: `engine/research/models.py`
+- Modify: `engine/research/state_machine.py`
+- Modify: `engine/review/subagent.py`
+- Modify: `tests/test_state_machine.py`
+- Modify: `tests/test_reviewer.py`
+- Modify: `tests/test_loop_runtime.py`
+
+**Interfaces:**
+- Consumes: Task 1 `Research`, `transition`, `ConfirmRequest`; Task 7 `run_review_gate`; Task 8 `ResearchLoop.run_once`
+- Produces: `ConfirmKind` with members `ECONOMIC` and `COVERAGE` only; `transition` accepts `MODIFY_CONFIRM` from `awaiting_confirm`; `run_review_gate` returns `ConfirmKind.ECONOMIC` when a finding code is `economic-logic drift`, otherwise `confirm_request is None` and the loop auto-continues until budget exhausts
+
+- [ ] **Step 1: Write the failing confirm-kind and modify-from-awaiting tests**
+
+Add to `tests/test_state_machine.py`:
+
+```python
+def test_confirm_kind_has_only_economic_and_coverage() -> None:
+    assert set(ConfirmKind) == {ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE}
+
+
+def test_awaiting_modify_confirm_opens_a_version_from_user_patch() -> None:
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=ConfirmRequest(
+            "c-engine",
+            ConfirmKind.ECONOMIC,
+            "改信号",
+            "验证失败",
+            "引擎提议",
+            patch=(("thesis", Slot("引擎提议的原理", True)),),
+        ),
+        brief=replace(locked_brief(), thesis=Slot("用户改过的原理", True)),
+    )
+
+    running = transition(waiting, ResearchEvent.MODIFY_CONFIRM, NOW)
+
+    assert running.status is ResearchStatus.RUNNING
+    assert running.pending_confirm is None
+    assert running.versions[-1].opened_by == "modified_settings_confirm"
+    assert running.brief.thesis.value == "用户改过的原理"
+
+
+def test_review_blocked_is_not_a_confirm_kind() -> None:
+    assert not hasattr(ConfirmKind, "REVIEW_BLOCKED")
+    assert "review_blocked" not in {kind.value for kind in ConfirmKind}
+```
+
+Replace `test_running_can_wait_without_opening_a_version` parametrize with:
+
+```python
+@pytest.mark.parametrize("kind", (ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE))
+def test_running_can_wait_without_opening_a_version(kind: ConfirmKind) -> None:
+```
+
+Replace `tests/test_reviewer.py` assertion `outcome.confirm_request.kind.value == "review_blocked"` with a new test file section in `tests/test_reviewer.py`:
+
+```python
+def test_three_technical_review_failures_do_not_create_a_user_confirm() -> None:
+    outcome = run_review_gate(
+        draft(),
+        FailReviewer(),
+        retry,
+        NOW,
+        prior_failures=0,
+        on_attempt=lambda attempt: None,
+    )
+    assert outcome.successful_round is None
+    assert outcome.confirm_request is None
+    assert len(outcome.attempts) == 3
+
+
+def test_economic_drift_finding_surfaces_as_economic_confirm() -> None:
+    class DriftReviewer:
+        def run(self, round_draft: RoundDraft) -> ReviewReport:
+            return ReviewReport(
+                False,
+                (ReviewFinding("economic-logic drift", "method_set changed"),),
+            )
+
+    outcome = run_review_gate(
+        draft(),
+        DriftReviewer(),
+        retry,
+        NOW,
+        prior_failures=0,
+        on_attempt=lambda attempt: None,
+    )
+    assert outcome.successful_round is None
+    assert outcome.confirm_request is not None
+    assert outcome.confirm_request.kind is ConfirmKind.ECONOMIC
+```
+
+Replace `tests/test_loop_runtime.py::test_three_review_failures_wait_without_round_or_version_advance` with:
+
+```python
+def test_three_technical_review_failures_stay_running_without_a_round(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    loop = ResearchLoop(store, FakeBuilder(), FailReviewer(), TimeBudget(lambda: 10.0), lambda: NOW)
+
+    result = loop.run_once("r-loop")
+
+    assert result.status is ResearchStatus.RUNNING
+    assert result.pending_confirm is None
+    assert result.current_version_number == 1
+    assert result.versions[0].rounds == ()
+    assert store.last_completed_round("r-loop") == 0
+    assert store.review_failure_count("r-loop", 1, 1) == 3
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_state_machine.py tests/test_reviewer.py tests/test_loop_runtime.py -q`
+
+Expected: FAIL with `AssertionError` on `ConfirmKind` membership and/or `result.status is ResearchStatus.RUNNING`.
+
+- [ ] **Step 3: Patch models, transition, and reviewer gate**
+
+In `engine/research/models.py` delete `REVIEW_BLOCKED = "review_blocked"` from `ConfirmKind`.
+
+In `engine/research/state_machine.py` extend the `MODIFY_CONFIRM` guard:
+
+```python
+    if (
+        status
+        in {
+            ResearchStatus.AWAITING_CONFIRM,
+            ResearchStatus.PAUSED,
+            ResearchStatus.COMPLETED,
+            ResearchStatus.ENDED,
+        }
+        and event is ResearchEvent.MODIFY_CONFIRM
+    ):
+        return _open_version(research, now, "modified_settings_confirm")
+```
+
+`_open_version` already copies `pending_confirm.patch` onto the brief. For `MODIFY_CONFIRM` from awaiting, the user's brief is the source of truth — ignore the engine proposal:
+
+```python
+def _open_version(research: Research, now: datetime, opened_by: str) -> Research:
+    brief = research.brief
+    if opened_by != "modified_settings_confirm":
+        changes = research.pending_confirm.patch if research.pending_confirm else ()
+        for field_name, value in changes:
+            if hasattr(brief, field_name):
+                brief = replace(brief, **{field_name: Slot(value, True)})  # type: ignore[arg-type]
+    else:
+        changes = ()
+    number = len(research.versions) + 1
+    version = Version(
+        version_id=f"{research.research_id}-v{number}",
+        number=number,
+        brief_snapshot=brief,
+        rounds=(),
+        opened_at=now,
+        opened_by=opened_by,
+        confirmed_changes=changes,
+    )
+    return replace(
+        research,
+        status=ResearchStatus.RUNNING,
+        brief=brief,
+        versions=research.versions + (version,),
+        current_version_number=number,
+        pending_confirm=None,
+        export_eligible=False,
+        updated_at=now,
+    )
+```
+
+In `engine/review/subagent.py` change the exhausted-review return:
+
+```python
+    last = attempts[-1] if attempts else None
+    economic = False
+    if last is not None and last.review is not None:
+        economic = any(
+            finding.code == "economic-logic drift" for finding in last.review.findings
+        )
+    return ReviewGateOutcome(
+        version_number=initial.version_number,
+        attempts=tuple(attempts),
+        successful_round=None,
+        confirm_request=(
+            ConfirmRequest(
+                request_id=f"economic-v{initial.version_number}-r{initial.round_number}",
+                kind=ConfirmKind.ECONOMIC,
+                proposed_change="审查发现经济逻辑已经漂移，需要人确认后再继续",
+                reason="独立审查报告了 economic-logic drift",
+                effect="确认后开新版本；拒绝则维持当前版本另找出路",
+            )
+            if economic
+            else None
+        ),
+    )
+```
+
+In `engine/research/loop.py`, when `outcome.successful_round is None` and `outcome.confirm_request is None`, stay `RUNNING` via `AUTO_CONTINUE` instead of `REQUEST_CONFIRM`:
+
+```python
+        if outcome.successful_round is None:
+            if outcome.confirm_request is None:
+                blocked = transition(
+                    replace(
+                        research,
+                        consecutive_review_failures=prior_failures + len(outcome.attempts),
+                    ),
+                    ResearchEvent.AUTO_CONTINUE,
+                    self.now(),
+                )
+            else:
+                blocked = transition(
+                    replace(
+                        research,
+                        consecutive_review_failures=prior_failures + len(outcome.attempts),
+                    ),
+                    ResearchEvent.REQUEST_CONFIRM,
+                    self.now(),
+                    outcome.confirm_request,
+                )
+            result = self.budget.finish(blocked)
+            self.store.save(result, expected_updated_at)
+            return result
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest tests/test_state_machine.py tests/test_reviewer.py tests/test_loop_runtime.py -q`
+
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engine/research/models.py engine/research/state_machine.py engine/review/subagent.py engine/research/loop.py tests/test_state_machine.py tests/test_reviewer.py tests/test_loop_runtime.py
+git commit -m "fix: confirm cards are only economic or coverage"
+```
+
+### Task 14: Coverage Shrink Within Floor, Confirm Below Floor
+
+**Files:**
+- Create: `engine/research/coverage.py`
+- Modify: `engine/research/models.py`
+- Modify: `engine/research/loop.py`
+- Test: `tests/test_coverage.py`
+
+**Interfaces:**
+- Consumes: `CoverageFloor`, `Research`, `SimulationReport`, `ConfirmRequest`, `ChangeClass`, `transition`
+- Produces: `CoverageSnapshot`; `CoverageShrink`; `decide_coverage(previous: CoverageSnapshot | None, observed: CoverageSnapshot, floor: CoverageFloor, version_number: int, round_number: int) -> CoverageDecision` where `CoverageDecision` is `dataclass(action: Literal["continue", "record_shrink", "confirm"], shrink: CoverageShrink | None, request: ConfirmRequest | None)`; `within_floor(snapshot: CoverageSnapshot, floor: CoverageFloor) -> bool`
+
+- [ ] **Step 1: Write the failing coverage tests**
+
+Create `tests/test_coverage.py`:
+
+```python
+from datetime import UTC, date, datetime
+
+from engine.research.coverage import CoverageDecision, decide_coverage, within_floor
+from engine.research.models import ConfirmKind, CoverageFloor, CoverageSnapshot
+
+NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
+FLOOR = CoverageFloor(min_assets=8, min_years=8, max_missing_pct=8.0)
+
+
+def snap(assets: int, years: float, missing: float) -> CoverageSnapshot:
+    return CoverageSnapshot(
+        assets=tuple(f"S{i}" for i in range(assets)),
+        years=years,
+        missing_pct=missing,
+        start=date(2010, 1, 1),
+        end=date(2020, 1, 1),
+        as_of=NOW,
+    )
+
+
+def test_within_floor_is_inclusive_of_the_locked_minimums() -> None:
+    assert within_floor(snap(8, 8.0, 8.0), FLOOR)
+    assert not within_floor(snap(7, 8.0, 8.0), FLOOR)
+    assert not within_floor(snap(8, 7.9, 8.0), FLOOR)
+    assert not within_floor(snap(8, 8.0, 8.1), FLOOR)
+
+
+def test_shrink_inside_floor_is_recorded_and_does_not_confirm() -> None:
+    previous = snap(10, 10.0, 2.0)
+    observed = snap(9, 9.0, 4.0)
+    decision = decide_coverage(previous, observed, FLOOR, version_number=1, round_number=2)
+    assert decision.action == "record_shrink"
+    assert decision.shrink is not None
+    assert decision.shrink.within_floor is True
+    assert decision.shrink.reason
+    assert decision.request is None
+
+
+def test_unchange_inside_floor_continues_without_a_shrink_row() -> None:
+    observed = snap(10, 10.0, 2.0)
+    decision = decide_coverage(observed, observed, FLOOR, 1, 1)
+    assert decision.action == "continue"
+    assert decision.shrink is None
+    assert decision.request is None
+
+
+def test_breach_confirms_and_never_auto_lowers_the_floor() -> None:
+    previous = snap(10, 10.0, 2.0)
+    observed = snap(3, 4.0, 20.0)
+    decision = decide_coverage(previous, observed, FLOOR, 2, 3)
+    assert decision.action == "confirm"
+    assert decision.request is not None
+    assert decision.request.kind is ConfirmKind.COVERAGE
+    assert decision.shrink is not None
+    assert decision.shrink.within_floor is False
+    assert decision.request.patch == ()
+```
+
+- [ ] **Step 2: Run the coverage test to verify RED**
+
+Run: `python -m pytest tests/test_coverage.py -q`
+
+Expected: FAIL during collection with `ModuleNotFoundError: No module named 'engine.research.coverage'` or `ImportError: cannot import name 'CoverageSnapshot'`.
+
+- [ ] **Step 3: Add types, decision function, and loop wiring**
+
+Add to `engine/research/models.py` (keep existing fields; append these):
+
+```python
+from datetime import date
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageSnapshot:
+    assets: tuple[str, ...]
+    years: float
+    missing_pct: float
+    start: date
+    end: date
+    as_of: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageShrink:
+    shrink_id: str
+    version_number: int
+    round_number: int
+    before: CoverageSnapshot
+    after: CoverageSnapshot
+    reason: str
+    within_floor: bool
+```
+
+Add `coverage_history: tuple[CoverageShrink, ...] = ()` to `Research` and `new_research(...)`.
+
+Create `engine/research/coverage.py`:
+
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+from engine.research.models import (
+    ConfirmKind,
+    ConfirmRequest,
+    CoverageFloor,
+    CoverageShrink,
+    CoverageSnapshot,
+    ChangeClass,
+)
+
+
+def within_floor(snapshot: CoverageSnapshot, floor: CoverageFloor) -> bool:
+    return (
+        len(snapshot.assets) >= floor.min_assets
+        and snapshot.years >= float(floor.min_years)
+        and snapshot.missing_pct <= floor.max_missing_pct
+    )
+
+
+def _is_shrink(previous: CoverageSnapshot, observed: CoverageSnapshot) -> bool:
+    return (
+        len(observed.assets) < len(previous.assets)
+        or observed.years < previous.years
+        or observed.missing_pct > previous.missing_pct
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageDecision:
+    action: Literal["continue", "record_shrink", "confirm"]
+    shrink: CoverageShrink | None
+    request: ConfirmRequest | None
+
+
+def decide_coverage(
+    previous: CoverageSnapshot | None,
+    observed: CoverageSnapshot,
+    floor: CoverageFloor,
+    version_number: int,
+    round_number: int,
+) -> CoverageDecision:
+    inside = within_floor(observed, floor)
+    shrunk = previous is not None and _is_shrink(previous, observed)
+    shrink = None
+    if previous is not None and shrunk:
+        shrink = CoverageShrink(
+            shrink_id=f"c-v{version_number}-r{round_number}",
+            version_number=version_number,
+            round_number=round_number,
+            before=previous,
+            after=observed,
+            reason=(
+                f"覆盖从{len(previous.assets)}个资产/{previous.years:.1f}年/"
+                f"缺失{previous.missing_pct:.1f}%缩到{len(observed.assets)}个资产/"
+                f"{observed.years:.1f}年/缺失{observed.missing_pct:.1f}%"
+            ),
+            within_floor=inside,
+        )
+    if not inside:
+        return CoverageDecision(
+            "confirm",
+            shrink,
+            ConfirmRequest(
+                request_id=f"coverage-v{version_number}-r{round_number}",
+                kind=ConfirmKind.COVERAGE,
+                proposed_change=shrink.reason if shrink else "数据覆盖将跌破最低容忍度",
+                reason="继续研究需要低于用户认下的覆盖底线",
+                effect="确认后开新版本并改写覆盖底线；拒绝则保持底线另找数据",
+                change_class=ChangeClass.COVERAGE,
+                patch=(),
+            ),
+        )
+    if shrink is not None:
+        return CoverageDecision("record_shrink", shrink, None)
+    return CoverageDecision("continue", None, None)
+```
+
+In `engine/research/loop.py`, replace the current `coverage_breached` block that auto-patches a lowered floor. After a successful reviewed round, build a snapshot from `accepted.simulation` and call `decide_coverage`. On `record_shrink`, append the shrink and `AUTO_CONTINUE` (do not `COMPLETE` yet if verification failed; if verification passed and coverage is inside the floor, `COMPLETE` is still allowed). On `confirm`, `REQUEST_CONFIRM` with the coverage request and **do not** transition `COMPLETE`. Never call `COMPLETE` when `not within_floor`.
+
+```python
+        from engine.research.coverage import decide_coverage, within_floor
+        from engine.research.models import CoverageSnapshot
+
+        floor = charged.brief.coverage_floor.value
+        observed = CoverageSnapshot(
+            assets=tuple(charged.brief.universe.value.symbols)[: accepted.simulation.covered_assets]
+            if charged.brief.universe.value is not None
+            else (),
+            years=accepted.simulation.observations / 252,
+            missing_pct=accepted.simulation.missing_pct,
+            start=self.now().date(),
+            end=self.now().date(),
+            as_of=self.now(),
+        )
+        previous = charged.coverage_history[-1].after if charged.coverage_history else None
+        if floor is not None:
+            decision = decide_coverage(
+                previous,
+                observed,
+                floor,
+                version_number,
+                round_number,
+            )
+            if decision.shrink is not None:
+                charged = replace(
+                    charged,
+                    coverage_history=charged.coverage_history + (decision.shrink,),
+                )
+            if decision.action == "confirm":
+                result = transition(
+                    charged,
+                    ResearchEvent.REQUEST_CONFIRM,
+                    self.now(),
+                    decision.request,
+                )
+                self.store.save(result, expected_updated_at)
+                return result
+            if not within_floor(observed, floor):
+                raise RuntimeError("below-floor coverage cannot complete or auto-pass")
+```
+
+Do not keep the old block that built `lowered = CoverageFloor(...)` and patched it automatically.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest tests/test_coverage.py tests/test_loop_runtime.py -q`
+
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engine/research/models.py engine/research/coverage.py engine/research/loop.py tests/test_coverage.py
+git commit -m "feat: record in-floor coverage shrinks and confirm below floor"
+```
+
+### Task 15: Append-Only Method Library and In-Research Deposit
+
+**Files:**
+- Create: `engine/research/methods.py`
+- Modify: `engine/research/store.py`
+- Modify: `engine/verifiers.py`
+- Modify: `engine/research/specify.py`
+- Modify: `engine/main.py`
+- Test: `tests/test_methods.py`
+- Modify: `tests/test_verifiers.py`
+
+**Interfaces:**
+- Consumes: `MethodRef`, `SQLiteStore`, `VerificationReport`, `StrategySpec.method_set`
+- Produces: `create_method(store, method_id, name, description, body, source, now, deposited_from_research_id=None, supersedes=None) -> MethodDefinition`; `revise_method(store, method_id, name, description, body, now) -> MethodDefinition`; `deposit_method(store, research_id, method_id, name, description, body, now) -> MethodDefinition`; `list_method_usage(store, method_id) -> tuple[MethodUsage, ...]`; `record_method_usage(store, research_id, version_number, method_set)`; `run_verifiers(report, spec) -> VerificationReport` whose `passed` is scorecard plus every selected `method_set` item
+
+- [ ] **Step 1: Write the failing method-library tests**
+
+Create `tests/test_methods.py`:
+
+```python
+from datetime import UTC, datetime
+
+from engine.research.methods import (
+    create_method,
+    deposit_method,
+    list_method_usage,
+    record_method_usage,
+    revise_method,
+)
+from engine.research.models import (
+    MethodRef,
+    MethodSource,
+    new_research,
+)
+from engine.research.store import SQLiteStore
+from engine.metrics import SimulationReport
+from engine.research.models import AssetClass, Market, Universe
+from engine.strategy import StrategySpec
+from engine.verifiers import run_verifiers
+
+NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
+
+
+def test_revise_creates_a_new_definition_and_keeps_the_old_row(tmp_path) -> None:
+    store = SQLiteStore(tmp_path / "m.db")
+    first = create_method(
+        store, "custom.gap", "缺口", "v1 body", "body-v1", MethodSource.PRESET, NOW
+    )
+    second = revise_method(store, "custom.gap", "缺口", "v2 body", "body-v2", NOW)
+    rows = store.list_method_definitions()
+    assert len(rows) == 2
+    assert first.revision_hash != second.revision_hash
+    assert second.supersedes == first.revision_hash
+    assert {row.revision_hash for row in rows} == {first.revision_hash, second.revision_hash}
+
+
+def test_deposit_marks_source_and_survives_research_delete(tmp_path) -> None:
+    store = SQLiteStore(tmp_path / "m.db")
+    research = new_research("r-dep", NOW)
+    store.create(research)
+    deposited = deposit_method(
+        store, "r-dep", "custom.gap", "缺口", "from research", "body", NOW
+    )
+    record_method_usage(
+        store,
+        "r-dep",
+        1,
+        (MethodRef(deposited.method_id, deposited.revision_hash),),
+    )
+    store.delete("r-dep")
+    assert store.list_method_definitions()[0].source is MethodSource.DEPOSITED
+    assert store.list_method_definitions()[0].deposited_from_research_id == "r-dep"
+    assert list_method_usage(store, "custom.gap")[0].research_id == "r-dep"
+
+
+def test_selected_method_set_must_all_pass_and_does_not_inherit_old_passes() -> None:
+    universe = Universe(Market.US, AssetClass.EQUITY, AssetClass.EQUITY, ("AAA",))
+    report = SimulationReport(
+        r_total=0.2,
+        r_ann=0.12,
+        sharpe=0.9,
+        vol_ann=0.13,
+        max_drawdown=-0.2,
+        benchmark_id="SPX",
+        r_bench_ann=0.08,
+        excess_ann=0.04,
+        tracking_error=0.06,
+        information_ratio=2 / 3,
+        sharpe_oos=0.7,
+        sharpe_is=1.0,
+        oos_segment_returns=(0.02, 0.01, -0.005),
+        top_20_crowding_sharpe_impact=0.01,
+        annual_turnover=1.0,
+        observations=756,
+        covered_assets=1,
+        missing_pct=0.0,
+    )
+    four = (
+        MethodRef("overfit.walk", "walk-v1"),
+        MethodRef("stability.oos", "stability-v1"),
+        MethodRef("crowding.load", "crowding-v1"),
+        MethodRef("cost.turnover", "cost-v1"),
+    )
+    spec = StrategySpec(
+        id="s-m",
+        thesis_locked="reversal",
+        universe=universe,
+        frequency="1d",
+        side="long_only",
+        method_set=four,
+        model_family="mean_reversion",
+        lookback_days=20,
+        entry_z=1.0,
+        max_drawdown_floor=-0.25,
+    )
+    assert run_verifiers(report, spec).passed
+    extra = StrategySpec(
+        id="s-m",
+        thesis_locked="reversal",
+        universe=universe,
+        frequency="1d",
+        side="long_only",
+        method_set=four + (MethodRef("custom.gap", "gap-v1"),),
+        model_family="mean_reversion",
+        lookback_days=20,
+        entry_z=1.0,
+        max_drawdown_floor=-0.25,
+    )
+    result = run_verifiers(report, extra)
+    assert result.passed is False
+    assert any(item.verifier_id == "custom.gap" and not item.passed for item in result.results)
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_methods.py -q`
+
+Expected: FAIL during collection with `ModuleNotFoundError: No module named 'engine.research.methods'`.
+
+- [ ] **Step 3: Implement library, store tables, and selected-set verification**
+
+Add `MethodSource`, `MethodDefinition`, `MethodUsage` to `engine/research/models.py` exactly as in Technical Design.
+
+Create `engine/research/methods.py` that hashes `body` with SHA-256 for `revision_hash` and talks only to `SQLiteStore`.
+
+Extend `SCHEMA` in `engine/research/store.py`:
+
+```sql
+CREATE TABLE IF NOT EXISTS method_revisions (
+    method_id TEXT NOT NULL,
+    revision_hash TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL,
+    body TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'preset',
+    deposited_from_research_id TEXT,
+    supersedes TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (method_id, revision_hash)
+);
+CREATE TABLE IF NOT EXISTS method_usage (
+    method_id TEXT NOT NULL,
+    revision_hash TEXT NOT NULL,
+    research_id TEXT NOT NULL,
+    version_number INTEGER NOT NULL,
+    PRIMARY KEY (method_id, revision_hash, research_id, version_number)
+);
+```
+
+Keep the existing `INSERT OR IGNORE` writer working: `revise_method` on the store should accept the new columns (name, body, source, supersedes). Add `list_method_definitions() -> tuple[MethodDefinition, ...]`. `delete(research_id)` must **not** delete `method_revisions` or `method_usage` rows.
+
+In `engine/verifiers.py` change `VerificationReport.passed` to:
+
+```python
+    def passed_for(self, method_set: tuple[MethodRef, ...]) -> bool:
+        required = {"scorecard.market", *(item.method_id for item in method_set)}
+        by_id = {item.verifier_id: item for item in self.results}
+        return all(name in by_id and by_id[name].passed for name in required)
+
+    @property
+    def passed(self) -> bool:
+        required = {item.verifier_id for item in self.results}
+        return bool(self.results) and all(item.passed for item in self.results) and "scorecard.market" in required
+```
+
+`run_verifiers` always emits `scorecard.market`, then one `VerifierResult` per `spec.method_set` item. Unknown method ids emit `passed=False` with rule `"unknown method revision cannot inherit a previous pass"`.
+
+In `engine/research/specify.py` keep `method_set` inside the ECONOMIC field set. After `CONFIRM_APPROVE` where the patch contains `round1_methods` or a new method body, `engine/main.py` must call `deposit_method` before saving.
+
+In `engine/main.py` add request types `create_method` and `list_methods` (revise already exists). `create_method` is a desktop-only API; do not add a CLI command.
+
+Seed the four selectable presets plus `scorecard.market` on store init if the table is empty.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest tests/test_methods.py tests/test_verifiers.py tests/test_export_pack.py -q`
+
+Expected: PASS. If `test_verifiers.py` still asserts `len(result.results) == 5`, keep that assertion — the default four-method spec still yields scorecard + four.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engine/research/methods.py engine/research/models.py engine/research/store.py engine/verifiers.py engine/research/specify.py engine/main.py tests/test_methods.py tests/test_verifiers.py
+git commit -m "feat: append-only method library with in-research deposit"
+```
+
+### Task 16: Distinct Strategy Pack and Research Record Pack
+
+**Files:**
+- Create: `contracts/research-record.schema.json`
+- Modify: `contracts/strategy-pack.schema.json`
+- Modify: `engine/export.py`
+- Modify: `engine/research/models.py`
+- Modify: `engine/main.py`
+- Test: `tests/test_research_record.py`
+- Modify: `tests/test_export_pack.py`
+
+**Interfaces:**
+- Consumes: `Research`, `strategy_pack_eligibility`, `CoverageShrink`, `MethodDefinition`
+- Produces: `build_research_record_pack(research: Research, destination: Path) -> Path`; `ExportKind`; `ExportRecord`; `mark_exports_overturned(research: Research) -> Research`; `importer_accepts(manifest: dict) -> bool` which is `manifest.get("kind") == "strategy_pack" and manifest.get("live_handoff_eligible") is True`
+
+- [ ] **Step 1: Write the failing export-identity tests**
+
+Create `tests/test_research_record.py`:
+
+```python
+import json
+import zipfile
+from dataclasses import replace
+from datetime import UTC, datetime
+from pathlib import Path
+
+from engine.export import (
+    build_research_record_pack,
+    build_strategy_pack,
+    importer_accepts,
+    mark_exports_overturned,
+    strategy_pack_eligibility,
+)
+from engine.research.models import (
+    ExportKind,
+    ExportRecord,
+    ResearchStatus,
+    Reverification,
+)
+from tests.test_export_pack import completed_research, reference_strategy
+from engine.strategy import MarketPanel
+import pandas as pd
+
+NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
+
+
+def test_research_record_identity_is_rejectable_without_reading_copy(tmp_path: Path) -> None:
+    ended = replace(completed_research(), status=ResearchStatus.ENDED, export_eligible=False)
+    path = build_research_record_pack(ended, tmp_path / "record.zip")
+    with zipfile.ZipFile(path) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    assert manifest["kind"] == "research_record"
+    assert manifest["live_handoff_eligible"] is False
+    assert importer_accepts(manifest) is False
+
+
+def test_strategy_pack_identity_is_the_only_live_handoff_kind(tmp_path: Path) -> None:
+    research = completed_research()
+    prices = pd.DataFrame(
+        {"AAA": [10.0, 11.0, 9.5], "BBB": [8.0, 7.5, 8.5]},
+        index=pd.DatetimeIndex(["2020-01-02", "2020-01-03", "2020-01-06"], name="date"),
+    )
+    panel = MarketPanel(prices, prices.mean(axis=1).rename("SPX"))
+    path = build_strategy_pack(research, reference_strategy(), panel, tmp_path / "pack.zip")
+    with zipfile.ZipFile(path) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        provenance = json.loads(archive.read("data/provenance.json"))
+        methods = json.loads(archive.read("methods/definitions.json"))
+    assert manifest["kind"] == "strategy_pack"
+    assert manifest["live_handoff_eligible"] is True
+    assert importer_accepts(manifest) is True
+    assert "coverage_floor" in provenance
+    assert "shrinks" in provenance
+    assert methods
+
+
+def test_reverify_fail_marks_prior_exports_overturned_without_rewriting_files(tmp_path: Path) -> None:
+    exported = replace(
+        completed_research(),
+        exports=(
+            ExportRecord(
+                "e-1",
+                ExportKind.STRATEGY_PACK,
+                str(tmp_path / "old.zip"),
+                1,
+                NOW,
+                (),
+                False,
+            ),
+        ),
+    )
+    (tmp_path / "old.zip").write_bytes(b"frozen")
+    failed = replace(
+        exported,
+        reverifications=(
+            Reverification("r-export-v1-r1", "overfit.walk", None, False, NOW),
+        ),
+    )
+    updated = mark_exports_overturned(failed)
+    eligibility = strategy_pack_eligibility(updated)
+    assert eligibility.eligible is False
+    assert updated.exports[0].overturned is True
+    assert (tmp_path / "old.zip").read_bytes() == b"frozen"
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_research_record.py -q`
+
+Expected: FAIL with `ImportError` for `build_research_record_pack` / `importer_accepts`.
+
+- [ ] **Step 3: Implement both pack writers and overturned export records**
+
+Add `ExportKind` and `ExportRecord` to `engine/research/models.py`. Add `exports: tuple[ExportRecord, ...] = ()` to `Research`.
+
+Create `contracts/research-record.schema.json`:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphaloop.local/contracts/research-record.schema.json",
+  "title": "ResearchRecordManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema_version",
+    "live_handoff_eligible",
+    "research_id",
+    "disclaimer"
+  ],
+  "properties": {
+    "kind": {"const": "research_record"},
+    "schema_version": {"const": "1"},
+    "live_handoff_eligible": {"const": false},
+    "research_id": {"type": "string", "minLength": 1},
+    "disclaimer": {"type": "string", "minLength": 1}
+  }
+}
+```
+
+In `contracts/strategy-pack.schema.json` add required `"live_handoff_eligible": {"const": true}` and keep `"kind": {"const": "strategy_pack"}`.
+
+In `engine/export.py`:
+
+```python
+def importer_accepts(manifest: dict) -> bool:
+    return (
+        manifest.get("kind") == "strategy_pack"
+        and manifest.get("live_handoff_eligible") is True
+    )
+
+
+def mark_exports_overturned(research: Research) -> Research:
+    return replace(
+        research,
+        export_eligible=False,
+        exports=tuple(replace(item, overturned=True) for item in research.exports),
+    )
+```
+
+`build_research_record_pack` writes a zip whose `manifest.json` uses `kind: "research_record"` and `live_handoff_eligible: false`, plus `history/research.json`, verification attempts, and a `why_not_live.json` listing failed eligibility checks. It must not include `run_backtest.py`.
+
+`build_strategy_pack` writes `data/provenance.json`:
+
+```python
+        _json(
+            root / "data" / "provenance.json",
+            {
+                "sources": sources,
+                "assets": list(strategy.spec.universe.symbols),
+                "coverage_floor": asdict(research.brief.coverage_floor.value)
+                if research.brief.coverage_floor.value
+                else None,
+                "shrinks": [asdict(item) for item in research.coverage_history],
+                "cutoff": None if not research.coverage_history else research.coverage_history[-1].after.end.isoformat(),
+            },
+        )
+```
+
+Set `"live_handoff_eligible": True` on the strategy-pack manifest.
+
+In `engine/main.py` `export_artifact`:
+- `research_record` → `build_research_record_pack`
+- `strategy_pack` → existing writer, but only if `strategy_pack_eligibility(research).eligible`
+- append an `ExportRecord` onto `research.exports` after a successful write
+
+In the `reverify` branch, on failure call `mark_exports_overturned` before `transition(..., REVERIFY_FAIL)`.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest tests/test_research_record.py tests/test_export_pack.py -q`
+
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add contracts/research-record.schema.json contracts/strategy-pack.schema.json engine/export.py engine/research/models.py engine/main.py tests/test_research_record.py tests/test_export_pack.py
+git commit -m "feat: typed strategy pack vs rejectable research record pack"
+```
+
+### Task 17: Workbench Progress, List Fields, Host Status, Thesis Hint
+
+**Files:**
+- Create: `engine/research/progress.py`
+- Modify: `engine/research/models.py`
+- Modify: `engine/research/loop.py`
+- Modify: `engine/research/specify.py`
+- Modify: `engine/main.py`
+- Modify: `apps/desktop/src/contracts.ts`
+- Modify: `apps/desktop/src/App.tsx`
+- Modify: `apps/desktop/src/App.test.tsx`
+- Test: `tests/test_progress.py`
+
+**Interfaces:**
+- Consumes: `Research`, `ResearchStatus`, `DesktopView`
+- Produces: `ResearchAction`; `host_status(researches: tuple[Research, ...]) -> Literal["awaiting_confirm", "running", "completed", "idle"]`; `list_items(researches, status_filter: ResearchStatus | None) -> tuple[ResearchListItem, ...]`; `thesis_divergence_hint(previous: str, proposed: str) -> str | None`; `ResearchListItem(research_id, title, universe_label, status, created_at, updated_at)`
+
+- [ ] **Step 1: Write the failing progress and list tests**
+
+Create `tests/test_progress.py`:
+
+```python
+from datetime import UTC, datetime
+
+from engine.research.models import (
+    AssetClass,
+    Market,
+    ResearchAction,
+    ResearchStatus,
+    Slot,
+    Universe,
+    new_research,
+)
+from engine.research.progress import (
+    host_status,
+    list_items,
+    thesis_divergence_hint,
+)
+from engine.research.state_machine import transition
+from engine.research.models import ResearchEvent
+from dataclasses import replace
+
+NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
+
+
+def test_host_status_priority_is_awaiting_then_running_then_completed_then_idle() -> None:
+    idle = new_research("r-idle", NOW)
+    running = replace(new_research("r-run", NOW), status=ResearchStatus.RUNNING)
+    awaiting = replace(new_research("r-wait", NOW), status=ResearchStatus.AWAITING_CONFIRM)
+    done = replace(new_research("r-done", NOW), status=ResearchStatus.COMPLETED)
+    assert host_status(()) == "idle"
+    assert host_status((idle, done)) == "completed"
+    assert host_status((idle, done, running)) == "running"
+    assert host_status((idle, done, running, awaiting)) == "awaiting_confirm"
+
+
+def test_list_items_include_universe_timestamps_and_status_filter() -> None:
+    research = replace(
+        new_research("r-1", NOW),
+        brief=replace(
+            new_research("r-1", NOW).brief,
+            thesis=Slot("美股低波动回归", True),
+            universe=Slot(
+                Universe(Market.US, AssetClass.EQUITY, AssetClass.EQUITY, ("AAPL",)),
+                True,
+            ),
+        ),
+        status=ResearchStatus.DRAFT,
+    )
+    rows = list_items((research,), None)
+    assert rows[0].title == "美股低波动回归"
+    assert rows[0].universe_label == "美股 · 股票"
+    assert rows[0].created_at == NOW
+    assert list_items((research,), ResearchStatus.RUNNING) == ()
+    assert list_items((research,), ResearchStatus.DRAFT)[0].research_id == "r-1"
+
+
+def test_thesis_hint_is_non_blocking() -> None:
+    hint = thesis_divergence_hint("低波动量价回归", "用宏观利率做国债久期")
+    assert hint == "这也可以作为一条新研究重新开始。"
+    assert thesis_divergence_hint("低波动量价回归", "低波动量价回归加拥挤过滤") is None
+```
+
+Add to `apps/desktop/src/App.test.tsx` inside the existing describe:
+
+```tsx
+  it("filters the research list by status and shows universe plus timestamps", async () => {
+    const view = views[0];
+    render(<App api={api} initialView={view} />);
+    expect(screen.getByText("美股 · 股票")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "已暂停"}));
+    expect(screen.getByText("美债收益率曲线")).toBeInTheDocument();
+    expect(screen.queryByText("沪深300波动收缩")).not.toBeInTheDocument();
+  });
+
+  it("shows overturned prior exports on a completed research that failed reverify", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "completed",
+          researchId: "r-1",
+          status: "completed",
+          title: "美股低波动回归",
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: false},
+          overturnedExports: true,
+          currentAction: "idle",
+        }}
+      />,
+    );
+    expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+  });
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_progress.py -q && npm --prefix apps/desktop test -- --run`
+
+Expected: FAIL with `ModuleNotFoundError: No module named 'engine.research.progress'` and Vitest missing-text failures.
+
+- [ ] **Step 3: Implement progress helpers and desktop fields**
+
+Create `engine/research/progress.py`:
+
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal
+
+from engine.research.models import (
+    AssetClass,
+    Market,
+    Research,
+    ResearchStatus,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchListItem:
+    research_id: str
+    title: str
+    universe_label: str
+    status: ResearchStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+_MARKET = {Market.US: "美股", Market.CN: "A股"}
+_ASSET = {AssetClass.EQUITY: "股票", AssetClass.BOND: "债券", AssetClass.FUND: "基金"}
+
+
+def host_status(
+    researches: tuple[Research, ...],
+) -> Literal["awaiting_confirm", "running", "completed", "idle"]:
+    if any(item.status is ResearchStatus.AWAITING_CONFIRM for item in researches):
+        return "awaiting_confirm"
+    if any(item.status is ResearchStatus.RUNNING for item in researches):
+        return "running"
+    if any(item.status is ResearchStatus.COMPLETED for item in researches):
+        return "completed"
+    return "idle"
+
+
+def list_items(
+    researches: tuple[Research, ...],
+    status_filter: ResearchStatus | None,
+) -> tuple[ResearchListItem, ...]:
+    rows = []
+    for item in researches:
+        if status_filter is not None and item.status is not status_filter:
+            continue
+        universe = item.brief.universe.value
+        rows.append(
+            ResearchListItem(
+                research_id=item.research_id,
+                title=(item.brief.thesis.value or "未命名研究"),
+                universe_label=(
+                    f"{_MARKET[universe.market]} · {_ASSET[universe.asset_class]}"
+                    if universe is not None
+                    else "未锁定"
+                ),
+                status=item.status,
+                created_at=item.created_at,
+                updated_at=item.updated_at,
+            )
+        )
+    return tuple(rows)
+
+
+def thesis_divergence_hint(previous: str, proposed: str) -> str | None:
+    old = set(previous)
+    new = set(proposed)
+    if not old or len(old & new) / len(old) >= 0.4:
+        return None
+    return "这也可以作为一条新研究重新开始。"
+```
+
+Add `ResearchAction` and `current_action` / `thesis_change_hint` to `Research`. In `loop.py` set `current_action` to `GATHER`/`SPECIFY`/`SIMULATE`/`VERIFY`/`ITERATE` around those calls, and `IDLE` when not `RUNNING`.
+
+In `specify.py` `propose_brief_updates`, detect funds:
+
+```python
+    if any(token in message for token in ("基金", "ETF", "etf", "fund")):
+        asset = AssetClass.FUND
+        underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
+    elif "债" in message:
+        asset = AssetClass.BOND
+        underlying = AssetClass.BOND
+    else:
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
+    universe = Universe(market, asset, underlying, profile.symbols)
+```
+
+When `MODIFY_CONFIRM` applies a new thesis, set `thesis_change_hint=thesis_divergence_hint(old, new)` on the returned `Research`.
+
+In `engine/main.py` `view_for`:
+- list view includes `universe_label`, `created_at`, `updated_at`, and optional `status` query
+- host status uses `host_status(self.store.list_research())`
+- completed view includes `overturnedExports: any(item.overturned for item in research.exports)` and `currentAction`
+- running view includes `currentAction` as the Chinese labels `查资料` / `补细节` / `历史模拟` / `验证` / `迭代`
+
+In `apps/desktop/src/contracts.ts` extend `ResearchSummary` with `universeLabel`, `createdAt`, `updatedAt`; extend completed view with `overturnedExports?: boolean` and `currentAction?: string`; extend running view with `currentAction?: string`.
+
+In `apps/desktop/src/App.tsx`:
+- `NightShell` host status uses `view.hostStatus` when present, otherwise the current kind mapping
+- research list renders `row.universeLabel`, `createdAt`, `updatedAt`; add six filter buttons that call `api.fetchView(`#/research?status=${status}`)`
+- completed screen renders `此前导出的策略包所依据的验证已被推翻` when `view.overturnedExports`
+- running header renders the current action (`查资料` / `补细节` / `历史模拟` / `验证` / `迭代`), remaining effective time, and coverage vs floor
+- running screen also renders a 资料与数据说明 block: sources used, data cutoff, current coverage vs the locked floor (not a market-data terminal)
+- if `thesisChangeHint` is present, show it as a non-blocking note
+- `ConfirmRunCard` includes the two product 3.2 sentences verbatim: `研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。` and `最长研究时间只计有效研究时间，暂停和等你确认的时间不算。`
+- every `DesktopView` includes `hostStatus: "awaiting_confirm" | "running" | "completed" | "idle"` from `host_status`
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python -m pytest tests/test_progress.py tests/test_gather_specify.py -q && npm --prefix apps/desktop test -- --run`
+
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engine/research/progress.py engine/research/models.py engine/research/loop.py engine/research/specify.py engine/main.py apps/desktop/src/contracts.ts apps/desktop/src/App.tsx apps/desktop/src/App.test.tsx tests/test_progress.py
+git commit -m "feat: workbench progress, list filters, and non-blocking thesis hint"
+```
+
+### Task 18: Native Notifications, Method Create UI, and Fund/Bond Dialogue
+
+**Files:**
+- Modify: `apps/desktop/src-tauri/src/commands.rs`
+- Modify: `engine/main.py`
+- Modify: `engine/dialogue/intent.py`
+- Modify: `apps/desktop/src/App.tsx`
+- Modify: `apps/desktop/src/contracts.ts`
+- Modify: `apps/desktop/src/App.test.tsx`
+- Modify: `tests/test_dialogue.py`
+- Modify: `tests/test_gather_specify.py`
+
+**Interfaces:**
+- Consumes: Task 11 `NotificationExt`; Task 15 `create_method`; Task 3 `interpret`
+- Produces: desktop notifications only on transitions into `awaiting_confirm` and into `completed` or `ended`; `createMethod(name: string, definition: string): Promise<void>`; dialogue/specify mapping of 基金 to `AssetClass.FUND` with an equity or bond underlying
+
+- [ ] **Step 1: Write the failing notification, method-create, and fund tests**
+
+Add to `tests/test_dialogue.py`:
+
+```python
+def test_fund_message_locks_fund_universe_with_equity_underlying() -> None:
+    research = new_research("r-fund", NOW)
+    intent = interpret("研究沪深300ETF基金的低波动回归", research)
+    assert intent.universe is not None
+    assert intent.universe.asset_class is AssetClass.FUND
+    assert intent.universe.underlying_asset_class is AssetClass.EQUITY
+```
+
+Add to `tests/test_gather_specify.py`:
+
+```python
+def test_bond_fund_message_uses_bond_underlying() -> None:
+    proposal = propose_brief_updates(
+        "中国债券基金的久期",
+        (),
+        DataProfile(("510050.SH",), 10, 1.0),
+    )
+    assert proposal.universe.asset_class is AssetClass.FUND
+    assert proposal.universe.underlying_asset_class is AssetClass.BOND
+```
+
+Add to `apps/desktop/src/App.test.tsx`:
+
+```tsx
+  it("can pre-create a method from the library screen", async () => {
+    const createMethod = vi.fn(async () => undefined);
+    render(
+      <App
+        api={{...api, createMethod}}
+        initialView={{kind: "methods", methods: []}}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("新方法名称"), {target: {value: "换手冲击"}});
+    fireEvent.change(screen.getByPlaceholderText("方法定义"), {target: {value: "换手超过阈值则失败"}});
+    fireEvent.click(screen.getByRole("button", {name: "预先新建方法"}));
+    expect(createMethod).toHaveBeenCalledWith("换手冲击", "换手超过阈值则失败");
+  });
+```
+
+Add a Rust unit test in `apps/desktop/src-tauri/src/commands.rs` (or extend `tests/sidecar_lifecycle.rs` if commands are not unit-tested there) that records notification titles. Prefer a Python test of the notify policy in `tests/test_progress.py` if the Rust test harness cannot mock the plugin:
+
+```python
+from engine.research.progress import notification_event
+
+
+def test_notifications_fire_only_for_awaiting_and_terminal_states() -> None:
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.AWAITING_CONFIRM) == "awaiting_confirm"
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.COMPLETED) == "completed"
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.ENDED) == "ended"
+    assert notification_event(ResearchStatus.DRAFT, ResearchStatus.RUNNING) is None
+    assert notification_event(ResearchStatus.RUNNING, ResearchStatus.PAUSED) is None
+    assert notification_event(ResearchStatus.AWAITING_CONFIRM, ResearchStatus.RUNNING) is None
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python -m pytest tests/test_dialogue.py tests/test_gather_specify.py tests/test_progress.py -q && npm --prefix apps/desktop test -- --run`
+
+Expected: FAIL on missing `notification_event`, fund universe, and "预先新建方法".
+
+- [ ] **Step 3: Implement notify policy, fund intent, and create-method UI**
+
+Add to `engine/research/progress.py`:
+
+```python
+def notification_event(
+    before: ResearchStatus,
+    after: ResearchStatus,
+) -> Literal["awaiting_confirm", "completed", "ended"] | None:
+    if after is ResearchStatus.AWAITING_CONFIRM and before is not ResearchStatus.AWAITING_CONFIRM:
+        return "awaiting_confirm"
+    if after is ResearchStatus.COMPLETED and before is not ResearchStatus.COMPLETED:
+        return "completed"
+    if after is ResearchStatus.ENDED and before is not ResearchStatus.ENDED:
+        return "ended"
+    return None
+```
+
+In `engine/main.py` `_save`, after a successful save, if `notification_event(before.status, after.status)` is not None, include `"notify": <event>` in the JSON response so Tauri can show a system notification. Do not notify on pause, resume, confirm-run, or auto-continue.
+
+In `apps/desktop/src-tauri/src/commands.rs`, keep the existing `NotificationExt` helper but gate it:
+
+```rust
+fn maybe_notify(app: &tauri::AppHandle, payload: &serde_json::Value) {
+    let Some(kind) = payload.get("notify").and_then(|value| value.as_str()) else {
+        return;
+    };
+    let title = match kind {
+        "awaiting_confirm" => "有研究在等你确认",
+        "completed" => "研究已完成",
+        "ended" => "研究已结束",
+        _ => return,
+    };
+    let _ = app.notification().builder().title(title).show();
+}
+```
+
+Call `maybe_notify` from the command responses that mutate research. Do not add any other notification kind.
+
+In `engine/dialogue/intent.py` `_universe`, treat 基金/ETF as `AssetClass.FUND` with bond underlying when the message contains `债`, otherwise equity.
+
+In `apps/desktop/src/contracts.ts`:
+
+```ts
+  createMethod(name: string, definition: string): Promise<void>;
+```
+
+In `MethodsScreen` add name/definition inputs and button `预先新建方法`. Show `method.usageCount` when present (`被 N 次研究用过`).
+
+In `engine/main.py` handle `create_method` with `create_method(...)` from Task 15. Seed usage counts via `list_method_usage`.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run:
+
+```bash
+python -m pytest tests/test_dialogue.py tests/test_gather_specify.py tests/test_progress.py tests/test_methods.py -q
+npm --prefix apps/desktop test -- --run
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets
+```
+
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engine/research/progress.py engine/dialogue/intent.py engine/main.py apps/desktop/src/App.tsx apps/desktop/src/contracts.ts apps/desktop/src/App.test.tsx apps/desktop/src-tauri/src/commands.rs tests/test_dialogue.py tests/test_gather_specify.py tests/test_progress.py
+git commit -m "feat: v1 notifications, method create, and fund/bond dialogue"
+```
+
 ## End-to-End Acceptance Gate
 
-Run the complete implementation suite after Task 12:
+Run the complete implementation suite after Task 18:
 
 ```bash
 python -m pytest tests -q
@@ -7843,12 +9338,38 @@ cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- 
 
 Expected: every command exits `0`. Then perform these acceptance scenarios with a temporary local database:
 
-1. Enter “美股低波动回归”; public literature and market adapters propose US equity, `SPX`, the four frozen verifier revisions, and a measured coverage floor; explicitly lock all five slots.
-2. Confirm-run appears as its own cyan card; confirming creates Version 1, then every automatic attempt records all required market metrics, all five gates, and a second-LLM review.
-3. Return three failed reviewer reports and verify there is no successful Round, Version remains unchanged, a review-blocked `ConfirmRequest` appears, state becomes `awaiting_confirm`, and effective time stops.
-4. Resume with a passing reviewer; verify a completed Round is committed atomically, crash the process during the next simulation, restart, and verify work resumes after the last completed Round.
-5. Export the reference mean-reversion pack, extract it on a machine where alphaloop is not installed, and run `python run_backtest.py`; verify metrics are reproduced from bundled `data/prices.csv` and the reserved execution stub is never called.
-6. Check all seven Figma screens at 1440×900: 148px Rail, 148×148 Logo, centered Logo+nav, Night only, awaiting-confirm primary list card, separate confirm-run/awaiting-confirm cards, cyan only on those confirmation semantics, and no order action.
-7. On macOS arm64, Windows x64, and Linux x64, start from the desktop and verify last-window close and app Quit stop the owned sidecar with no orphan; start from CLI and verify a browser-tab close leaves it running; verify a second owner cannot acquire the lock.
+1. Enter “美股低波动回归”; public literature and market adapters propose US equity, `SPX`, the four selectable verifier revisions, and a measured coverage floor; explicitly lock all five slots. Draft remains in the research list after the window is closed.
+2. Confirm-run appears as its own cyan card with the autonomy-boundary copy and the effective-time copy; confirming creates Version 1. The engine never starts from chat alone.
+3. Every automatic attempt records required market metrics, the built-in scorecard plus the selected methods, and a second-LLM review. Param/model retries do not notify and do not confirm.
+4. Return three failed reviewer reports with only technical findings: no successful Round, Version unchanged, status stays `running`, no `ConfirmRequest`. An `economic-logic drift` finding instead opens `ConfirmKind.ECONOMIC` and a native “有研究在等你确认” notification.
+5. Coverage that stays inside the locked floor auto-shrinks, writes a `CoverageShrink(within_floor=True)` row, and continues. Coverage that would go below the floor opens `ConfirmKind.COVERAGE` and never verify-passes.
+6. Confirming an in-research method add deposits a new `MethodDefinition` with `source=deposited`; previous passes do not carry to the new method set; the method remains after the research is deleted.
+7. A passing reviewed round can complete. Export a strategy pack; extract it where alphaloop is not installed; `python run_backtest.py` reproduces metrics from bundled `data/prices.csv`; `manifest.kind == "strategy_pack"` and `live_handoff_eligible is true`; frozen method bodies and `data/provenance.json` are present; the reserved execution stub is never called.
+8. Fail a reverify of one step: status stays `completed`, live-handoff CTA closes, the workbench shows “此前导出的策略包所依据的验证已被推翻”, and the already-exported zip bytes are unchanged. Exporting a research record pack from an `ended` research yields `kind == "research_record"` and `live_handoff_eligible is false`; `importer_accepts` is false.
+9. Check all seven Figma screens at 1440×900: 148px Rail, 148×148 Logo, centered Logo+nav, Night only, awaiting-confirm primary list card, status filter, separate confirm-run/awaiting-confirm cards, cyan only on those confirmation semantics, HostStatus from engine state, method-library create + usage, and no order action.
+10. On macOS arm64, Windows x64, and Linux x64, start from the desktop and verify last-window close and app Quit stop the owned sidecar with no orphan; start from CLI (`start` / `status` only) and verify a browser-tab close leaves it running; verify a second owner cannot acquire the lock. Native notifications fire only for awaiting-confirm and completed/ended.
 
-The implementer should stop and fix the first failing gate. Do not weaken a threshold, skip the reviewer, auto-approve a timeout, change a benchmark, or introduce a third CLI command to make acceptance pass.
+The implementer should stop and fix the first failing gate. Do not weaken a threshold, skip the reviewer, auto-approve a timeout, change a benchmark, introduce a third CLI command, auto-decide a confirmation, or treat a research record pack as a strategy pack to make acceptance pass.
+
+## Spec coverage (self-review)
+
+| Product section | Task |
+| --- | --- |
+| 2.1 桌面 / CLI | 10–12, 18 |
+| 2.2 三区域 + 运行状态 | 10, 17, 18 |
+| 3.1 对话、五项设定、版本 | 1, 3, 17 |
+| 3.2 确认开跑（含自主边界与有效时间文案） | 3, 10, 17 |
+| 3.3 进展、时间预算、暂停/改/延长、资料说明、通知 | 8, 14, 17, 18 |
+| 3.4 / 4.4 经济逻辑确认 | 1, 13 |
+| 3.5 / 4.5 方法库、沉淀、不可回改 | 15, 18 |
+| 3.6 列表六态、草稿、删除 | 10, 17 |
+| 3.7 两种导出物、三条资格、重验撤销 | 9, 16 |
+| 3.8 CLI 封闭两条 | 12 |
+| 4.2 暂停不计时 | 1, 8 |
+| 4.3 改策略再跑、软提示 | 13, 17 |
+| 4.6 覆盖底线内缩量 / 底线外确认 | 14 |
+| 4.7 时间耗尽、延长开新版 | 1, 10 |
+| 4.8 状态表 | 1, 13 |
+| 5 可检查、确认点少、可走开、无交易暗示、单人单机 | Global Constraints, 10, 16, 18 |
+| 6.1 v1 市场股票/债券/基金 | 4, 5, 17, 18 |
+| 6.2 非目标 | Global Constraints |
