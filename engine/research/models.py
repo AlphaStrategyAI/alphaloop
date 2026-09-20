@@ -192,11 +192,52 @@ class RoundDraft:
 
 
 @dataclass(frozen=True, slots=True)
+class TrialCounters:
+    """Trial count exposure for a round (B2)."""
+    candidates_evaluated: int
+    candidates_passed: int
+    conclusion_attempt_number: int
+
+
+@dataclass(frozen=True, slots=True)
+class LogicStatement:
+    """Economic/trading logic statement for a round (B3)."""
+    statement: str
+    changed_from_prior: bool
+    change_description: str | None = None
+    baseline_version: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ImplementationDelta:
+    """Research/model/param implementation changes for a round (B3)."""
+    research_method_changes: tuple[str, ...] = ()
+    model_changes: tuple[str, ...] = ()
+    param_changes: tuple[tuple[str, str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class Round:
     round_id: str
     number: int
     accepted_attempt: Attempt
     completed_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.accepted_attempt.review is None or not self.accepted_attempt.review.passed:
+            raise ValueError("a successful Round requires a passed review")
+
+
+@dataclass(frozen=True, slots=True)
+class RoundV2:
+    """Extended Round with B2/B3 fields."""
+    round_id: str
+    number: int
+    accepted_attempt: Attempt
+    completed_at: datetime
+    logic_statement: LogicStatement
+    implementation_delta: ImplementationDelta
+    trial_counters: TrialCounters
 
     def __post_init__(self) -> None:
         if self.accepted_attempt.review is None or not self.accepted_attempt.review.passed:

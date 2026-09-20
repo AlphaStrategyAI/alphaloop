@@ -10,7 +10,15 @@ from tempfile import TemporaryDirectory
 
 import pandas as pd
 
-from engine.research.models import Attempt, Research, ResearchStatus
+from engine.research.models import (
+    Attempt,
+    ImplementationDelta,
+    LogicStatement,
+    Research,
+    ResearchStatus,
+    RoundV2,
+    TrialCounters,
+)
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
 from engine.verifiers import VERIFIER_REVISIONS, VerifierResult
 
@@ -29,6 +37,33 @@ def _find_pit_result(attempt: Attempt) -> VerifierResult | None:
         if result.verifier_id == "pit.consistency":
             return result
     return None
+
+
+def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict]:
+    """Export round history with B2/B3 trial counts and logic/impl split."""
+    return [
+        {
+            "round_id": round_.round_id,
+            "number": round_.number,
+            "logic_statement": {
+                "statement": round_.logic_statement.statement,
+                "changed_from_prior": round_.logic_statement.changed_from_prior,
+                "change_description": round_.logic_statement.change_description,
+                "baseline_version": round_.logic_statement.baseline_version,
+            },
+            "implementation_delta": {
+                "research_method_changes": list(round_.implementation_delta.research_method_changes),
+                "model_changes": list(round_.implementation_delta.model_changes),
+                "param_changes": [list(p) for p in round_.implementation_delta.param_changes],
+            },
+            "trial_counters": {
+                "candidates_evaluated": round_.trial_counters.candidates_evaluated,
+                "candidates_passed": round_.trial_counters.candidates_passed,
+                "conclusion_attempt_number": round_.trial_counters.conclusion_attempt_number,
+            },
+        }
+        for round_ in rounds
+    ]
 
 
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
