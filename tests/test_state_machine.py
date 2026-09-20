@@ -149,12 +149,21 @@ def test_running_can_wait_without_opening_a_version(kind: ConfirmKind) -> None:
 
 
 def test_approval_applies_patch_and_opens_version_but_rejection_does_not() -> None:
+    store = MockEvidenceStore({"a-1"})
     request = ConfirmRequest(
         "c-1",
         ConfirmKind.ECONOMIC,
         "改信号",
         "验证失败",
         "新版本",
+        why_change=(
+            EvidenceRef(
+                record_id="a-1",
+                recorded_at=datetime(2026, 8, 28, 10, 0, tzinfo=UTC),
+                kind=EvidenceKind.ATTEMPT,
+            ),
+        ),
+        created_at=datetime(2026, 8, 28, 11, 0, tzinfo=UTC),
         patch=(("thesis", "带拥挤过滤的低波动回归"),),
     )
     waiting = replace(
@@ -162,7 +171,7 @@ def test_approval_applies_patch_and_opens_version_but_rejection_does_not() -> No
         pending_confirm=request,
     )
 
-    approved = transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW)
+    approved = transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=store)
     rejected = transition(waiting, ResearchEvent.CONFIRM_REJECT, NOW)
 
     assert approved.status is ResearchStatus.RUNNING
@@ -326,15 +335,21 @@ def test_confirm_approve_with_future_evidence_rejects() -> None:
         transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=store)
 
 
-def test_confirm_approve_without_store_skips_validation() -> None:
-    """When store is None, evidence validation is skipped (backward compat)."""
+def test_confirm_approve_without_store_rejects() -> None:
+    """CONFIRM_APPROVE without store MUST reject - fail closed (B4 iron rule)."""
     request = ConfirmRequest(
         request_id="c-1",
         kind=ConfirmKind.ECONOMIC,
         proposed_change="改信号",
         reason="验证失败",
         effect="新版本",
-        why_change=(),  # Empty, would fail with store
+        why_change=(
+            EvidenceRef(
+                record_id="a-1",
+                recorded_at=datetime(2026, 8, 28, 10, 0, tzinfo=UTC),
+                kind=EvidenceKind.ATTEMPT,
+            ),
+        ),
         created_at=datetime(2026, 8, 28, 11, 0, tzinfo=UTC),
     )
     waiting = replace(
@@ -342,6 +357,17 @@ def test_confirm_approve_without_store_skips_validation() -> None:
         pending_confirm=request,
     )
 
-    # Without store=..., validation is skipped
-    approved = transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=None)
-    assert approved.status is ResearchStatus.RUNNING
+    # Without store, MUST reject - no bypass allowed
+    with pytest.raises(InvalidTransition, match="requires store"):
+        transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=None)
+
+
+def test_confirm_approve_without_pending_confirm_rejects() -> None:
+    """CONFIRM_APPROVE without pending_confirm MUST reject."""
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=None,
+    )
+
+    with pytest.raises(InvalidTransition, match="requires pending_confirm"):
+        transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=MockEvidenceStore(set()))

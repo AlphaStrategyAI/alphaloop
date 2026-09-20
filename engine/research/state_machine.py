@@ -2,6 +2,7 @@ from dataclasses import replace
 from datetime import datetime
 
 from engine.research.models import (
+    ConfirmKind,
     ConfirmRequest,
     CoverageFloor,
     Research,
@@ -112,7 +113,15 @@ def transition(
     if status is ResearchStatus.RUNNING and event is ResearchEvent.BUDGET_EXHAUSTED:
         return replace(research, status=ResearchStatus.ENDED, updated_at=now)
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_APPROVE:
-        if research.pending_confirm is not None and store is not None:
+        if research.pending_confirm is None:
+            raise InvalidTransition("CONFIRM_APPROVE requires pending_confirm")
+        # B4 iron rule: ECONOMIC confirms require evidence validation
+        # COVERAGE confirms are automated (data availability) and don't require evidence
+        if research.pending_confirm.kind is ConfirmKind.ECONOMIC:
+            if store is None:
+                raise InvalidTransition(
+                    "CONFIRM_APPROVE requires store for evidence validation (B4 iron rule)"
+                )
             assert_preconfirm_evidence(research.pending_confirm, store)
         return _open_version(research, now, "economic_confirm")
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_REJECT:
