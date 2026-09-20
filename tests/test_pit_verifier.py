@@ -221,3 +221,27 @@ def test_fourth_gate_pit_not_executed() -> None:
     eligibility = strategy_pack_eligibility(research)
     assert eligibility.eligible is False
     assert "pit_executed_and_passed" in eligibility.failed_checks
+
+
+def test_eligibility_has_all_four_gates() -> None:
+    """Test that ExportEligibility reports all four gates correctly."""
+    research_pit_passed = _completed_research_with_pit(pit_passed=True)
+    eligibility = strategy_pack_eligibility(research_pit_passed)
+    
+    assert eligibility.eligible is True
+    assert eligibility.failed_checks == ()
+    
+    failed_gates = {"completed", "all_current_methods_passed", "no_pending_confirm", 
+                    "all_reverifies_passed", "pit_executed_and_passed"}
+    for gate in failed_gates:
+        assert gate not in eligibility.failed_checks
+
+
+def test_pit_consistency_verifier_is_in_presets() -> None:
+    """Ensure pit.consistency is available as a preset verifier."""
+    assert "pit.consistency" in PIT_VERIFIER_REVISION
+    pit_config = PIT_VERIFIER_REVISION["pit.consistency"]
+    assert pit_config["revision"] == "pit-v1"
+    assert pit_config["category"] == "时点/前视一致性"
+    assert "dimensions" in pit_config
+    assert pit_config["dimensions"][0]["kind"] == "pit_consistency"

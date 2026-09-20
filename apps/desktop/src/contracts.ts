@@ -73,11 +73,7 @@ type ViewBody =
       title: string;
       selectedRoundId: string;
       selectedMethodId: string;
-      eligibility: {
-        allMethodsPassed: boolean;
-        noPendingConfirm: boolean;
-        reverifiesPassed: boolean;
-      };
+      eligibility: ExportEligibilityV2;
       overturnedExports?: boolean;
       currentAction?: string;
     }
