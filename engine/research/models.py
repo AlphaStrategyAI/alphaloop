@@ -60,6 +60,14 @@ class ConfirmKind(StrEnum):
     COVERAGE = "coverage"
 
 
+class EvidenceKind(StrEnum):
+    """Kind of evidence that can be cited in a confirm request (B4)."""
+    ATTEMPT = "attempt"
+    ROUND = "round"
+    VERIFICATION_REPORT = "verification_report"
+    SIMULATION_REPORT = "simulation_report"
+
+
 class ResearchAction(StrEnum):
     GATHER = "gather"
     SPECIFY = "specify"
@@ -256,14 +264,53 @@ class Version:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceRef:
+    """Reference to pre-confirm persisted evidence (B4 iron rule)."""
+    record_id: str
+    recorded_at: datetime
+    kind: EvidenceKind
+    summary: str | None = None
+
+
+class InvalidEvidenceRefError(Exception):
+    """Raised when a ConfirmRequest cites missing or future-dated evidence."""
+
+
+@dataclass(frozen=True, slots=True)
 class ConfirmRequest:
     request_id: str
     kind: ConfirmKind
     proposed_change: str
     reason: str
     effect: str
+    why_change: tuple[EvidenceRef, ...] = ()
     change_class: ChangeClass = ChangeClass.ECONOMIC
     patch: tuple[tuple[str, object], ...] = ()
+    who_pays_optional: str | None = None
+    created_at: datetime | None = None
+
+
+def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
+    """Validate that all evidence refs in why_change exist and predate the request (B4 iron rule).
+    
+    Raises InvalidEvidenceRefError if:
+    - ConfirmRequest.created_at is None
+    - Any record_id does not exist in store
+    - Any recorded_at is >= request.created_at (future or same-time ref)
+    """
+    if request.created_at is None:
+        raise InvalidEvidenceRefError("ConfirmRequest must have created_at for evidence validation")
+    for ref in request.why_change:
+        lookup = getattr(store, f"get_{ref.kind.value}", None)
+        if lookup is None or lookup(ref.record_id) is None:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
+            )
+        if ref.recorded_at >= request.created_at:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} recorded at {ref.recorded_at} "
+                f"is not before confirm request created at {request.created_at}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
