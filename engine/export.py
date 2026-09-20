@@ -10,9 +10,9 @@ from tempfile import TemporaryDirectory
 
 import pandas as pd
 
-from engine.research.models import Research, ResearchStatus
+from engine.research.models import Attempt, Research, ResearchStatus
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
-from engine.verifiers import VERIFIER_REVISIONS
+from engine.verifiers import VERIFIER_REVISIONS, VerifierResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,12 +21,24 @@ class ExportEligibility:
     failed_checks: tuple[str, ...]
 
 
+def _find_pit_result(attempt: Attempt) -> VerifierResult | None:
+    """Find PIT verifier result in attempt's verification report."""
+    if attempt.verification is None:
+        return None
+    for result in attempt.verification.results:
+        if result.verifier_id == "pit.consistency":
+            return result
+    return None
+
+
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
+    """Four-condition eligibility check (B1 adds fourth gate)."""
     current_attempt = (
         research.versions[-1].rounds[-1].accepted_attempt
         if research.versions and research.versions[-1].rounds
         else None
     )
+    pit_result = _find_pit_result(current_attempt) if current_attempt else None
     checks = {
         "completed": research.status is ResearchStatus.COMPLETED,
         "all_current_methods_passed": (
@@ -40,6 +52,7 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
             and reverification.round_id
             == research.versions[-1].rounds[-1].round_id
         ),
+        "pit_executed_and_passed": pit_result is not None and pit_result.passed,
     }
     return ExportEligibility(
         eligible=all(checks.values()),

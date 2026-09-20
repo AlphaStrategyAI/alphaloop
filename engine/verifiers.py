@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from types import MappingProxyType
 
 from engine.metrics import SimulationReport
@@ -41,6 +42,26 @@ VERIFIER_REVISIONS = MappingProxyType(
     }
 )
 
+PIT_VERIFIER_REVISION = MappingProxyType(
+    {
+        "pit.consistency": {
+            "revision": "pit-v1",
+            "category": "时点/前视一致性",
+            "dimensions": [
+                {
+                    "kind": "pit_consistency",
+                    "name": "Point-in-Time Consistency",
+                    "description": "Every evidence and backtest window uses only information available at decision time",
+                    "pass_threshold": 1.0,
+                    "comparison": "eq",
+                    "failure_display": "Lookahead bias detected: {violations}",
+                    "unit": "bool",
+                }
+            ],
+        }
+    }
+)
+
 UNKNOWN_METHOD_RULE = "unknown method revision cannot inherit a previous pass"
 
 
@@ -51,6 +72,39 @@ class VerifierResult:
     passed: bool
     values: Mapping[str, float]
     rule: str
+
+
+@dataclass(frozen=True, slots=True)
+class PitVerifierResult(VerifierResult):
+    """PIT consistency verification result (B1)."""
+    evidence_timestamps: tuple[tuple[str, str], ...] = ()
+    backtest_cutoff: str = ""
+    violations: tuple[str, ...] = ()
+
+
+def _pit_consistency(
+    spec: StrategySpec | None,
+    evidence_timestamps: list[tuple[str, str]],
+    backtest_cutoff: str,
+) -> PitVerifierResult:
+    """Verify point-in-time consistency (B1 iron rule)."""
+    del spec
+    violations: list[str] = []
+    cutoff_date = date.fromisoformat(backtest_cutoff)
+    for evidence_id, as_of in evidence_timestamps:
+        evidence_date = date.fromisoformat(as_of)
+        if evidence_date > cutoff_date:
+            violations.append(f"{evidence_id} dated {as_of} > cutoff {backtest_cutoff}")
+    return PitVerifierResult(
+        verifier_id="pit.consistency",
+        revision="pit-v1",
+        passed=len(violations) == 0,
+        values={"violations_count": float(len(violations))},
+        rule="all evidence as_of <= backtest cutoff",
+        evidence_timestamps=tuple(evidence_timestamps),
+        backtest_cutoff=backtest_cutoff,
+        violations=tuple(violations),
+    )
 
 
 @dataclass(frozen=True, slots=True)
