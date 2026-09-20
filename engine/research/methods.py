@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from engine.research.models import (
@@ -13,6 +15,61 @@ from engine.research.models import (
     Research,
 )
 from engine.verifiers import VERIFIER_REVISIONS
+
+
+class ScorecardDimensionKind(StrEnum):
+    """Scorecard dimension kinds (B6)."""
+    PREDICTIVE_POWER = "predictive_power"
+    STABILITY = "stability"
+    PIT_CONSISTENCY = "pit_consistency"
+    COST_SENSITIVITY = "cost_sensitivity"
+    CROWDING = "crowding"
+    CUSTOM = "custom"
+
+
+@dataclass(frozen=True, slots=True)
+class ScorecardDimension:
+    """Scorecard dimension with immutable semantics (B6)."""
+    kind: ScorecardDimensionKind
+    name: str
+    description: str
+    pass_threshold: float
+    comparison: str
+    failure_display: str
+    unit: str | None = None
+
+
+class DimensionSemanticChangeError(Exception):
+    """Raised when attempting to change the semantic meaning of an existing dimension."""
+
+
+def validate_dimension_immutability(
+    old_dims: tuple[ScorecardDimension, ...],
+    new_dims: tuple[ScorecardDimension, ...],
+) -> None:
+    """Validate that existing dimension semantics are not changed (B6 immutability rule).
+    
+    Adding new dimensions is allowed.
+    Changing description, pass_threshold, comparison, or failure_display of existing
+    dimensions by kind+name is not allowed - requires a new revision.
+    Unit is not a semantic field and can be changed.
+    """
+    old_by_key = {(d.kind, d.name): d for d in old_dims}
+    for new_dim in new_dims:
+        key = (new_dim.kind, new_dim.name)
+        if key in old_by_key:
+            old_dim = old_by_key[key]
+            if (
+                old_dim.description != new_dim.description
+                or old_dim.pass_threshold != new_dim.pass_threshold
+                or old_dim.comparison != new_dim.comparison
+                or old_dim.failure_display != new_dim.failure_display
+            ):
+                raise DimensionSemanticChangeError(
+                    f"Cannot change semantic of existing dimension {key}. "
+                    f"Create a new revision instead. "
+                    f"Old: {old_dim}, New: {new_dim}"
+                )
 
 if TYPE_CHECKING:
     from engine.research.store import SQLiteStore

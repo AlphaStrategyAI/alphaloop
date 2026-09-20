@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alphaloop.dev/schemas/method-definition.json",
+  "title": "MethodDefinition",
+  "description": "Scorecard method definition with multi-dimension semantics (B6)",
+  "type": "object",
+  "required": ["method_id", "revision_hash", "name", "description", "body", "source", "created_at", "dimensions"],
+  "properties": {
+    "method_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+    },
+    "revision_hash": {
+      "type": "string",
+      "pattern": "^[a-z]+-v[0-9]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["preset", "deposited"]
+    },
+    "deposited_from_research_id": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "supersedes": {
+      "type": ["string", "null"]
+    },
+    "category": {
+      "type": ["string", "null"],
+      "description": "Method category, e.g., 时点/前视一致性 for PIT"
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/ScorecardDimension"
+      }
+    }
+  },
+  "definitions": {
+    "ScorecardDimension": {
+      "type": "object",
+      "required": ["kind", "name", "description", "pass_threshold", "comparison", "failure_display"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["predictive_power", "stability", "pit_consistency", "cost_sensitivity", "crowding", "custom"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "pass_threshold": {
+          "type": "number"
+        },
+        "comparison": {
+          "type": "string",
+          "enum": ["gte", "lte", "gt", "lt", "eq"]
+        },
+        "failure_display": {
+          "type": "string",
+          "description": "Template string for failure message, may include {field} placeholders"
+        },
+        "unit": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
