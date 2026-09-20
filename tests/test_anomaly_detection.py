@@ -1,5 +1,4 @@
 """Tests for B5: Anomaly detection with relative baseline."""
-import pytest
 
 from engine.research.models import (
     ANOMALY_HEURISTIC_DEFAULTS,

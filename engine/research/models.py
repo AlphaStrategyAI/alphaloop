@@ -375,9 +375,12 @@ def detect_anomalies(
 
     if baseline.kind == "method_scorecard_bounds" and baseline.expected_sharpe_range is not None:
         _, max_expected = baseline.expected_sharpe_range
-        if sharpe is not None and sharpe > max_expected * 1.5:
-            if AnomalyIndicator.SHARPE_OUTLIER not in indicators:
-                indicators.append(AnomalyIndicator.SHARPE_OUTLIER)
+        if (
+            sharpe is not None
+            and sharpe > max_expected * 1.5
+            and AnomalyIndicator.SHARPE_OUTLIER not in indicators
+        ):
+            indicators.append(AnomalyIndicator.SHARPE_OUTLIER)
 
     if coverage_shrunk:
         indicators.append(AnomalyIndicator.COVERAGE_SHRUNK)

@@ -4,6 +4,8 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pandas as pd
+
 from engine.export import (
     build_research_record_pack,
     build_strategy_pack,
@@ -17,9 +19,8 @@ from engine.research.models import (
     ResearchStatus,
     Reverification,
 )
-from tests.test_export_pack import completed_research, reference_strategy
 from engine.strategy import MarketPanel
-import pandas as pd
+from tests.test_export_pack import completed_research, reference_strategy
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 

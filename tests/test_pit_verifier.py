@@ -1,8 +1,5 @@
 """Tests for PIT consistency verifier and fourth export gate (B1)."""
-from dataclasses import replace
 from datetime import UTC, datetime
-
-import pytest
 
 from engine.export import strategy_pack_eligibility
 from engine.research.models import (

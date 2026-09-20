@@ -12,15 +12,12 @@ import pandas as pd
 
 from engine.research.models import (
     Attempt,
-    ImplementationDelta,
-    LogicStatement,
     Research,
     ResearchStatus,
     RoundV2,
-    TrialCounters,
 )
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
-from engine.verifiers import VERIFIER_REVISIONS, VerifierResult
+from engine.verifiers import VERIFIER_REVISIONS, PitVerifierResult, VerifierResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,11 +32,11 @@ def _find_pit_result(attempt: Attempt) -> VerifierResult | None:
         return None
     for result in attempt.verification.results:
         if result.verifier_id == "pit.consistency":
-            return result
+            return result  # type: ignore[no-any-return]
     return None
 
 
-def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict]:
+def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict[str, object]]:
     """Export round history with B2/B3 trial counts and logic/impl split."""
     return [
         {
@@ -108,7 +105,7 @@ def _provenance_cutoff(research: Research) -> str | None:
     return None
 
 
-def importer_accepts(manifest: dict) -> bool:
+def importer_accepts(manifest: dict[str, object]) -> bool:
     return (
         manifest.get("kind") == "strategy_pack"
         and manifest.get("live_handoff_eligible") is True
@@ -376,6 +373,12 @@ def build_strategy_pack(
         schema_target = root / "schemas" / "strategy-pack.schema.json"
         schema_target.parent.mkdir(parents=True)
         schema_target.write_bytes(schema_source.read_bytes())
+        pit_result = _find_pit_result(attempt)
+        pit_verification = {
+            "executed": pit_result is not None,
+            "passed": pit_result is not None and pit_result.passed,
+            "violations": list(pit_result.violations) if isinstance(pit_result, PitVerifierResult) else [],
+        }
         payloads = sorted(path for path in root.rglob("*") if path.is_file())
         _json(
             root / "manifest.json",
@@ -391,6 +394,7 @@ def build_strategy_pack(
                     for path in payloads
                 },
                 "disclaimer": "Research artifact, not investment advice; alphaloop places no orders.",
+                "pit_verification": pit_verification,
             },
         )
         destination.parent.mkdir(parents=True, exist_ok=True)

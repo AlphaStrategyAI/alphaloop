@@ -225,3 +225,23 @@ def test_to_executable_uses_the_accepted_research_snapshot() -> None:
     archive = strategy.to_executable()
     assert archive.name == "strategy-pack.zip"
     assert archive.is_file()
+
+
+def test_strategy_pack_manifest_includes_pit_status(tmp_path: Path) -> None:
+    """Test that the manifest includes pit_verification (B1)."""
+    archive = build_strategy_pack(
+        completed_research(),
+        reference_strategy(),
+        snapshot(),
+        tmp_path / "strategy-pack.zip",
+    )
+    extracted = tmp_path / "extracted"
+    with zipfile.ZipFile(archive) as pack:
+        pack.extractall(extracted)
+    manifest = json.loads((extracted / "manifest.json").read_text(encoding="utf-8"))
+    
+    assert "pit_verification" in manifest
+    pit = manifest["pit_verification"]
+    assert pit["executed"] is True
+    assert pit["passed"] is True
+    assert pit["violations"] == []

@@ -25,6 +25,55 @@
       "type": "object",
       "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
     },
-    "disclaimer": {"type": "string", "minLength": 1}
+    "disclaimer": {"type": "string", "minLength": 1},
+    "pit_verification": {
+      "type": "object",
+      "required": ["executed", "passed"],
+      "properties": {
+        "executed": {"type": "boolean"},
+        "passed": {"type": "boolean"},
+        "violations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  },
+  "definitions": {
+    "LogicStatement": {
+      "type": "object",
+      "required": ["statement", "changed_from_prior", "baseline_version"],
+      "properties": {
+        "statement": {"type": "string"},
+        "changed_from_prior": {"type": "boolean"},
+        "change_description": {"type": ["string", "null"]},
+        "baseline_version": {"type": "integer"}
+      }
+    },
+    "ImplementationDelta": {
+      "type": "object",
+      "properties": {
+        "research_method_changes": {"type": "array", "items": {"type": "string"}},
+        "model_changes": {"type": "array", "items": {"type": "string"}},
+        "param_changes": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}}
+      }
+    },
+    "TrialCounters": {
+      "type": "object",
+      "required": ["candidates_evaluated", "candidates_passed", "conclusion_attempt_number"],
+      "properties": {
+        "candidates_evaluated": {"type": "integer"},
+        "candidates_passed": {"type": "integer"},
+        "conclusion_attempt_number": {"type": "integer"}
+      }
+    },
+    "RoundHistoryItem": {
+      "type": "object",
+      "required": ["round_id", "number", "logic_statement", "implementation_delta", "trial_counters"],
+      "properties": {
+        "round_id": {"type": "string"},
+        "number": {"type": "integer"},
+        "logic_statement": {"$ref": "#/definitions/LogicStatement"},
+        "implementation_delta": {"$ref": "#/definitions/ImplementationDelta"},
+        "trial_counters": {"$ref": "#/definitions/TrialCounters"}
+      }
+    }
   }
 }

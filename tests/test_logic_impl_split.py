@@ -1,8 +1,6 @@
 """Tests for B2/B3: Trial counters and logic/implementation split."""
 from datetime import UTC, datetime
 
-import pytest
-
 from engine.research.models import (
     Attempt,
     ChangeClass,
