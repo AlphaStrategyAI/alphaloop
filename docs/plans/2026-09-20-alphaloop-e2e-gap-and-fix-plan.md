@@ -256,3 +256,4 @@ Each task should land as its own PR with pytest and/or App tests green. Prefer u
 | Confirm-run card | view kind `confirm_run` | `ConfirmRunCard` |
 | Awaiting card | view kind `awaiting_confirm` | `AwaitingConfirmCard` |
 | CSS | — | `apps/desktop/src/night.css` |
+
