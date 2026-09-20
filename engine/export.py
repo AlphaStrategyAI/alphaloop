@@ -10,9 +10,14 @@ from tempfile import TemporaryDirectory
 
 import pandas as pd
 
-from engine.research.models import Research, ResearchStatus
+from engine.research.models import (
+    Attempt,
+    Research,
+    ResearchStatus,
+    RoundV2,
+)
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
-from engine.verifiers import VERIFIER_REVISIONS
+from engine.verifiers import VERIFIER_REVISIONS, PitVerifierResult, VerifierResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,12 +26,51 @@ class ExportEligibility:
     failed_checks: tuple[str, ...]
 
 
+def _find_pit_result(attempt: Attempt) -> VerifierResult | None:
+    """Find PIT verifier result in attempt's verification report."""
+    if attempt.verification is None:
+        return None
+    for result in attempt.verification.results:
+        if result.verifier_id == "pit.consistency":
+            return result  # type: ignore[no-any-return]
+    return None
+
+
+def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict[str, object]]:
+    """Export round history with B2/B3 trial counts and logic/impl split."""
+    return [
+        {
+            "round_id": round_.round_id,
+            "number": round_.number,
+            "logic_statement": {
+                "statement": round_.logic_statement.statement,
+                "changed_from_prior": round_.logic_statement.changed_from_prior,
+                "change_description": round_.logic_statement.change_description,
+                "baseline_version": round_.logic_statement.baseline_version,
+            },
+            "implementation_delta": {
+                "research_method_changes": list(round_.implementation_delta.research_method_changes),
+                "model_changes": list(round_.implementation_delta.model_changes),
+                "param_changes": [list(p) for p in round_.implementation_delta.param_changes],
+            },
+            "trial_counters": {
+                "candidates_evaluated": round_.trial_counters.candidates_evaluated,
+                "candidates_passed": round_.trial_counters.candidates_passed,
+                "conclusion_attempt_number": round_.trial_counters.conclusion_attempt_number,
+            },
+        }
+        for round_ in rounds
+    ]
+
+
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
+    """Four-condition eligibility check (B1 adds fourth gate)."""
     current_attempt = (
         research.versions[-1].rounds[-1].accepted_attempt
         if research.versions and research.versions[-1].rounds
         else None
     )
+    pit_result = _find_pit_result(current_attempt) if current_attempt else None
     checks = {
         "completed": research.status is ResearchStatus.COMPLETED,
         "all_current_methods_passed": (
@@ -40,6 +84,7 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
             and reverification.round_id
             == research.versions[-1].rounds[-1].round_id
         ),
+        "pit_executed_and_passed": pit_result is not None and pit_result.passed,
     }
     return ExportEligibility(
         eligible=all(checks.values()),
@@ -60,7 +105,7 @@ def _provenance_cutoff(research: Research) -> str | None:
     return None
 
 
-def importer_accepts(manifest: dict) -> bool:
+def importer_accepts(manifest: dict[str, object]) -> bool:
     return (
         manifest.get("kind") == "strategy_pack"
         and manifest.get("live_handoff_eligible") is True
@@ -328,6 +373,12 @@ def build_strategy_pack(
         schema_target = root / "schemas" / "strategy-pack.schema.json"
         schema_target.parent.mkdir(parents=True)
         schema_target.write_bytes(schema_source.read_bytes())
+        pit_result = _find_pit_result(attempt)
+        pit_verification = {
+            "executed": pit_result is not None,
+            "passed": pit_result is not None and pit_result.passed,
+            "violations": list(pit_result.violations) if isinstance(pit_result, PitVerifierResult) else [],
+        }
         payloads = sorted(path for path in root.rglob("*") if path.is_file())
         _json(
             root / "manifest.json",
@@ -343,6 +394,7 @@ def build_strategy_pack(
                     for path in payloads
                 },
                 "disclaimer": "Research artifact, not investment advice; alphaloop places no orders.",
+                "pit_verification": pit_verification,
             },
         )
         destination.parent.mkdir(parents=True, exist_ok=True)

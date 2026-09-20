@@ -2,6 +2,7 @@ from dataclasses import replace
 from datetime import datetime
 
 from engine.research.models import (
+    ConfirmKind,
     ConfirmRequest,
     CoverageFloor,
     Research,
@@ -10,6 +11,7 @@ from engine.research.models import (
     ResearchStatus,
     Slot,
     Version,
+    assert_preconfirm_evidence,
 )
 
 
@@ -66,7 +68,21 @@ def transition(
     event: ResearchEvent,
     now: datetime,
     request: ConfirmRequest | None = None,
+    store: object | None = None,
 ) -> Research:
+    """Transition research to a new state based on event.
+    
+    Args:
+        research: Current research state
+        event: Event triggering the transition
+        now: Current timestamp
+        request: ConfirmRequest for REQUEST_CONFIRM event
+        store: Evidence store for CONFIRM_APPROVE validation (B4 iron rule)
+    
+    Raises:
+        InvalidTransition: If the event is not valid for current status
+        InvalidEvidenceRefError: If CONFIRM_APPROVE fails evidence validation
+    """
     status = research.status
     if status is ResearchStatus.DRAFT and event is ResearchEvent.EDIT_DRAFT:
         return replace(research, updated_at=now)
@@ -97,6 +113,16 @@ def transition(
     if status is ResearchStatus.RUNNING and event is ResearchEvent.BUDGET_EXHAUSTED:
         return replace(research, status=ResearchStatus.ENDED, updated_at=now)
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_APPROVE:
+        if research.pending_confirm is None:
+            raise InvalidTransition("CONFIRM_APPROVE requires pending_confirm")
+        # B4 iron rule: ECONOMIC confirms require evidence validation
+        # COVERAGE confirms are automated (data availability) and don't require evidence
+        if research.pending_confirm.kind is ConfirmKind.ECONOMIC:
+            if store is None:
+                raise InvalidTransition(
+                    "CONFIRM_APPROVE requires store for evidence validation (B4 iron rule)"
+                )
+            assert_preconfirm_evidence(research.pending_confirm, store)
         return _open_version(research, now, "economic_confirm")
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_REJECT:
         return replace(

@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 
-from engine.research.coverage import CoverageDecision, decide_coverage, observed_floor, within_floor
+from engine.research.coverage import decide_coverage, observed_floor, within_floor
 from engine.research.models import ConfirmKind, CoverageFloor, CoverageSnapshot
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)

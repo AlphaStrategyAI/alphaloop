@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from engine.main import ResearchCommandService
+from engine.metrics import SimulationReport
 from engine.research.methods import (
     create_method,
     deposit_method,
@@ -9,15 +10,16 @@ from engine.research.methods import (
     record_method_usage,
     revise_method,
 )
-from engine.research.runtime import RuntimePaths
 from engine.research.models import (
+    AssetClass,
+    Market,
     MethodRef,
     MethodSource,
+    Universe,
     new_research,
 )
+from engine.research.runtime import RuntimePaths
 from engine.research.store import SQLiteStore
-from engine.metrics import SimulationReport
-from engine.research.models import AssetClass, Market, Universe
 from engine.strategy import StrategySpec
 from engine.verifiers import run_verifiers
 

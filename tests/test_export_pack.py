@@ -32,7 +32,7 @@ from engine.strategy import (
     StrategySpec,
     run_daily_backtest,
 )
-from engine.verifiers import VerificationReport, VerifierResult
+from engine.verifiers import PitVerifierResult, VerificationReport, VerifierResult
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
@@ -40,6 +40,16 @@ NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 def completed_research():
     base = new_research("r-export", NOW)
     gate = VerifierResult("scorecard.market", "scorecard-v1", True, {}, "fixture pass")
+    pit_gate = PitVerifierResult(
+        verifier_id="pit.consistency",
+        revision="pit-v1",
+        passed=True,
+        values={"violations_count": 0.0},
+        rule="all evidence as_of <= backtest cutoff",
+        evidence_timestamps=(),
+        backtest_cutoff="2026-08-01",
+        violations=(),
+    )
     simulation = accepted_report()
     attempt = Attempt(
         attempt_id="a-export",
@@ -47,7 +57,7 @@ def completed_research():
         change_class=ChangeClass.MODEL,
         spec=reference_strategy().spec,
         simulation=simulation,
-        verification=VerificationReport((gate, gate, gate, gate, gate)),
+        verification=VerificationReport((gate, gate, gate, gate, gate, pit_gate)),
         review=ReviewReport(True, ()),
     )
     round_ = Round("r-export-v1-r1", 1, attempt, NOW)
@@ -215,3 +225,23 @@ def test_to_executable_uses_the_accepted_research_snapshot() -> None:
     archive = strategy.to_executable()
     assert archive.name == "strategy-pack.zip"
     assert archive.is_file()
+
+
+def test_strategy_pack_manifest_includes_pit_status(tmp_path: Path) -> None:
+    """Test that the manifest includes pit_verification (B1)."""
+    archive = build_strategy_pack(
+        completed_research(),
+        reference_strategy(),
+        snapshot(),
+        tmp_path / "strategy-pack.zip",
+    )
+    extracted = tmp_path / "extracted"
+    with zipfile.ZipFile(archive) as pack:
+        pack.extractall(extracted)
+    manifest = json.loads((extracted / "manifest.json").read_text(encoding="utf-8"))
+    
+    assert "pit_verification" in manifest
+    pit = manifest["pit_verification"]
+    assert pit["executed"] is True
+    assert pit["passed"] is True
+    assert pit["violations"] == []

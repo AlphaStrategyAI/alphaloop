@@ -73,11 +73,7 @@ type ViewBody =
       title: string;
       selectedRoundId: string;
       selectedMethodId: string;
-      eligibility: {
-        allMethodsPassed: boolean;
-        noPendingConfirm: boolean;
-        reverifiesPassed: boolean;
-      };
+      eligibility: ExportEligibilityV2;
       overturnedExports?: boolean;
       currentAction?: string;
     }
@@ -103,4 +99,100 @@ export interface DesktopApi {
   reverify(researchId: string, roundId: string, methodId: string): Promise<void>;
   reviseMethod(methodId: string, definition: string): Promise<void>;
   createMethod(name: string, definition: string): Promise<void>;
+}
+
+export interface TrialCounters {
+  candidatesEvaluated: number;
+  candidatesPassed: number;
+  conclusionAttemptNumber: number;
+}
+
+export interface LogicStatement {
+  statement: string;
+  changedFromPrior: boolean;
+  changeDescription?: string;
+  baselineVersion: number;
+}
+
+export interface ImplementationDelta {
+  researchMethodChanges: readonly string[];
+  modelChanges: readonly string[];
+  paramChanges: readonly [string, string, string][];
+}
+
+export interface ScorecardDimension {
+  kind: string;
+  name: string;
+  description: string;
+  passThreshold: number;
+  comparison: "gte" | "lte" | "gt" | "lt" | "eq";
+  failureDisplay: string;
+  unit?: string;
+}
+
+export interface RoundRecord {
+  roundId: string;
+  number: number;
+  logicStatement: LogicStatement;
+  implementationDelta: ImplementationDelta;
+  trialCounters: TrialCounters;
+  verificationPassed: boolean;
+  pitPassed?: boolean;
+}
+
+export type EvidenceKind = "attempt" | "round" | "verification_report" | "simulation_report";
+
+export interface EvidenceRef {
+  recordId: string;
+  recordedAt: string;
+  kind: EvidenceKind;
+  summary?: string;
+}
+
+export interface ConfirmCardData {
+  requestId: string;
+  proposedChange: string;
+  reason: string;
+  effect: string;
+  whyChange: readonly EvidenceRef[];
+  whoPaysOptional?: string | null;
+  confirmKind: "economic" | "coverage";
+  createdAt: string;
+}
+
+export type AnomalyIndicator =
+  | "sharpe_outlier"
+  | "coverage_shrunk"
+  | "high_trial_count"
+  | "recent_method_revision";
+
+export interface AnomalyHeuristic {
+  sharpeSigmaMultiplier: number;
+  trialCountMultiplier: number;
+  recentRevisionDays: number;
+}
+
+export const ANOMALY_HEURISTIC_DEFAULTS: AnomalyHeuristic = {
+  sharpeSigmaMultiplier: 3.0,
+  trialCountMultiplier: 2.0,
+  recentRevisionDays: 7,
+};
+
+export type AnomalyBaseline =
+  | { kind: "prior_attempt"; attemptId: string; sharpe: number; sharpeStd?: number; trialCount: number }
+  | { kind: "version_1_logic"; sharpe: number; trialCount: number }
+  | { kind: "method_scorecard_bounds"; expectedSharpeRange: [number, number] };
+
+export interface AnomalyPresentation {
+  indicators: readonly AnomalyIndicator[];
+  expandEvidenceFirst: boolean;
+  tone: "checklist";
+  baseline?: AnomalyBaseline;
+}
+
+export interface ExportEligibilityV2 {
+  allMethodsPassed: boolean;
+  noPendingConfirm: boolean;
+  reverifiesPassed: boolean;
+  pitExecutedAndPassed: boolean;
 }

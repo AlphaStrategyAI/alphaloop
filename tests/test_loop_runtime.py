@@ -21,9 +21,9 @@ from engine.research.models import (
     Version,
     new_research,
 )
-from engine.research.state_machine import transition
 from engine.research.runtime import EngineLock, RuntimePaths, read_live_owner
 from engine.research.specify import ProposedChange
+from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.review.subagent import ReviewerPort
 from engine.strategy import StrategySpec

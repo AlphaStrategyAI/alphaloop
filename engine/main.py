@@ -529,7 +529,7 @@ class ResearchCommandService:
             }[request["decision"]]
             if event is ResearchEvent.CONFIRM_APPROVE:
                 deposit_confirmed_methods(self.store, research, now)
-            updated = transition(research, event, now)
+            updated = transition(research, event, now, store=self.store)
             if event is ResearchEvent.CONFIRM_APPROVE:
                 patch = dict(research.pending_confirm.patch) if research.pending_confirm else {}
                 self._record_version_methods(

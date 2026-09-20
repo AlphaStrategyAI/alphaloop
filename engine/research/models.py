@@ -60,6 +60,14 @@ class ConfirmKind(StrEnum):
     COVERAGE = "coverage"
 
 
+class EvidenceKind(StrEnum):
+    """Kind of evidence that can be cited in a confirm request (B4)."""
+    ATTEMPT = "attempt"
+    ROUND = "round"
+    VERIFICATION_REPORT = "verification_report"
+    SIMULATION_REPORT = "simulation_report"
+
+
 class ResearchAction(StrEnum):
     GATHER = "gather"
     SPECIFY = "specify"
@@ -192,11 +200,52 @@ class RoundDraft:
 
 
 @dataclass(frozen=True, slots=True)
+class TrialCounters:
+    """Trial count exposure for a round (B2)."""
+    candidates_evaluated: int
+    candidates_passed: int
+    conclusion_attempt_number: int
+
+
+@dataclass(frozen=True, slots=True)
+class LogicStatement:
+    """Economic/trading logic statement for a round (B3)."""
+    statement: str
+    changed_from_prior: bool
+    change_description: str | None = None
+    baseline_version: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ImplementationDelta:
+    """Research/model/param implementation changes for a round (B3)."""
+    research_method_changes: tuple[str, ...] = ()
+    model_changes: tuple[str, ...] = ()
+    param_changes: tuple[tuple[str, str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class Round:
     round_id: str
     number: int
     accepted_attempt: Attempt
     completed_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.accepted_attempt.review is None or not self.accepted_attempt.review.passed:
+            raise ValueError("a successful Round requires a passed review")
+
+
+@dataclass(frozen=True, slots=True)
+class RoundV2:
+    """Extended Round with B2/B3 fields."""
+    round_id: str
+    number: int
+    accepted_attempt: Attempt
+    completed_at: datetime
+    logic_statement: LogicStatement
+    implementation_delta: ImplementationDelta
+    trial_counters: TrialCounters
 
     def __post_init__(self) -> None:
         if self.accepted_attempt.review is None or not self.accepted_attempt.review.passed:
@@ -215,14 +264,152 @@ class Version:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceRef:
+    """Reference to pre-confirm persisted evidence (B4 iron rule)."""
+    record_id: str
+    recorded_at: datetime
+    kind: EvidenceKind
+    summary: str | None = None
+
+
+class InvalidEvidenceRefError(Exception):
+    """Raised when a ConfirmRequest cites missing or future-dated evidence."""
+
+
+@dataclass(frozen=True, slots=True)
 class ConfirmRequest:
     request_id: str
     kind: ConfirmKind
     proposed_change: str
     reason: str
     effect: str
+    why_change: tuple[EvidenceRef, ...] = ()
     change_class: ChangeClass = ChangeClass.ECONOMIC
     patch: tuple[tuple[str, object], ...] = ()
+    who_pays_optional: str | None = None
+    created_at: datetime | None = None
+
+
+def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
+    """Validate that all evidence refs in why_change exist and predate the request (B4 iron rule).
+    
+    Raises InvalidEvidenceRefError if:
+    - ConfirmRequest.created_at is None
+    - why_change is empty (at least one EvidenceRef required)
+    - Any record_id does not exist in store
+    - Any recorded_at is >= request.created_at (future or same-time ref)
+    
+    Note: Free-text reason/proposed_change do NOT substitute for evidence.
+    """
+    if request.created_at is None:
+        raise InvalidEvidenceRefError("ConfirmRequest must have created_at for evidence validation")
+    if not request.why_change:
+        raise InvalidEvidenceRefError(
+            "why_change must contain at least one EvidenceRef; "
+            "free-text reason does not substitute for pre-confirm evidence"
+        )
+    for ref in request.why_change:
+        lookup = getattr(store, f"get_{ref.kind.value}", None)
+        if lookup is None or lookup(ref.record_id) is None:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
+            )
+        if ref.recorded_at >= request.created_at:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} recorded at {ref.recorded_at} "
+                f"is not before confirm request created at {request.created_at}"
+            )
+
+
+class AnomalyIndicator(StrEnum):
+    """Anomaly indicators for B5 relative baseline detection."""
+    SHARPE_OUTLIER = "sharpe_outlier"
+    COVERAGE_SHRUNK = "coverage_shrunk"
+    HIGH_TRIAL_COUNT = "high_trial_count"
+    RECENT_METHOD_REVISION = "recent_method_revision"
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyHeuristic:
+    """Tunable heuristics for anomaly detection (B5). NOT product iron rules."""
+    sharpe_sigma_multiplier: float = 3.0
+    trial_count_multiplier: float = 2.0
+    recent_revision_days: int = 7
+
+
+ANOMALY_HEURISTIC_DEFAULTS = AnomalyHeuristic()
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyBaseline:
+    """Baseline for anomaly comparison (B5)."""
+    kind: str
+    sharpe: float | None = None
+    sharpe_std: float | None = None
+    trial_count: int | None = None
+    expected_sharpe_range: tuple[float, float] | None = None
+    attempt_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyPresentation:
+    """Anomaly presentation configuration (B5)."""
+    indicators: tuple[AnomalyIndicator, ...]
+    expand_evidence_first: bool
+    tone: str
+    baseline: AnomalyBaseline | None = None
+
+
+def detect_anomalies(
+    sharpe: float | None,
+    trial_count: int,
+    coverage_shrunk: bool,
+    method_revision_age_days: int,
+    baseline: AnomalyBaseline,
+    heuristics: AnomalyHeuristic = ANOMALY_HEURISTIC_DEFAULTS,
+) -> AnomalyPresentation | None:
+    """Detect anomalies relative to a baseline (B5).
+    
+    Thresholds are tunable heuristics, not product iron rules.
+    Default heuristics can change without a product-design revision.
+    """
+    indicators: list[AnomalyIndicator] = []
+
+    if sharpe is not None and baseline.sharpe is not None:
+        baseline_std = baseline.sharpe_std if baseline.sharpe_std is not None else 0.5
+        threshold = baseline.sharpe + (heuristics.sharpe_sigma_multiplier * baseline_std)
+        if sharpe > threshold:
+            indicators.append(AnomalyIndicator.SHARPE_OUTLIER)
+
+    if baseline.kind == "method_scorecard_bounds" and baseline.expected_sharpe_range is not None:
+        _, max_expected = baseline.expected_sharpe_range
+        if (
+            sharpe is not None
+            and sharpe > max_expected * 1.5
+            and AnomalyIndicator.SHARPE_OUTLIER not in indicators
+        ):
+            indicators.append(AnomalyIndicator.SHARPE_OUTLIER)
+
+    if coverage_shrunk:
+        indicators.append(AnomalyIndicator.COVERAGE_SHRUNK)
+
+    if baseline.trial_count is not None:
+        threshold = baseline.trial_count * heuristics.trial_count_multiplier
+        if trial_count > threshold:
+            indicators.append(AnomalyIndicator.HIGH_TRIAL_COUNT)
+
+    if method_revision_age_days < heuristics.recent_revision_days:
+        indicators.append(AnomalyIndicator.RECENT_METHOD_REVISION)
+
+    if not indicators:
+        return None
+
+    return AnomalyPresentation(
+        indicators=tuple(indicators),
+        expand_evidence_first=True,
+        tone="checklist",
+        baseline=baseline,
+    )
 
 
 @dataclass(frozen=True, slots=True)
