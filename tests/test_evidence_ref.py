@@ -190,8 +190,8 @@ def test_confirm_request_who_pays_optional() -> None:
     assert request_answered.who_pays_optional is not None
 
 
-def test_empty_why_change_passes_validation() -> None:
-    """Empty why_change is allowed (no evidence cited)."""
+def test_empty_why_change_rejects_validation() -> None:
+    """Empty why_change must FAIL - at least one EvidenceRef required (B4 iron rule)."""
     store = MockStore(set())
     request = ConfirmRequest(
         request_id="c-1",
@@ -200,6 +200,40 @@ def test_empty_why_change_passes_validation() -> None:
         reason="test",
         effect="test",
         why_change=(),
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    with pytest.raises(InvalidEvidenceRefError, match="at least one EvidenceRef"):
+        assert_preconfirm_evidence(request, store)
+
+
+def test_reason_only_without_evidence_rejects() -> None:
+    """Free-text reason must NOT substitute for EvidenceRef (B4 iron rule)."""
+    store = MockStore(set())
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="改信号机制",
+        reason="验证显示原信号不稳定，Sharpe衰减50%",  # Rich reason text
+        effect="开新版本",
+        why_change=(),  # But no actual evidence refs!
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    with pytest.raises(InvalidEvidenceRefError, match="free-text reason does not substitute"):
+        assert_preconfirm_evidence(request, store)
+
+
+def test_one_valid_evidence_ref_passes() -> None:
+    """One valid EvidenceRef is sufficient to pass validation."""
+    store = MockStore({"a-1"})
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="test",
+        reason="test",
+        effect="test",
+        why_change=(
+            EvidenceRef("a-1", datetime(2026, 9, 15, 10, 0, tzinfo=UTC), EvidenceKind.ATTEMPT),
+        ),
         created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
     assert_preconfirm_evidence(request, store)

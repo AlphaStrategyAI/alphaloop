@@ -8,6 +8,9 @@ from engine.research.models import (
     ConfirmKind,
     ConfirmRequest,
     CoverageFloor,
+    EvidenceKind,
+    EvidenceRef,
+    InvalidEvidenceRefError,
     Market,
     MethodRef,
     ResearchBrief,
@@ -193,3 +196,152 @@ def test_wait_pause_complete_and_end_never_consume_time() -> None:
 def test_invalid_transition_is_rejected() -> None:
     with pytest.raises(InvalidTransition, match="draft.*complete"):
         transition(with_status(ResearchStatus.DRAFT), ResearchEvent.COMPLETE, NOW)
+
+
+class MockEvidenceStore:
+    """Mock store for B4 evidence validation integration tests."""
+    def __init__(self, existing_ids: set[str]) -> None:
+        self._existing = existing_ids
+
+    def get_attempt(self, record_id: str) -> dict | None:
+        return {"id": record_id} if record_id in self._existing else None
+
+    def get_verification_report(self, record_id: str) -> dict | None:
+        return {"id": record_id} if record_id in self._existing else None
+
+    def get_round(self, record_id: str) -> dict | None:
+        return {"id": record_id} if record_id in self._existing else None
+
+    def get_simulation_report(self, record_id: str) -> dict | None:
+        return {"id": record_id} if record_id in self._existing else None
+
+
+def test_confirm_approve_with_valid_evidence_opens_version() -> None:
+    """Integration test: CONFIRM_APPROVE with valid EvidenceRef opens new version."""
+    store = MockEvidenceStore({"a-1"})
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="改信号",
+        reason="验证失败",
+        effect="新版本",
+        why_change=(
+            EvidenceRef(
+                record_id="a-1",
+                recorded_at=datetime(2026, 8, 28, 10, 0, tzinfo=UTC),
+                kind=EvidenceKind.ATTEMPT,
+                summary="Sharpe下降",
+            ),
+        ),
+        created_at=datetime(2026, 8, 28, 11, 0, tzinfo=UTC),
+        patch=(("thesis", "带拥挤过滤的低波动回归"),),
+    )
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=request,
+    )
+
+    approved = transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=store)
+
+    assert approved.status is ResearchStatus.RUNNING
+    assert len(approved.versions) == 1
+    assert approved.pending_confirm is None
+
+
+def test_confirm_approve_with_empty_evidence_rejects() -> None:
+    """Integration test: CONFIRM_APPROVE with empty why_change raises InvalidEvidenceRefError."""
+    store = MockEvidenceStore(set())
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="改信号",
+        reason="验证失败",  # Has reason but no evidence
+        effect="新版本",
+        why_change=(),  # Empty!
+        created_at=datetime(2026, 8, 28, 11, 0, tzinfo=UTC),
+    )
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=request,
+    )
+
+    with pytest.raises(InvalidEvidenceRefError, match="at least one EvidenceRef"):
+        transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=store)
+
+    # Status should NOT have changed
+    assert waiting.status is ResearchStatus.AWAITING_CONFIRM
+
+
+def test_confirm_approve_with_missing_evidence_rejects() -> None:
+    """Integration test: CONFIRM_APPROVE with missing evidence record raises error."""
+    store = MockEvidenceStore(set())  # No records exist
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="改信号",
+        reason="验证失败",
+        effect="新版本",
+        why_change=(
+            EvidenceRef(
+                record_id="nonexistent-attempt",
+                recorded_at=datetime(2026, 8, 28, 10, 0, tzinfo=UTC),
+                kind=EvidenceKind.ATTEMPT,
+            ),
+        ),
+        created_at=datetime(2026, 8, 28, 11, 0, tzinfo=UTC),
+    )
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=request,
+    )
+
+    with pytest.raises(InvalidEvidenceRefError, match="not found"):
+        transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=store)
+
+
+def test_confirm_approve_with_future_evidence_rejects() -> None:
+    """Integration test: CONFIRM_APPROVE with post-hoc evidence raises error."""
+    store = MockEvidenceStore({"a-1"})
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="改信号",
+        reason="验证失败",
+        effect="新版本",
+        why_change=(
+            EvidenceRef(
+                record_id="a-1",
+                recorded_at=datetime(2026, 8, 28, 14, 0, tzinfo=UTC),  # After created_at!
+                kind=EvidenceKind.ATTEMPT,
+            ),
+        ),
+        created_at=datetime(2026, 8, 28, 11, 0, tzinfo=UTC),
+    )
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=request,
+    )
+
+    with pytest.raises(InvalidEvidenceRefError, match="not before"):
+        transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=store)
+
+
+def test_confirm_approve_without_store_skips_validation() -> None:
+    """When store is None, evidence validation is skipped (backward compat)."""
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="改信号",
+        reason="验证失败",
+        effect="新版本",
+        why_change=(),  # Empty, would fail with store
+        created_at=datetime(2026, 8, 28, 11, 0, tzinfo=UTC),
+    )
+    waiting = replace(
+        with_status(ResearchStatus.AWAITING_CONFIRM),
+        pending_confirm=request,
+    )
+
+    # Without store=..., validation is skipped
+    approved = transition(waiting, ResearchEvent.CONFIRM_APPROVE, NOW, store=None)
+    assert approved.status is ResearchStatus.RUNNING

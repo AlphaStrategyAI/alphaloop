@@ -295,11 +295,19 @@ def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
     
     Raises InvalidEvidenceRefError if:
     - ConfirmRequest.created_at is None
+    - why_change is empty (at least one EvidenceRef required)
     - Any record_id does not exist in store
     - Any recorded_at is >= request.created_at (future or same-time ref)
+    
+    Note: Free-text reason/proposed_change do NOT substitute for evidence.
     """
     if request.created_at is None:
         raise InvalidEvidenceRefError("ConfirmRequest must have created_at for evidence validation")
+    if not request.why_change:
+        raise InvalidEvidenceRefError(
+            "why_change must contain at least one EvidenceRef; "
+            "free-text reason does not substitute for pre-confirm evidence"
+        )
     for ref in request.why_change:
         lookup = getattr(store, f"get_{ref.kind.value}", None)
         if lookup is None or lookup(ref.record_id) is None:
