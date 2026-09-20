@@ -63,7 +63,7 @@ Status legend: **DONE** = user-visible + engine path with evidence · **PARTIAL*
 | --- | --- | --- |
 | §4.1 Main path draft→confirm→run→confirm→complete→export | **PARTIAL** | Pieces exist; missing rich iteration UI + 4th gate in completed view. |
 | §4.2 Pause (effective time frozen) | **PARTIAL** | Pause/resume commands + UI; clock behavior covered in engine tests (`test_loop_runtime.py` / state machine). Desktop does not surface “这段时间不计入” beyond awaiting card copy. |
-| §4.3 Modify-and-rerun (new version, same dialogue) | **PARTIAL** | `confirmModification` / dialogue inputs on paused \u0026 completed screens. |
+| §4.3 Modify-and-rerun (new version, same dialogue) | **PARTIAL** | `confirmModification` / dialogue inputs on paused & completed screens. |
 | §4.4 Economic confirm | **PARTIAL** | See §3.4 — missing 5th prompt + evidence citations in UI/view. |
 | §4.5 Mid-run method add/replace → confirm + deposit | **PARTIAL** | Engine confirm kinds / deposit paths in `main.py` handle; desktop has no dedicated “method set change” card content. |
 | §4.6 Coverage floor breach → must confirm; within floor auto-shrink recorded | **PARTIAL** | Engine coverage confirm + shrink recording (`coverage.py`, loop tests). Desktop distinguishes `confirmKind === "coverage"` title only; no explicit accept-lower-floor / supply-local / shrink-scope choices beyond the three generic buttons. |
@@ -77,7 +77,7 @@ Status legend: **DONE** = user-visible + engine path with evidence · **PARTIAL*
 | **B1** PIT verifier + 4th export gate | DONE — `engine/verifiers.py`, `export.py`, `test_pit_verifier.py` | MISSING in completed eligibility UI + view payload | **PARTIAL** |
 | **B2** Trial counters on rounds + pack history | DONE — models + export helper + tests | MISSING in `RunningScreen` (rounds are `string[]`) | **PARTIAL** |
 | **B3** Logic vs implementation two columns; logic change → confirm | Types + export DONE; loop/classify needs continuous enforcement | MISSING two-column UI | **PARTIAL** |
-| **B4** Who-pays + preconfirm evidence ids | Models + `assert_preconfirm_evidence` on approve DONE | UI/view omit who-pays \u0026 `whyChange`; TS types unused | **PARTIAL** |
+| **B4** Who-pays + preconfirm evidence ids | Models + `assert_preconfirm_evidence` on approve DONE | UI/view omit who-pays & `whyChange`; TS types unused | **PARTIAL** |
 | **B5** Anomaly checklist vs baseline | `detect_anomalies` + tests DONE | No anomaly section in App; CSS may lack checklist block usage | **PARTIAL** |
 | **B6** Scorecard dimensions + immutability | Schema + methods + tests DONE | Method detail UI does not show dimensions | **PARTIAL** |
 
@@ -220,7 +220,7 @@ Status legend: **DONE** = user-visible + engine path with evidence · **PARTIAL*
 
 ---
 
-## 7. Suggested sequencing \u0026 ownership
+## 7. Suggested sequencing & ownership
 
 ```
 T0 harness → T1 eligibility/PIT UI → T2 who-pays/evidence UI → T3 round columns
