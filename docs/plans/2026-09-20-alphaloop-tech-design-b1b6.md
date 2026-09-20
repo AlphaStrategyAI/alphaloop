@@ -20,9 +20,9 @@ All Global Constraints from the Aug 28 plan remain in force. The following are a
 
 **B3 Logic statement vs implementation split:** Iteration records have TWO columns: (1) economic/trading logic statement vs prior round, (2) research/model/param implementation changes. A substantive logic-statement change → §3.4 confirm + new Version; never auto-iteration on logic changes. The locked 大致原理 at confirm-run is the Version 1 logic-statement baseline.
 
-**B4 Confirm card fifth prompt:** Every confirm card must ask: 「这个逻辑赚的是谁的钱？对方为什么会继续付？」User may leave blank → record as `未作答`. The 「为什么要改」field may only cite pre-confirm simulation/validation evidence (no post-hoc narrative).
+**B4 Confirm card fifth prompt and evidence-id rule:** Every confirm card must ask: 「这个逻辑赚的是谁的钱？对方为什么会继续付？」User may leave blank → record as `未作答`. **Iron rule for 「为什么要改」/ reason field:** A confirm card's reason field may ONLY cite simulation/validation evidence that was already persisted BEFORE the confirm request was created. Each cited evidence item MUST carry a timestamp and a record id (attempt_id, round_id, verification_report_id, or simulation_report_id). If the reason cites anything without a pre-confirm persisted id/timestamp, or invents post-hoc narrative, `CONFIRM_APPROVE` / UI submit-agree MUST be rejected by both engine and desktop. The `ConfirmRequest.why_change` field holds `tuple[EvidenceRef, ...]`; the engine validator `assert_preconfirm_evidence(request, store)` raises `InvalidEvidenceRefError` on missing or future-dated refs.
 
-**B5 Anomalously good results → high-suspicion UI:** When results are anomalously good, prefer expanding evidence first (data provenance, coverage shrinks, trial counts, method definition version), then conclusion copy. Tone = checklist, not celebration banner.
+**B5 Anomalously good results → high-suspicion UI (relative to round baseline):** 相对本轮基线异常好或异常新奇 → 先摊证据，再出结论文案；语气是检查清单不是庆祝横幅。**Baseline definition:** compare against this round's prior accepted attempt (if any) OR the Version-1 logic-statement baseline OR the expected scorecard bounds already declared in the research's method set. Anomaly detection thresholds (e.g., Sharpe σ-distance, trial-count multiplier) are **tunable heuristics** in `AnomalyHeuristic` config, NOT product iron rules. Default heuristics are labeled `heuristic_defaults` and may change without a product-design revision.
 
 **B6 Validation methods as multi-dimension Scorecard:** Method definitions must declare dimensions (predictive power / stability / PIT / cost sensitivity etc.), pass thresholds per dimension, and failure display. Old definition Scorecard dimension semantics are immutable; change = new revision.
 
@@ -37,8 +37,8 @@ All Global Constraints from the Aug 28 plan remain in force. The following are a
 | **B1 PIT iron rule** | `engine/verifiers.py`, `engine/research/methods.py`, `engine/export.py` | Modify: `engine/verifiers.py`, `engine/research/methods.py`, `engine/export.py`; Create: `tests/test_pit_verifier.py` | Add `pit.consistency` verifier; `VerificationReport.pit_executed`, `pit_passed`; fourth gate in `strategy_pack_eligibility` |
 | **B2 Trial counts** | `engine/research/models.py`, `engine/research/loop.py`, `engine/export.py`, `apps/desktop/src/contracts.ts` | Modify: `engine/research/models.py`, `engine/export.py`, `apps/desktop/src/contracts.ts`, `apps/desktop/src/App.tsx` | Add `TrialCounters` to `Round`; export includes counters |
 | **B3 Logic vs impl split** | `engine/research/models.py`, `engine/research/specify.py`, `engine/research/state_machine.py` | Modify: `engine/research/models.py`, `engine/research/specify.py`, `engine/research/state_machine.py`; Create: `tests/test_logic_impl_split.py` | Add `LogicStatement`, `ImplementationDelta` to `Round`; logic-change detection triggers confirm |
-| **B4 Fifth confirm prompt** | `engine/research/models.py`, `apps/desktop/src/contracts.ts`, `apps/desktop/src/App.tsx` | Modify: `engine/research/models.py`, `apps/desktop/src/contracts.ts`, `apps/desktop/src/App.tsx` | Add `who_pays_optional` to `ConfirmRequest`/`ConfirmCard` |
-| **B5 Anomaly UI** | `apps/desktop/src/App.tsx`, `apps/desktop/src/contracts.ts` | Modify: `apps/desktop/src/contracts.ts`, `apps/desktop/src/App.tsx`, `apps/desktop/src/night.css` | Add `AnomalyPresentation` type; anomaly-detection heuristic |
+| **B4 Fifth confirm prompt + evidence-id rule** | `engine/research/models.py`, `engine/research/state_machine.py`, `apps/desktop/src/contracts.ts`, `apps/desktop/src/App.tsx` | Modify: `engine/research/models.py`, `engine/research/state_machine.py`, `apps/desktop/src/contracts.ts`, `apps/desktop/src/App.tsx`; Create: `tests/test_evidence_ref.py` | Add `EvidenceRef`, `who_pays_optional`, `why_change` to `ConfirmRequest`; add `assert_preconfirm_evidence` validator |
+| **B5 Anomaly UI (relative baseline)** | `apps/desktop/src/App.tsx`, `apps/desktop/src/contracts.ts`, `engine/research/models.py` | Modify: `apps/desktop/src/contracts.ts`, `apps/desktop/src/App.tsx`, `apps/desktop/src/night.css`, `engine/research/models.py` | Add `AnomalyHeuristic` config type; baseline-relative anomaly detection |
 | **B6 Scorecard dimensions** | `engine/research/methods.py`, `engine/verifiers.py`, `contracts/method-definition.schema.json` | Modify: `engine/research/methods.py`, `engine/verifiers.py`; Create: `contracts/method-definition.schema.json`, `tests/test_scorecard_dimensions.py` | Add `ScorecardDimension` to `MethodDefinition`; immutability enforcement |
 
 ## File-Structure Map (New/Changed Files Only)
@@ -64,7 +64,8 @@ All Global Constraints from the Aug 28 plan remain in force. The following are a
 └── tests/
     ├── test_pit_verifier.py                        # NEW: PIT consistency verifier tests
     ├── test_logic_impl_split.py                    # NEW: logic vs impl classification tests
-    └── test_scorecard_dimensions.py                # NEW: Scorecard dimension immutability tests
+    ├── test_scorecard_dimensions.py                # NEW: Scorecard dimension immutability tests
+    └── test_evidence_ref.py                        # NEW: B4 evidence-id validation tests
 ```
 
 ## Concrete Types/Interfaces
@@ -154,17 +155,79 @@ class RoundV2:
             raise ValueError("a successful Round requires a passed review")
 
 
+class EvidenceKind(StrEnum):
+    """Kind of evidence that can be cited in a confirm request (B4)."""
+    ATTEMPT = "attempt"
+    ROUND = "round"
+    VERIFICATION_REPORT = "verification_report"
+    SIMULATION_REPORT = "simulation_report"
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceRef:
+    """Reference to pre-confirm persisted evidence (B4 iron rule)."""
+    record_id: str  # attempt_id, round_id, verification_report_id, or simulation_report_id
+    recorded_at: datetime  # When the evidence was persisted
+    kind: EvidenceKind
+    summary: str | None = None  # Optional human-readable summary of what this evidence shows
+
+
 @dataclass(frozen=True, slots=True)
 class ConfirmRequestV2:
-    """Extended ConfirmRequest with fifth prompt (B4)."""
+    """Extended ConfirmRequest with fifth prompt and evidence-id rule (B4)."""
     request_id: str
     kind: ConfirmKind
     proposed_change: str
-    reason: str  # Must cite pre-confirm evidence only
+    reason: str  # Human-readable reason (for display)
     effect: str
+    why_change: tuple[EvidenceRef, ...]  # B4: MUST cite pre-confirm persisted evidence
     change_class: ChangeClass = ChangeClass.ECONOMIC
     patch: tuple[tuple[str, object], ...] = ()
     who_pays_optional: str | None = None  # User answer or None for 未作答
+    created_at: datetime | None = None  # When this confirm request was created
+
+
+class InvalidEvidenceRefError(Exception):
+    """Raised when a ConfirmRequest cites missing or future-dated evidence."""
+
+
+def assert_preconfirm_evidence(
+    request: ConfirmRequestV2,
+    store: object,  # ResearchStore or similar with lookup methods
+) -> None:
+    """Validate that all evidence refs in why_change exist and predate the request (B4 iron rule).
+    
+    Raises InvalidEvidenceRefError if:
+    - Any record_id does not exist in store
+    - Any recorded_at is >= request.created_at (future or same-time ref)
+    - Any ref appears to be post-hoc (recorded_at > request creation)
+    """
+    if request.created_at is None:
+        raise InvalidEvidenceRefError("ConfirmRequest must have created_at for evidence validation")
+    for ref in request.why_change:
+        # Validate existence (store.lookup raises if not found)
+        if not _evidence_exists(store, ref.record_id, ref.kind):
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
+            )
+        # Validate timing: evidence must predate the confirm request
+        if ref.recorded_at >= request.created_at:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} recorded at {ref.recorded_at} "
+                f"is not before confirm request created at {request.created_at}"
+            )
+
+
+def _evidence_exists(store: object, record_id: str, kind: EvidenceKind) -> bool:
+    """Check if evidence exists in store. Implementation depends on store interface."""
+    # Placeholder signature - actual implementation uses store's lookup methods
+    lookup = getattr(store, f"get_{kind.value}", None)
+    if lookup is None:
+        return False
+    try:
+        return lookup(record_id) is not None
+    except (KeyError, ValueError):
+        return False
 ```
 
 ### PIT Verifier (`engine/verifiers.py` addition)
@@ -304,12 +367,24 @@ export interface RoundRecord {
   pitPassed?: boolean;
 }
 
+export type EvidenceKind = "attempt" | "round" | "verification_report" | "simulation_report";
+
+export interface EvidenceRef {
+  recordId: string;
+  recordedAt: string;  // ISO datetime
+  kind: EvidenceKind;
+  summary?: string;
+}
+
 export interface ConfirmCardData {
+  requestId: string;
   proposedChange: string;
   reason: string;
   effect: string;
-  whoPaysOptional?: string;  // null → 未作答
+  whyChange: readonly EvidenceRef[];  // B4: must cite pre-confirm evidence
+  whoPaysOptional?: string | null;  // null → 未作答
   confirmKind: "economic" | "coverage";
+  createdAt: string;  // ISO datetime
 }
 
 export type AnomalyIndicator = 
@@ -318,10 +393,33 @@ export type AnomalyIndicator =
   | "high_trial_count"
   | "recent_method_revision";
 
+// B5: Tunable heuristics for anomaly detection (NOT iron rules)
+export interface AnomalyHeuristic {
+  // Sharpe outlier: flag if sharpe > baseline + (sigmaMultiplier * baselineStdDev)
+  sharpeSigmaMultiplier: number;  // heuristic_default: 3.0
+  // Trial count: flag if candidatesEvaluated > baseline * trialCountMultiplier
+  trialCountMultiplier: number;  // heuristic_default: 2.0
+  // Method revision age: flag if revision < recentRevisionDays old
+  recentRevisionDays: number;  // heuristic_default: 7
+}
+
+export const ANOMALY_HEURISTIC_DEFAULTS: AnomalyHeuristic = {
+  sharpeSigmaMultiplier: 3.0,
+  trialCountMultiplier: 2.0,
+  recentRevisionDays: 7,
+};
+
+// B5: Baseline for anomaly comparison
+export type AnomalyBaseline = 
+  | { kind: "prior_attempt"; attemptId: string; sharpe: number; trialCount: number }
+  | { kind: "version_1_logic"; sharpe: number; trialCount: number }
+  | { kind: "method_scorecard_bounds"; expectedSharpeRange: [number, number] };
+
 export interface AnomalyPresentation {
   indicators: readonly AnomalyIndicator[];
   expandEvidenceFirst: boolean;
   tone: "checklist";
+  baseline?: AnomalyBaseline;  // What this round was compared against
 }
 
 export interface ExportEligibilityV2 {
@@ -884,29 +982,157 @@ git commit -m "feat(B2+B3): add trial counters and logic/impl split types"
 
 ---
 
-### Task C: Confirm Card Fifth Field (B4)
+### Task C: Confirm Card Fifth Field and Evidence-ID Validation (B4)
 
 **Files:**
 - Modify: `engine/research/models.py`
+- Modify: `engine/research/state_machine.py`
 - Modify: `apps/desktop/src/contracts.ts`
+- Create: `tests/test_evidence_ref.py`
 
 **Interfaces:**
 - Consumes: `ConfirmRequest`, `ConfirmKind` from `engine/research/models.py`
-- Produces: `ConfirmRequestV2` with `who_pays_optional`, TypeScript `ConfirmCardData`
+- Produces: `EvidenceRef`, `EvidenceKind`, `ConfirmRequestV2` with `who_pays_optional` and `why_change`, `assert_preconfirm_evidence` validator, `InvalidEvidenceRefError`, TypeScript `ConfirmCardData` with `whyChange`
 
-- [ ] **Step 1: Write failing test for fifth field**
+- [ ] **Step 1: Write failing test for EvidenceRef and validation**
 
-Append to existing `tests/test_state_machine.py`:
+Create `tests/test_evidence_ref.py`:
 
 ```python
-def test_confirm_request_has_who_pays_optional_field() -> None:
+from datetime import UTC, datetime
+
+import pytest
+
+from engine.research.models import (
+    ConfirmKind,
+    ConfirmRequest,
+    EvidenceKind,
+    EvidenceRef,
+    InvalidEvidenceRefError,
+    assert_preconfirm_evidence,
+)
+
+
+def test_evidence_ref_fields() -> None:
+    ref = EvidenceRef(
+        record_id="a-123",
+        recorded_at=datetime(2026, 9, 15, 10, 0, tzinfo=UTC),
+        kind=EvidenceKind.ATTEMPT,
+        summary="验证显示Sharpe=1.2，超额收益5%",
+    )
+    assert ref.record_id == "a-123"
+    assert ref.kind == EvidenceKind.ATTEMPT
+
+
+def test_evidence_kind_values() -> None:
+    assert EvidenceKind.ATTEMPT == "attempt"
+    assert EvidenceKind.ROUND == "round"
+    assert EvidenceKind.VERIFICATION_REPORT == "verification_report"
+    assert EvidenceKind.SIMULATION_REPORT == "simulation_report"
+
+
+def test_confirm_request_with_why_change_evidence() -> None:
+    evidence = (
+        EvidenceRef(
+            record_id="a-1",
+            recorded_at=datetime(2026, 9, 15, 10, 0, tzinfo=UTC),
+            kind=EvidenceKind.ATTEMPT,
+            summary="原信号不稳定",
+        ),
+        EvidenceRef(
+            record_id="v-r1",
+            recorded_at=datetime(2026, 9, 15, 11, 0, tzinfo=UTC),
+            kind=EvidenceKind.VERIFICATION_REPORT,
+            summary="Sharpe衰减50%",
+        ),
+    )
     request = ConfirmRequest(
         request_id="c-1",
         kind=ConfirmKind.ECONOMIC,
         proposed_change="改信号机制",
         reason="验证显示原信号不稳定",
         effect="开新版本",
-        who_pays_optional=None,
+        why_change=evidence,
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    assert len(request.why_change) == 2
+    assert all(ref.recorded_at < request.created_at for ref in request.why_change)
+
+
+class MockStore:
+    """Mock store for testing evidence validation."""
+    def __init__(self, existing_ids: set[str]) -> None:
+        self._existing = existing_ids
+
+    def get_attempt(self, record_id: str) -> dict | None:
+        return {"id": record_id} if record_id in self._existing else None
+
+    def get_verification_report(self, record_id: str) -> dict | None:
+        return {"id": record_id} if record_id in self._existing else None
+
+
+def test_assert_preconfirm_evidence_passes_for_valid_refs() -> None:
+    store = MockStore({"a-1", "v-r1"})
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="test",
+        reason="test",
+        effect="test",
+        why_change=(
+            EvidenceRef("a-1", datetime(2026, 9, 15, 10, 0, tzinfo=UTC), EvidenceKind.ATTEMPT),
+        ),
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    # Should not raise
+    assert_preconfirm_evidence(request, store)
+
+
+def test_assert_preconfirm_evidence_rejects_missing_ref() -> None:
+    store = MockStore(set())  # Empty store
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="test",
+        reason="test",
+        effect="test",
+        why_change=(
+            EvidenceRef("nonexistent", datetime(2026, 9, 15, 10, 0, tzinfo=UTC), EvidenceKind.ATTEMPT),
+        ),
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
+    )
+    with pytest.raises(InvalidEvidenceRefError, match="not found"):
+        assert_preconfirm_evidence(request, store)
+
+
+def test_assert_preconfirm_evidence_rejects_future_ref() -> None:
+    store = MockStore({"a-1"})
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="test",
+        reason="test",
+        effect="test",
+        why_change=(
+            # Evidence recorded AFTER the confirm request was created (post-hoc)
+            EvidenceRef("a-1", datetime(2026, 9, 15, 14, 0, tzinfo=UTC), EvidenceKind.ATTEMPT),
+        ),
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),  # Created before evidence
+    )
+    with pytest.raises(InvalidEvidenceRefError, match="not before"):
+        assert_preconfirm_evidence(request, store)
+
+
+def test_confirm_request_who_pays_optional() -> None:
+    request = ConfirmRequest(
+        request_id="c-1",
+        kind=ConfirmKind.ECONOMIC,
+        proposed_change="改信号机制",
+        reason="验证显示原信号不稳定",
+        effect="开新版本",
+        why_change=(),
+        who_pays_optional=None,  # 未作答
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
     assert request.who_pays_optional is None
 
@@ -916,22 +1142,43 @@ def test_confirm_request_has_who_pays_optional_field() -> None:
         proposed_change="增加动量因子",
         reason="回测显示有alpha",
         effect="开新版本",
+        why_change=(),
         who_pays_optional="赚的是趋势跟随者追涨杀跌的钱，对方会继续付因为行为偏差持续存在",
+        created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
     assert request_answered.who_pays_optional is not None
 ```
 
 - [ ] **Step 2: Run test to verify RED**
 
-Run: `python -m pytest tests/test_state_machine.py::test_confirm_request_has_who_pays_optional_field -q`
+Run: `python -m pytest tests/test_evidence_ref.py -q`
 
-Expected: FAIL with `TypeError: ConfirmRequest.__init__() got an unexpected keyword argument 'who_pays_optional'`
+Expected: FAIL with `ImportError: cannot import name 'EvidenceRef' from 'engine.research.models'`
 
-- [ ] **Step 3: Add who_pays_optional to ConfirmRequest in `engine/research/models.py`**
+- [ ] **Step 3: Implement EvidenceRef and validation in `engine/research/models.py`**
 
-Modify the `ConfirmRequest` dataclass in `engine/research/models.py`:
+Add to `engine/research/models.py`:
 
 ```python
+class EvidenceKind(StrEnum):
+    ATTEMPT = "attempt"
+    ROUND = "round"
+    VERIFICATION_REPORT = "verification_report"
+    SIMULATION_REPORT = "simulation_report"
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceRef:
+    record_id: str
+    recorded_at: datetime
+    kind: EvidenceKind
+    summary: str | None = None
+
+
+class InvalidEvidenceRefError(Exception):
+    """Raised when a ConfirmRequest cites missing or future-dated evidence."""
+
+
 @dataclass(frozen=True, slots=True)
 class ConfirmRequest:
     request_id: str
@@ -939,125 +1186,200 @@ class ConfirmRequest:
     proposed_change: str
     reason: str
     effect: str
+    why_change: tuple[EvidenceRef, ...] = ()
     change_class: ChangeClass = ChangeClass.ECONOMIC
     patch: tuple[tuple[str, object], ...] = ()
     who_pays_optional: str | None = None
+    created_at: datetime | None = None
+
+
+def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
+    if request.created_at is None:
+        raise InvalidEvidenceRefError("ConfirmRequest must have created_at for evidence validation")
+    for ref in request.why_change:
+        lookup = getattr(store, f"get_{ref.kind.value}", None)
+        if lookup is None or lookup(ref.record_id) is None:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
+            )
+        if ref.recorded_at >= request.created_at:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} recorded at {ref.recorded_at} "
+                f"is not before confirm request created at {request.created_at}"
+            )
 ```
 
 - [ ] **Step 4: Run test to verify GREEN**
 
-Run: `python -m pytest tests/test_state_machine.py::test_confirm_request_has_who_pays_optional_field -q`
+Run: `python -m pytest tests/test_evidence_ref.py -q`
 
-Expected: PASS
+Expected: All tests pass
 
-- [ ] **Step 5: Update TypeScript contracts**
+- [ ] **Step 5: Wire validation into state machine**
 
-Modify `apps/desktop/src/contracts.ts`, add to `ConfirmCardData` or create if not present:
+Modify `engine/research/state_machine.py` to call `assert_preconfirm_evidence` before allowing `CONFIRM_APPROVE`:
+
+```python
+from engine.research.models import assert_preconfirm_evidence, InvalidEvidenceRefError
+
+
+def transition(
+    research: Research,
+    event: ResearchEvent,
+    now: datetime,
+    request: ConfirmRequest | None = None,
+    store: object | None = None,
+) -> Research:
+    # ... existing code ...
+    if event is ResearchEvent.CONFIRM_APPROVE:
+        if research.pending_confirm is not None and store is not None:
+            assert_preconfirm_evidence(research.pending_confirm, store)
+    # ... rest of transition logic ...
+```
+
+- [ ] **Step 6: Update TypeScript contracts**
+
+The TypeScript types were already updated in the Concrete Types section. Verify `apps/desktop/src/contracts.ts` includes `EvidenceRef`, `EvidenceKind`, and `ConfirmCardData.whyChange`.
+
+- [ ] **Step 7: Add UI validation for submit-agree**
+
+In desktop, the confirm-agree button must validate that all `whyChange` refs exist and predate the request. If validation fails, show an error and block submission:
 
 ```typescript
-export interface ConfirmCardData {
-  requestId: string;
-  confirmKind: "economic" | "coverage";
-  proposedChange: string;
-  reason: string;
-  effect: string;
-  whoPaysOptional: string | null;  // null → 未作答 (B4)
+async function handleConfirmApprove(researchId: string, whoPays: string | null): Promise<void> {
+  const confirmData = currentConfirmCard;
+  if (!confirmData) return;
+  
+  // Validate evidence refs before submitting (B4 iron rule)
+  for (const ref of confirmData.whyChange) {
+    if (new Date(ref.recordedAt) >= new Date(confirmData.createdAt)) {
+      throw new Error(`Evidence ${ref.kind}:${ref.recordId} is post-hoc and cannot be cited`);
+    }
+  }
+  
+  await api.resolveConfirm(researchId, "approve_new_version");
 }
 ```
 
-Update the `awaiting_confirm` view body type:
-
-```typescript
-  | {
-      kind: "awaiting_confirm";
-      researchId: string;
-      version: number;
-      confirmKind?: "economic" | "coverage";
-      proposed: string;
-      reason: string;
-      effect: string;
-      whoPaysOptional?: string | null;  // B4: fifth prompt
-    }
-```
-
-- [ ] **Step 6: Verify TypeScript compiles**
+- [ ] **Step 8: Verify TypeScript compiles**
 
 Run: `npm --prefix apps/desktop run typecheck`
 
 Expected: No errors
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add engine/research/models.py apps/desktop/src/contracts.ts
-git commit -m "feat(B4): add who_pays_optional fifth field to confirm card"
+git add engine/research/models.py engine/research/state_machine.py apps/desktop/src/contracts.ts tests/test_evidence_ref.py
+git commit -m "feat(B4): add EvidenceRef, why_change, and preconfirm evidence validation"
 ```
 
 ---
 
-### Task D: Anomaly UI Presentation (B5)
+### Task D: Anomaly UI Presentation with Relative Baseline (B5)
 
 **Files:**
 - Modify: `apps/desktop/src/contracts.ts`
 - Modify: `apps/desktop/src/App.tsx`
 - Modify: `apps/desktop/src/night.css`
+- Modify: `engine/research/models.py`
 
 **Interfaces:**
 - Consumes: `RoundRecord`, `VerificationReport` from contracts
-- Produces: `AnomalyIndicator`, `AnomalyPresentation`, `detectAnomalies(round)`, anomaly-first UI rendering
+- Produces: `AnomalyIndicator`, `AnomalyPresentation`, `AnomalyHeuristic`, `AnomalyBaseline`, `detectAnomalies(round, baseline, heuristics)`, anomaly-first UI rendering
 
-- [ ] **Step 1: Add anomaly types to contracts**
+- [ ] **Step 1: Add anomaly types with heuristics to contracts**
 
-Add to `apps/desktop/src/contracts.ts`:
+The TypeScript types were already added in the Concrete Types section. Verify `apps/desktop/src/contracts.ts` includes:
+- `AnomalyHeuristic` with tunable thresholds
+- `ANOMALY_HEURISTIC_DEFAULTS` with labeled defaults
+- `AnomalyBaseline` union type for comparison target
+- `AnomalyPresentation` with optional `baseline` field
 
-```typescript
-export type AnomalyIndicator =
-  | "sharpe_outlier"
-  | "coverage_shrunk"
-  | "high_trial_count"
-  | "recent_method_revision";
+- [ ] **Step 2: Add AnomalyHeuristic config to Python models**
 
-export interface AnomalyPresentation {
-  indicators: readonly AnomalyIndicator[];
-  expandEvidenceFirst: boolean;
-  tone: "checklist";
-}
+Add to `engine/research/models.py`:
 
-export interface RoundRecordWithAnomaly extends RoundRecord {
-  anomaly?: AnomalyPresentation;
-}
+```python
+@dataclass(frozen=True, slots=True)
+class AnomalyHeuristic:
+    """Tunable heuristics for anomaly detection (B5). NOT product iron rules."""
+    sharpe_sigma_multiplier: float = 3.0  # heuristic_default
+    trial_count_multiplier: float = 2.0  # heuristic_default
+    recent_revision_days: int = 7  # heuristic_default
+
+
+ANOMALY_HEURISTIC_DEFAULTS = AnomalyHeuristic()
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyBaseline:
+    """Baseline for anomaly comparison (B5)."""
+    kind: str  # "prior_attempt" | "version_1_logic" | "method_scorecard_bounds"
+    sharpe: float | None = None
+    sharpe_std: float | None = None
+    trial_count: int | None = None
+    expected_sharpe_range: tuple[float, float] | None = None
 ```
 
-- [ ] **Step 2: Add anomaly detection utility**
+- [ ] **Step 3: Add baseline-relative anomaly detection utility**
 
 Create helper in `apps/desktop/src/App.tsx`:
 
 ```typescript
+import { 
+  AnomalyIndicator, 
+  AnomalyPresentation, 
+  AnomalyHeuristic, 
+  AnomalyBaseline,
+  ANOMALY_HEURISTIC_DEFAULTS 
+} from "./contracts";
+
+/**
+ * Detect anomalies relative to a baseline (B5).
+ * 
+ * Thresholds are tunable heuristics, not product iron rules.
+ * Default heuristics can change without a product-design revision.
+ */
 function detectAnomalies(
   round: RoundRecord,
-  avgSharpe: number,
-  methodRevisionAge: number
+  baseline: AnomalyBaseline,
+  heuristics: AnomalyHeuristic = ANOMALY_HEURISTIC_DEFAULTS,
+  methodRevisionAgeDays: number
 ): AnomalyPresentation | undefined {
   const indicators: AnomalyIndicator[] = [];
 
-  // Sharpe > 2.5 or > 3σ above mean is suspicious
-  const sharpeThreshold = Math.max(2.5, avgSharpe + 3 * 0.5);
-  if (round.sharpe && round.sharpe > sharpeThreshold) {
-    indicators.push("sharpe_outlier");
+  // Sharpe outlier: relative to baseline (heuristic, not iron rule)
+  if (round.sharpe !== undefined && baseline.sharpe !== undefined) {
+    const baselineStd = baseline.sharpeStd ?? 0.5;  // Fallback if not available
+    const threshold = baseline.sharpe + (heuristics.sharpeSigmaMultiplier * baselineStd);
+    if (round.sharpe > threshold) {
+      indicators.push("sharpe_outlier");
+    }
+  }
+  // Alternative: check against method scorecard bounds
+  if (baseline.kind === "method_scorecard_bounds" && baseline.expectedSharpeRange) {
+    const [, maxExpected] = baseline.expectedSharpeRange;
+    if (round.sharpe !== undefined && round.sharpe > maxExpected * 1.5) {
+      indicators.push("sharpe_outlier");
+    }
   }
 
-  // Coverage shrunk during this round
+  // Coverage shrunk during this round (always flagged, not heuristic)
   if (round.coverageShrunk) {
     indicators.push("coverage_shrunk");
   }
 
-  // High trial count (> 10 attempts)
-  if (round.trialCounters.candidatesEvaluated > 10) {
-    indicators.push("high_trial_count");
+  // High trial count: relative to baseline (heuristic, not iron rule)
+  if (baseline.trialCount !== undefined) {
+    const threshold = baseline.trialCount * heuristics.trialCountMultiplier;
+    if (round.trialCounters.candidatesEvaluated > threshold) {
+      indicators.push("high_trial_count");
+    }
   }
 
-  // Method revision < 7 days old
-  if (methodRevisionAge < 7) {
+  // Method revision age (heuristic, not iron rule)
+  if (methodRevisionAgeDays < heuristics.recentRevisionDays) {
     indicators.push("recent_method_revision");
   }
 
@@ -1069,11 +1391,52 @@ function detectAnomalies(
     indicators,
     expandEvidenceFirst: true,
     tone: "checklist",
+    baseline,
+  };
+}
+
+/**
+ * Compute baseline for anomaly detection from research context.
+ */
+function computeBaseline(
+  priorAttempt: { sharpe: number; trialCount: number } | undefined,
+  version1Logic: { sharpe: number; trialCount: number } | undefined,
+  methodBounds: { expectedSharpeRange: [number, number] } | undefined
+): AnomalyBaseline {
+  // Prefer prior attempt if available (most specific)
+  if (priorAttempt) {
+    return {
+      kind: "prior_attempt",
+      attemptId: priorAttempt.attemptId,
+      sharpe: priorAttempt.sharpe,
+      trialCount: priorAttempt.trialCount,
+    };
+  }
+  // Fall back to version 1 logic baseline
+  if (version1Logic) {
+    return {
+      kind: "version_1_logic",
+      sharpe: version1Logic.sharpe,
+      trialCount: version1Logic.trialCount,
+    };
+  }
+  // Fall back to method scorecard bounds
+  if (methodBounds) {
+    return {
+      kind: "method_scorecard_bounds",
+      expectedSharpeRange: methodBounds.expectedSharpeRange,
+    };
+  }
+  // No baseline available - use conservative defaults
+  return {
+    kind: "version_1_logic",
+    sharpe: 0,
+    trialCount: 5,
   };
 }
 ```
 
-- [ ] **Step 3: Add anomaly checklist styles to night.css**
+- [ ] **Step 4: Add anomaly checklist styles to night.css**
 
 Append to `apps/desktop/src/night.css`:
 
@@ -1092,6 +1455,13 @@ Append to `apps/desktop/src/night.css`:
   font-size: 14px;
   font-weight: 500;
   margin-bottom: var(--space-8);
+}
+
+.anomaly-section .baseline-note {
+  font-size: 11px;
+  color: var(--mute);
+  margin-bottom: var(--space-8);
+  font-family: "IBM Plex Mono", monospace;
 }
 
 .anomaly-checklist {
@@ -1144,35 +1514,68 @@ Append to `apps/desktop/src/night.css`:
 }
 ```
 
-- [ ] **Step 4: Verify TypeScript compiles**
+- [ ] **Step 5: Verify TypeScript compiles**
 
 Run: `npm --prefix apps/desktop run typecheck`
 
 Expected: No errors
 
-- [ ] **Step 5: Write failing UI test for anomaly rendering**
+- [ ] **Step 6: Write tests for baseline-relative anomaly detection**
 
 Add to `apps/desktop/src/App.test.tsx`:
 
 ```typescript
-import { render, screen } from "@testing-library/react";
-import { detectAnomalies } from "./App";
+import { detectAnomalies, computeBaseline, ANOMALY_HEURISTIC_DEFAULTS } from "./App";
 
-test("anomaly detection flags sharpe outlier", () => {
+test("anomaly detection uses relative baseline, not absolute thresholds", () => {
+  const baseline = {
+    kind: "prior_attempt" as const,
+    attemptId: "a-0",
+    sharpe: 1.0,
+    sharpeStd: 0.3,
+    trialCount: 5,
+  };
   const round = {
     roundId: "v1-r1",
     number: 1,
-    sharpe: 3.5,
-    trialCounters: { candidatesEvaluated: 5, candidatesPassed: 2, conclusionAttemptNumber: 1 },
+    sharpe: 2.5,  // 1.0 + 3*0.3 = 1.9, so 2.5 > threshold
+    trialCounters: { candidatesEvaluated: 6, candidatesPassed: 2, conclusionAttemptNumber: 1 },
     coverageShrunk: false,
   };
-  const anomaly = detectAnomalies(round, 1.2, 30);
+  const anomaly = detectAnomalies(round, baseline, ANOMALY_HEURISTIC_DEFAULTS, 30);
   expect(anomaly?.indicators).toContain("sharpe_outlier");
-  expect(anomaly?.expandEvidenceFirst).toBe(true);
-  expect(anomaly?.tone).toBe("checklist");
+  expect(anomaly?.baseline).toEqual(baseline);
 });
 
-test("anomaly detection flags high trial count", () => {
+test("anomaly detection with custom heuristics (not iron rules)", () => {
+  const baseline = {
+    kind: "prior_attempt" as const,
+    sharpe: 1.0,
+    trialCount: 5,
+  };
+  const customHeuristics = {
+    sharpeSigmaMultiplier: 5.0,  // More lenient
+    trialCountMultiplier: 3.0,
+    recentRevisionDays: 3,
+  };
+  const round = {
+    roundId: "v1-r1",
+    number: 1,
+    sharpe: 2.5,  // With 5σ multiplier, threshold is higher
+    trialCounters: { candidatesEvaluated: 14, candidatesPassed: 2, conclusionAttemptNumber: 1 },
+    coverageShrunk: false,
+  };
+  // With custom heuristics, 2.5 is not an outlier (threshold = 1.0 + 5*0.5 = 3.5)
+  const anomaly = detectAnomalies(round, baseline, customHeuristics, 30);
+  expect(anomaly?.indicators).not.toContain("sharpe_outlier");
+});
+
+test("anomaly detection flags high trial count relative to baseline", () => {
+  const baseline = {
+    kind: "prior_attempt" as const,
+    sharpe: 1.0,
+    trialCount: 5,
+  };
   const round = {
     roundId: "v1-r2",
     number: 2,
@@ -1180,22 +1583,33 @@ test("anomaly detection flags high trial count", () => {
     trialCounters: { candidatesEvaluated: 15, candidatesPassed: 1, conclusionAttemptNumber: 12 },
     coverageShrunk: false,
   };
-  const anomaly = detectAnomalies(round, 1.2, 30);
+  // 15 > 5 * 2.0 = 10, so flagged
+  const anomaly = detectAnomalies(round, baseline, ANOMALY_HEURISTIC_DEFAULTS, 30);
   expect(anomaly?.indicators).toContain("high_trial_count");
+});
+
+test("computeBaseline prefers prior attempt over version 1 logic", () => {
+  const baseline = computeBaseline(
+    { attemptId: "a-1", sharpe: 1.5, trialCount: 8 },
+    { sharpe: 1.0, trialCount: 5 },
+    undefined
+  );
+  expect(baseline.kind).toBe("prior_attempt");
+  expect(baseline.sharpe).toBe(1.5);
 });
 ```
 
-- [ ] **Step 6: Run tests to verify GREEN**
+- [ ] **Step 7: Run tests to verify GREEN**
 
 Run: `npm --prefix apps/desktop test`
 
 Expected: All tests pass
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add apps/desktop/src/contracts.ts apps/desktop/src/App.tsx apps/desktop/src/night.css apps/desktop/src/App.test.tsx
-git commit -m "feat(B5): add anomaly presentation UI with checklist tone"
+git add apps/desktop/src/contracts.ts apps/desktop/src/App.tsx apps/desktop/src/night.css apps/desktop/src/App.test.tsx engine/research/models.py
+git commit -m "feat(B5): add baseline-relative anomaly detection with tunable heuristics"
 ```
 
 ---
@@ -1699,8 +2113,8 @@ git commit -m "feat(B1-B6): wire all product nails into loop and pack export"
 | B1 PIT iron rule | Task A (PIT verifier), Task F (fourth gate), Task G (loop integration) |
 | B2 Trial counts | Task B (TrialCounters type, export helper) |
 | B3 Logic vs impl split | Task B (LogicStatement, ImplementationDelta, RoundV2) |
-| B4 Fifth confirm prompt | Task C (who_pays_optional field) |
-| B5 Anomaly UI | Task D (AnomalyPresentation, checklist styles) |
+| B4 Fifth confirm prompt + evidence-id rule | Task C (`who_pays_optional`, `EvidenceRef`, `why_change`, `assert_preconfirm_evidence` validator) |
+| B5 Anomaly UI (relative baseline) | Task D (`AnomalyHeuristic` tunable config, `AnomalyBaseline`, `detectAnomalies` with baseline-relative comparison) |
 | B6 Scorecard dimensions | Task E (ScorecardDimension, immutability validation) |
 
 ### 2. Placeholder Scan
@@ -1716,7 +2130,23 @@ No TBD, TODO, or "implement later" placeholders found. All steps include complet
 | `ImplementationDelta` | Task B (models.py) | Task B (export.py), Task G (schema) |
 | `ScorecardDimension` | Task E (methods.py) | Task E (schema), Task G (loop) |
 | `PitVerifierResult` | Task A (verifiers.py) | Task A, Task F (export.py) |
+| `EvidenceRef` | Task C (models.py) | Task C (contracts.ts, state_machine.py) |
+| `EvidenceKind` | Task C (models.py) | Task C (contracts.ts) |
 | `who_pays_optional` | Task C (models.py) | Task C (contracts.ts) |
+| `why_change` | Task C (models.py) | Task C (contracts.ts) |
+| `assert_preconfirm_evidence` | Task C (models.py) | Task C (state_machine.py) |
+| `InvalidEvidenceRefError` | Task C (models.py) | Task C (state_machine.py) |
+| `AnomalyHeuristic` | Task D (models.py, contracts.ts) | Task D (App.tsx) |
+| `AnomalyBaseline` | Task D (models.py, contracts.ts) | Task D (App.tsx) |
 | `AnomalyPresentation` | Task D (contracts.ts) | Task D (App.tsx) |
+| `ANOMALY_HEURISTIC_DEFAULTS` | Task D (contracts.ts) | Task D (App.tsx, tests) |
 
 All type names and signatures are consistent across tasks.
+
+### 4. B4 Evidence-ID Rule in Global Constraints
+
+Confirmed: Global Constraints section includes the iron rule that `ConfirmRequest.why_change` must cite pre-confirm persisted evidence with record ids and timestamps. Engine validator `assert_preconfirm_evidence` raises `InvalidEvidenceRefError` on missing or future-dated refs. Desktop UI validates before submit-agree.
+
+### 5. B5 Relative Baseline in Global Constraints
+
+Confirmed: Global Constraints section specifies baseline definition (prior accepted attempt / Version-1 logic baseline / method scorecard bounds) and labels thresholds as `heuristic_defaults` that can change without product-design revision. Task D implements `AnomalyHeuristic` as tunable config, not iron rules.
