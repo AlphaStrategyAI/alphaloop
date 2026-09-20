@@ -313,6 +313,94 @@ def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
             )
 
 
+class AnomalyIndicator(StrEnum):
+    """Anomaly indicators for B5 relative baseline detection."""
+    SHARPE_OUTLIER = "sharpe_outlier"
+    COVERAGE_SHRUNK = "coverage_shrunk"
+    HIGH_TRIAL_COUNT = "high_trial_count"
+    RECENT_METHOD_REVISION = "recent_method_revision"
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyHeuristic:
+    """Tunable heuristics for anomaly detection (B5). NOT product iron rules."""
+    sharpe_sigma_multiplier: float = 3.0
+    trial_count_multiplier: float = 2.0
+    recent_revision_days: int = 7
+
+
+ANOMALY_HEURISTIC_DEFAULTS = AnomalyHeuristic()
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyBaseline:
+    """Baseline for anomaly comparison (B5)."""
+    kind: str
+    sharpe: float | None = None
+    sharpe_std: float | None = None
+    trial_count: int | None = None
+    expected_sharpe_range: tuple[float, float] | None = None
+    attempt_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AnomalyPresentation:
+    """Anomaly presentation configuration (B5)."""
+    indicators: tuple[AnomalyIndicator, ...]
+    expand_evidence_first: bool
+    tone: str
+    baseline: AnomalyBaseline | None = None
+
+
+def detect_anomalies(
+    sharpe: float | None,
+    trial_count: int,
+    coverage_shrunk: bool,
+    method_revision_age_days: int,
+    baseline: AnomalyBaseline,
+    heuristics: AnomalyHeuristic = ANOMALY_HEURISTIC_DEFAULTS,
+) -> AnomalyPresentation | None:
+    """Detect anomalies relative to a baseline (B5).
+    
+    Thresholds are tunable heuristics, not product iron rules.
+    Default heuristics can change without a product-design revision.
+    """
+    indicators: list[AnomalyIndicator] = []
+
+    if sharpe is not None and baseline.sharpe is not None:
+        baseline_std = baseline.sharpe_std if baseline.sharpe_std is not None else 0.5
+        threshold = baseline.sharpe + (heuristics.sharpe_sigma_multiplier * baseline_std)
+        if sharpe > threshold:
+            indicators.append(AnomalyIndicator.SHARPE_OUTLIER)
+
+    if baseline.kind == "method_scorecard_bounds" and baseline.expected_sharpe_range is not None:
+        _, max_expected = baseline.expected_sharpe_range
+        if sharpe is not None and sharpe > max_expected * 1.5:
+            if AnomalyIndicator.SHARPE_OUTLIER not in indicators:
+                indicators.append(AnomalyIndicator.SHARPE_OUTLIER)
+
+    if coverage_shrunk:
+        indicators.append(AnomalyIndicator.COVERAGE_SHRUNK)
+
+    if baseline.trial_count is not None:
+        threshold = baseline.trial_count * heuristics.trial_count_multiplier
+        if trial_count > threshold:
+            indicators.append(AnomalyIndicator.HIGH_TRIAL_COUNT)
+
+    if method_revision_age_days < heuristics.recent_revision_days:
+        indicators.append(AnomalyIndicator.RECENT_METHOD_REVISION)
+
+    if not indicators:
+        return None
+
+    return AnomalyPresentation(
+        indicators=tuple(indicators),
+        expand_evidence_first=True,
+        tone="checklist",
+        baseline=baseline,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class Reverification:
     round_id: str

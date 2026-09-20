@@ -149,3 +149,75 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   border-radius: var(--radius-control);
   padding: 10px 12px;
 }
+
+/* B5: Anomaly presentation - checklist style, not celebration */
+.anomaly-section {
+  border: 1px solid var(--hold);
+  border-radius: var(--radius-card);
+  padding: 16px;
+  margin-bottom: 16px;
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.anomaly-section h4 {
+  color: var(--hold);
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+
+.anomaly-section .baseline-note {
+  font-size: 11px;
+  color: var(--mute);
+  margin-bottom: 8px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.anomaly-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.anomaly-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.anomaly-checklist li:last-child {
+  border-bottom: none;
+}
+
+.anomaly-checklist .indicator-icon {
+  color: var(--hold);
+  flex-shrink: 0;
+}
+
+/* Evidence expansion section - appears before conclusion */
+.evidence-expansion {
+  margin-bottom: 16px;
+}
+
+.evidence-expansion .provenance-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  background: var(--glass);
+  border-radius: var(--radius-control);
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.evidence-expansion .provenance-label {
+  color: var(--mute);
+}
+
+.evidence-expansion .provenance-value {
+  color: var(--ink);
+}
