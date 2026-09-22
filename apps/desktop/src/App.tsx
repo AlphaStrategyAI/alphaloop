@@ -299,6 +299,8 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
 export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "awaiting_confirm"}>}) {
   const [whoPays, setWhoPays] = useState("");
   const isCoverage = view.confirmKind === "coverage";
+  const hasEvidence = view.whyChange && view.whyChange.length > 0;
+  const canApproveEconomic = isCoverage || hasEvidence;
   const handleApprove = () => {
     void api.resolveConfirm(view.researchId, "approve_new_version", whoPays.trim() || undefined);
   };
@@ -349,8 +351,13 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
           <button onClick={() => void api.resolveConfirm(view.researchId, "pause_and_edit")}>暂停，我自己改</button>
         </div>
       ) : (
-        <div className="decision-stack">
-          <button className="cyan-button" onClick={handleApprove}>同意，开新的一版</button>
+        <div className="decision-stack" data-testid="economic-decisions">
+          {!hasEvidence && (
+            <p className="evidence-required-hint">需要证据依据才能同意</p>
+          )}
+          <button className="cyan-button" onClick={handleApprove} disabled={!canApproveEconomic}>
+            同意，开新的一版
+          </button>
           <button onClick={() => void api.resolveConfirm(view.researchId, "reject_keep_logic")}>不同意，维持原逻辑继续</button>
           <button onClick={() => void api.resolveConfirm(view.researchId, "pause_and_edit")}>暂停，我自己改</button>
         </div>

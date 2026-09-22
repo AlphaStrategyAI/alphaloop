@@ -287,6 +287,16 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   border-color: var(--cyan);
 }
 
+.evidence-required-hint {
+  color: var(--hold);
+  font-size: 12px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid var(--hold);
+  border-radius: var(--radius-control);
+}
+
 /* T3: Round two-column layout and trial counters */
 .round-columns {
   display: grid;

@@ -89,6 +89,7 @@ const views: DesktopView[] = [
     proposed: "信号从量价回归改成回归 + 拥挤度过滤",
     reason: "第 6 轮样本外走样，单纯回归在拥挤月份失效",
     effect: "确认后开出第 3 版；验证方法不变，经济逻辑改变",
+    whyChange: [{recordId: "round-6", recordedAt: "2026-08-28T10:00:00Z", kind: "round", summary: "样本外走样"}],
   },
   {
     kind: "completed",
@@ -389,6 +390,28 @@ describe("Night desktop contract", () => {
     expect(screen.getByText("夏普比率相对基线异常偏高")).toBeInTheDocument();
     expect(screen.getByText("尝试次数相对基线异常多")).toBeInTheDocument();
     expect(screen.getByText(/基线夏普 0.5/)).toBeInTheDocument();
+  });
+
+  it("disables approve button when whyChange is empty for economic confirms", () => {
+    render(
+      <AwaitingConfirmCard
+        api={api}
+        view={{
+          kind: "awaiting_confirm",
+          researchId: "r-1",
+          version: 2,
+          confirmKind: "economic",
+          proposed: "信号改成回归 + 拥挤度过滤",
+          reason: "样本外走样",
+          effect: "开出第 3 版",
+          whyChange: [],
+        }}
+      />,
+    );
+    expect(screen.getByText("需要证据依据才能同意")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "同意，开新的一版"})).toBeDisabled();
+    expect(screen.getByRole("button", {name: "不同意，维持原逻辑继续"})).toBeEnabled();
+    expect(screen.getByRole("button", {name: "暂停，我自己改"})).toBeEnabled();
   });
 
   it("shows who-pays input and evidence refs in awaiting-confirm card (B4)", () => {
