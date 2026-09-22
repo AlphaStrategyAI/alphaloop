@@ -232,13 +232,12 @@ describe("Night desktop contract", () => {
     expect(routeFor(views[6])).toBe("#/methods/overfit.walk");
   });
 
-  it("filters the research list by status and shows universe plus timestamps", async () => {
+  it("shows research list with universe and timestamps (filters removed per 小迪)", () => {
     const view = views[0];
     render(<App api={api} initialView={view} />);
     expect(screen.getByText("美股 · 股票")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", {name: "已暂停"}));
     expect(screen.getByText("美债收益率曲线")).toBeInTheDocument();
-    expect(screen.queryByText("沪深300波动收缩")).not.toBeInTheDocument();
+    expect(screen.getByText("沪深300波动收缩")).toBeInTheDocument();
   });
 
   it("shows overturned prior exports on a completed research that failed reverify", () => {

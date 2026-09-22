@@ -69,28 +69,7 @@ button { color: var(--ink); background: var(--glass); border: 1px solid var(--li
 button:disabled { cursor: not-allowed; opacity: .45; }
 .quiet-button:hover { border-color: var(--mute); }
 .list-header { display: flex; justify-content: space-between; align-items: center; }
-/* Night list: filters demoted (not primary path) */
-.list-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 12px 0 8px;
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
-  opacity: 0.7;
-}
-.list-filters:hover { opacity: 1; }
-.list-filters button {
-  padding: 6px 10px;
-  font-size: 11px;
-  background: transparent;
-  border: 1px solid var(--line);
-}
-.list-filters button.active {
-  border-color: var(--mute);
-  color: var(--ink);
-  background: var(--glass);
-}
+/* Night list: filter chips removed per 小迪 - status via pills on rows only */
 .thesis-hint { margin: 24px 64px 0; color: var(--mute); }
 .materials-note { margin: 16px 0 28px; padding: 16px 18px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-card); }
 .materials-note p { margin: 6px 0; }

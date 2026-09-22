@@ -64,14 +64,6 @@ const hostStatusLabels: Record<HostStatus, string> = {
   idle: "本机静",
 };
 
-const listFilters: readonly ResearchStatus[] = [
-  "draft",
-  "running",
-  "awaiting_confirm",
-  "paused",
-  "completed",
-  "ended",
-];
 
 export function routeFor(view: DesktopView): string {
   if (view.kind === "research_list") return "#/research";
@@ -123,29 +115,14 @@ function confirmDelete(api: DesktopApi, researchId: string) {
 }
 
 function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
-  const [statusFilter, setStatusFilter] = useState<ResearchStatus | null>(null);
-  const awaiting = statusFilter && statusFilter !== "awaiting_confirm" ? undefined : view.awaiting;
-  const rows = statusFilter ? view.rows.filter((row) => row.status === statusFilter) : view.rows;
+  const awaiting = view.awaiting;
+  const rows = view.rows;
   return (
     <div className="browse list-screen">
       <header className="list-header">
         <p>一条对话，一次研究。等你确认的会排在最上面。</p>
         <button className="quiet-button" onClick={() => void api.createDraft()}>新建研究</button>
       </header>
-      <div className="list-filters">
-        {listFilters.map((status) => (
-          <button
-            key={status}
-            className={statusFilter === status ? "quiet-button active" : "quiet-button"}
-            onClick={() => {
-              setStatusFilter(status);
-              void api.fetchView(`#/research?status=${status}`);
-            }}
-          >
-            {statusLabels[status]}
-          </button>
-        ))}
-      </div>
       {awaiting && (
         <article className="awaiting-primary" data-kind="awaiting-primary">
           <a className="awaiting-primary-body" href={`#/research/${awaiting.id}`}>
