@@ -69,8 +69,7 @@ button { color: var(--ink); background: var(--glass); border: 1px solid var(--li
 button:disabled { cursor: not-allowed; opacity: .45; }
 .quiet-button:hover { border-color: var(--mute); }
 .list-header { display: flex; justify-content: space-between; align-items: center; }
-.list-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 8px; }
-.list-filters button.active { border-color: var(--ink); color: var(--ink); }
+/* Night list: filter chips removed per 小迪 - status via pills on rows only */
 .thesis-hint { margin: 24px 64px 0; color: var(--mute); }
 .materials-note { margin: 16px 0 28px; padding: 16px 18px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-card); }
 .materials-note p { margin: 6px 0; }
@@ -220,4 +219,188 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 
 .evidence-expansion .provenance-value {
   color: var(--ink);
+}
+
+/* T2: Evidence list and who-pays for awaiting-confirm */
+.evidence-section {
+  margin: 20px 0;
+}
+
+.evidence-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.evidence-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  background: var(--glass);
+  border-radius: var(--radius-control);
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.evidence-kind {
+  background: var(--line);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--mute);
+}
+
+.evidence-id {
+  color: var(--ink);
+}
+
+.evidence-summary {
+  color: var(--mute);
+  flex: 1;
+}
+
+.evidence-time {
+  color: var(--mute);
+  font-size: 11px;
+}
+
+.who-pays-section {
+  margin: 20px 0;
+}
+
+.who-pays-input {
+  width: 100%;
+  min-height: 60px;
+  margin-top: 8px;
+  padding: 12px;
+  color: var(--ink);
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font: inherit;
+  resize: vertical;
+}
+
+.who-pays-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+
+.evidence-required-hint {
+  color: var(--hold);
+  font-size: 12px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid var(--hold);
+  border-radius: var(--radius-control);
+}
+
+/* T3: Round two-column layout and trial counters */
+.round-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 12px 0;
+}
+
+.round-logic, .round-impl {
+  min-width: 0;
+}
+
+.round-logic p, .round-impl p {
+  margin: 4px 0;
+}
+
+.change-note {
+  font-size: 12px;
+  color: var(--hold);
+  border-left: 2px solid var(--hold);
+  padding-left: 8px;
+  margin-top: 8px;
+}
+
+.param-changes {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.param-changes li {
+  padding: 2px 0;
+  color: var(--mute);
+}
+
+.no-changes {
+  color: var(--mute);
+  font-style: italic;
+}
+
+.trial-counters {
+  display: flex;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.trial-counters span {
+  color: var(--mute);
+}
+
+.trial-counters .passed {
+  color: var(--ok);
+}
+
+.trial-counters .failed {
+  color: var(--stop);
+}
+
+/* T5: Method library Scorecard dimensions */
+.method-category-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: 12px;
+  color: var(--cyan);
+  margin-bottom: 12px;
+}
+
+.scorecard-dimensions {
+  margin: 20px 0;
+  padding: 16px;
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.scorecard-dimensions table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.scorecard-dimensions th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--mute);
+  font-weight: normal;
+}
+
+.scorecard-dimensions td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.scorecard-dimensions tr:last-child td {
+  border-bottom: none;
 }
