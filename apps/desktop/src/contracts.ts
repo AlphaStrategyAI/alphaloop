@@ -11,7 +11,10 @@ export type HostStatus = "awaiting_confirm" | "running" | "completed" | "idle";
 export type ConfirmationDecision =
   | "approve_new_version"
   | "reject_keep_logic"
-  | "pause_and_edit";
+  | "pause_and_edit"
+  | "accept_lower_floor"
+  | "supply_local_materials"
+  | "redefine_scope";
 
 export type ExportKind = "strategy_pack" | "research_record";
 
@@ -38,6 +41,9 @@ export interface ValidationMethod {
   revision: string;
   description: string;
   usageCount?: number;
+  source?: string;
+  category?: string;
+  dimensions?: readonly ScorecardDimension[];
 }
 
 type ViewBody =
@@ -51,11 +57,12 @@ type ViewBody =
       version: number;
       effective: string;
       coverage: string;
-      rounds: readonly string[];
+      rounds: readonly RoundRecord[];
       currentAction?: string;
       remaining?: string;
       sources?: string;
       dataCutoff?: string;
+      anomaly?: AnomalyPresentation | null;
     }
   | {
       kind: "awaiting_confirm";
@@ -65,6 +72,10 @@ type ViewBody =
       proposed: string;
       reason: string;
       effect: string;
+      whyChange?: readonly EvidenceRef[];
+      whoPaysOptional?: string | null;
+      createdAt?: string;
+      requestId?: string;
     }
   | {
       kind: "completed";
@@ -76,6 +87,7 @@ type ViewBody =
       eligibility: ExportEligibilityV2;
       overturnedExports?: boolean;
       currentAction?: string;
+      anomaly?: AnomalyPresentation | null;
     }
   | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]};
 
@@ -94,7 +106,7 @@ export interface DesktopApi {
   confirmModification(researchId: string): Promise<void>;
   extendResearch(researchId: string, hours: number): Promise<void>;
   deleteResearch(researchId: string): Promise<void>;
-  resolveConfirm(researchId: string, decision: ConfirmationDecision): Promise<void>;
+  resolveConfirm(researchId: string, decision: ConfirmationDecision, whoPays?: string): Promise<void>;
   exportArtifact(researchId: string, kind: ExportKind): Promise<void>;
   reverify(researchId: string, roundId: string, methodId: string): Promise<void>;
   reviseMethod(methodId: string, definition: string): Promise<void>;

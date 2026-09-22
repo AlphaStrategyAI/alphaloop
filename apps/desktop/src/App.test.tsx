@@ -19,7 +19,7 @@ const api: DesktopApi = {
   confirmModification: vi.fn(async () => undefined),
   extendResearch: vi.fn(async () => undefined),
   deleteResearch: vi.fn(async () => undefined),
-  resolveConfirm: vi.fn(async () => undefined),
+  resolveConfirm: vi.fn(async (_researchId: string, _decision: string, _whoPays?: string) => undefined),
   exportArtifact: vi.fn(async () => undefined),
   reverify: vi.fn(async () => undefined),
   reviseMethod: vi.fn(async () => undefined),
@@ -62,7 +62,24 @@ const views: DesktopView[] = [
     version: 2,
     effective: "3h12 / 12h",
     coverage: "覆盖仍在底线之上",
-    rounds: ["样本外走样，准备加拥挤度过滤", "量价回归，三项验证"],
+    rounds: [
+      {
+        roundId: "round-2",
+        number: 2,
+        logicStatement: {statement: "样本外走样，准备加拥挤度过滤", changedFromPrior: true, changeDescription: "加入拥挤度指标", baselineVersion: 1},
+        implementationDelta: {researchMethodChanges: [], modelChanges: ["crowd_filter"], paramChanges: [["threshold", "0.8", "0.6"]]},
+        trialCounters: {candidatesEvaluated: 15, candidatesPassed: 3, conclusionAttemptNumber: 2},
+        verificationPassed: true,
+      },
+      {
+        roundId: "round-1",
+        number: 1,
+        logicStatement: {statement: "量价回归，三项验证", changedFromPrior: false, baselineVersion: 1},
+        implementationDelta: {researchMethodChanges: [], modelChanges: [], paramChanges: []},
+        trialCounters: {candidatesEvaluated: 10, candidatesPassed: 2, conclusionAttemptNumber: 1},
+        verificationPassed: true,
+      },
+    ],
   },
   {
     kind: "awaiting_confirm",
@@ -84,6 +101,7 @@ const views: DesktopView[] = [
       allMethodsPassed: true,
       noPendingConfirm: true,
       reverifiesPassed: true,
+      pitExecutedAndPassed: true,
     },
   },
   {
@@ -146,6 +164,31 @@ describe("Night desktop contract", () => {
     expect(screen.getByRole("heading", {level: 1})).toHaveTextContent("数据覆盖要跌破底线");
   });
 
+  it("offers §4.6 coverage-specific choices when confirmKind is coverage (T6)", () => {
+    const resolveConfirm = vi.fn(async () => undefined);
+    render(
+      <AwaitingConfirmCard
+        api={{...api, resolveConfirm}}
+        view={{
+          kind: "awaiting_confirm",
+          researchId: "r-1",
+          version: 2,
+          confirmKind: "coverage",
+          proposed: "覆盖将低于认下的底线",
+          reason: "可用历史不够十年",
+          effect: "确认后改写覆盖底线并开新版本",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("coverage-decisions")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "认下更低底线并开新版"}));
+    expect(resolveConfirm).toHaveBeenCalledWith("r-1", "accept_lower_floor");
+    fireEvent.click(screen.getByRole("button", {name: "提供本机材料补充覆盖"}));
+    expect(resolveConfirm).toHaveBeenCalledWith("r-1", "supply_local_materials");
+    fireEvent.click(screen.getByRole("button", {name: "缩小研究范围"}));
+    expect(resolveConfirm).toHaveBeenCalledWith("r-1", "redefine_scope");
+  });
+
   it("shows exactly five read-only setting slots in draft", () => {
     render(<App api={api} initialView={views[1]} />);
     expect(screen.getAllByTestId("brief-slot")).toHaveLength(5);
@@ -165,7 +208,7 @@ describe("Night desktop contract", () => {
     fireEvent.click(screen.getByRole("button", {name: "同意，开新的一版"}));
     fireEvent.click(screen.getByRole("button", {name: "不同意，维持原逻辑继续"}));
     fireEvent.click(screen.getByRole("button", {name: "暂停，我自己改"}));
-    expect(api.resolveConfirm).toHaveBeenNthCalledWith(1, "r-1", "approve_new_version");
+    expect(api.resolveConfirm).toHaveBeenNthCalledWith(1, "r-1", "approve_new_version", undefined);
     expect(api.resolveConfirm).toHaveBeenNthCalledWith(2, "r-1", "reject_keep_logic");
     expect(api.resolveConfirm).toHaveBeenNthCalledWith(3, "r-1", "pause_and_edit");
   });
@@ -209,7 +252,7 @@ describe("Night desktop contract", () => {
           title: "美股低波动回归",
           selectedRoundId: "round-1",
           selectedMethodId: "overfit.walk",
-          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: false},
+          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: false, pitExecutedAndPassed: true},
           overturnedExports: true,
           currentAction: "idle",
         }}
@@ -217,6 +260,36 @@ describe("Night desktop contract", () => {
     );
     expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+  });
+
+  it("shows Scorecard dimensions in method detail (B6)", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "methods",
+          selected: "scorecard.market",
+          methods: [{
+            id: "scorecard.market",
+            name: "市场计分卡",
+            revision: "scorecard-v1",
+            description: "市场表现计分卡",
+            usageCount: 5,
+            source: "preset",
+            category: "计分卡",
+            dimensions: [
+              {kind: "predictive_power", name: "夏普比率", description: "样本外夏普比率下限", passThreshold: 0, comparison: "gt", failureDisplay: "夏普不高于基准"},
+              {kind: "stability", name: "最大回撤", description: "回撤上限", passThreshold: -0.25, comparison: "gte", failureDisplay: "回撤过大"},
+            ],
+          }],
+        }}
+      />,
+    );
+    expect(screen.getByText("计分卡")).toBeInTheDocument();
+    expect(screen.getByTestId("scorecard-dimensions")).toBeInTheDocument();
+    expect(screen.getByText("夏普比率")).toBeInTheDocument();
+    expect(screen.getByText("最大回撤")).toBeInTheDocument();
+    expect(screen.getByText("夏普不高于基准")).toBeInTheDocument();
   });
 
   it("can pre-create a method from the library screen", async () => {
@@ -244,7 +317,7 @@ describe("Night desktop contract", () => {
           title: "美股低波动回归",
           selectedRoundId: "round-1",
           selectedMethodId: "overfit.walk",
-          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: true},
+          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: true},
           overturnedExports: true,
           currentAction: "idle",
         }}
@@ -252,5 +325,102 @@ describe("Night desktop contract", () => {
     );
     expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeEnabled();
+  });
+
+  it("shows four eligibility gates including PIT and disables export when PIT fails (B1)", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "completed",
+          researchId: "r-1",
+          status: "completed",
+          title: "低波动回归",
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: false},
+          currentAction: "idle",
+        }}
+      />,
+    );
+    const eligibilityDiv = document.querySelector(".eligibility");
+    expect(eligibilityDiv).toBeInTheDocument();
+    expect(eligibilityDiv?.children).toHaveLength(4);
+    expect(eligibilityDiv?.textContent).toContain("时点一致性已执行且通过");
+    expect(eligibilityDiv?.textContent).toContain("○ 时点一致性已执行且通过");
+    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+  });
+
+  it("renders round cards with two-column layout and trial counters (B2/B3)", () => {
+    render(<App api={api} initialView={views[3]} />);
+    const roundCards = screen.getAllByTestId("round-card");
+    expect(roundCards).toHaveLength(2);
+    expect(screen.getAllByText("逻辑陈述")).toHaveLength(2);
+    expect(screen.getAllByText("实现与参数")).toHaveLength(2);
+    expect(screen.getByText("候选 15")).toBeInTheDocument();
+    expect(screen.getByText("通过 3")).toBeInTheDocument();
+    expect(screen.getByText("第 2 次尝试")).toBeInTheDocument();
+    expect(screen.getByText("threshold: 0.8 → 0.6")).toBeInTheDocument();
+  });
+
+  it("renders anomaly checklist when anomalies are detected (B5)", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "completed",
+          researchId: "r-1",
+          status: "completed",
+          title: "低波动回归",
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: true},
+          currentAction: "idle",
+          anomaly: {
+            indicators: ["sharpe_outlier", "high_trial_count"],
+            expandEvidenceFirst: true,
+            tone: "checklist",
+            baseline: {kind: "version_1_logic", sharpe: 0.5, trialCount: 5},
+          },
+        }}
+      />,
+    );
+    expect(screen.getByTestId("anomaly-checklist")).toBeInTheDocument();
+    expect(screen.getByText("结果需要额外审视")).toBeInTheDocument();
+    expect(screen.getByText("夏普比率相对基线异常偏高")).toBeInTheDocument();
+    expect(screen.getByText("尝试次数相对基线异常多")).toBeInTheDocument();
+    expect(screen.getByText(/基线夏普 0.5/)).toBeInTheDocument();
+  });
+
+  it("shows who-pays input and evidence refs in awaiting-confirm card (B4)", () => {
+    const resolveConfirm = vi.fn(async () => undefined);
+    render(
+      <AwaitingConfirmCard
+        api={{...api, resolveConfirm}}
+        view={{
+          kind: "awaiting_confirm",
+          researchId: "r-1",
+          version: 2,
+          confirmKind: "economic",
+          proposed: "信号改成回归 + 拥挤度过滤",
+          reason: "样本外走样",
+          effect: "开出第 3 版",
+          whyChange: [
+            {recordId: "attempt-123", recordedAt: "2026-08-28T10:00:00Z", kind: "attempt", summary: "候选策略表现"},
+            {recordId: "round-1", recordedAt: "2026-08-28T09:00:00Z", kind: "round"},
+          ],
+          whoPaysOptional: null,
+          createdAt: "2026-08-28T12:00:00Z",
+          requestId: "req-001",
+        }}
+      />,
+    );
+    expect(screen.getByText("证据依据")).toBeInTheDocument();
+    expect(screen.getByText("attempt")).toBeInTheDocument();
+    expect(screen.getByText("attempt-123")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("不填则记录为「未作答」")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("不填则记录为「未作答」"), {target: {value: "用户自担"}});
+    fireEvent.click(screen.getByRole("button", {name: "同意，开新的一版"}));
+    expect(resolveConfirm).toHaveBeenCalledWith("r-1", "approve_new_version", "用户自担");
   });
 });
