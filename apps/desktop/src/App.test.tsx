@@ -13,6 +13,7 @@ const api: DesktopApi = {
   fetchView: vi.fn(() => new Promise<DesktopView>(() => undefined)),
   createDraft: vi.fn(async () => "r-new"),
   confirmRun: vi.fn(async () => undefined),
+  unlockBrief: vi.fn(async () => undefined),
   sendDialogue: vi.fn(async () => undefined),
   pauseResearch: vi.fn(async () => undefined),
   resumeResearch: vi.fn(async () => undefined),
@@ -194,6 +195,14 @@ describe("Night desktop contract", () => {
     render(<App api={api} initialView={views[1]} />);
     expect(screen.getAllByTestId("brief-slot")).toHaveLength(5);
     expect(screen.getByPlaceholderText("把方向说清楚，不用填表。")).toBeInTheDocument();
+  });
+
+
+  it("再改改 calls unlockBrief instead of a dead hash link", () => {
+    render(<ConfirmRunCard api={api} view={views[2] as Extract<DesktopView, {kind: "confirm_run"}>} />);
+    fireEvent.click(screen.getByRole("button", {name: "再改改"}));
+    expect(api.unlockBrief).toHaveBeenCalledWith("r-1");
+    expect(screen.queryByRole("link", {name: "再改改"})).not.toBeInTheDocument();
   });
 
   it("uses two distinct non-modal confirmation cards", () => {

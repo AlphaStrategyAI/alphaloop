@@ -63,3 +63,13 @@ def next_question(research: Research) -> DialoguePrompt:
         if slot.value is None or not slot.locked:
             return DialoguePrompt(name, QUESTIONS[name])
     raise AssertionError("unreachable slot state")
+
+
+def unlock_all_slots(research: Research, now: datetime) -> Research:
+    """Return to editable draft: keep slot values, clear locks on all five settings."""
+    if research.status.value != "draft":
+        raise ValueError("unlock_brief is only valid while research is still in draft")
+    brief = research.brief
+    for name in SlotName:
+        brief = _set_slot(brief, name.value, None, False)
+    return replace(research, brief=brief, updated_at=now)

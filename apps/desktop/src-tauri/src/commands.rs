@@ -127,6 +127,22 @@ pub async fn confirm_run(
     .map(|_| ())
 }
 
+
+#[tauri::command]
+pub async fn unlock_brief(
+    research_id: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "unlock_brief", "research_id": research_id}),
+    )
+    .await
+    .map(|_| ())
+}
+
 #[tauri::command]
 pub async fn send_dialogue(
     research_id: String,

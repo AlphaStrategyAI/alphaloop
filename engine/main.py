@@ -20,7 +20,7 @@ import jsonschema
 import pandas as pd
 
 from engine.dialogue.intent import interpret
-from engine.dialogue.slots import apply_intent
+from engine.dialogue.slots import apply_intent, unlock_all_slots
 from engine.export import (
     build_research_record_pack,
     build_strategy_pack,
@@ -628,6 +628,8 @@ class ResearchCommandService:
                 interpret(request["message"], research),
                 now,
             )
+        elif kind == "unlock_brief":
+            updated = unlock_all_slots(research, now)
         elif kind == "confirm_run":
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
             self._record_version_methods(updated)

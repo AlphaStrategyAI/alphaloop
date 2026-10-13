@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from engine.dialogue.intent import IntentKind, interpret
-from engine.dialogue.slots import SlotName, apply_intent, next_question
+from engine.dialogue.slots import SlotName, apply_intent, next_question, unlock_all_slots
 from engine.research.models import AssetClass, Market, new_research
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
@@ -62,3 +62,28 @@ def test_fund_message_locks_fund_universe_with_equity_underlying() -> None:
     assert intent.universe is not None
     assert intent.universe.asset_class is AssetClass.FUND
     assert intent.universe.underlying_asset_class is AssetClass.EQUITY
+
+
+def test_unlock_all_slots_returns_editable_draft_with_values_kept() -> None:
+    research = new_research("r-unlock", NOW)
+    messages = (
+        "研究美股低波动回归",
+        "锁定大致原理",
+        "锁定资产类别",
+        "最长有效研究时间12小时并锁定",
+        "第一轮用走样检验、样本外稳定、拥挤度、换手成本并锁定",
+        "最低覆盖至少50个资产、10年、缺失不超过5%并锁定",
+    )
+    for message in messages:
+        research = apply_intent(research, interpret(message, research), NOW)
+    assert next_question(research).slot is None
+
+    unlocked = unlock_all_slots(research, NOW)
+    assert unlocked.status.value == "draft"
+    assert unlocked.brief.thesis.value == research.brief.thesis.value
+    assert unlocked.brief.thesis.locked is False
+    assert unlocked.brief.universe.locked is False
+    assert unlocked.brief.max_effective_hours.locked is False
+    assert unlocked.brief.round1_methods.locked is False
+    assert unlocked.brief.coverage_floor.locked is False
+    assert next_question(unlocked).slot is SlotName.THESIS
