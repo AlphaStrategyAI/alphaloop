@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans，按任务逐步执行。步骤使用 checkbox（`- [ ]`）跟踪。
 
+> **修订 2026-10-13（[review 5498781600](https://github.com/AlphaStrategyAI/alphaloop/pull/123#pullrequestreview-5498781600)）：** 对照 main 修正三处实施阻塞。（1）`pit.consistency` **没有**接进 `run_verifiers`；T5 先接线再测导出，Done #3 / B1 不能只靠手插结果。（2）T3 必须改 `engine/research/models.py`，把 `Version.rounds` 收成 `RoundV2`。（3）`who_pays` 走桌面 invoke → `commands.rs` → `desktop-api.schema` → 引擎；持久落点只有新版本的 `confirmed_changes`。
+
 **Goal:** 在**不新开第二条研究路径**的前提下，让 V1 唯一承诺的诚实端到端（MeanReversion + 现有 `RoundBuilder` / `ResearchLoop`）满足 [V1 交付收口 §2.1](../requirements/v1-cut-line.md#21-可测-done) 五条可测 Done；工作台数据来自真实闭环，review 关由确定性 reviewer 兜底，导出四门栏 + PIT 全链成立。
 
-**Architecture:** 生产侧继续 `engine/main.py::build_loop` → `DefaultRoundBuilder`（gather→specify→simulate→`run_verifiers`）→ `ResearchLoop.run_once` → `run_review_gate`（`ReviewerPort`）→ `transition`。P0 只补齐：**(1)** V1 路径选用确定性 `ReviewerPort`；(2) 轮次产物写入 store 的 B2/B3 字段并经 `ResearchCommandService.view_for` 诚实映射到 Night 七屏已有槽位；(3) 一条带真实 `MaterialPort`/`DataPort` 的验收路径（CI 其余仍 fixture）；(4) 导出沿用 `strategy_pack_eligibility` + `build_strategy_pack` / `build_research_record_pack` + `contracts/strategy-pack.schema.json`。
+**Architecture:** 生产侧继续 `engine/main.py::build_loop` → `DefaultRoundBuilder`（gather→specify→simulate→`run_verifiers`）→ `ResearchLoop.run_once` → `run_review_gate`（`ReviewerPort`）→ `transition`。P0 只补齐：**(1)** V1 路径选用确定性 `ReviewerPort`；(2) 轮次产物写入 store 的 B2/B3 字段并经 `ResearchCommandService.view_for` 诚实映射到 Night 七屏已有槽位；(3) 一条带真实 `MaterialPort`/`DataPort` 的验收路径（CI 其余仍 fixture）；(4) `run_verifiers` 实际执行 `pit.consistency` 后，导出仍用 `strategy_pack_eligibility` + `build_strategy_pack` / `build_research_record_pack` + `contracts/strategy-pack.schema.json`。
 
 **Tech Stack:** Python 3.12, pandas, NumPy, httpx, yfinance, akshare, SQLite, jsonschema, pytest; Tauri 2 + React + TypeScript（仅数据填充，不改 Night IA）
 
@@ -53,7 +55,7 @@ confirm_run → RUNNING
 | `RoundBuilder` / `DefaultRoundBuilder` | `engine/research/loop.py` | 生产已用；测试里 `FakeBuilder` 仅 `tests/test_loop_runtime.py` |
 | `ResearchLoop` | `engine/research/loop.py` | `run_once` 已接 review/coverage/confirm |
 | `ReviewerPort` / `run_review_gate` | `engine/review/subagent.py` | 生产默认 `SubagentReviewer(FailClosedLLM\|OpenAICompatibleLLM)` |
-| `VerifierResult` / `PitVerifierResult` | `engine/verifiers.py` | `pit.consistency` 已在 `run_verifiers` |
+| `VerifierResult` / `PitVerifierResult` | `engine/verifiers.py` | `_pit_consistency` 已实现；**`run_verifiers` 不调用它**（见 T5） |
 | 第四导出关 | `engine/export.py::strategy_pack_eligibility` | 键 `pit_executed_and_passed`；UI 映射 `pitExecutedAndPassed` |
 | 策略包 | `engine/export.py::build_strategy_pack` | `live_handoff_eligible: true`；MeanReversion-only |
 | 桌面视图 | `engine/main.py::ResearchCommandService.view_for` | Night 槽位已有；**多处仍用占位/推导字段**（见 T0） |
@@ -66,11 +68,17 @@ confirm_run → RUNNING
 | 操作 | 路径 | 职责 |
 | --- | --- | --- |
 | Create | `engine/review/deterministic.py` | `DeterministicReviewer`：`ReviewerPort`，可配置 pass/fail 规则 |
-| Modify | `engine/main.py` | `build_loop` 选择 reviewer；`view_for` 诚实映射；`resolve_confirm` 写入 `who_pays`；completed 视图补轮次/指标 |
-| Modify | `engine/research/loop.py` | `DefaultRoundBuilder` 产出 `RoundV2`（或统一 Round 扩展字段）；持久化 `TrialCounters` / `LogicStatement` / `ImplementationDelta` |
-| Modify | `engine/research/models.py` | 若采用「Version 存 RoundV2」：迁移 `Version.rounds` 类型或序列化兼容 |
+| Modify | `engine/main.py` | `build_loop` 选择 reviewer；`view_for` 诚实映射；reverify 把证据日传入 `run_verifiers`；`resolve_confirm` 把 `who_pays` 写入唯一落点；completed 视图补轮次/指标 |
+| Modify | `engine/verifiers.py` | `run_verifiers` 始终追加一条 `pit.consistency`（调用已有 `_pit_consistency`，不塞进 `_SELECTABLE`） |
+| Modify | `engine/research/methods.py` | 新鲜库与已有预置库都播种 `pit.consistency`；`PRESET_NAMES` 补键，避免 `seed_preset_methods` KeyError |
+| Modify | `engine/research/loop.py` | `DefaultRoundBuilder` 产出 `RoundV2`；`build` / `retry` 把证据日传入 `run_verifiers` |
+| Modify | `engine/research/models.py` | `Version.rounds` 改为 `tuple[RoundV2, ...]`，store 往返能留下 B2/B3 字段 |
+| Modify | `engine/review/subagent.py` | `run_review_gate` 构造 `RoundV2`；`ReviewGateOutcome.successful_round` 类型改为 `RoundV2 \| None` |
 | Modify | `engine/research/specify.py` | 逻辑/实现分栏与 `classify_change` 对齐的真实文案 |
 | Modify | `engine/export.py` | `build_strategy_pack` 写入 `history/rounds.json`（调用已有 `_round_history_with_trials`） |
+| Modify | `apps/desktop/src/main.tsx` | `resolveConfirm` 把第三参 `whoPays` 传给 `invoke` |
+| Modify | `apps/desktop/src-tauri/src/commands.rs` | `resolve_confirm` 的 JSON 转发 `who_pays` |
+| Modify | `contracts/desktop-api.schema.json` | `resolve_confirm` 声明可选 `who_pays`；保持 `additionalProperties: false` |
 | Create | `engine/research/desktop_view.py` | 从 `Research` → desktop JSON rounds/metrics/anomaly（去重 `view_for` 占位逻辑） |
 | Modify | `apps/desktop/src/App.tsx` | 去掉 completed 硬编码副标题；无数据时 fail-closed 展示（仅当 engine 发 null/省略） |
 | Modify | `apps/desktop/src/contracts.ts` | completed 视图可选 `rounds` / `metrics` / `failedExportChecks` |
@@ -96,11 +104,11 @@ confirm_run → RUNNING
 | --- | --- | --- |
 | 1 真实 `ResearchLoop` → `COMPLETED` | `build_loop` 已用 `DefaultRoundBuilder`；review 默认 `SubagentReviewer` + 无 LLM 时 `FailClosedLLM`（恒 fail） | 无 LLM 时极难在合理预算内 `COMPLETED`；缺 DefaultRoundBuilder 端到端验收测试 |
 | 2 工作台诚实填充 | `view_for` running：`logicStatement.statement` = `spec.id`；`implementationDelta` 空；`trialCounters` 用 `attempt.number` 冒充 | `RoundV2` 类型存在但 `run_review_gate` 仍构造 `Round`；completed 屏无轮次/指标，且有硬编码「美股 · 股票 · …」 |
-| 3 导出门槛 | `strategy_pack_eligibility` + `export_artifact` 分支已实现；`why_not_live.json` 已有 | 需 E2E 证明四门栏 + PIT 与 UI 一致；`research_record` 在不合格时仍可导出（已支持） |
+| 3 导出门槛 | `strategy_pack_eligibility` 在 `verification.results` 里找 `pit.consistency`；`export_artifact` 分支与 `why_not_live.json` 已有 | **`run_verifiers` 不产生 PIT 结果**（只跑 `_scorecard` + `_SELECTABLE`）。诚实路径上 `pit_executed_and_passed` 恒失败。T5 必须先接线，再测导出；手插 `PitVerifierResult` 不算 Done #3 |
 | 4 schema + `live_handoff_eligible` | `test_export_pack.py` 覆盖 manifest 字段；**无** jsonschema 对 zip manifest 的自动化校验 | 缺 `jsonschema.validate(manifest, schema)` 测试 |
 | 5 确定性 reviewer | 仅测试内 `PassReviewer` / `FailReviewer`（`tests/test_loop_runtime.py`） | 生产未接线；`SubagentReviewer` 可阻塞或 AUTO_CONTINUE 空转 |
 
-- [ ] **Step 2:** 记录 B4 小缺口：`resolve_confirm` 未把桌面传入的 `who_pays` 写入 `ConfirmRequest` / version 记录（`engine/main.py` `kind == "resolve_confirm"`）。
+- [ ] **Step 2:** 记录 B4 缺口（全栈，不是引擎单点）：`AwaitingConfirmCard` 已把 `whoPays` 传给 `api.resolveConfirm`（空则 `undefined`）。断在 `apps/desktop/src/main.tsx`（invoke 丢掉第三参）、`apps/desktop/src-tauri/src/commands.rs`（JSON 只有 `research_id` + `decision`）、`contracts/desktop-api.schema.json`（`resolve_confirm` 无 `who_pays` 且 `additionalProperties: false`，引擎 `jsonschema.validate` 会拒掉多出来的字段）。`engine/main.py` 的 `resolve_confirm` 也不读该字段。空答须记「未作答」。唯一落点见 T3。
 
 - [ ] **Step 3:** 记录 B5 缺口：`ResearchCommandService._compute_anomaly` 使用硬编码 baseline `sharpe=0.5`, `trial_count=5`（非本轮闭环产物）。
 
@@ -117,13 +125,13 @@ confirm_run → RUNNING
 
 **Interfaces:**
 - Consumes: `ReviewerPort`, `RoundDraft`, `ReviewReport` from `engine/review/subagent.py`
-- Produces: `DeterministicReviewer(pass_when: Callable[[RoundDraft], bool] | None = None)`；`default_v1_pass(draft) -> bool`（建议：`draft.attempt.verification.passed` 且 `model_family == "mean_reversion"`）
+- Produces: `DeterministicReviewer(pass_when: Callable[[RoundDraft], bool] | None = None)`；`default_v1_pass(draft) -> bool`
 
 **设计**
 
 | 项 | 决定 |
 | --- | --- |
-| 行为 | 固定策略：默认 **verification 全通过则 review pass**，否则 fail（可测、无网络） |
+| 行为 | 固定策略：`draft.attempt.verification.passed` **且** `draft.attempt.spec.model_family == "mean_reversion"` 则 pass，否则 fail（可测、无网络）。导出侧 `build_strategy_pack` 用 `isinstance(..., MeanReversionStrategy)` 拒绝其他族；`DefaultRoundBuilder` 只构造这一族。守卫对齐这个族名，不另造判定 |
 | 选型 | `ALPHALOOP_REVIEWER=deterministic`（**默认**）\| `subagent` |
 | 生产 | `build_loop`：`deterministic` → `DeterministicReviewer()`；`subagent` → 现有 `SubagentReviewer(llm)` |
 | 与 `FailClosedLLM` | V1 验收不依赖 `ALPHALOOP_LLM_*`；subagent 模式保留给开发/后续期 |
@@ -144,6 +152,11 @@ def test_deterministic_reviewer_passes_when_verification_passed(draft_with_passi
 def test_deterministic_reviewer_fails_when_verification_failed(draft_with_failing_verification):
     report = DeterministicReviewer(default_v1_pass).run(draft_with_failing_verification)
     assert report.passed is False
+
+def test_deterministic_reviewer_fails_for_non_mean_reversion_family(draft_with_passing_verification):
+    draft = replace_model_family(draft_with_passing_verification, "other")
+    report = DeterministicReviewer(default_v1_pass).run(draft)
+    assert report.passed is False
 ```
 
 - [ ] **Step 2:** `pytest tests/test_deterministic_reviewer.py -v` → 预期 FAIL（模块不存在）
@@ -161,9 +174,8 @@ def test_deterministic_reviewer_fails_when_verification_failed(draft_with_failin
 ## T2：真实 DataPort / MaterialPort 验收路径（与 CI fixture 矩阵）
 
 **Files:**
-- Create: `tests/test_v1_honest_path.py`
+- Create: `tests/test_v1_honest_path.py`（在 `tmp_path` 写 thesis 匹配的 `.md`，不依赖仓库里的 `materials/`）
 - Modify: `pyproject.toml`（markers）
-- Modify: `materials/README.md`（可选：验收用本地材料文件名）
 
 **Interfaces:**
 - Consumes: `gather`, `RoutingDataAdapter`, `LocalMaterialAdapter`, `DefaultRoundBuilder`, `DeterministicReviewer`
@@ -175,10 +187,14 @@ def test_deterministic_reviewer_fails_when_verification_failed(draft_with_failin
 | --- | --- | --- | --- |
 | 单元/环测（默认 CI） | `FakeMaterials`（`tests/test_gather_specify.py`） | 内存 CSV / `FakeBuilder` 仿真 | `pytest` 默认，无网络 |
 | 环测 loop | N/A | N/A | `FakeBuilder` + `PassReviewer`（`tests/test_loop_runtime.py`）— **不算 §2.1 诚实 E2E** |
-| **验收（§2.3 接受路径）** | `LocalMaterialAdapter(materials/)` + 可选 `PapersAdapter`（crossref） | `RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter())` | `pytest -m network` 或 `ALPHALOOP_ACCEPTANCE_NETWORK=1` |
+| **验收（§2.3 接受路径）** | `LocalMaterialAdapter(tmp_path)`，目录里有一份与 thesis 共享词的 `.md`；可选 `PapersAdapter`（crossref） | `RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter())` | `pytest -m network` 或 `ALPHALOOP_ACCEPTANCE_NETWORK=1` |
 | 桌面生产 | `build_loop` 全适配器 | 同上 | 用户本机；P0 用验收测试代表 |
 
-- [ ] **Step 1: 写失败测试**（缩短 universe：1 符号、短窗口，降低 flake）
+- [ ] **Step 1: 写失败测试**（单标的；材料与 scorecard 见下）
+
+`LocalMaterialAdapter.fetch` 只返回 root 下 `*.md`、且正文含 query 词的文件。测试在 `tmp_path` 写一份与 locked thesis 共享词的 `.md`，把 adapter 指到该目录。空目录会让 `gather` 抛 `no public or local evidence was gathered`。
+
+Brief 写在测试 docstring：一只流动性足够的标的（如 `SPY`）、日频。窗口要长到 scorecard / walk-forward 算得出 `sharpe_oos` 与 `excess_ann`。确定性 reviewer 在 verification 未过时不会 `COMPLETED`。用 `ResearchLoop` 已有的 retry 预算。scorecard 失败时不要 `pytest.skip` 当成通过，也不要放宽阈值；窗口不够就在同一只标的上加长。
 
 ```python
 import os
@@ -215,29 +231,53 @@ markers = [
 
 ---
 
-## T3：`DefaultRoundBuilder` 端到端 → `COMPLETED` 且产物入 store + 桌面
+## T3：`DefaultRoundBuilder` 端到端 → `COMPLETED` 且产物入 store + who_pays 全栈
 
 **Files:**
-- Modify: `engine/research/loop.py`, `engine/review/subagent.py`（`Round` → `RoundV2` 构造）
+- Modify: `engine/research/models.py`（`Version.rounds: tuple[RoundV2, ...]`）
+- Modify: `engine/research/loop.py`, `engine/review/subagent.py`（构造 `RoundV2`；`ReviewGateOutcome.successful_round: RoundV2 | None`）
 - Modify: `engine/research/specify.py`
-- Modify: `engine/main.py`（`resolve_confirm` who_pays）
-- Test: `tests/test_logic_impl_split.py`（扩展）：轮次入库后字段非空
+- Modify: `engine/main.py`（`resolve_confirm`）
+- Modify: `apps/desktop/src/main.tsx`（`resolveConfirm` 转发 `whoPays`）
+- Modify: `apps/desktop/src-tauri/src/commands.rs`（`resolve_confirm` JSON 带 `who_pays`）
+- Modify: `contracts/desktop-api.schema.json`（`resolve_confirm` 增加可选 `who_pays`）
+- Test: `tests/test_logic_impl_split.py`（扩展）：轮次入库后字段非空；who_pays 落点用 `tests/test_evidence_ref.py` 或 `tests/test_v1_acceptance.py`
 
 **Interfaces:**
 - Produces: `run_review_gate` 成功时 `successful_round: RoundV2`（含 `logic_statement`, `implementation_delta`, `trial_counters`）
 - Produces: `trial_counters` 规则：`candidates_evaluated` = review 尝试次数；`candidates_passed` = verification.passed 的尝试数；`conclusion_attempt_number` = 接纳的 attempt.number
+- Produces: 经济确认 `approve_new_version` 后，新 `Version.confirmed_changes` **追加**一对 `("who_pays_optional", <原文或 "未作答">)`。这是 who_pays 的唯一持久记录；不替换 patch 里已有的确认项。
 
-- [ ] **Step 1:** 写失败测试：SQLite 跑一轮后，round 上 `logic_statement.statement` 含 locked thesis 片段，而非裸 `spec.id`
+**Round → RoundV2 持久化**
 
-- [ ] **Step 2:** `DefaultRoundBuilder.build` 末尾根据 `specify` / `classify_change` 填充 `LogicStatement` 与 `ImplementationDelta`
+`Round` 与 `RoundV2` 是并列 dataclass。`Version.rounds` 今天是 `tuple[Round, ...]`。`SQLiteStore._decode` 用 cattrs 按这个注解还原。不改 `engine/research/models.py` 就把 `RoundV2` 塞进 version，B2/B3 字段在往返中丢失或结构失败，T4 没有真字段可映射。
+
+P0 把 `Version.rounds` 改成 `tuple[RoundV2, ...]`，`run_review_gate` 不再构造 `Round`。load 时不要填占位 `LogicStatement` / `ImplementationDelta` / `TrialCounters` 再交给 `view_for` 显示。无生产存量要迁；旧 JSON 缺这三字段时结构失败可以接受。
+
+**who_pays 全栈（B4）**
+
+确认卡 UI 已经在问（`AwaitingConfirmCard`，空则 `undefined`）。`contracts.ts` 的 `DesktopApi.resolveConfirm` 已有可选第三参。P0 不改这张卡的版式。断点在后面三跳，只改引擎会被 schema 拒掉：
+
+| 跳 | 现状 | P0 |
+| --- | --- | --- |
+| `apps/desktop/src/main.tsx` | `resolveConfirm(researchId, decision)` 的 invoke 不带 `whoPays` | 把第三参传给 `invoke("resolve_confirm", {researchId, decision, whoPays})` |
+| `commands.rs::resolve_confirm` | JSON 只有 `type` / `research_id` / `decision` | 有值时带上 `who_pays` |
+| `contracts/desktop-api.schema.json` | `additionalProperties: false`，无 `who_pays` | 可选 string `who_pays`；不要改成允许任意额外字段 |
+| `engine/main.py` `resolve_confirm` | 不读该字段 | 见下方唯一落点 |
+
+**唯一持久落点：** 新版本的 `confirmed_changes`。`_open_version` 已把 `pending_confirm.patch` 抄进 `confirmed_changes`，然后清空 `pending_confirm`。`ResearchBrief` 没有 `who_pays_optional`，这项不会被套进 brief。引擎在 `transition` 之前，仅对经济确认 `approve_new_version`，把 `("who_pays_optional", text or "未作答")` 追加进 patch。不写 export history，也不在已清空的 `ConfirmRequest` 上再留一份。覆盖类决策（`accept_lower_floor`、`redefine_scope` 等）不提问，不写这项。
+
+- [ ] **Step 1:** 写失败测试：SQLite 跑一轮后，round 上 `logic_statement.statement` 含 locked thesis 片段，而非裸 `spec.id`；reload 后字段仍在
+
+- [ ] **Step 2:** `Version.rounds` 改为 `tuple[RoundV2, ...]`；`DefaultRoundBuilder.build` 末尾根据 `specify` / `classify_change` 填充 `LogicStatement` 与 `ImplementationDelta`
 
 - [ ] **Step 3:** `run_review_gate` 构造 `RoundV2`；`ResearchLoop` 存入 version.rounds
 
-- [ ] **Step 4:** `resolve_confirm` 将 request body 的 `who_pays`（若 API 已传）写入 approve 后的 research/version 元数据（`who_pays_optional` 或 export history）
+- [ ] **Step 4:** 打通 who_pays 四跳（`main.tsx`、`commands.rs`、schema、`resolve_confirm`）。`approve_new_version` 且空/省略 → `confirmed_changes` 里是 `"未作答"`。断言没有第二份落点（export history 不出现该字段）
 
-- [ ] **Step 5:** `pytest tests/test_loop_runtime.py tests/test_logic_impl_split.py -q`（loop 测试改用 `DeterministicReviewer` 或保留 `PassReviewer` 仅测状态机）
+- [ ] **Step 5:** `pytest tests/test_loop_runtime.py tests/test_logic_impl_split.py tests/test_evidence_ref.py -q`（loop 测试改用 `DeterministicReviewer` 或保留 `PassReviewer` 仅测状态机）
 
-- [ ] **Step 6:** Commit `feat(loop): persist RoundV2 artifacts from DefaultRoundBuilder`
+- [ ] **Step 6:** Commit `feat(loop): persist RoundV2 and record who_pays on the new version`
 
 ---
 
@@ -257,15 +297,17 @@ markers = [
 | running / paused | `rounds[].implementationDelta` | `RoundV2.implementation_delta` |
 | running / paused | `rounds[].trialCounters` | `RoundV2.trial_counters` |
 | running / paused | `rounds[].verificationPassed` | `accepted_attempt.verification.passed` |
+| running / paused | `rounds[].pitPassed` | 该轮 verification 里 `verifier_id == "pit.consistency"` 的 `passed`（true/false）。main 上 `view_for` 写死 `None`。依赖 T5 接线；没有这条结果就不要显示通过 |
 | running / paused | `dataCutoff` | `research.last_coverage.end` 或 simulation end；**无则省略键或显式「尚无」** |
 | running / paused | `sources` | `evidence_paths` / materials 摘要 |
 | completed | `title` | `brief.thesis`；禁止空字符串默认大标题 |
 | completed | `rounds` / `metrics`（新增槽位） | 最后一轮 `SimulationReport` + 同上 rounds |
+| completed | `selectedMethodId` | 该轮 method set 中供重验使用的方法 id。main 的 completed 视图写死 `"overfit.walk"`，禁止保留字面量 |
 | completed | 副标题 | `universe_label` 来自 `list_items` 逻辑，**删除**硬编码「美股 · 股票 · …」 |
 | list | `createdAt` 缺失 | 不用「等了 2 小时」假时间（`App.tsx` awaiting 行） |
 | anomaly | `baseline` | 来自 `detect_anomalies` 的真实 prior attempt / v1 baseline，**禁止**常量 0.5/5 |
 
-- [ ] **Step 1:** 测试：fixture research 的 `view_for('#/research/{id}')` JSON 与 store 中 `RoundV2` 字段一致
+- [ ] **Step 1:** 测试：fixture research 的 `view_for('#/research/{id}')` JSON 与 store 中 `RoundV2` 字段一致；`pitPassed` 等于 PIT 结果而不是 `None`；completed 的 `selectedMethodId` 不是字面量 `"overfit.walk"`；副标题不是硬编码「美股 · 股票 · …」
 
 - [ ] **Step 2:** 抽取 `_rounds_for_desktop(research) -> list[dict]` 到 `desktop_view.py`，`view_for` 调用
 
@@ -277,17 +319,44 @@ markers = [
 
 ---
 
-## T5：导出门槛 E2E — 四门栏 + PIT、strategy_pack vs research_record、schema
+## T5：把 PIT 接进 `run_verifiers`，再测四门栏导出
 
 **Files:**
+- Modify: `engine/verifiers.py`（`run_verifiers` 调用 `_pit_consistency`）
+- Modify: `engine/research/loop.py`（`DefaultRoundBuilder.build` / `retry` 传入 `evidence_as_of`）
+- Modify: `engine/main.py`（reverify 的 `run_verifiers` 调用同样传入）
+- Modify: `engine/research/methods.py`（播种 `pit.consistency`；`PRESET_NAMES`）
 - Modify: `engine/export.py`（`history/rounds.json`）
-- Test: `tests/test_v1_acceptance.py`, `tests/test_export_pack.py`, `tests/test_pit_verifier.py`
+- Test: `tests/test_pit_verifier.py`, `tests/test_v1_acceptance.py`, `tests/test_export_pack.py`
 
 **Interfaces:**
-- Consumes: `strategy_pack_eligibility`, `build_strategy_pack`, `build_research_record_pack`
-- Produces: zip 内 `manifest.json` 通过 `contracts/strategy-pack.schema.json`；不合格时 `why_not_live.json`
+- Consumes: 已有 `_pit_consistency(spec, evidence_timestamps, backtest_cutoff)`、`PIT_VERIFIER_REVISION`、`strategy_pack_eligibility`、`build_strategy_pack`、`build_research_record_pack`
+- Produces: 每份 `VerificationReport.results` 含恰好一条 `verifier_id == "pit.consistency"`；zip 内 `manifest.json` 通过 `contracts/strategy-pack.schema.json`；不合格时 `why_not_live.json`
 
-- [ ] **Step 1: 写失败测试 schema**
+**现状（main，已核对）**
+
+- `_pit_consistency` 与 `PIT_VERIFIER_REVISION` 在 `engine/verifiers.py`。`run_verifiers` 只跑 `_scorecard`，再按 `spec.method_set` 查 `_SELECTABLE`（`overfit.walk` / `stability.oos` / `crowding.load` / `cost.turnover`），**从不调用 PIT**。
+- `_pit_consistency` 的参数是 `(spec, evidence_timestamps, backtest_cutoff)`，不是 `_SELECTABLE` 的 `(report, spec)`。不能把它塞进 `_SELECTABLE`。
+- `strategy_pack_eligibility` 只在 `accepted_attempt.verification.results` 里找 `pit.consistency`。不接线则 `pit_executed_and_passed` 恒失败。
+- 默认 `round1_methods`（`specify.propose_brief_updates`）不含 pit。`seed_preset_methods` 只遍历 `VERIFIER_REVISIONS`，且 `if store.list_method_definitions(): return`。`PRESET_NAMES` 没有 pit 键；若直接并进 `VERIFIER_REVISIONS` 会在 `PRESET_NAMES[method_id]` KeyError。
+- B1：每次验证都要执行 PIT，且该预置不能靠从 method set 里删掉来跳过。执行开关是 `run_verifiers`，不是 `round1_methods`。
+
+**接线**
+
+- `run_verifiers(report, spec, *, evidence_as_of: tuple[tuple[str, str], ...] = ())` 在 scorecard 与可选方法之后**始终**追加恰好一条 `pit.consistency`。`method_set` 里有没有它都要跑。
+- cutoff = `report.end.isoformat()`。`report.end is None` 时追加 `passed=False` 的 `PitVerifierResult`（缺 cutoff 不算通过），不要借 `_pit_consistency([])` 的「空证据通过」放行。
+- `evidence_as_of` 是 `(evidence_id, ISO date)`。三个生产调用点必须传入：`DefaultRoundBuilder.build`、`DefaultRoundBuilder.retry`、`ResearchCommandService` 的 reverify。
+- `Material` 只有 `fetched_at`，没有发表日。**禁止**把 `fetched_at` 当成 as_of（抓取时刻通常晚于回测截止，会假失败）。**禁止**用 cutoff 回填 as_of（会假通过）。builder 拿不到可辩护的决策日时，对该 `material_id` 记 violation `missing as_of`，结果为已执行且未通过。本轮有 evidence 但 `evidence_as_of` 为空，同样失败。`_pit_consistency` 对空列表返回通过的单元行为保持不变，不作为生产规则。
+- 正面 `strategy_pack` 用例调用接线后的 `run_verifiers(..., evidence_as_of=(...,))`，日期早于 `report.end`。禁止手插 `PitVerifierResult` 再送进 `strategy_pack_eligibility` 来充当 Done #3。网络验收（T2）只要求 `COMPLETED`；PIT 未过时该路径导出 `research_record`，`why_not_live.json` 含 `pit_executed_and_passed`。
+- 预置：`PRESET_NAMES["pit.consistency"] = "时点一致性"`。`seed_preset_methods` 播种 `PIT_VERIFIER_REVISION`。已有方法库的 store 也要幂等补上 `pit.consistency` / `pit-v1`（现有早退不能把已播种的库漏掉）。方法库展示用，不作为执行开关。
+
+- [ ] **Step 1: 写失败测试** `test_run_verifiers_emits_pit_consistency`：`run_verifiers` 的结果含 `pit.consistency`；`report.end is None` 或有证据但无 as_of 时 `passed is False`；as_of 早于 `report.end` 时 `passed is True`。另测 `DefaultRoundBuilder`（或等价生产调用）产出的 verification 含同一 id，而不是只测 `_pit_consistency` 本身。
+
+- [ ] **Step 2:** 按上面接线实现 `run_verifiers`、三个调用点、预置播种。
+
+- [ ] **Step 3:** `pytest tests/test_pit_verifier.py tests/test_verifiers.py -q` → PASS
+
+- [ ] **Step 4: 写失败测试 schema**
 
 ```python
 import json
@@ -302,13 +371,13 @@ def test_strategy_pack_manifest_validates_against_contract_schema(tmp_path):
     assert manifest["live_handoff_eligible"] is True
 ```
 
-- [ ] **Step 2:** 写测试：PIT fail 时 `export_artifact(strategy_pack)` 400；`research_record` 200 且 `why_not_live.json` 含 `pit_executed_and_passed`
+- [ ] **Step 5:** 写测试：verification 来自 `run_verifiers`。PIT fail 时 `export_artifact(strategy_pack)` 400；`research_record` 200 且 `why_not_live.json` 含 `pit_executed_and_passed`。PIT pass（as_of 早于 cutoff，且其余门栏过）时才能 `strategy_pack`。
 
-- [ ] **Step 3:** `build_strategy_pack` 写入 `history/rounds.json` = `_round_history_with_trials(...)`（仅当 rounds 为 `RoundV2`）
+- [ ] **Step 6:** `build_strategy_pack` 写入 `history/rounds.json` = `_round_history_with_trials(...)`（rounds 为 `RoundV2`，T3 之后版本里只有这一种）
 
-- [ ] **Step 4:** `pytest tests/test_export_pack.py tests/test_v1_acceptance.py tests/test_pit_verifier.py -q` → PASS
+- [ ] **Step 7:** `pytest tests/test_export_pack.py tests/test_v1_acceptance.py tests/test_pit_verifier.py -q` → PASS
 
-- [ ] **Step 5:** Commit `feat(export): rounds history in pack + schema acceptance test`
+- [ ] **Step 8:** Commit `feat(verify): run pit.consistency inside run_verifiers and cover export gates`
 
 ---
 
@@ -325,12 +394,12 @@ def test_strategy_pack_manifest_validates_against_contract_schema(tmp_path):
 | §2.1 Done | 验收命令（实现 P0 后） |
 | --- | --- |
 | **1** 真实 `ResearchLoop`（非 `FakeBuilder`）→ `COMPLETED` | `ALPHALOOP_ACCEPTANCE_NETWORK=1 pytest tests/test_v1_honest_path.py::test_v1_mean_reversion_reaches_completed_real_ports -v` |
-| **2** 运行中/已完成字段来自闭环，无假指标 | `pytest tests/test_v1_acceptance.py::test_running_view_round_fields_from_store tests/test_v1_acceptance.py::test_completed_view_no_placeholder_copy -v` |
-| **3** 四门栏 + PIT；否则仅 `research_record` + 缺关说明 | `pytest tests/test_v1_acceptance.py::test_export_strategy_pack_only_when_eligible tests/test_pit_verifier.py -q` |
+| **2** 运行中/已完成字段来自闭环，无假指标（含 `pitPassed`、`selectedMethodId`、副标题） | `pytest tests/test_v1_acceptance.py::test_running_view_round_fields_from_store tests/test_v1_acceptance.py::test_completed_view_no_placeholder_copy -v` |
+| **3** 四门栏 + PIT 由 `run_verifiers` 执行；否则仅 `research_record` + 缺关说明 | `pytest tests/test_pit_verifier.py::test_run_verifiers_emits_pit_consistency tests/test_v1_acceptance.py::test_export_strategy_pack_only_when_eligible -q` |
 | **4** zip 通过 schema 且 `live_handoff_eligible: true` | `pytest tests/test_v1_acceptance.py::test_strategy_pack_manifest_validates_against_contract_schema -v` |
 | **5** 确定性 reviewer，外部 LLM 不阻塞 | `pytest tests/test_deterministic_reviewer.py tests/test_v1_acceptance.py::test_build_loop_defaults_to_deterministic_reviewer -v` |
 
-**默认 CI（无网络）子集：** `pytest tests/test_deterministic_reviewer.py tests/test_v1_acceptance.py tests/test_export_pack.py tests/test_loop_runtime.py -q`
+**默认 CI（无网络）子集：** `pytest tests/test_deterministic_reviewer.py tests/test_v1_acceptance.py tests/test_export_pack.py tests/test_pit_verifier.py tests/test_verifiers.py tests/test_loop_runtime.py -q`
 
 - [ ] **Step 3:** Commit `test: map v1 cut-line §2.1 to acceptance harness`
 
@@ -360,9 +429,11 @@ def test_strategy_pack_manifest_validates_against_contract_schema(tmp_path):
 
 | 风险 | 缓解 |
 | --- | --- |
-| Review 关仍走 subagent，无 key 时 fail 导致无法 COMPLETED | T1 默认 `deterministic`；CI 断言 `build_loop` 默认 |
-| 真实 DataPort 网络 flake | 验收用短窗口 + 1 标的；CI 默认 skip network；重试策略写在 `test_v1_honest_path` |
-| `Round`/`RoundV2` 双类型漂移 | T3 单次收敛到 `RoundV2` 入库；export/desktop 同一 helper |
+| Review 关仍走 subagent，无 key 时 fail 导致无法 COMPLETED | T1 默认 `deterministic`；CI 断言 `build_loop` 默认；pass 条件与 MeanReversion 导出族对齐 |
+| 真实 DataPort 网络 flake | 单标的 + docstring 里写明的窗口；`tmp_path` 放 thesis 匹配的 `.md`；CI 默认 skip network；scorecard 失败不加 skip、不放宽阈值 |
+| `run_verifiers` 不跑 PIT，第四关恒失败或被手插结果放过 | T5 先接线；导出测试消费 `run_verifiers` 的报告。不用 `fetched_at`，不用 cutoff 回填 as_of |
+| `Round`/`RoundV2` 双类型漂移 | T3 改 `Version.rounds` 为 `RoundV2` 并入库；export/desktop 同一 helper |
+| who_pays 只改引擎，schema 拒掉或答案无处可记 | T3 打通 invoke / `commands.rs` / schema；只写入新版本 `confirmed_changes` |
 | Scope creep 到 P1 对话 | 仅 keyword `interpret`；不把 P1 归档/消息线程拉入 P0 |
 | 桌面视觉改版 | 只删占位文案、补 completed 轮次槽位 |
 
@@ -372,11 +443,14 @@ def test_strategy_pack_manifest_validates_against_contract_schema(tmp_path):
 
 ```text
 T0（盘点） → T1（deterministic reviewer） → T2（network acceptance 骨架）
-    → T3（RoundV2 持久化 + COMPLETED 数据） → T4（view_for + App fail-closed）
-    → T5（export/schema E2E） → T6（harness 与文档命令）
+    → T3（RoundV2 持久化 + who_pays 全栈）
+    → T5 接线（run_verifiers 总会产出 pit.consistency）
+    → T4（view_for + pitPassed / selectedMethodId / 副标题）
+    → T5 其余（export/schema，报告必须来自 run_verifiers）
+    → T6（harness 与文档命令）
 ```
 
-T2 与 T3 可并行子代理，但 **T4 依赖 T3** 的真实 round 字段；**T5 依赖 T3** 的 `RoundV2` 导出。
+T2 与 T3 可并行子代理。**T4 依赖 T3** 的真实 round 字段，并且 **`pitPassed` 依赖 T5 接线**。**T5 的 rounds 历史依赖 T3** 的 `RoundV2`。不要先写导出测试再补 PIT。
 
 ---
 
@@ -384,9 +458,12 @@ T2 与 T3 可并行子代理，但 **T4 依赖 T3** 的真实 round 字段；**T
 
 | 检查项 | 结果 |
 | --- | --- |
-| §2.1 五行均有 T6 命令 | ✓ |
-| 未发明第二研究路径 | ✓ 仅扩展 reviewer + 视图映射 |
-| 文件路径与 main 一致 | ✓ 已对照 `engine/main.py`, `loop.py`, `export.py` |
+| §2.1 五行均有 T6 命令 | ✓ Done #3 含 `test_run_verifiers_emits_pit_consistency` |
+| 未发明第二研究路径 | ✓ PIT 接进现有 `run_verifiers`，不新开验证路径 |
+| 文件路径与 main 一致 | ✓ 已改正「pit 已在 `run_verifiers`」；对照 `verifiers.py`、`models.py`、`main.tsx`、`commands.rs`、schema |
+| B1 不会因只测导出而漏执行 | ✓ T5 先接线 |
+| B4 who_pays 全栈、单一落点 | ✓ T3：`Version.confirmed_changes` |
+| T3 含 `models.py` | ✓ `Version.rounds: tuple[RoundV2, ...]` |
 | 无 TBD/稍后 | ✓ |
 | 不修改 v1-cut-line.md | ✓ |
 
