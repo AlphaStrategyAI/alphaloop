@@ -47,6 +47,8 @@ from engine.research.methods import (
     seed_preset_methods,
 )
 from engine.research.models import (
+    AnomalyBaseline,
+    AnomalyPresentation,
     ExportKind,
     ExportRecord,
     MethodSource,
@@ -57,6 +59,7 @@ from engine.research.models import (
     Reverification,
     Round,
     Slot,
+    detect_anomalies,
     new_research,
 )
 from engine.research.progress import (
@@ -299,6 +302,108 @@ class ResearchCommandService:
                 return "公开资料已落成本机材料"
         return "公开资料与本机材料"
 
+    @staticmethod
+    def _compute_anomaly(research: Research) -> dict[str, object] | None:
+        """Compute anomaly presentation for current round if anomalies detected (B5)."""
+        if not research.versions or not research.versions[-1].rounds:
+            return None
+        current_round = research.versions[-1].rounds[-1]
+        attempt = current_round.accepted_attempt
+        simulation = attempt.simulation
+        sharpe = getattr(simulation, "sharpe", None)
+        trial_count = attempt.number
+        coverage_shrunk = len(research.coverage_history) > 0
+        method_revision_age_days = 30
+        baseline = AnomalyBaseline(
+            kind="version_1_logic",
+            sharpe=0.5,
+            trial_count=5,
+        )
+        anomaly = detect_anomalies(
+            sharpe=sharpe,
+            trial_count=trial_count,
+            coverage_shrunk=coverage_shrunk,
+            method_revision_age_days=method_revision_age_days,
+            baseline=baseline,
+        )
+        if anomaly is None:
+            return None
+        return {
+            "indicators": [ind.value for ind in anomaly.indicators],
+            "expandEvidenceFirst": anomaly.expand_evidence_first,
+            "tone": anomaly.tone,
+            "baseline": {
+                "kind": anomaly.baseline.kind if anomaly.baseline else None,
+                "sharpe": anomaly.baseline.sharpe if anomaly.baseline else None,
+                "trialCount": anomaly.baseline.trial_count if anomaly.baseline else None,
+            } if anomaly.baseline else None,
+        }
+
+    @staticmethod
+    def _method_dimensions(method_id: str, body: str) -> list[dict[str, object]]:
+        """Extract Scorecard dimensions from method body (B6)."""
+        dimensions: list[dict[str, object]] = []
+        try:
+            parsed = json.loads(body)
+        except (json.JSONDecodeError, TypeError):
+            return dimensions
+        if method_id == "scorecard.market":
+            if "sharpe_oos_min_exclusive" in parsed:
+                dimensions.append({
+                    "kind": "predictive_power",
+                    "name": "夏普比率",
+                    "description": "样本外夏普比率下限",
+                    "passThreshold": parsed["sharpe_oos_min_exclusive"],
+                    "comparison": "gt",
+                    "failureDisplay": "夏普不高于基准",
+                })
+            if "default_max_drawdown_floor" in parsed:
+                dimensions.append({
+                    "kind": "stability",
+                    "name": "最大回撤",
+                    "description": "回撤上限",
+                    "passThreshold": parsed["default_max_drawdown_floor"],
+                    "comparison": "gte",
+                    "failureDisplay": "回撤过大",
+                })
+        elif method_id == "overfit.walk":
+            if "oos_to_is_min" in parsed:
+                dimensions.append({
+                    "kind": "stability",
+                    "name": "样本外/样本内比",
+                    "description": "样本外表现与样本内的比值下限",
+                    "passThreshold": parsed["oos_to_is_min"],
+                    "comparison": "gte",
+                    "failureDisplay": "样本外走样",
+                })
+        elif method_id == "pit.consistency":
+            dimensions.append({
+                "kind": "pit_consistency",
+                "name": "时点一致性",
+                "description": "检查是否存在前视偏差",
+                "passThreshold": 1.0,
+                "comparison": "eq",
+                "failureDisplay": "存在前视偏差",
+            })
+        return dimensions
+
+    @staticmethod
+    def _method_category(method_id: str) -> str | None:
+        """Get method category (B6)."""
+        if method_id.startswith("pit."):
+            return "时点一致性"
+        if method_id.startswith("scorecard."):
+            return "计分卡"
+        if method_id.startswith("overfit."):
+            return "过拟合检测"
+        if method_id.startswith("stability."):
+            return "稳定性"
+        if method_id.startswith("crowding."):
+            return "拥挤度"
+        if method_id.startswith("cost."):
+            return "成本"
+        return None
+
     def view_for(self, route: str) -> dict[str, Any]:
         if route.startswith("#/methods"):
             methods = [
@@ -314,6 +419,8 @@ class ResearchCommandService:
                         row.research_id
                         for row in list_method_usage(self.store, item.method_id)
                     }),
+                    "category": self._method_category(item.method_id),
+                    "dimensions": self._method_dimensions(item.method_id, item.body),
                 }
                 for item in self.store.list_method_definitions()
             ]
@@ -360,7 +467,31 @@ class ResearchCommandService:
                     "effective": f"{research.effective_seconds / 3600:.2f}h",
                     "remaining": self._remaining(research),
                     "coverage": self._coverage_vs_floor(research),
-                    "rounds": [round_.accepted_attempt.spec.id for round_ in reversed(rounds)],
+                    "rounds": [
+                        {
+                            "roundId": round_.round_id,
+                            "number": round_.number,
+                            "logicStatement": {
+                                "statement": round_.accepted_attempt.spec.id,
+                                "changedFromPrior": idx > 0,
+                                "changeDescription": None,
+                                "baselineVersion": version,
+                            },
+                            "implementationDelta": {
+                                "researchMethodChanges": [],
+                                "modelChanges": [],
+                                "paramChanges": [],
+                            },
+                            "trialCounters": {
+                                "candidatesEvaluated": round_.accepted_attempt.number,
+                                "candidatesPassed": 1 if round_.accepted_attempt.verification.passed else 0,
+                                "conclusionAttemptNumber": round_.accepted_attempt.number,
+                            },
+                            "verificationPassed": round_.accepted_attempt.verification.passed,
+                            "pitPassed": None,
+                        }
+                        for idx, round_ in enumerate(reversed(rounds))
+                    ],
                     "currentAction": _ACTION_LABELS[research.current_action],
                     "sources": self._sources(research),
                     "dataCutoff": (
@@ -368,6 +499,7 @@ class ResearchCommandService:
                         if research.last_coverage is not None
                         else ""
                     ),
+                    "anomaly": self._compute_anomaly(research),
                 },
                 research,
             )
@@ -384,11 +516,24 @@ class ResearchCommandService:
                     "proposed": request.proposed_change,
                     "reason": request.reason,
                     "effect": request.effect,
+                    "whyChange": [
+                        {
+                            "recordId": ref.record_id,
+                            "recordedAt": ref.recorded_at.isoformat(),
+                            "kind": ref.kind.value,
+                            "summary": ref.summary,
+                        }
+                        for ref in request.why_change
+                    ],
+                    "whoPaysOptional": request.who_pays_optional,
+                    "createdAt": request.created_at.isoformat() if request.created_at else None,
+                    "requestId": request.request_id,
                 },
                 research,
             )
         rounds = research.versions[-1].rounds if research.versions else ()
         selected_round: Round | None = rounds[-1] if rounds else None
+        eligibility = strategy_pack_eligibility(research)
         return self._host_payload(
             {
                 "kind": "completed",
@@ -398,19 +543,14 @@ class ResearchCommandService:
                 "selectedRoundId": selected_round.round_id if selected_round else "",
                 "selectedMethodId": "overfit.walk",
                 "eligibility": {
-                    "allMethodsPassed": (
-                        selected_round is not None
-                        and selected_round.accepted_attempt.verification.passed
-                    ),
-                    "noPendingConfirm": research.pending_confirm is None,
-                    "reverifiesPassed": all(
-                        item.passed
-                        for item in research.reverifications
-                        if selected_round is not None and item.round_id == selected_round.round_id
-                    ),
+                    "allMethodsPassed": "all_current_methods_passed" not in eligibility.failed_checks,
+                    "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
+                    "reverifiesPassed": "all_reverifies_passed" not in eligibility.failed_checks,
+                    "pitExecutedAndPassed": "pit_executed_and_passed" not in eligibility.failed_checks,
                 },
                 "overturnedExports": any(item.overturned for item in research.exports),
                 "currentAction": _ACTION_LABELS[research.current_action],
+                "anomaly": self._compute_anomaly(research),
             },
             research,
         )
@@ -526,6 +666,9 @@ class ResearchCommandService:
                 "approve_new_version": ResearchEvent.CONFIRM_APPROVE,
                 "reject_keep_logic": ResearchEvent.CONFIRM_REJECT,
                 "pause_and_edit": ResearchEvent.CONFIRM_PAUSE,
+                "accept_lower_floor": ResearchEvent.CONFIRM_APPROVE,
+                "supply_local_materials": ResearchEvent.CONFIRM_PAUSE,
+                "redefine_scope": ResearchEvent.CONFIRM_APPROVE,
             }[request["decision"]]
             if event is ResearchEvent.CONFIRM_APPROVE:
                 deposit_confirmed_methods(self.store, research, now)

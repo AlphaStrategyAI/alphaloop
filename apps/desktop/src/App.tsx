@@ -1,6 +1,7 @@
 import {FormEvent, useEffect, useState} from "react";
 
 import type {
+  AnomalyPresentation,
   DesktopApi,
   DesktopView,
   HostStatus,
@@ -8,6 +9,39 @@ import type {
   ValidationMethod,
 } from "./contracts";
 import "./night.css";
+
+const anomalyIndicatorLabels: Record<string, string> = {
+  sharpe_outlier: "夏普比率相对基线异常偏高",
+  coverage_shrunk: "数据覆盖相比开始时已缩减",
+  high_trial_count: "尝试次数相对基线异常多",
+  recent_method_revision: "验证方法近期有修订",
+};
+
+function AnomalyChecklist({anomaly}: {anomaly: AnomalyPresentation}) {
+  const baseline = anomaly.baseline;
+  const hasSharpe = baseline && "sharpe" in baseline && baseline.sharpe != null;
+  const hasTrialCount = baseline && "trialCount" in baseline && baseline.trialCount != null;
+  return (
+    <section className="anomaly-section" data-testid="anomaly-checklist">
+      <h4>结果需要额外审视</h4>
+      {baseline && (
+        <p className="baseline-note">
+          对比基线：{baseline.kind === "version_1_logic" ? "第一版逻辑" : baseline.kind}
+          {hasSharpe && ` · 基线夏普 ${(baseline as {sharpe: number}).sharpe}`}
+          {hasTrialCount && ` · 基线尝试 ${(baseline as {trialCount: number}).trialCount}`}
+        </p>
+      )}
+      <ul className="anomaly-checklist">
+        {anomaly.indicators.map((indicator) => (
+          <li key={indicator}>
+            <span className="indicator-icon">⚠</span>
+            <span>{anomalyIndicatorLabels[indicator] ?? indicator}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 export interface AppProps {
   api: DesktopApi;
@@ -30,14 +64,6 @@ const hostStatusLabels: Record<HostStatus, string> = {
   idle: "本机静",
 };
 
-const listFilters: readonly ResearchStatus[] = [
-  "draft",
-  "running",
-  "awaiting_confirm",
-  "paused",
-  "completed",
-  "ended",
-];
 
 export function routeFor(view: DesktopView): string {
   if (view.kind === "research_list") return "#/research";
@@ -89,29 +115,14 @@ function confirmDelete(api: DesktopApi, researchId: string) {
 }
 
 function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
-  const [statusFilter, setStatusFilter] = useState<ResearchStatus | null>(null);
-  const awaiting = statusFilter && statusFilter !== "awaiting_confirm" ? undefined : view.awaiting;
-  const rows = statusFilter ? view.rows.filter((row) => row.status === statusFilter) : view.rows;
+  const awaiting = view.awaiting;
+  const rows = view.rows;
   return (
     <div className="browse list-screen">
       <header className="list-header">
         <p>一条对话，一次研究。等你确认的会排在最上面。</p>
         <button className="quiet-button" onClick={() => void api.createDraft()}>新建研究</button>
       </header>
-      <div className="list-filters">
-        {listFilters.map((status) => (
-          <button
-            key={status}
-            className={statusFilter === status ? "quiet-button active" : "quiet-button"}
-            onClick={() => {
-              setStatusFilter(status);
-              void api.fetchView(`#/research?status=${status}`);
-            }}
-          >
-            {statusLabels[status]}
-          </button>
-        ))}
-      </div>
       {awaiting && (
         <article className="awaiting-primary" data-kind="awaiting-primary">
           <a className="awaiting-primary-body" href={`#/research/${awaiting.id}`}>
@@ -229,11 +240,44 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
         <p>这里只说明结论的适用范围，不是行情终端。</p>
       </section>
       <h1>迭代与验证</h1>
+      {view.anomaly && <AnomalyChecklist anomaly={view.anomaly} />}
       {view.rounds.map((round, index) => (
-        <article className="round-card" key={round}>
+        <article className="round-card" key={round.roundId} data-testid="round-card">
           <small>v{view.version} · 第 {view.rounds.length - index} 轮</small>
-          <h2>{round}</h2>
-          <p>每轮都显示市场基准指标、四项验证和独立审查。</p>
+          <div className="round-columns">
+            <div className="round-logic">
+              <p className="eyebrow">逻辑陈述</p>
+              <p>{round.logicStatement.statement}</p>
+              {round.logicStatement.changedFromPrior && round.logicStatement.changeDescription && (
+                <p className="change-note">变更：{round.logicStatement.changeDescription}</p>
+              )}
+            </div>
+            <div className="round-impl">
+              <p className="eyebrow">实现与参数</p>
+              {round.implementationDelta.modelChanges.length > 0 && (
+                <p>模型变更：{round.implementationDelta.modelChanges.join(", ")}</p>
+              )}
+              {round.implementationDelta.paramChanges.length > 0 && (
+                <ul className="param-changes">
+                  {round.implementationDelta.paramChanges.map(([param, from, to]) => (
+                    <li key={param}>{param}: {from} → {to}</li>
+                  ))}
+                </ul>
+              )}
+              {round.implementationDelta.modelChanges.length === 0 &&
+               round.implementationDelta.paramChanges.length === 0 && (
+                <p className="no-changes">本轮无实现变更</p>
+              )}
+            </div>
+          </div>
+          <div className="trial-counters">
+            <span>候选 {round.trialCounters.candidatesEvaluated}</span>
+            <span>通过 {round.trialCounters.candidatesPassed}</span>
+            <span>第 {round.trialCounters.conclusionAttemptNumber} 次尝试</span>
+            <span className={round.verificationPassed ? "passed" : "failed"}>
+              {round.verificationPassed ? "✓ 验证通过" : "✗ 验证未通过"}
+            </span>
+          </div>
         </article>
       ))}
       {view.status === "running" ? (
@@ -253,18 +297,71 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
 }
 
 export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "awaiting_confirm"}>}) {
+  const [whoPays, setWhoPays] = useState("");
+  const isCoverage = view.confirmKind === "coverage";
+  const hasEvidence = view.whyChange && view.whyChange.length > 0;
+  const canApproveEconomic = isCoverage || hasEvidence;
+  const handleApprove = () => {
+    void api.resolveConfirm(view.researchId, "approve_new_version", whoPays.trim() || undefined);
+  };
   return (
     <article className="awaiting-card" data-testid="awaiting-confirm-card">
       <p className="eyebrow">等待确认 · 第 {view.version} 版 · 这段时间不计入额度</p>
-      <h1>{view.confirmKind === "coverage" ? "数据覆盖要跌破底线" : "经济逻辑要改了"}</h1>
+      <h1>{isCoverage ? "数据覆盖要跌破底线" : "经济逻辑要改了"}</h1>
       <section><small>现在打算改什么</small><p>{view.proposed}</p></section>
       <section><small>为什么要改</small><p>{view.reason}</p></section>
       <section><small>改了之后会变成什么样</small><p>{view.effect}</p></section>
-      <div className="decision-stack">
-        <button className="cyan-button" onClick={() => void api.resolveConfirm(view.researchId, "approve_new_version")}>同意，开新的一版</button>
-        <button onClick={() => void api.resolveConfirm(view.researchId, "reject_keep_logic")}>不同意，维持原逻辑继续</button>
-        <button onClick={() => void api.resolveConfirm(view.researchId, "pause_and_edit")}>暂停，我自己改</button>
-      </div>
+      {view.whyChange && view.whyChange.length > 0 && (
+        <section className="evidence-section">
+          <small>证据依据</small>
+          <ul className="evidence-list">
+            {view.whyChange.map((ref) => (
+              <li key={ref.recordId}>
+                <span className="evidence-kind">{ref.kind}</span>
+                <span className="evidence-id">{ref.recordId}</span>
+                {ref.summary && <span className="evidence-summary">{ref.summary}</span>}
+                <span className="evidence-time">{ref.recordedAt}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {!isCoverage && (
+        <section className="who-pays-section">
+          <small>谁为此买单（选填）</small>
+          <textarea
+            value={whoPays}
+            onChange={(e) => setWhoPays(e.target.value)}
+            placeholder="不填则记录为「未作答」"
+            className="who-pays-input"
+          />
+        </section>
+      )}
+      {isCoverage ? (
+        <div className="decision-stack coverage-decisions" data-testid="coverage-decisions">
+          <button className="cyan-button" onClick={() => void api.resolveConfirm(view.researchId, "accept_lower_floor")}>
+            认下更低底线并开新版
+          </button>
+          <button onClick={() => void api.resolveConfirm(view.researchId, "supply_local_materials")}>
+            提供本机材料补充覆盖
+          </button>
+          <button onClick={() => void api.resolveConfirm(view.researchId, "redefine_scope")}>
+            缩小研究范围
+          </button>
+          <button onClick={() => void api.resolveConfirm(view.researchId, "pause_and_edit")}>暂停，我自己改</button>
+        </div>
+      ) : (
+        <div className="decision-stack" data-testid="economic-decisions">
+          {!hasEvidence && (
+            <p className="evidence-required-hint">需要证据依据才能同意</p>
+          )}
+          <button className="cyan-button" onClick={handleApprove} disabled={!canApproveEconomic}>
+            同意，开新的一版
+          </button>
+          <button onClick={() => void api.resolveConfirm(view.researchId, "reject_keep_logic")}>不同意，维持原逻辑继续</button>
+          <button onClick={() => void api.resolveConfirm(view.researchId, "pause_and_edit")}>暂停，我自己改</button>
+        </div>
+      )}
     </article>
   );
 }
@@ -276,6 +373,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     ["当前验证方法全部通过", view.eligibility.allMethodsPassed],
     ["没有待确认", view.eligibility.noPendingConfirm],
     ["重验仍然成立", view.eligibility.reverifiesPassed],
+    ["时点一致性已执行且通过", view.eligibility.pitExecutedAndPassed],
   ] as const;
   const eligible = checks.every(([, passed]) => passed);
   return (
@@ -283,6 +381,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       <StatusPill status={view.status} />
       <p>alphaloop 到这里结束，不提供执行入口。</p>
       {view.overturnedExports && <p>此前导出的策略包所依据的验证已被推翻</p>}
+      {view.anomaly && <AnomalyChecklist anomaly={view.anomaly} />}
       <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
       <article className="result-card">
         <h1>{view.title}</h1>
@@ -314,9 +413,37 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
   return (
     <section className="method-detail">
       <h1>{method.name}</h1>
+      {method.category && <span className="method-category-badge">{method.category}</span>}
       <p>{method.description}</p>
       <p>当前冻结定义：{method.revision}</p>
       {method.usageCount != null && <p>被 {method.usageCount} 次研究用过</p>}
+      {method.dimensions && method.dimensions.length > 0 && (
+        <div className="scorecard-dimensions" data-testid="scorecard-dimensions">
+          <p className="eyebrow">计分卡维度</p>
+          <table>
+            <thead>
+              <tr>
+                <th>类型</th>
+                <th>名称</th>
+                <th>阈值</th>
+                <th>比较</th>
+                <th>失败提示</th>
+              </tr>
+            </thead>
+            <tbody>
+              {method.dimensions.map((dim) => (
+                <tr key={`${dim.kind}-${dim.name}`}>
+                  <td>{dim.kind}</td>
+                  <td>{dim.name}</td>
+                  <td>{dim.passThreshold}</td>
+                  <td>{dim.comparison}</td>
+                  <td>{dim.failureDisplay}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <button className="quiet-button" onClick={() => void api.reviseMethod(method.id, method.description)}>编辑为新定义</button>
       <p>旧研究和已导出的策略包仍引用原定义。</p>
     </section>
