@@ -130,6 +130,7 @@ pub fn run() {
             commands::fetch_view,
             commands::create_draft,
             commands::confirm_run,
+            commands::unlock_brief,
             commands::send_dialogue,
             commands::pause_research,
             commands::resume_research,

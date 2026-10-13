@@ -100,6 +100,7 @@ export interface DesktopApi {
   fetchView(route: string): Promise<DesktopView>;
   createDraft(): Promise<string>;
   confirmRun(researchId: string): Promise<void>;
+  unlockBrief(researchId: string): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;
   resumeResearch(researchId: string): Promise<void>;

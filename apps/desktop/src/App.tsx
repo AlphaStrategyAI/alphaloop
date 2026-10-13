@@ -215,7 +215,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       <Settings values={view.settings} />
       <div className="actions">
         <button className="cyan-button" onClick={() => void api.confirmRun(view.researchId)}>确认开跑</button>
-        <a href={`#/research/${view.researchId}`}>再改改</a>
+        <button className="text-button" type="button" onClick={() => void api.unlockBrief(view.researchId)}>再改改</button>
       </div>
     </article>
   );
