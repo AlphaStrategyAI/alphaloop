@@ -14,9 +14,15 @@ from engine.research.models import (
     ConfirmRequest,
     ReviewFinding,
     ReviewReport,
-    Round,
     RoundDraft,
+    RoundV2,
 )
+from engine.research.specify import (
+    build_implementation_delta,
+    build_logic_statement,
+    build_trial_counters,
+)
+from engine.strategy import StrategySpec
 
 MAX_CONSECUTIVE_REVIEW_FAILURES = 3
 
@@ -129,7 +135,7 @@ AttemptSink = Callable[[Attempt], None]
 class ReviewGateOutcome:
     version_number: int
     attempts: tuple[Attempt, ...]
-    successful_round: Round | None
+    successful_round: RoundV2 | None
     confirm_request: ConfirmRequest | None
 
 
@@ -155,14 +161,27 @@ def run_review_gate(
         if on_attempt is not None:
             on_attempt(reviewed_attempt)
         if report.passed:
+            prior_spec: StrategySpec | None = None
+            accepted = reviewed_attempt
+            logic = build_logic_statement(
+                accepted.spec.thesis_locked,
+                accepted.spec,
+                version_number=initial.version_number,
+                had_prior_round=initial.round_number > 1,
+            )
+            impl = build_implementation_delta(accepted, prior_spec)
+            counters = build_trial_counters(tuple(attempts), accepted)
             return ReviewGateOutcome(
                 version_number=initial.version_number,
                 attempts=tuple(attempts),
-                successful_round=Round(
+                successful_round=RoundV2(
                     round_id=f"v{initial.version_number}-r{initial.round_number}",
                     number=initial.round_number,
                     accepted_attempt=reviewed_attempt,
                     completed_at=now,
+                    logic_statement=logic,
+                    implementation_delta=impl,
+                    trial_counters=counters,
                 ),
                 confirm_request=None,
             )

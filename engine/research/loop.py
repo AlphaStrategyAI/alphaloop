@@ -30,7 +30,7 @@ from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.review.subagent import MAX_CONSECUTIVE_REVIEW_FAILURES
 from engine.strategy import MeanReversionStrategy
-from engine.verifiers import run_verifiers
+from engine.verifiers import method_set_excluding_pit, run_verifiers
 
 if TYPE_CHECKING:
     from engine.review.subagent import ReviewerPort, ReviewGateOutcome
@@ -143,7 +143,13 @@ class DefaultRoundBuilder:
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
-        verification = run_verifiers(simulation, spec)
+        missing_as_of = tuple(item.material_id for item in materials)
+        verification = run_verifiers(
+            simulation,
+            spec,
+            evidence_as_of=(),
+            missing_as_of_material_ids=missing_as_of,
+        )
         return RoundDraft(
             version_number=version.number,
             round_number=round_number,
@@ -183,6 +189,12 @@ class DefaultRoundBuilder:
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
+        missing_as_of: tuple[str, ...] = ()
+        if prior.attempt.evidence_paths:
+            missing_as_of = tuple(
+                json.loads(path.read_text(encoding="utf-8"))["material_id"]
+                for path in prior.attempt.evidence_paths
+            )
         return replace(
             prior,
             attempt=Attempt(
@@ -191,7 +203,12 @@ class DefaultRoundBuilder:
                 change_class=ChangeClass.PARAM,
                 spec=spec,
                 simulation=simulation,
-                verification=run_verifiers(simulation, spec),
+                verification=run_verifiers(
+                    simulation,
+                    spec,
+                    evidence_as_of=(),
+                    missing_as_of_material_ids=missing_as_of,
+                ),
                 data_snapshot_path=snapshot,
                 evidence_paths=prior.attempt.evidence_paths,
             ),
@@ -381,7 +398,10 @@ class ResearchLoop:
                     return finish(result)
                 if not within_floor(observed, floor):
                     raise RuntimeError("below-floor coverage cannot complete or auto-pass")
-            if accepted.verification.passed:
+            method_set = method_set_excluding_pit(
+                charged.brief.round1_methods.value or accepted.spec.method_set
+            )
+            if accepted.verification.passed_for(method_set):
                 result = transition(charged, ResearchEvent.COMPLETE, self.now())
             elif (
                 charged.brief.max_effective_hours.value is not None

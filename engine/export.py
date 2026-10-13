@@ -17,7 +17,12 @@ from engine.research.models import (
     RoundV2,
 )
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
-from engine.verifiers import VERIFIER_REVISIONS, PitVerifierResult, VerifierResult
+from engine.verifiers import (
+    PitVerifierResult,
+    VERIFIER_REVISIONS,
+    VerifierResult,
+    method_set_excluding_pit,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,18 +76,29 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
         else None
     )
     pit_result = _find_pit_result(current_attempt) if current_attempt else None
+    current_round_id = (
+        research.versions[-1].rounds[-1].round_id
+        if research.versions and research.versions[-1].rounds
+        else None
+    )
+    method_set = ()
+    if current_attempt is not None and current_attempt.spec is not None:
+        method_set = method_set_excluding_pit(current_attempt.spec.method_set)
+    methods_passed = (
+        current_attempt is not None
+        and current_attempt.verification is not None
+        and current_attempt.verification.passed_for(method_set)
+    )
     checks = {
         "completed": research.status is ResearchStatus.COMPLETED,
-        "all_current_methods_passed": (
-            current_attempt is not None and current_attempt.verification.passed
-        ),
+        "all_current_methods_passed": methods_passed,
         "no_pending_confirm": research.pending_confirm is None,
         "all_reverifies_passed": all(
             reverification.passed
             for reverification in research.reverifications
-            if current_attempt is not None
-            and reverification.round_id
-            == research.versions[-1].rounds[-1].round_id
+            if current_round_id is not None
+            and reverification.round_id == current_round_id
+            and reverification.method_id != "pit.consistency"
         ),
         "pit_executed_and_passed": pit_result is not None and pit_result.passed,
     }
@@ -366,6 +382,12 @@ def build_strategy_pack(
                 "effective_seconds": research.effective_seconds,
             },
         )
+        all_rounds = [
+            round_
+            for version in research.versions
+            for round_ in version.rounds
+        ]
+        _json(root / "history" / "rounds.json", _round_history_with_trials(all_rounds))
         bundle_root = Path(
             getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
         )

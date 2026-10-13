@@ -5,6 +5,8 @@ import pytest
 from engine.metrics import SimulationReport
 from engine.research.models import AssetClass, Market, MethodRef, Universe
 from engine.strategy import StrategySpec
+from datetime import date
+
 from engine.verifiers import VERIFIER_REVISIONS, run_verifiers
 
 
@@ -49,6 +51,8 @@ def passing_report() -> SimulationReport:
         observations=756,
         covered_assets=1,
         missing_pct=0.0,
+        start=date(2014, 1, 2),
+        end=date(2016, 12, 30),
     )
 
 
@@ -60,6 +64,7 @@ def test_primary_scorecard_and_all_four_verifiers_pass() -> None:
         "stability.oos",
         "crowding.load",
         "cost.turnover",
+        "pit.consistency",
     ]
     assert result.passed
 

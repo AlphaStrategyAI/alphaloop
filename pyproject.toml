@@ -31,6 +31,9 @@ include = ["engine*", "apps*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+  "network: hits crossref/yfinance/akshare (§2.3 acceptance only)",
+]
 
 [tool.ruff]
 target-version = "py312"

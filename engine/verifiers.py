@@ -7,6 +7,10 @@ from types import MappingProxyType
 
 from engine.metrics import SimulationReport
 from engine.research.models import Market, MethodRef
+
+
+def method_set_excluding_pit(method_set: tuple[MethodRef, ...]) -> tuple[MethodRef, ...]:
+    return tuple(item for item in method_set if item.method_id != "pit.consistency")
 from engine.strategy import StrategySpec
 
 VERIFIER_REVISIONS = MappingProxyType(
@@ -207,10 +211,59 @@ _SELECTABLE: dict[str, Callable[[SimulationReport, StrategySpec], VerifierResult
 }
 
 
-def run_verifiers(report: SimulationReport, spec: StrategySpec) -> VerificationReport:
-    results = [_scorecard(report, spec)]
+def _append_pit_result(
+    results: list[VerifierResult],
+    spec: StrategySpec | None,
+    report: SimulationReport,
+    *,
+    evidence_as_of: tuple[tuple[str, str], ...],
+    missing_as_of_material_ids: tuple[str, ...],
+) -> None:
+    revision = str(PIT_VERIFIER_REVISION["pit.consistency"]["revision"])
+    if report.end is None:
+        results.append(
+            PitVerifierResult(
+                verifier_id="pit.consistency",
+                revision=revision,
+                passed=False,
+                values={"violations_count": 1.0},
+                rule="backtest cutoff required for PIT",
+                evidence_timestamps=evidence_as_of,
+                backtest_cutoff="",
+                violations=("missing backtest cutoff",),
+            )
+        )
+        return
+    cutoff = report.end.isoformat()
+    violations: list[str] = [f"{mid}: missing as_of" for mid in missing_as_of_material_ids]
+    if violations:
+        results.append(
+            PitVerifierResult(
+                verifier_id="pit.consistency",
+                revision=revision,
+                passed=False,
+                values={"violations_count": float(len(violations))},
+                rule="all evidence as_of <= backtest cutoff",
+                evidence_timestamps=evidence_as_of,
+                backtest_cutoff=cutoff,
+                violations=tuple(violations),
+            )
+        )
+        return
+    pit = _pit_consistency(spec, list(evidence_as_of), cutoff)
+    results.append(pit)
+
+
+def run_verifiers(
+    report: SimulationReport,
+    spec: StrategySpec,
+    *,
+    evidence_as_of: tuple[tuple[str, str], ...] = (),
+    missing_as_of_material_ids: tuple[str, ...] = (),
+) -> VerificationReport:
+    results: list[VerifierResult] = [_scorecard(report, spec)]
     for item in spec.method_set:
-        if item.method_id == "scorecard.market":
+        if item.method_id in {"scorecard.market", "pit.consistency"}:
             continue
         builder = _SELECTABLE.get(item.method_id)
         if builder is None:
@@ -225,4 +278,11 @@ def run_verifiers(report: SimulationReport, spec: StrategySpec) -> VerificationR
             )
             continue
         results.append(builder(report, spec))
+    _append_pit_result(
+        results,
+        spec,
+        report,
+        evidence_as_of=evidence_as_of,
+        missing_as_of_material_ids=missing_as_of_material_ids,
+    )
     return VerificationReport(tuple(results))

@@ -243,20 +243,19 @@ pub async fn delete_research(
 pub async fn resolve_confirm(
     research_id: String,
     decision: String,
+    who_pays: Option<String>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    mutate(
-        &app,
-        &connection,
-        json!({
-            "type": "resolve_confirm",
-            "research_id": research_id,
-            "decision": decision
-        }),
-    )
-    .await
-    .map(|_| ())
+    let mut body = json!({
+        "type": "resolve_confirm",
+        "research_id": research_id,
+        "decision": decision
+    });
+    if let Some(value) = who_pays.filter(|item| !item.is_empty()) {
+        body["who_pays"] = json!(value);
+    }
+    mutate(&app, &connection, body).await.map(|_| ())
 }
 
 #[tauri::command]

@@ -385,7 +385,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
       <article className="result-card">
         <h1>{view.title}</h1>
-        <p>美股 · 股票 · 经过市场基准和全部额外验证</p>
+        <p>{view.subtitle ?? `${view.universeLabel ?? "未锁定"} · 经过市场基准和全部额外验证`}</p>
         <button disabled={!eligible || view.status === "ended"} onClick={() => void api.exportArtifact(view.researchId, "strategy_pack")}>导出策略包</button>
         <button className="text-button" onClick={() => void api.reverify(view.researchId, view.selectedRoundId, view.selectedMethodId)}>对某一步重新验证</button>
         <button className="text-button" onClick={() => void api.exportArtifact(view.researchId, "research_record")}>导出研究记录包</button>

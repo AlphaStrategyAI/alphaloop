@@ -36,6 +36,12 @@ from engine.research.gather import (
     SecEdgarAdapter,
     YahooDataAdapter,
 )
+from engine.research.desktop_view import (
+    metrics_for_completed,
+    rounds_for_desktop,
+    selected_method_id,
+    universe_label_for,
+)
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
 from engine.research.methods import (
     as_method_refs,
@@ -54,10 +60,10 @@ from engine.research.models import (
     MethodSource,
     Research,
     ResearchAction,
+    ConfirmKind,
     ResearchEvent,
     ResearchStatus,
     Reverification,
-    Round,
     Slot,
     detect_anomalies,
     new_research,
@@ -80,9 +86,10 @@ from engine.research.runtime import (
 from engine.research.simulate import simulate_daily
 from engine.research.state_machine import all_slots_locked, transition
 from engine.research.store import SQLiteStore
+from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
 from engine.strategy import MarketPanel, MeanReversionStrategy
-from engine.verifiers import run_verifiers
+from engine.verifiers import method_set_excluding_pit, run_verifiers
 
 PROTOCOL_VERSION = 1
 
@@ -158,14 +165,19 @@ def build_loop(store: SQLiteStore, paths: RuntimePaths) -> ResearchLoop:
         LocalMaterialAdapter(material_root, lambda: datetime.now(UTC)),
     )
     data_port = RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter())
-    base_url = os.environ.get("ALPHALOOP_LLM_BASE_URL")
-    api_key = os.environ.get("ALPHALOOP_LLM_API_KEY")
-    model = os.environ.get("ALPHALOOP_LLM_MODEL")
-    llm: LLMPort = (
-        OpenAICompatibleLLM(client, base_url, api_key, model)
-        if base_url and api_key and model
-        else FailClosedLLM()
-    )
+    reviewer_mode = os.environ.get("ALPHALOOP_REVIEWER", "deterministic")
+    if reviewer_mode == "subagent":
+        base_url = os.environ.get("ALPHALOOP_LLM_BASE_URL")
+        api_key = os.environ.get("ALPHALOOP_LLM_API_KEY")
+        model = os.environ.get("ALPHALOOP_LLM_MODEL")
+        llm: LLMPort = (
+            OpenAICompatibleLLM(client, base_url, api_key, model)
+            if base_url and api_key and model
+            else FailClosedLLM()
+        )
+        reviewer = SubagentReviewer(llm)
+    else:
+        reviewer = DeterministicReviewer()
     today = datetime.now(UTC).date()
     builder = DefaultRoundBuilder(
         material_ports=material_ports,
@@ -177,7 +189,7 @@ def build_loop(store: SQLiteStore, paths: RuntimePaths) -> ResearchLoop:
     return ResearchLoop(
         store,
         builder,
-        SubagentReviewer(llm),
+        reviewer,
         TimeBudget(time.monotonic),
         lambda: datetime.now(UTC),
     )
@@ -314,11 +326,30 @@ class ResearchCommandService:
         trial_count = attempt.number
         coverage_shrunk = len(research.coverage_history) > 0
         method_revision_age_days = 30
-        baseline = AnomalyBaseline(
-            kind="version_1_logic",
-            sharpe=0.5,
-            trial_count=5,
-        )
+        baseline: AnomalyBaseline | None = None
+        version = research.versions[-1]
+        if len(version.rounds) >= 2:
+            prior = version.rounds[-2].accepted_attempt
+            prior_sim = prior.simulation
+            baseline = AnomalyBaseline(
+                kind="prior_accepted_attempt",
+                sharpe=getattr(prior_sim, "sharpe", None),
+                trial_count=prior.number,
+                attempt_id=prior.attempt_id,
+            )
+        elif len(research.versions) >= 2:
+            prior_version = research.versions[-2]
+            if prior_version.rounds:
+                prior = prior_version.rounds[-1].accepted_attempt
+                prior_sim = prior.simulation
+                baseline = AnomalyBaseline(
+                    kind="version_1_logic",
+                    sharpe=getattr(prior_sim, "sharpe", None),
+                    trial_count=prior.number,
+                    attempt_id=prior.attempt_id,
+                )
+        if baseline is None:
+            return None
         anomaly = detect_anomalies(
             sharpe=sharpe,
             trial_count=trial_count,
@@ -457,52 +488,27 @@ class ResearchCommandService:
             )
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
-            rounds = research.versions[version - 1].rounds if research.versions else ()
-            return self._host_payload(
-                {
-                    "kind": "running",
-                    "researchId": research_id,
-                    "status": research.status.value,
-                    "version": version,
-                    "effective": f"{research.effective_seconds / 3600:.2f}h",
-                    "remaining": self._remaining(research),
-                    "coverage": self._coverage_vs_floor(research),
-                    "rounds": [
-                        {
-                            "roundId": round_.round_id,
-                            "number": round_.number,
-                            "logicStatement": {
-                                "statement": round_.accepted_attempt.spec.id,
-                                "changedFromPrior": idx > 0,
-                                "changeDescription": None,
-                                "baselineVersion": version,
-                            },
-                            "implementationDelta": {
-                                "researchMethodChanges": [],
-                                "modelChanges": [],
-                                "paramChanges": [],
-                            },
-                            "trialCounters": {
-                                "candidatesEvaluated": round_.accepted_attempt.number,
-                                "candidatesPassed": 1 if round_.accepted_attempt.verification.passed else 0,
-                                "conclusionAttemptNumber": round_.accepted_attempt.number,
-                            },
-                            "verificationPassed": round_.accepted_attempt.verification.passed,
-                            "pitPassed": None,
-                        }
-                        for idx, round_ in enumerate(reversed(rounds))
-                    ],
-                    "currentAction": _ACTION_LABELS[research.current_action],
-                    "sources": self._sources(research),
-                    "dataCutoff": (
-                        research.last_coverage.end.isoformat()
-                        if research.last_coverage is not None
-                        else ""
-                    ),
-                    "anomaly": self._compute_anomaly(research),
-                },
-                research,
+            cutoff = (
+                research.last_coverage.end.isoformat()
+                if research.last_coverage is not None
+                else None
             )
+            running_payload: dict[str, Any] = {
+                "kind": "running",
+                "researchId": research_id,
+                "status": research.status.value,
+                "version": version,
+                "effective": f"{research.effective_seconds / 3600:.2f}h",
+                "remaining": self._remaining(research),
+                "coverage": self._coverage_vs_floor(research),
+                "rounds": rounds_for_desktop(research, version),
+                "currentAction": _ACTION_LABELS[research.current_action],
+                "sources": self._sources(research),
+                "anomaly": self._compute_anomaly(research),
+            }
+            if cutoff is not None:
+                running_payload["dataCutoff"] = cutoff
+            return self._host_payload(running_payload, research)
         if research.status.value == "awaiting_confirm":
             request = research.pending_confirm
             if request is None:
@@ -532,16 +538,23 @@ class ResearchCommandService:
                 research,
             )
         rounds = research.versions[-1].rounds if research.versions else ()
-        selected_round: Round | None = rounds[-1] if rounds else None
+        selected_round = rounds[-1] if rounds else None
         eligibility = strategy_pack_eligibility(research)
+        version_number = research.current_version_number or 1
+        subtitle = universe_label_for(research)
         return self._host_payload(
             {
                 "kind": "completed",
                 "researchId": research_id,
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
+                "universeLabel": subtitle,
+                "subtitle": f"{subtitle} · 经过市场基准和全部额外验证",
                 "selectedRoundId": selected_round.round_id if selected_round else "",
-                "selectedMethodId": "overfit.walk",
+                "selectedMethodId": selected_method_id(research),
+                "rounds": rounds_for_desktop(research, version_number),
+                "metrics": metrics_for_completed(research),
+                "failedExportChecks": list(eligibility.failed_checks),
                 "eligibility": {
                     "allMethodsPassed": "all_current_methods_passed" not in eligibility.failed_checks,
                     "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
@@ -672,6 +685,22 @@ class ResearchCommandService:
                 "supply_local_materials": ResearchEvent.CONFIRM_PAUSE,
                 "redefine_scope": ResearchEvent.CONFIRM_APPROVE,
             }[request["decision"]]
+            if (
+                event is ResearchEvent.CONFIRM_APPROVE
+                and request["decision"] == "approve_new_version"
+                and research.pending_confirm is not None
+                and research.pending_confirm.kind is ConfirmKind.ECONOMIC
+            ):
+                who_pays = request.get("who_pays")
+                text = who_pays if isinstance(who_pays, str) and who_pays.strip() else "未作答"
+                pending = research.pending_confirm
+                research = replace(
+                    research,
+                    pending_confirm=replace(
+                        pending,
+                        patch=pending.patch + (("who_pays_optional", text),),
+                    ),
+                )
             if event is ResearchEvent.CONFIRM_APPROVE:
                 deposit_confirmed_methods(self.store, research, now)
             updated = transition(research, event, now, store=self.store)
@@ -718,7 +747,18 @@ class ResearchCommandService:
                 frozen.index.min().date(),
                 frozen.index.max().date(),
             )
-            rerun = run_verifiers(rerun_simulation, accepted.spec)
+            missing_as_of: tuple[str, ...] = ()
+            if accepted.evidence_paths:
+                missing_as_of = tuple(
+                    json.loads(path.read_text(encoding="utf-8"))["material_id"]
+                    for path in accepted.evidence_paths
+                )
+            rerun = run_verifiers(
+                rerun_simulation,
+                accepted.spec,
+                evidence_as_of=(),
+                missing_as_of_material_ids=missing_as_of,
+            )
             matching_method = [
                 result
                 for result in rerun.results

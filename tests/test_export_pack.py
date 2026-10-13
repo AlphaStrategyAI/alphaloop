@@ -20,8 +20,11 @@ from engine.research.models import (
     Market,
     ResearchStatus,
     Reverification,
+    ImplementationDelta,
+    LogicStatement,
     ReviewReport,
-    Round,
+    RoundV2,
+    TrialCounters,
     Universe,
     Version,
     new_research,
@@ -60,7 +63,15 @@ def completed_research():
         verification=VerificationReport((gate, gate, gate, gate, gate, pit_gate)),
         review=ReviewReport(True, ()),
     )
-    round_ = Round("r-export-v1-r1", 1, attempt, NOW)
+    round_ = RoundV2(
+        "r-export-v1-r1",
+        1,
+        attempt,
+        NOW,
+        LogicStatement("one-day reversal", False, baseline_version=1),
+        ImplementationDelta(),
+        TrialCounters(1, 1, 1),
+    )
     version = Version("r-export-v1", 1, base.brief, (round_,), NOW, "confirm_run")
     return replace(
         base,

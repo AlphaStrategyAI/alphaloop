@@ -82,8 +82,13 @@ type ViewBody =
       researchId: string;
       status: "completed" | "ended";
       title: string;
+      universeLabel?: string;
+      subtitle?: string;
       selectedRoundId: string;
       selectedMethodId: string;
+      rounds?: readonly RoundRecord[];
+      metrics?: Record<string, number | null>;
+      failedExportChecks?: readonly string[];
       eligibility: ExportEligibilityV2;
       overturnedExports?: boolean;
       currentAction?: string;

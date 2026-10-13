@@ -14,7 +14,7 @@ from engine.research.models import (
     MethodUsage,
     Research,
 )
-from engine.verifiers import VERIFIER_REVISIONS
+from engine.verifiers import PIT_VERIFIER_REVISION, VERIFIER_REVISIONS
 
 
 class ScorecardDimensionKind(StrEnum):
@@ -80,6 +80,7 @@ PRESET_NAMES = {
     "stability.oos": "样本外稳定",
     "crowding.load": "拥挤度",
     "cost.turnover": "换手成本",
+    "pit.consistency": "时点一致性",
 }
 
 
@@ -171,25 +172,39 @@ def record_method_usage(
     store.record_method_usage(research_id, version_number, method_set)
 
 
-def seed_preset_methods(store: SQLiteStore, now: datetime | None = None) -> None:
-    if store.list_method_definitions():
+def _insert_preset_if_missing(
+    store: SQLiteStore,
+    method_id: str,
+    meta: dict[str, object],
+    created_at: datetime,
+) -> None:
+    if store.latest_method_definition(method_id) is not None:
         return
-    created_at = now or datetime(2026, 1, 1, tzinfo=UTC)
-    for method_id, meta in VERIFIER_REVISIONS.items():
-        body = json.dumps(dict(meta), sort_keys=True)
-        store.insert_method_definition(
-            MethodDefinition(
-                method_id=method_id,
-                revision_hash=str(meta["revision"]),
-                name=PRESET_NAMES[method_id],
-                description=body,
-                body=body,
-                source=MethodSource.PRESET,
-                deposited_from_research_id=None,
-                created_at=created_at,
-                supersedes=None,
-            )
+    body = json.dumps(dict(meta), sort_keys=True)
+    store.insert_method_definition(
+        MethodDefinition(
+            method_id=method_id,
+            revision_hash=str(meta["revision"]),
+            name=PRESET_NAMES[method_id],
+            description=body,
+            body=body,
+            source=MethodSource.PRESET,
+            deposited_from_research_id=None,
+            created_at=created_at,
+            supersedes=None,
         )
+    )
+
+
+def seed_preset_methods(store: SQLiteStore, now: datetime | None = None) -> None:
+    created_at = now or datetime(2026, 1, 1, tzinfo=UTC)
+    if not store.list_method_definitions():
+        for method_id, meta in VERIFIER_REVISIONS.items():
+            _insert_preset_if_missing(store, method_id, dict(meta), created_at)
+    for method_id, meta in VERIFIER_REVISIONS.items():
+        _insert_preset_if_missing(store, method_id, dict(meta), created_at)
+    for method_id, meta in PIT_VERIFIER_REVISION.items():
+        _insert_preset_if_missing(store, method_id, dict(meta), created_at)
 
 
 def _method_payload(value: object) -> tuple[str, str, str, str] | None:

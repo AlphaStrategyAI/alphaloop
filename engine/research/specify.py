@@ -5,14 +5,19 @@ from dataclasses import dataclass
 from engine.research.gather import DataProfile, Material
 from engine.research.models import (
     AssetClass,
+    Attempt,
     ChangeClass,
     CoverageFloor,
+    ImplementationDelta,
+    LogicStatement,
     Market,
     MethodRef,
     Research,
+    TrialCounters,
     Universe,
 )
 from engine.strategy import Side, StrategySpec
+from engine.verifiers import method_set_excluding_pit
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,4 +125,80 @@ def specify(
         lookback_days=proposal.lookback_days,
         entry_z=proposal.entry_z,
         max_drawdown_floor=prior.max_drawdown_floor if prior else -0.25,
+    )
+
+
+def build_logic_statement(
+    thesis: str,
+    spec: StrategySpec,
+    *,
+    version_number: int,
+    had_prior_round: bool,
+) -> LogicStatement:
+    statement = (
+        f"{thesis}（{spec.model_family}，lookback={spec.lookback_days}，entry_z={spec.entry_z}）"
+    )
+    return LogicStatement(
+        statement=statement,
+        changed_from_prior=had_prior_round,
+        change_description="延续锁定 thesis 下的参数/模型迭代" if had_prior_round else None,
+        baseline_version=version_number,
+    )
+
+
+def build_implementation_delta(
+    attempt: Attempt,
+    prior_spec: StrategySpec | None,
+) -> ImplementationDelta:
+    spec = attempt.spec
+    param_changes: list[tuple[str, str, str]] = []
+    model_changes: list[str] = []
+    research_changes: list[str] = []
+    if prior_spec is None:
+        if attempt.change_class is ChangeClass.MODEL:
+            model_changes.append(f"初始 {spec.model_family} 规格")
+        return ImplementationDelta(
+            research_method_changes=tuple(research_changes),
+            model_changes=tuple(model_changes),
+            param_changes=tuple(param_changes),
+        )
+    if prior_spec.model_family != spec.model_family:
+        model_changes.append(f"{prior_spec.model_family} → {spec.model_family}")
+    if prior_spec.lookback_days != spec.lookback_days:
+        param_changes.append(
+            ("lookback_days", str(prior_spec.lookback_days), str(spec.lookback_days))
+        )
+    if prior_spec.entry_z != spec.entry_z:
+        param_changes.append(("entry_z", str(prior_spec.entry_z), str(spec.entry_z)))
+    if attempt.change_class is ChangeClass.PARAM and not param_changes:
+        param_changes.append(
+            (
+                "lookback_days",
+                str(prior_spec.lookback_days),
+                str(spec.lookback_days),
+            )
+        )
+    method_set = method_set_excluding_pit(spec.method_set)
+    if method_set:
+        research_changes.append(
+            "验证方法集: " + ", ".join(item.method_id for item in method_set)
+        )
+    return ImplementationDelta(
+        research_method_changes=tuple(research_changes),
+        model_changes=tuple(model_changes),
+        param_changes=tuple(param_changes),
+    )
+
+
+def build_trial_counters(attempts: tuple[Attempt, ...], accepted: Attempt) -> TrialCounters:
+    method_set = method_set_excluding_pit(accepted.spec.method_set)
+    passed = sum(
+        1
+        for item in attempts
+        if item.verification is not None and item.verification.passed_for(method_set)
+    )
+    return TrialCounters(
+        candidates_evaluated=len(attempts),
+        candidates_passed=passed,
+        conclusion_attempt_number=accepted.number,
     )

@@ -257,7 +257,7 @@ class Version:
     version_id: str
     number: int
     brief_snapshot: ResearchBrief
-    rounds: tuple[Round, ...]
+    rounds: tuple[RoundV2, ...]
     opened_at: datetime
     opened_by: str
     confirmed_changes: tuple[tuple[str, object], ...] = ()

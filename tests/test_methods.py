@@ -89,6 +89,7 @@ def test_library_create_method_is_deposited_not_preset(tmp_path: Path) -> None:
         "stability.oos",
         "crowding.load",
         "cost.turnover",
+        "pit.consistency",
     }
 
 
@@ -113,6 +114,8 @@ def test_selected_method_set_must_all_pass_and_does_not_inherit_old_passes() -> 
         observations=756,
         covered_assets=1,
         missing_pct=0.0,
+        start=__import__("datetime").date(2014, 1, 2),
+        end=__import__("datetime").date(2016, 12, 30),
     )
     four = (
         MethodRef("overfit.walk", "walk-v1"),

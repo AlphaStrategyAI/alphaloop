@@ -20,7 +20,9 @@ const desktopApi: DesktopApi = {
   async confirmModification(researchId) { await invoke("confirm_modification", {researchId}); },
   async extendResearch(researchId, hours) { await invoke("extend_research", {researchId, hours}); },
   async deleteResearch(researchId) { await invoke("delete_research", {researchId}); },
-  async resolveConfirm(researchId, decision) { await invoke("resolve_confirm", {researchId, decision}); },
+  async resolveConfirm(researchId, decision, whoPays) {
+    await invoke("resolve_confirm", {researchId, decision, whoPays});
+  },
   async exportArtifact(researchId, kind) { await invoke("export_artifact", {researchId, kind}); },
   async reverify(researchId, roundId, methodId) {
     await invoke("reverify", {researchId, roundId, methodId});
