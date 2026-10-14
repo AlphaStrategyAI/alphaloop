@@ -40,3 +40,4 @@ apps/desktop/node_modules/
 # Desktop build artifacts
 apps/desktop/dist/
 apps/desktop/src-tauri/target/
+artifacts/
