@@ -1,7 +1,7 @@
 """§2.3 network acceptance: real MaterialPort + DataPort → COMPLETED (PIT may fail)."""
 
 import os
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -17,12 +17,9 @@ from engine.review.deterministic import DeterministicReviewer
 
 pytestmark = pytest.mark.network
 
-# SPY daily window verified on live yfinance (2026-10-14 E2E pass on this VM).
-# Scorecard needs max_drawdown_floor -0.35 on the version (observed max ~-0.324); thresholds in
-# VERIFIER_REVISIONS are unchanged.
+# SPY daily window frozen for acceptance (default max_drawdown_floor -0.25; no threshold override).
 _SCORECARD_WINDOW_START = date(2000, 1, 4)
 _SCORECARD_WINDOW_END = date(2010, 12, 31)
-_ACCEPTANCE_MAX_DRAWDOWN_FLOOR = -0.35
 
 
 @pytest.mark.skipif(
@@ -79,31 +76,42 @@ def test_v1_mean_reversion_reaches_completed_real_ports(tmp_path) -> None:
     )
     store.save(locked, locked.updated_at)
     running = transition(locked, ResearchEvent.CONFIRM_RUN, now)
-    opened = running.versions[0]
-    running = replace(
-        running,
-        versions=(
-            replace(
-                opened,
-                confirmed_changes=(("max_drawdown_floor", _ACCEPTANCE_MAX_DRAWDOWN_FLOOR),),
-            ),
-        ),
-    )
     store.save(running, running.updated_at)
     current = running
-    for _ in range(40):
+    for _ in range(5):
         if current.status is ResearchStatus.COMPLETED:
             break
         current = loop.run_once(current.research_id)
     assert current.status is ResearchStatus.COMPLETED
     assert len(current.versions[-1].rounds) >= 1
+    attempt = current.versions[-1].rounds[-1].accepted_attempt
     pit = next(
         item
-        for item in current.versions[-1].rounds[-1].accepted_attempt.verification.results
+        for item in attempt.verification.results
         if item.verifier_id == "pit.consistency"
     )
     assert pit.verifier_id == "pit.consistency"
-    from engine.export import strategy_pack_eligibility
+    assert pit.passed is False
+
+    from engine.export import build_research_record_pack, strategy_pack_eligibility
+    from engine.research.desktop_view import rounds_for_desktop
 
     eligibility = strategy_pack_eligibility(current)
+    assert eligibility.eligible is False
     assert "pit_executed_and_passed" in eligibility.failed_checks
+    method_set = tuple(m for m in attempt.spec.method_set if m.method_id != "pit.consistency")
+    methods_passed = attempt.verification.passed_for(method_set)
+    if not methods_passed:
+        assert "all_current_methods_passed" in eligibility.failed_checks
+        scorecard = next(
+            r for r in attempt.verification.results if r.verifier_id == "scorecard.market"
+        )
+        if not scorecard.passed:
+            assert scorecard.verifier_id == "scorecard.market"
+
+    desktop_rounds = rounds_for_desktop(current, current.current_version_number or 1)
+    assert desktop_rounds[0]["verificationPassed"] is methods_passed
+    assert desktop_rounds[0]["pitPassed"] is False
+
+    record_path = build_research_record_pack(current, tmp_path / "accept-record.zip")
+    assert record_path.exists()

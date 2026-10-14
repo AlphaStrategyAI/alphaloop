@@ -426,6 +426,7 @@ class ResearchLoop:
                         effect="确认后应用改动并开新版本",
                         change_class=change_class,
                         patch=((change.field, change.after),),
+                        created_at=self.now(),
                     )
                     result = transition(
                         charged,
@@ -434,7 +435,7 @@ class ResearchLoop:
                         request,
                     )
                 else:
-                    result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
+                    result = transition(charged, ResearchEvent.COMPLETE, self.now())
             return finish(result)
         finally:
             if isinstance(self.builder, DefaultRoundBuilder):

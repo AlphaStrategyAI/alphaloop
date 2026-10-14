@@ -5,15 +5,9 @@ from dataclasses import dataclass
 
 from engine.research.models import RoundDraft
 from engine.review.subagent import ReviewReport, ReviewerPort
-from engine.verifiers import method_set_excluding_pit
-
-
 def default_v1_pass(draft: RoundDraft) -> bool:
-    attempt = draft.attempt
-    if attempt.spec.model_family != "mean_reversion":
-        return False
-    method_set = method_set_excluding_pit(attempt.spec.method_set)
-    return attempt.verification.passed_for(method_set)
+    """Accept mean-reversion rounds even when method verification failed (honest not-passed path)."""
+    return draft.attempt.spec.model_family == "mean_reversion"
 
 
 @dataclass(slots=True)

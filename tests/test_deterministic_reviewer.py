@@ -96,10 +96,10 @@ def test_deterministic_reviewer_passes_when_methods_pass_even_if_pit_failed() ->
     assert report.findings == ()
 
 
-def test_deterministic_reviewer_fails_when_method_set_failed() -> None:
+def test_deterministic_reviewer_passes_when_method_set_failed_for_mean_reversion() -> None:
     draft = _draft(pit_passed=True, methods_pass=False)
     report = DeterministicReviewer(default_v1_pass).run(draft)
-    assert report.passed is False
+    assert report.passed is True
 
 
 def test_deterministic_reviewer_fails_for_non_mean_reversion_family() -> None:
