@@ -11,6 +11,7 @@ from typing import Any, get_args, get_origin
 
 import cattrs
 
+from engine.metrics import SimulationReport
 from engine.research.models import (
     Attempt,
     CoverageFloor,
@@ -19,8 +20,11 @@ from engine.research.models import (
     MethodSource,
     MethodUsage,
     Research,
+    ReviewReport,
     Slot,
 )
+from engine.strategy import StrategySpec
+from engine.verifiers import PitVerifierResult, VerificationReport, VerifierResult
 from engine.research.runtime import OwnerRecord
 
 
@@ -94,6 +98,39 @@ CONVERTER.register_structure_hook_func(
     _is_slot_type,
     _structure_slot,
 )
+
+
+def _structure_verifier_result(item: dict[str, Any], _: type) -> VerifierResult:
+    target = PitVerifierResult if item.get("verifier_id") == "pit.consistency" else VerifierResult
+    return CONVERTER.structure(item, target)
+
+
+def _structure_verification_report(data: Any, _: type) -> VerificationReport | None:
+    if data is None:
+        return None
+    if isinstance(data, VerificationReport):
+        return data
+    if not isinstance(data, dict):
+        raise TypeError("verification must decode to VerificationReport")
+    return VerificationReport(
+        tuple(_structure_verifier_result(item, VerifierResult) for item in data["results"])
+    )
+
+
+def _structure_attempt(data: dict[str, Any], _: type) -> Attempt:
+    payload = dict(data)
+    payload["verification"] = _structure_verification_report(payload.get("verification"), VerificationReport)
+    if isinstance(payload.get("simulation"), dict):
+        payload["simulation"] = CONVERTER.structure(payload["simulation"], SimulationReport)
+    if isinstance(payload.get("spec"), dict):
+        payload["spec"] = CONVERTER.structure(payload["spec"], StrategySpec)
+    if isinstance(payload.get("review"), dict):
+        payload["review"] = CONVERTER.structure(payload["review"], ReviewReport)
+    return Attempt(**payload)
+
+
+CONVERTER.register_structure_hook(VerificationReport, _structure_verification_report)
+CONVERTER.register_structure_hook(Attempt, _structure_attempt)
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
