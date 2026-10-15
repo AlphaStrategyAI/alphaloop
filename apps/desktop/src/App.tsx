@@ -209,12 +209,14 @@ function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {
     <div className="draft-layout">
       <section className="conversation">
         <h1>新研究</h1>
+        <p className="message assistant system" data-testid="dialogue-system-intro">
+          我会逐项锁定原理、资产、时间、方法和覆盖底线。
+        </p>
         {view.dialogue.map((turn, index) => (
           <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
             {turn.text}
           </p>
         ))}
-        <p className="message system">我会逐项锁定原理、资产、时间、方法和覆盖底线。</p>
         <form onSubmit={submit}>
           <input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="把方向说清楚，不用填表。" />
         </form>
@@ -251,6 +253,11 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
         {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
         {" · "}{view.coverage}
       </header>
+      {view.lastError && (
+        <p className="run-error" data-testid="last-run-error">
+          运行错误（{view.lastError.count} 次）：{view.lastError.message}
+        </p>
+      )}
       {view.honestStopHint && (
         <p className="honest-stop-hint" data-testid="honest-stop-hint-running">
           {view.honestStopHint}
@@ -496,7 +503,12 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
       <h1>{method.name}</h1>
       {method.category && <span className="method-category-badge">{method.category}</span>}
       <p>{method.description}</p>
-      <p>当前冻结定义：{method.revision}</p>
+      <p>
+        当前冻结定义：
+        <span title={method.revision}>
+          {method.revision.length > 8 ? `${method.revision.slice(0, 8)}…` : method.revision}
+        </span>
+      </p>
       {method.usageCount != null && <p>被 {method.usageCount} 次研究用过</p>}
       {method.dimensions && method.dimensions.length > 0 && (
         <div className="scorecard-dimensions" data-testid="scorecard-dimensions">

@@ -474,12 +474,38 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
                 "export_eligible": research.export_eligible,
             },
         )
+        all_rounds = [round_ for version in research.versions for round_ in version.rounds]
+        from engine.research.data_window import (
+            cumulative_rounds_on_window,
+            data_window_key_from_round,
+            rounds_on_window_chronological,
+        )
+
+        cumulative_m = cumulative_rounds_on_window(research)
+        cumulative_index = {
+            round_.round_id: index
+            for index, (_, round_) in enumerate(
+                rounds_on_window_chronological(research),
+                start=1,
+            )
+        }
+        _json(
+            root / "history" / "rounds.json",
+            _round_history_with_trials(research, all_rounds),
+        )
         _json(
             root / "history" / "verification_attempts.json",
             [
                 {
                     "round_id": round_.round_id,
                     "attempt_id": round_.accepted_attempt.attempt_id,
+                    "data_window_key": (
+                        data_window_key_from_round(round_).serialize()
+                        if data_window_key_from_round(round_) is not None
+                        else None
+                    ),
+                    "cumulative_rounds_on_window": cumulative_m,
+                    "cumulative_round_on_window": cumulative_index.get(round_.round_id),
                     "verification": asdict(round_.accepted_attempt.verification),
                 }
                 for version in research.versions

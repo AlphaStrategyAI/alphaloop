@@ -39,6 +39,7 @@ from engine.research.gather import (
 )
 from engine.research.desktop_view import (
     format_coverage_floor_display,
+    format_coverage_vs_floor,
     format_universe_display,
     metrics_for_completed,
     rounds_for_desktop,
@@ -46,6 +47,7 @@ from engine.research.desktop_view import (
     universe_label_for,
 )
 from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
+from engine.research.run_errors import apply_run_failure, max_consecutive_run_errors
 from engine.research.honest_stop import (
     assert_can_manual_continue,
     can_manual_continue_iterate,
@@ -301,19 +303,7 @@ class ResearchCommandService:
 
     @staticmethod
     def _coverage_vs_floor(research: Research) -> str:
-        floor = research.brief.coverage_floor.value
-        observed = research.last_coverage
-        if observed is None:
-            return str(floor or "")
-        current = (
-            f"{len(observed.assets)}资产/{observed.years:.1f}年/缺失{observed.missing_pct:.1f}%"
-        )
-        if floor is None:
-            return current
-        return (
-            f"{current} vs 底线 {floor.min_assets}资产/{floor.min_years}年/"
-            f"缺失≤{floor.max_missing_pct:.1f}%"
-        )
+        return format_coverage_vs_floor(research)
 
     @staticmethod
     def _remaining(research: Research) -> str:
@@ -542,6 +532,11 @@ class ResearchCommandService:
             }
             if hint:
                 running_payload["honestStopHint"] = hint
+            if research.last_run_error:
+                running_payload["lastError"] = {
+                    "message": research.last_run_error,
+                    "count": research.consecutive_identical_run_errors,
+                }
             running_payload.update(trial_tracking_for_view(research))
             running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
             late = late_pass_presentation(research)
@@ -731,9 +726,7 @@ class ResearchCommandService:
             )
             self.store.save(boosted, research.updated_at)
             resumed = transition(boosted, ResearchEvent.CONTINUE_ITERATE, now)
-            self.store.save(resumed, boosted.updated_at)
-            after = build_loop(self.store, self.paths).run_once(research.research_id)
-            return self._save(boosted, after)
+            return self._save(boosted, resumed)
         elif kind == "extend_research":
             current_hours = research.brief.max_effective_hours.value or 0.0
             extended = replace(
@@ -1050,7 +1043,19 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
                 try:
                     loop.run_once(research_id)
                 except Exception as error:  # noqa: BLE001
-                    store.record_error(research_id, str(error), datetime.now(UTC))
+                    now = datetime.now(UTC)
+                    message = str(error)
+                    before = store.load(research_id)
+                    after = apply_run_failure(before, message, now)
+                    store.save(after, before.updated_at)
+                    store.record_error(
+                        research_id,
+                        message,
+                        now,
+                        force=after.status.value == "paused"
+                        and after.consecutive_identical_run_errors
+                        >= max_consecutive_run_errors(),
+                    )
             store.heartbeat(owner, datetime.now(UTC))
     finally:
         server.shutdown()

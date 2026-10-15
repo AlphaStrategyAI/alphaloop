@@ -65,7 +65,8 @@ def test_completed_presentation_budget_exhausted_copy(tmp_path: Path, monkeypatc
     assert pres.budget_exhausted is True
     assert pres.trial_budget.used == 1
     assert pres.trial_budget.budget == 1
-    assert "预算已用尽" in pres.hint_line
+    assert pres.hint_line == ""
+    assert "预算已用尽" in pres.summary
     assert "research_record" in pres.summary
 
 

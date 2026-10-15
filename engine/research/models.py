@@ -302,7 +302,11 @@ class ConfirmRequest:
     created_at: datetime | None = None
 
 
-def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
+def assert_preconfirm_evidence(
+    request: ConfirmRequest,
+    store: object,
+    research_id: str,
+) -> None:
     """Validate that all evidence refs in why_change exist and predate the request (B4 iron rule).
     
     Raises InvalidEvidenceRefError if:
@@ -322,7 +326,15 @@ def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
         )
     for ref in request.why_change:
         lookup = getattr(store, f"get_{ref.kind.value}", None)
-        if lookup is None or lookup(ref.record_id) is None:
+        if lookup is None:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
+            )
+        if ref.kind.value == "attempt":
+            payload = lookup(ref.record_id, research_id=research_id)
+        else:
+            payload = lookup(ref.record_id)
+        if payload is None:
             raise InvalidEvidenceRefError(
                 f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
             )
@@ -470,6 +482,8 @@ class Research:
     thesis_change_hint: str | None = None
     implementation_trial_budget: int = 5
     dialogue: tuple[DialogueTurn, ...] = ()
+    last_run_error: str | None = None
+    consecutive_identical_run_errors: int = 0
 
 
 def new_research(research_id: str, now: datetime) -> Research:

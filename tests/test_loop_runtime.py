@@ -421,7 +421,7 @@ class _AttemptEvidenceStore:
     def __init__(self, attempt_ids: set[str]) -> None:
         self._ids = attempt_ids
 
-    def get_attempt(self, record_id: str) -> dict | None:
+    def get_attempt(self, record_id: str, *, research_id: str | None = None) -> dict | None:
         return {"id": record_id} if record_id in self._ids else None
 
 

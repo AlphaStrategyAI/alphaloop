@@ -68,6 +68,7 @@ type ViewBody =
       sources?: string;
       dataCutoff?: string;
       honestStopHint?: string | null;
+      lastError?: {message: string; count: number};
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;
       cumulativeRoundsOnWindow?: number;

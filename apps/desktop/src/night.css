@@ -139,6 +139,17 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .method-list a { display: grid; color: var(--ink); text-decoration: none; padding: 14px; border-radius: var(--radius-control); }
 .method-list a.active { background: var(--glass); border: 1px solid var(--line); }
 .method-list small { margin-top: 4px; word-break: break-all; }
+.message.user { margin-left: 12%; text-align: right; color: #dbeafe; }
+.message.assistant { margin-right: 12%; color: var(--ink); }
+.message.system { color: var(--mute); font-size: 13px; }
+.run-error {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid #f87171;
+  border-radius: var(--radius-control);
+  color: #fecaca;
+  font-size: 13px;
+}
 .mutation-error {
   margin: 0;
   padding: 10px 16px;

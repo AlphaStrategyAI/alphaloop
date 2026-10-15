@@ -237,17 +237,14 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         )
         m = cumulative_rounds_on_window(research)
         if exhausted:
-            hint = (
-                f"实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
-                f"本研究在该数据窗口累计 {m} 轮；轮数越多，偶然通过的可能性越高。"
-                f"验证仍未通过；只能导出 research_record。"
+            summary = (
+                f"验证未通过且实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
+                f"本数据窗口累计 {m} 轮；轮数越多，偶然通过的可能性越高。"
                 f"未通过门禁：{gates}。"
+                "只能导出 research_record。"
                 "可点「继续迭代」追加预算后再跑（阈值不变）。"
             )
-            summary = (
-                f"验证未通过且实现层预算已用尽（{budget.used}/{budget.budget} 轮）。"
-                f"本数据窗口累计 {m} 轮。只能导出 research_record。未通过门禁：{gates}。"
-            )
+            hint = ""
         else:
             hint = ""
     return CompletedPresentation(

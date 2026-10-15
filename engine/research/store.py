@@ -200,6 +200,41 @@ class SQLiteStore:
         self.connection = sqlite3.connect(path, check_same_thread=False)
         self.connection.executescript(SCHEMA)
         self._migrate_method_schema()
+        self._migrate_review_attempts_schema()
+
+    def _migrate_review_attempts_schema(self) -> None:
+        row = self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='review_attempts'"
+        ).fetchone()
+        if row is None:
+            return
+        ddl = row[0] or ""
+        if "PRIMARY KEY (research_id, attempt_id)" in ddl:
+            return
+        with self.connection:
+            self.connection.executescript(
+                """
+                CREATE TABLE review_attempts_v2 (
+                    attempt_id TEXT NOT NULL,
+                    research_id TEXT NOT NULL,
+                    version_number INTEGER NOT NULL,
+                    round_number INTEGER NOT NULL,
+                    passed INTEGER NOT NULL,
+                    attempt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (research_id, attempt_id)
+                );
+                INSERT INTO review_attempts_v2 (
+                    attempt_id, research_id, version_number, round_number,
+                    passed, attempt_json, created_at
+                )
+                SELECT attempt_id, research_id, version_number, round_number,
+                       passed, attempt_json, created_at
+                  FROM review_attempts;
+                DROP TABLE review_attempts;
+                ALTER TABLE review_attempts_v2 RENAME TO review_attempts;
+                """
+            )
 
     def _migrate_method_schema(self) -> None:
         columns = {
@@ -313,14 +348,34 @@ class SQLiteStore:
                 ),
             )
 
-    def get_attempt(self, record_id: str) -> dict[str, Any] | None:
-        row = self.connection.execute(
-            "SELECT attempt_json FROM review_attempts WHERE attempt_id=?",
-            (record_id,),
-        ).fetchone()
-        if row is not None:
-            return json.loads(row[0])
+    def get_attempt(
+        self,
+        record_id: str,
+        *,
+        research_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        if research_id is not None:
+            row = self.connection.execute(
+                """
+                SELECT attempt_json FROM review_attempts
+                 WHERE research_id=? AND attempt_id=?
+                """,
+                (research_id, record_id),
+            ).fetchone()
+            if row is not None:
+                return json.loads(row[0])
+        else:
+            rows = self.connection.execute(
+                "SELECT attempt_json FROM review_attempts WHERE attempt_id=?",
+                (record_id,),
+            ).fetchall()
+            if len(rows) == 1:
+                return json.loads(rows[0][0])
+            if len(rows) > 1:
+                return None
         for research in self.list_research():
+            if research_id is not None and research.research_id != research_id:
+                continue
             for version in research.versions:
                 for round_ in version.rounds:
                     if round_.accepted_attempt.attempt_id == record_id:
@@ -500,6 +555,18 @@ class SQLiteStore:
     def delete(self, research_id: str) -> None:
         with self.connection:
             self.connection.execute(
+                "DELETE FROM review_attempts WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM method_usage WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM engine_errors WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
                 "DELETE FROM researches WHERE research_id=?",
                 (research_id,),
             )
@@ -530,7 +597,27 @@ class SQLiteStore:
         self.insert_method_definition(row)
         return row.revision_hash
 
-    def record_error(self, research_id: str, message: str, now: datetime) -> None:
+    def record_error(
+        self,
+        research_id: str,
+        message: str,
+        now: datetime,
+        *,
+        force: bool = False,
+    ) -> None:
+        if not force:
+            recent = self.connection.execute(
+                """
+                SELECT created_at FROM engine_errors
+                 WHERE research_id=? AND message=?
+                 ORDER BY created_at DESC LIMIT 1
+                """,
+                (research_id, message),
+            ).fetchone()
+            if recent is not None:
+                last = datetime.fromisoformat(recent[0])
+                if (now - last).total_seconds() < 300:
+                    return
         with self.connection:
             self.connection.execute(
                 "INSERT INTO engine_errors(research_id,message,created_at) VALUES(?,?,?)",

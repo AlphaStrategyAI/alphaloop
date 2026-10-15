@@ -57,7 +57,7 @@ def test_deposit_marks_source_and_survives_research_delete(tmp_path) -> None:
     store.delete("r-dep")
     assert store.list_method_definitions()[0].source is MethodSource.DEPOSITED
     assert store.list_method_definitions()[0].deposited_from_research_id == "r-dep"
-    assert list_method_usage(store, "custom.gap")[0].research_id == "r-dep"
+    assert list_method_usage(store, "custom.gap") == ()
 
 
 def test_library_create_method_is_deposited_not_preset(tmp_path: Path) -> None:

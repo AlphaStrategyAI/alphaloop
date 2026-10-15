@@ -213,7 +213,7 @@ class MockEvidenceStore:
     def __init__(self, existing_ids: set[str]) -> None:
         self._existing = existing_ids
 
-    def get_attempt(self, record_id: str) -> dict | None:
+    def get_attempt(self, record_id: str, *, research_id: str | None = None) -> dict | None:
         return {"id": record_id} if record_id in self._existing else None
 
     def get_verification_report(self, record_id: str) -> dict | None:

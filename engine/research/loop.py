@@ -30,6 +30,7 @@ from engine.research.honest_stop import (
     change_requires_user_confirm,
     default_implementation_next_change,
 )
+from engine.research.run_errors import clear_run_errors
 from engine.research.specify import ModelProposal, ProposedChange, classify_change, specify
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
@@ -273,7 +274,9 @@ class ResearchLoop:
             final_action = (
                 action if result.status is ResearchStatus.RUNNING else ResearchAction.IDLE
             )
-            result = replace(result, current_action=final_action)
+            result = clear_run_errors(
+                replace(result, current_action=final_action),
+            )
             self.store.save(result, expected_updated_at)
             return result
 

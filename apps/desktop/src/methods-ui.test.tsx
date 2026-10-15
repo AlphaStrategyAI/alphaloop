@@ -41,6 +41,7 @@ describe("method library UI", () => {
     const active = links.find((a) => a.classList.contains("active"));
     expect(active?.textContent).toContain("第二项");
     expect(links[0].classList.contains("active")).toBe(false);
-    expect(screen.getByTitle("b".repeat(64))).toHaveTextContent(`${"b".repeat(8)}…`);
+    const revision = screen.getAllByTitle("b".repeat(64))[0];
+    expect(revision).toHaveTextContent(`${"b".repeat(8)}…`);
   });
 });

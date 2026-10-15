@@ -8,7 +8,7 @@
 
 | Metric | Count |
 | --- | ---: |
-| 通过 | 48 |
+| 通过 | 55 |
 | 失败 | 0 |
 | 未测 | 3 |
 
@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **195 passed**, 1 skipped (network without opt-in). Desktop vitest **37/37**.
+**Default CI:** `python3 -m pytest tests/ -q` → **197 passed**, 1 skipped (network without opt-in). Desktop vitest **42/42**.
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -26,7 +26,7 @@
 
 ```bash
 python3 -m pytest tests/ -q
-# 195 passed, 1 skipped
+# 197 passed, 1 skipped
 
 ALPHALOOP_ACCEPTANCE_NETWORK=1 python3 -m pytest tests/test_v1_honest_path.py -v
 # test_v1_mean_reversion_reaches_completed_real_ports PASSED (~0.9s)
@@ -35,7 +35,7 @@ bash scripts/verify_v1_done.sh
 # green when network env unset (skip message)
 
 cd apps/desktop && npm test -- --run
-# 37 passed
+# 42 passed
 ```
 
 ## Done #1 — network at default `max_drawdown_floor=-0.25`
@@ -118,7 +118,13 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Hash navigation** | `#/research/<id>` / `#/methods` drive `fetchView(route)` | 通过 | `apps/desktop/src/navigation.test.tsx` (jsdom; **not** full Tauri IPC) |
 | **Running `honestStopHint`** | Budget / auto-iterate copy on running screen | 通过 | `App.test.tsx` `honest-stop-hint-running` |
 | **Confirm/list display** | Chinese universe & coverage; local timestamps | 通过 | `tests/test_desktop_view_format.py`, `format.test.ts`, `App.test.tsx` |
-| **§1.2 Desktop** | Vitest + build | 通过 | 37/37; real Tauri window smoke / Night 7-screen **未测** |
+| **unlock_brief schema** | `unlock_brief` in desktop request schema | 通过 | `tests/test_desktop_api_schema_contract.py` |
+| **Draft dialogue** | Persisted `dialogue`; off-topic + next_question replies | 通过 | `tests/test_dialogue.py`; vitest duplicate bubbles |
+| **Mutation errors** | `bindDesktopApi` refresh + `mutation-error` banner | 通过 | `api-bind.test.ts` |
+| **Methods hash / list** | `decodeURIComponent`; latest revision per id; `.active` | 通过 | `routing.test.ts`, `methods-ui.test.tsx`, `test_methods_view_route.py` |
+| **Failed gate labels** | Deduped + `PRESET_NAMES` display | 通过 | `tests/test_verifier_display.py`; vitest formatted `failedVerifierIds` |
+| **Late-pass paramChanges** | `prior_spec` in review gate → `lookback_days` delta | 通过 | `test_late_pass_after_third_round_success` + `_round_history_with_trials` |
+| **§1.2 Desktop** | Vitest + build | 通过 | 42/42; real Tauri window smoke / Night 7-screen **未测** |
 
 ## Defects found and fixed (this pass)
 
@@ -131,6 +137,11 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | Running screen omitted `honestStopHint` | Render hint on `RunningScreen` | `App.test.tsx` |
 | Confirm card showed `Universe(...)` / `CoverageFloor(...)` repr | `format_*_display` in `desktop_view.py` → `_settings()` | `test_desktop_view_format.py` |
 | List showed raw ISO timestamps | `formatResearchTimestamp` (default `Asia/Shanghai`) | `format.test.ts`, `App.test.tsx` |
+| **`unlock_brief` HTTP 400** | Schema enum missing type; mutations show errors + refresh | `test_desktop_api_schema_contract.py`, `api-bind.test.ts` |
+| **Draft dialogue mute** | `Research.dialogue` + `process_send_dialogue`; view `dialogue` | `tests/test_dialogue.py` |
+| **Methods library** | Hash decode, active link, latest revision only | `test_methods.py`, `methods-ui.test.tsx`, `test_methods_view_route.py` |
+| **Empty late-pass `paramChanges`** | Review gate passes `prior_spec` into `build_implementation_delta` | `test_late_pass_after_third_round_success` |
+| **Raw duplicate gate ids** | `format_verifier_ids` + dedupe in `_failed_gate_ids` | `test_verifier_display.py` |
 
 ## 已知问题（本轮不修）
 

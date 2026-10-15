@@ -21,6 +21,21 @@ def format_universe_display(universe: Universe | None) -> str:
     return f"{market} · {asset}"
 
 
+def format_coverage_vs_floor(research: Research) -> str:
+    floor = research.brief.coverage_floor.value
+    observed = research.last_coverage
+    floor_text = format_coverage_floor_display(floor)
+    if observed is None:
+        return floor_text or "未锁定"
+    current = (
+        f"当前 {len(observed.assets)} 个标的、{observed.years:g} 年数据，"
+        f"缺失 {observed.missing_pct:g}%"
+    )
+    if not floor_text:
+        return current
+    return f"{current}；底线 {floor_text}"
+
+
 def format_coverage_floor_display(floor: CoverageFloor | None) -> str:
     if floor is None:
         return ""

@@ -442,7 +442,7 @@ describe("Night desktop contract", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("honest-stop-hint")).toHaveTextContent("预算已用尽");
+    expect(screen.getByText(/预算已用尽/)).toBeInTheDocument();
     expect(screen.getByText(/未通过门禁：市场计分卡 \(scorecard\.market\)、时点一致性 \(pit\.consistency\)/)).toBeInTheDocument();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByTestId("continue-iterate"));

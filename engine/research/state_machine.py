@@ -122,7 +122,11 @@ def transition(
                 raise InvalidTransition(
                     "CONFIRM_APPROVE requires store for evidence validation (B4 iron rule)"
                 )
-            assert_preconfirm_evidence(research.pending_confirm, store)
+            assert_preconfirm_evidence(
+                research.pending_confirm,
+                store,
+                research.research_id,
+            )
         return _open_version(research, now, "economic_confirm")
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_REJECT:
         return replace(

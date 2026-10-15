@@ -88,6 +88,7 @@ def interpret(message: str, research: Research) -> Intent:
     if universe is not None:
         updates.append(("universe", universe))
         thesis = re.sub(r"我想|研究|锁定|并锁定", "", text).strip()
+        thesis = re.sub(r"，?\s*大致原理\s*$", "", thesis).strip()
         if len(thesis) >= 4:
             updates.append(("thesis", thesis))
     hours = re.search(r"(\d+(?:\.\d+)?)\s*小时", text)
