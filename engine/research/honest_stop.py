@@ -1,13 +1,31 @@
-"""V1-P0 transitional honest stop after failed method verification (not long-term default)."""
+"""Implementation trial budget for failed verification auto-iteration (V1 P0)."""
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from engine.export import strategy_pack_eligibility
 from engine.research.models import ChangeClass, Research, ResearchStatus
 from engine.research.specify import ProposedChange, classify_change
 from engine.verifiers import VerificationReport, method_set_excluding_pit
+
+DEFAULT_IMPLEMENTATION_TRIAL_BUDGET = 5
+DEFAULT_TRIAL_BUDGET_INCREMENT = 5
+
+
+def max_implementation_trials() -> int:
+    raw = os.environ.get("ALPHALOOP_MAX_TRIALS")
+    if raw is None or raw == "":
+        return DEFAULT_IMPLEMENTATION_TRIAL_BUDGET
+    return max(1, int(raw))
+
+
+def trial_budget_increment() -> int:
+    raw = os.environ.get("ALPHALOOP_TRIAL_BUDGET_INCREMENT")
+    if raw is None or raw == "":
+        return DEFAULT_TRIAL_BUDGET_INCREMENT
+    return max(1, int(raw))
 
 
 def default_implementation_next_change(accepted) -> ProposedChange:
@@ -19,7 +37,7 @@ def default_implementation_next_change(accepted) -> ProposedChange:
 
 
 def change_requires_user_confirm(change: ProposedChange) -> bool:
-    """Economic / coverage / B3 logic edits must not take the honest COMPLETE stop path."""
+    """Economic / coverage / B3 logic edits must never auto-continue on budget."""
     klass = classify_change(change)
     if klass in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE}:
         return True
@@ -32,6 +50,18 @@ def _last_accepted_attempt(research: Research):
     if not research.versions or not research.versions[-1].rounds:
         return None
     return research.versions[-1].rounds[-1].accepted_attempt
+
+
+def implementation_trials_used(research: Research) -> int:
+    if research.current_version_number is None or not research.versions:
+        return 0
+    version = research.versions[research.current_version_number - 1]
+    return len(version.rounds)
+
+
+def implementation_trials_remaining(research: Research) -> int:
+    used = implementation_trials_used(research)
+    return max(0, research.implementation_trial_budget - used)
 
 
 def methods_verification_passed(research: Research) -> bool:
@@ -53,18 +83,67 @@ def failed_verifier_ids(research: Research) -> tuple[str, ...]:
     )
 
 
-def honest_stop_applies(research: Research, deferred: ProposedChange | None) -> bool:
+def deferred_implementation_change(research: Research) -> ProposedChange | None:
+    attempt = _last_accepted_attempt(research)
+    if attempt is None:
+        return None
+    return default_implementation_next_change(attempt)
+
+
+def can_auto_continue_impl_iteration(
+    research: Research,
+    change: ProposedChange,
+) -> bool:
+    if change_requires_user_confirm(change):
+        return False
+    return implementation_trials_used(research) < research.implementation_trial_budget
+
+
+def budget_exhausted_stop(research: Research) -> bool:
     if research.status is not ResearchStatus.COMPLETED:
         return False
     if methods_verification_passed(research):
         return False
+    deferred = deferred_implementation_change(research)
+    if deferred is None or change_requires_user_confirm(deferred):
+        return False
+    return implementation_trials_used(research) >= research.implementation_trial_budget
+
+
+def auto_iterating_under_budget(research: Research) -> bool:
+    if research.status is not ResearchStatus.RUNNING:
+        return False
+    if methods_verification_passed(research):
+        return False
+    deferred = deferred_implementation_change(research)
+    if deferred is None or change_requires_user_confirm(deferred):
+        return False
+    used = implementation_trials_used(research)
+    return used > 0 and used < research.implementation_trial_budget
+
+
+def can_manual_continue_iterate(research: Research) -> bool:
+    if research.status is not ResearchStatus.COMPLETED:
+        return False
+    if methods_verification_passed(research):
+        return False
+    deferred = deferred_implementation_change(research)
     if deferred is None or change_requires_user_confirm(deferred):
         return False
     return True
 
 
-def can_manual_continue_iterate(research: Research, deferred: ProposedChange | None) -> bool:
-    return honest_stop_applies(research, deferred)
+@dataclass(frozen=True, slots=True)
+class TrialBudgetView:
+    used: int
+    budget: int
+    remaining: int
+
+
+def trial_budget_view(research: Research) -> TrialBudgetView:
+    used = implementation_trials_used(research)
+    budget = research.implementation_trial_budget
+    return TrialBudgetView(used=used, budget=budget, remaining=max(0, budget - used))
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,8 +153,8 @@ class CompletedPresentation:
     export_kind: str
     failed_verifier_ids: tuple[str, ...]
     failed_export_checks: tuple[str, ...]
-    honest_stop: bool
-    auto_iterate_declined: bool
+    budget_exhausted: bool
+    trial_budget: TrialBudgetView
     deferred_change_summary: str | None
     trial_counters: dict[str, int] | None
     headline: str
@@ -87,15 +166,31 @@ def _format_change(change: ProposedChange) -> str:
     return f"{change.field}: {change.before!r} → {change.after!r}"
 
 
+def running_budget_hint(research: Research) -> str:
+    if not auto_iterating_under_budget(research):
+        if (
+            research.status is ResearchStatus.RUNNING
+            and not methods_verification_passed(research)
+            and implementation_trials_used(research) > 0
+        ):
+            view = trial_budget_view(research)
+            return (
+                f"验证未通过：在实现层预算内自动迭代中，已用 {view.used}/{view.budget} 轮。"
+            )
+        return ""
+    view = trial_budget_view(research)
+    return (
+        f"验证未通过：在实现层预算内自动迭代中，已用 {view.used}/{view.budget} 轮。"
+    )
+
+
 def completed_presentation(research: Research) -> CompletedPresentation:
     eligibility = strategy_pack_eligibility(research)
     methods_ok = methods_verification_passed(research)
     failed_ids = failed_verifier_ids(research)
-    attempt = _last_accepted_attempt(research)
-    deferred = (
-        default_implementation_next_change(attempt) if attempt is not None else None
-    )
-    stop = honest_stop_applies(research, deferred)
+    deferred = deferred_implementation_change(research)
+    exhausted = budget_exhausted_stop(research)
+    budget = trial_budget_view(research)
     counters = None
     if research.versions and research.versions[-1].rounds:
         tc = research.versions[-1].rounds[-1].trial_counters
@@ -126,34 +221,31 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         gates = "、".join(failed_ids) if failed_ids else "、".join(eligibility.failed_checks)
         headline = "研究已结束，验证未通过"
         summary = (
-            f"本轮未通过冻结验证，不能导出 strategy_pack，只能导出 research_record。"
+            f"不能导出 strategy_pack，只能导出 research_record。"
             f"未通过的门禁包括：{gates}。"
         )
-        trial_note = ""
-        version_rounds = (
-            len(research.versions[-1].rounds) if research.versions else 0
-        )
-        if counters or version_rounds:
-            trial_note = (
-                f"本版已完成 {version_rounds} 轮；"
-                f"最近一轮评估 {counters['candidatesEvaluated'] if counters else 0} 次，"
-                f"通过 {counters['candidatesPassed'] if counters else 0} 次。"
+        if exhausted:
+            hint = (
+                f"实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
+                f"验证仍未通过；只能导出 research_record。"
+                f"未通过门禁：{gates}。"
+                "可点「继续迭代」追加预算后再跑（阈值不变）。"
             )
-        change_note = _format_change(deferred) if deferred and stop else ""
-        hint = (
-            "V1 规则：验证方法集未通过；若继续，下一步本是参数/模型实现层调整"
-            f"（{change_note}）。系统未自动迭代，已停在当前结论。"
-            f"{trial_note}"
-        ).strip()
+            summary = (
+                f"验证未通过且实现层预算已用尽（{budget.used}/{budget.budget} 轮）。"
+                f"只能导出 research_record。未通过门禁：{gates}。"
+            )
+        else:
+            hint = ""
     return CompletedPresentation(
         methods_verification_passed=methods_ok,
         strategy_pack_eligible=eligibility.eligible,
         export_kind=export_kind,
         failed_verifier_ids=failed_ids,
         failed_export_checks=eligibility.failed_checks,
-        honest_stop=stop,
-        auto_iterate_declined=stop,
-        deferred_change_summary=_format_change(deferred) if deferred and stop else None,
+        budget_exhausted=exhausted,
+        trial_budget=budget,
+        deferred_change_summary=_format_change(deferred) if deferred and exhausted else None,
         trial_counters=counters,
         headline=headline,
         summary=summary,
@@ -162,11 +254,10 @@ def completed_presentation(research: Research) -> CompletedPresentation:
 
 
 def assert_can_manual_continue(research: Research) -> ProposedChange:
-    attempt = _last_accepted_attempt(research)
-    if attempt is None:
+    deferred = deferred_implementation_change(research)
+    if deferred is None:
         raise ValueError("continue_iterate requires a completed round")
-    deferred = default_implementation_next_change(attempt)
-    if not can_manual_continue_iterate(research, deferred):
+    if not can_manual_continue_iterate(research):
         raise ValueError("research is not eligible for manual continue_iterate")
     return deferred
 
@@ -175,10 +266,6 @@ def verification_thresholds_unchanged(
     before: VerificationReport,
     after: VerificationReport,
 ) -> bool:
-    revisions = {
-        item.verifier_id: item.revision for item in before.results
-    }
-    after_revisions = {
-        item.verifier_id: item.revision for item in after.results
-    }
+    revisions = {item.verifier_id: item.revision for item in before.results}
+    after_revisions = {item.verifier_id: item.revision for item in after.results}
     return revisions == after_revisions

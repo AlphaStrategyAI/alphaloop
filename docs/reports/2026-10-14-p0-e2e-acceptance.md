@@ -8,9 +8,9 @@
 
 | Metric | Count |
 | --- | ---: |
-| 通过 | 31 |
+| 通过 | 33 |
 | 失败 | 0 |
-| 未测 | 7 |
+| 未测 | 6 |
 
 **Done #1 network (-0.25 default floor):** `ALPHALOOP_ACCEPTANCE_NETWORK=1 pytest tests/test_v1_honest_path.py -v` → **PASSED**. Research reaches **`COMPLETED`** with **not-passed** method verification (`all_current_methods_passed` false); export is **`research_record`** only (not strategy pack). Failed gates: **`scorecard.market`** (max_drawdown -0.324 vs floor -0.25) and **`pit.consistency`**.
 

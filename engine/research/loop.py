@@ -26,6 +26,7 @@ from engine.research.models import (
 )
 from engine.research.simulate import simulate_daily
 from engine.research.honest_stop import (
+    can_auto_continue_impl_iteration,
     change_requires_user_confirm,
     default_implementation_next_change,
 )
@@ -434,6 +435,8 @@ class ResearchLoop:
                         self.now(),
                         request,
                     )
+                elif can_auto_continue_impl_iteration(charged, change):
+                    result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
                 else:
                     result = transition(charged, ResearchEvent.COMPLETE, self.now())
             return finish(result)

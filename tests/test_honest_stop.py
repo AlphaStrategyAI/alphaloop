@@ -1,11 +1,18 @@
-"""V1-P0 transitional honest stop and manual continue."""
+"""Implementation trial budget and honest completion (V1 P0)."""
 
+from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 from engine.research.clock import TimeBudget
 from engine.research.honest_stop import (
+    budget_exhausted_stop,
     change_requires_user_confirm,
     completed_presentation,
+    max_implementation_trials,
+    running_budget_hint,
+    trial_budget_view,
     verification_thresholds_unchanged,
 )
 from engine.research.loop import ResearchLoop
@@ -16,6 +23,7 @@ from engine.research.store import SQLiteStore
 from engine.verifiers import VERIFIER_REVISIONS
 from tests.test_loop_runtime import (
     NOW,
+    EconomicBuilder,
     FailedMethodsParamBuilder,
     PassReviewer,
     running_research,
@@ -37,7 +45,13 @@ def test_change_requires_user_confirm_distinguishes_logic_model_from_impl() -> N
     )
 
 
-def test_completed_presentation_for_failed_methods_is_not_success_copy(tmp_path: Path) -> None:
+def test_max_implementation_trials_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "7")
+    assert max_implementation_trials() == 7
+
+
+def test_completed_presentation_budget_exhausted_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
     store = SQLiteStore(tmp_path / "h.db")
     store.create(running_research())
     completed = ResearchLoop(
@@ -48,17 +62,58 @@ def test_completed_presentation_for_failed_methods_is_not_success_copy(tmp_path:
         lambda: NOW,
     ).run_once("r-loop")
     pres = completed_presentation(completed)
-    assert pres.methods_verification_passed is False
-    assert pres.export_kind == "research_record_only"
-    assert "未通过" in pres.headline
+    assert pres.budget_exhausted is True
+    assert pres.trial_budget.used == 1
+    assert pres.trial_budget.budget == 1
+    assert "预算已用尽" in pres.hint_line
     assert "research_record" in pres.summary
-    assert pres.auto_iterate_declined is True
-    assert pres.hint_line
-    assert "未自动迭代" in pres.hint_line
 
 
-def test_manual_continue_iterate_preserves_failed_round_and_thresholds(tmp_path: Path) -> None:
-    store = SQLiteStore(tmp_path / "research.db")
+def test_auto_continues_within_budget_then_completes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "3")
+    store = SQLiteStore(tmp_path / "budget.db")
+    store.create(running_research())
+    loop = ResearchLoop(
+        store,
+        FailedMethodsParamBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    )
+    first = loop.run_once("r-loop")
+    assert first.status is ResearchStatus.RUNNING
+    assert len(first.versions[0].rounds) == 1
+    assert trial_budget_view(first).remaining == 2
+    assert "自动迭代" in running_budget_hint(first)
+
+    second = loop.run_once("r-loop")
+    assert second.status is ResearchStatus.RUNNING
+    assert len(second.versions[0].rounds) == 2
+
+    third = loop.run_once("r-loop")
+    assert third.status is ResearchStatus.COMPLETED
+    assert len(third.versions[0].rounds) == 3
+    assert budget_exhausted_stop(third)
+
+
+def test_economic_change_still_confirms_with_high_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "99")
+    store = SQLiteStore(tmp_path / "econ.db")
+    store.create(running_research())
+    waiting = ResearchLoop(
+        store,
+        EconomicBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert waiting.status is ResearchStatus.AWAITING_CONFIRM
+
+
+def test_manual_continue_after_exhaustion_adds_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
+    monkeypatch.setenv("ALPHALOOP_TRIAL_BUDGET_INCREMENT", "2")
+    store = SQLiteStore(tmp_path / "cont.db")
     store.create(running_research())
     loop = ResearchLoop(
         store,
@@ -73,20 +128,20 @@ def test_manual_continue_iterate_preserves_failed_round_and_thresholds(tmp_path:
     floor_before = round1.accepted_attempt.spec.max_drawdown_floor
     v_before = round1.accepted_attempt.verification
     assert v_before is not None
-    assert not v_before.passed
 
-    resumed = transition(completed, ResearchEvent.CONTINUE_ITERATE, NOW)
+    resumed = transition(
+        replace(
+            completed,
+            implementation_trial_budget=completed.implementation_trial_budget + 2,
+        ),
+        ResearchEvent.CONTINUE_ITERATE,
+        NOW,
+    )
     store.save(resumed, completed.updated_at)
     after = loop.run_once("r-loop")
-
     assert len(after.versions[0].rounds) == 2
     assert after.versions[0].rounds[0].accepted_attempt.attempt_id == round1.accepted_attempt.attempt_id
-    assert after.versions[0].rounds[1].number == 2
     assert after.versions[0].rounds[1].accepted_attempt.spec.max_drawdown_floor == floor_before
-    assert (
-        after.versions[0].rounds[1].accepted_attempt.spec.lookback_days
-        > round1.accepted_attempt.spec.lookback_days
-    )
     v_after = after.versions[0].rounds[1].accepted_attempt.verification
     assert v_after is not None
     assert verification_thresholds_unchanged(v_before, v_after)

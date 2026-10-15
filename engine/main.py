@@ -44,7 +44,11 @@ from engine.research.desktop_view import (
 )
 from engine.research.honest_stop import (
     assert_can_manual_continue,
+    can_manual_continue_iterate,
     completed_presentation,
+    running_budget_hint,
+    trial_budget_increment,
+    trial_budget_view,
 )
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
 from engine.research.methods import (
@@ -59,6 +63,8 @@ from engine.research.methods import (
 from engine.research.models import (
     AnomalyBaseline,
     AnomalyPresentation,
+    EvidenceKind,
+    EvidenceRef,
     ExportKind,
     ExportRecord,
     MethodSource,
@@ -512,6 +518,15 @@ class ResearchCommandService:
             }
             if cutoff is not None:
                 running_payload["dataCutoff"] = cutoff
+            budget = trial_budget_view(research)
+            hint = running_budget_hint(research)
+            running_payload["trialBudget"] = {
+                "used": budget.used,
+                "budget": budget.budget,
+                "remaining": budget.remaining,
+            }
+            if hint:
+                running_payload["honestStopHint"] = hint
             return self._host_payload(running_payload, research)
         if research.status.value == "awaiting_confirm":
             request = research.pending_confirm
@@ -559,7 +574,13 @@ class ResearchCommandService:
                 "honestStopHint": presentation.hint_line or None,
                 "failedVerifierIds": list(presentation.failed_verifier_ids),
                 "exportKind": presentation.export_kind,
-                "canContinueIterate": presentation.honest_stop,
+                "trialBudget": {
+                    "used": presentation.trial_budget.used,
+                    "budget": presentation.trial_budget.budget,
+                    "remaining": presentation.trial_budget.remaining,
+                },
+                "budgetExhausted": presentation.budget_exhausted,
+                "canContinueIterate": can_manual_continue_iterate(research),
                 "deferredChangeSummary": presentation.deferred_change_summary,
                 "trialCounters": presentation.trial_counters,
                 "methodsVerificationPassed": presentation.methods_verification_passed,
@@ -676,10 +697,17 @@ class ResearchCommandService:
             self._record_version_methods(updated)
         elif kind == "continue_iterate":
             assert_can_manual_continue(research)
-            resumed = transition(research, ResearchEvent.CONTINUE_ITERATE, now)
-            self.store.save(resumed, research.updated_at)
+            increment = trial_budget_increment()
+            boosted = replace(
+                research,
+                implementation_trial_budget=research.implementation_trial_budget + increment,
+                updated_at=now,
+            )
+            self.store.save(boosted, research.updated_at)
+            resumed = transition(boosted, ResearchEvent.CONTINUE_ITERATE, now)
+            self.store.save(resumed, boosted.updated_at)
             after = build_loop(self.store, self.paths).run_once(research.research_id)
-            return self._save(research, after)
+            return self._save(boosted, after)
         elif kind == "extend_research":
             current_hours = research.brief.max_effective_hours.value or 0.0
             extended = replace(
@@ -704,22 +732,37 @@ class ResearchCommandService:
                 "supply_local_materials": ResearchEvent.CONFIRM_PAUSE,
                 "redefine_scope": ResearchEvent.CONFIRM_APPROVE,
             }[request["decision"]]
-            if (
-                event is ResearchEvent.CONFIRM_APPROVE
-                and request["decision"] == "approve_new_version"
-                and research.pending_confirm is not None
-                and research.pending_confirm.kind is ConfirmKind.ECONOMIC
-            ):
-                who_pays = request.get("who_pays")
-                text = who_pays if isinstance(who_pays, str) and who_pays.strip() else "未作答"
+            if event is ResearchEvent.CONFIRM_APPROVE and research.pending_confirm is not None:
                 pending = research.pending_confirm
-                research = replace(
-                    research,
-                    pending_confirm=replace(
+                refs: list[EvidenceRef] = []
+                for item in request.get("why_change") or ():
+                    refs.append(
+                        EvidenceRef(
+                            record_id=item["record_id"],
+                            recorded_at=datetime.fromisoformat(item["recorded_at"]),
+                            kind=EvidenceKind(item["kind"]),
+                            summary=item.get("summary"),
+                        )
+                    )
+                if refs:
+                    pending = replace(
+                        pending,
+                        why_change=tuple(refs),
+                        created_at=pending.created_at or now,
+                    )
+                if (
+                    request["decision"] == "approve_new_version"
+                    and pending.kind is ConfirmKind.ECONOMIC
+                ):
+                    who_pays = request.get("who_pays")
+                    text = (
+                        who_pays if isinstance(who_pays, str) and who_pays.strip() else "未作答"
+                    )
+                    pending = replace(
                         pending,
                         patch=pending.patch + (("who_pays_optional", text),),
-                    ),
-                )
+                    )
+                research = replace(research, pending_confirm=pending)
             if event is ResearchEvent.CONFIRM_APPROVE:
                 deposit_confirmed_methods(self.store, research, now)
             updated = transition(research, event, now, store=self.store)

@@ -62,6 +62,8 @@ type ViewBody =
       remaining?: string;
       sources?: string;
       dataCutoff?: string;
+      honestStopHint?: string | null;
+      trialBudget?: {used: number; budget: number; remaining: number};
       anomaly?: AnomalyPresentation | null;
     }
   | {
@@ -89,6 +91,8 @@ type ViewBody =
       failedVerifierIds?: readonly string[];
       exportKind?: "research_record_only" | "strategy_pack";
       canContinueIterate?: boolean;
+      budgetExhausted?: boolean;
+      trialBudget?: {used: number; budget: number; remaining: number};
       deferredChangeSummary?: string | null;
       trialCounters?: {
         candidatesEvaluated: number;

@@ -2,6 +2,8 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
+
 from engine.metrics import SimulationReport
 from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop, RoundBuilder
@@ -351,7 +353,10 @@ def test_logic_signal_change_waits_for_confirm_not_honest_complete(tmp_path: Pat
     assert waiting.pending_confirm.patch[0][0] == "signal_definition"
 
 
-def test_impl_model_family_takes_honest_complete_not_confirm(tmp_path: Path) -> None:
+def test_impl_model_family_takes_honest_complete_not_confirm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
     store = SQLiteStore(tmp_path / "research.db")
     store.create(running_research())
     completed = ResearchLoop(
@@ -365,7 +370,10 @@ def test_impl_model_family_takes_honest_complete_not_confirm(tmp_path: Path) -> 
     assert completed.pending_confirm is None
 
 
-def test_failed_method_verification_completes_without_param_iteration(tmp_path: Path) -> None:
+def test_failed_method_verification_completes_without_param_iteration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
     store = SQLiteStore(tmp_path / "research.db")
     store.create(running_research())
     result = ResearchLoop(

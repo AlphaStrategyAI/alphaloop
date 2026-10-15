@@ -348,7 +348,9 @@ describe("Night desktop contract", () => {
           title: "SPY 回归",
           resultHeadline: "研究已结束，验证未通过",
           subtitle: "只能导出 research_record。未通过：scorecard.market",
-          honestStopHint: "V1 规则：验证方法集未通过；系统未自动迭代。",
+          honestStopHint: "实现层迭代预算已用尽（5/5 轮）。验证仍未通过；只能导出 research_record。",
+          trialBudget: {used: 5, budget: 5, remaining: 0},
+          budgetExhausted: true,
           failedVerifierIds: ["scorecard.market", "pit.consistency"],
           canContinueIterate: true,
           selectedRoundId: "round-1",
@@ -358,7 +360,7 @@ describe("Night desktop contract", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("honest-stop-hint")).toHaveTextContent("未自动迭代");
+    expect(screen.getByTestId("honest-stop-hint")).toHaveTextContent("预算已用尽");
     expect(screen.getByText("未通过门禁：scorecard.market、pit.consistency")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("continue-iterate"));
     expect(continueIterate).toHaveBeenCalledWith("r-honest");

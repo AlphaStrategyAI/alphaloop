@@ -313,6 +313,20 @@ class SQLiteStore:
                 ),
             )
 
+    def get_attempt(self, record_id: str) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            "SELECT attempt_json FROM review_attempts WHERE attempt_id=?",
+            (record_id,),
+        ).fetchone()
+        if row is not None:
+            return json.loads(row[0])
+        for research in self.list_research():
+            for version in research.versions:
+                for round_ in version.rounds:
+                    if round_.accepted_attempt.attempt_id == record_id:
+                        return {"attempt_id": record_id}
+        return None
+
     def review_failure_count(
         self,
         research_id: str,

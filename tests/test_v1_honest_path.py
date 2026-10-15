@@ -78,7 +78,7 @@ def test_v1_mean_reversion_reaches_completed_real_ports(tmp_path) -> None:
     running = transition(locked, ResearchEvent.CONFIRM_RUN, now)
     store.save(running, running.updated_at)
     current = running
-    for _ in range(5):
+    for _ in range(12):
         if current.status is ResearchStatus.COMPLETED:
             break
         current = loop.run_once(current.research_id)

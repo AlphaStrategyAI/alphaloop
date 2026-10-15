@@ -457,11 +457,14 @@ class Research:
     exports: tuple[ExportRecord, ...] = ()
     current_action: ResearchAction = ResearchAction.IDLE
     thesis_change_hint: str | None = None
+    implementation_trial_budget: int = 5
 
 
 def new_research(research_id: str, now: datetime) -> Research:
     if now.tzinfo is None:
         raise ValueError("now must be timezone-aware")
+    from engine.research.honest_stop import max_implementation_trials
+
     return Research(
         research_id=research_id,
         status=ResearchStatus.DRAFT,
@@ -480,4 +483,5 @@ def new_research(research_id: str, now: datetime) -> Research:
         exports=(),
         current_action=ResearchAction.IDLE,
         thesis_change_hint=None,
+        implementation_trial_budget=max_implementation_trials(),
     )
