@@ -135,6 +135,7 @@ pub fn run() {
             commands::pause_research,
             commands::resume_research,
             commands::confirm_modification,
+            commands::continue_iterate,
             commands::extend_research,
             commands::delete_research,
             commands::resolve_confirm,

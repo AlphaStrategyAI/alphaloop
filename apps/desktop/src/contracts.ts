@@ -84,6 +84,18 @@ type ViewBody =
       title: string;
       universeLabel?: string;
       subtitle?: string;
+      resultHeadline?: string;
+      honestStopHint?: string | null;
+      failedVerifierIds?: readonly string[];
+      exportKind?: "research_record_only" | "strategy_pack";
+      canContinueIterate?: boolean;
+      deferredChangeSummary?: string | null;
+      trialCounters?: {
+        candidatesEvaluated: number;
+        candidatesPassed: number;
+        conclusionAttemptNumber: number;
+      } | null;
+      methodsVerificationPassed?: boolean;
       selectedRoundId: string;
       selectedMethodId: string;
       rounds?: readonly RoundRecord[];
@@ -110,6 +122,7 @@ export interface DesktopApi {
   pauseResearch(researchId: string): Promise<void>;
   resumeResearch(researchId: string): Promise<void>;
   confirmModification(researchId: string): Promise<void>;
+  continueIterate(researchId: string): Promise<void>;
   extendResearch(researchId: string, hours: number): Promise<void>;
   deleteResearch(researchId: string): Promise<void>;
   resolveConfirm(researchId: string, decision: ConfirmationDecision, whoPays?: string): Promise<void>;

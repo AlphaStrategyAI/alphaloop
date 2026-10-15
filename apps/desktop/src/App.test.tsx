@@ -336,6 +336,35 @@ describe("Night desktop contract", () => {
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeEnabled();
   });
 
+  it("shows honest-stop hint and continue iterate when methods failed (P0 transitional)", () => {
+    const continueIterate = vi.fn(async () => undefined);
+    render(
+      <App
+        api={{...api, continueIterate}}
+        initialView={{
+          kind: "completed",
+          researchId: "r-honest",
+          status: "completed",
+          title: "SPY 回归",
+          resultHeadline: "研究已结束，验证未通过",
+          subtitle: "只能导出 research_record。未通过：scorecard.market",
+          honestStopHint: "V1 规则：验证方法集未通过；系统未自动迭代。",
+          failedVerifierIds: ["scorecard.market", "pit.consistency"],
+          canContinueIterate: true,
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: false, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: false},
+          currentAction: "idle",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("honest-stop-hint")).toHaveTextContent("未自动迭代");
+    expect(screen.getByText("未通过门禁：scorecard.market、pit.consistency")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("continue-iterate"));
+    expect(continueIterate).toHaveBeenCalledWith("r-honest");
+    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+  });
+
   it("shows four eligibility gates including PIT and disables export when PIT fails (B1)", () => {
     render(
       <App

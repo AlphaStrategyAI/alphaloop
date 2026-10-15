@@ -34,6 +34,7 @@ class ResearchEvent(StrEnum):
     REVERIFY_FAIL = "reverify_fail"
     MODIFY_CONFIRM = "modify_confirm"
     EXTEND_CONFIRM = "extend_confirm"
+    CONTINUE_ITERATE = "continue_iterate"
     WAIT = "wait"
 
 

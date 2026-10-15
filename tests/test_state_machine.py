@@ -82,6 +82,7 @@ def test_confirm_run_is_a_draft_view_and_opens_version_one() -> None:
         (ResearchStatus.AWAITING_CONFIRM, ResearchEvent.CONFIRM_REJECT, ResearchStatus.RUNNING),
         (ResearchStatus.AWAITING_CONFIRM, ResearchEvent.CONFIRM_PAUSE, ResearchStatus.PAUSED),
         (ResearchStatus.PAUSED, ResearchEvent.RESUME, ResearchStatus.RUNNING),
+        (ResearchStatus.COMPLETED, ResearchEvent.CONTINUE_ITERATE, ResearchStatus.RUNNING),
         (ResearchStatus.COMPLETED, ResearchEvent.REVERIFY_PASS, ResearchStatus.COMPLETED),
         (ResearchStatus.COMPLETED, ResearchEvent.REVERIFY_FAIL, ResearchStatus.COMPLETED),
         (ResearchStatus.PAUSED, ResearchEvent.MODIFY_CONFIRM, ResearchStatus.RUNNING),

@@ -25,6 +25,10 @@ from engine.research.models import (
     RoundDraft,
 )
 from engine.research.simulate import simulate_daily
+from engine.research.honest_stop import (
+    change_requires_user_confirm,
+    default_implementation_next_change,
+)
 from engine.research.specify import ModelProposal, ProposedChange, classify_change, specify
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
@@ -215,11 +219,7 @@ class DefaultRoundBuilder:
         )
 
     def next_change(self, accepted: Attempt) -> ProposedChange:
-        return ProposedChange(
-            field="lookback_days",
-            before=accepted.spec.lookback_days,
-            after=accepted.spec.lookback_days + 5,
-        )
+        return default_implementation_next_change(accepted)
 
 
 @dataclass(slots=True)
@@ -413,7 +413,7 @@ class ResearchLoop:
                 persist_action(ResearchAction.ITERATE)
                 change = self.builder.next_change(accepted)
                 change_class = classify_change(change)
-                if change_class in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE}:
+                if change_requires_user_confirm(change):
                     request = ConfirmRequest(
                         request_id=f"change-v{version_number}-r{round_number}",
                         kind=(

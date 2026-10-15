@@ -205,6 +205,21 @@ pub async fn confirm_modification(
 }
 
 #[tauri::command]
+pub async fn continue_iterate(
+    research_id: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        json!({"type": "continue_iterate", "research_id": research_id}),
+    )
+    .await
+    .map(|_| ())
+}
+
+#[tauri::command]
 pub async fn extend_research(
     research_id: String,
     hours: f64,

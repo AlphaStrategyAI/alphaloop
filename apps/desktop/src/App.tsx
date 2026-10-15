@@ -376,16 +376,26 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     ["时点一致性已执行且通过", view.eligibility.pitExecutedAndPassed],
   ] as const;
   const eligible = checks.every(([, passed]) => passed);
+  const headline = view.resultHeadline ?? (eligible ? "研究已完成" : "研究已结束，验证未通过");
   return (
     <div className="focus completed-screen">
       <StatusPill status={view.status} />
-      <p>alphaloop 到这里结束，不提供执行入口。</p>
+      <p>{headline}</p>
+      {view.subtitle && <p>{view.subtitle}</p>}
+      {view.honestStopHint && <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>}
+      {view.canContinueIterate && (
+        <button type="button" data-testid="continue-iterate" onClick={() => void api.continueIterate(view.researchId)}>
+          继续迭代
+        </button>
+      )}
       {view.overturnedExports && <p>此前导出的策略包所依据的验证已被推翻</p>}
       {view.anomaly && <AnomalyChecklist anomaly={view.anomaly} />}
       <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
       <article className="result-card">
         <h1>{view.title}</h1>
-        <p>{view.subtitle ?? `${view.universeLabel ?? "未锁定"} · 经过市场基准和全部额外验证`}</p>
+        {view.failedVerifierIds && view.failedVerifierIds.length > 0 && (
+          <p>未通过门禁：{view.failedVerifierIds.join("、")}</p>
+        )}
         <button disabled={!eligible || view.status === "ended"} onClick={() => void api.exportArtifact(view.researchId, "strategy_pack")}>导出策略包</button>
         <button className="text-button" onClick={() => void api.reverify(view.researchId, view.selectedRoundId, view.selectedMethodId)}>对某一步重新验证</button>
         <button className="text-button" onClick={() => void api.exportArtifact(view.researchId, "research_record")}>导出研究记录包</button>

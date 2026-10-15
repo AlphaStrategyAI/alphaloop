@@ -29,6 +29,7 @@
             "pause",
             "resume",
             "confirm_modification",
+            "continue_iterate",
             "delete_research"
           ]
         },

@@ -18,6 +18,7 @@ const desktopApi: DesktopApi = {
   async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },
   async resumeResearch(researchId) { await invoke("resume_research", {researchId}); },
   async confirmModification(researchId) { await invoke("confirm_modification", {researchId}); },
+  async continueIterate(researchId) { await invoke("continue_iterate", {researchId}); },
   async extendResearch(researchId, hours) { await invoke("extend_research", {researchId, hours}); },
   async deleteResearch(researchId) { await invoke("delete_research", {researchId}); },
   async resolveConfirm(researchId, decision, whoPays) {
@@ -40,6 +41,7 @@ const previewApi: DesktopApi = {
   async pauseResearch() { return undefined; },
   async resumeResearch() { return undefined; },
   async confirmModification() { return undefined; },
+  async continueIterate() { return undefined; },
   async extendResearch() { return undefined; },
   async deleteResearch() { return undefined; },
   async resolveConfirm() { return undefined; },

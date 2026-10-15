@@ -141,6 +141,13 @@ def transition(
         )
     if status is ResearchStatus.PAUSED and event is ResearchEvent.RESUME:
         return replace(research, status=ResearchStatus.RUNNING, updated_at=now)
+    if status is ResearchStatus.COMPLETED and event is ResearchEvent.CONTINUE_ITERATE:
+        return replace(
+            research,
+            status=ResearchStatus.RUNNING,
+            export_eligible=False,
+            updated_at=now,
+        )
     if status is ResearchStatus.COMPLETED and event is ResearchEvent.REVERIFY_PASS:
         return replace(research, updated_at=now)
     if status is ResearchStatus.COMPLETED and event is ResearchEvent.REVERIFY_FAIL:

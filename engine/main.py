@@ -42,6 +42,10 @@ from engine.research.desktop_view import (
     selected_method_id,
     universe_label_for,
 )
+from engine.research.honest_stop import (
+    assert_can_manual_continue,
+    completed_presentation,
+)
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
 from engine.research.methods import (
     as_method_refs,
@@ -540,6 +544,7 @@ class ResearchCommandService:
         rounds = research.versions[-1].rounds if research.versions else ()
         selected_round = rounds[-1] if rounds else None
         eligibility = strategy_pack_eligibility(research)
+        presentation = completed_presentation(research)
         version_number = research.current_version_number or 1
         subtitle = universe_label_for(research)
         return self._host_payload(
@@ -549,14 +554,22 @@ class ResearchCommandService:
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
                 "universeLabel": subtitle,
-                "subtitle": f"{subtitle} · 经过市场基准和全部额外验证",
+                "subtitle": presentation.summary,
+                "resultHeadline": presentation.headline,
+                "honestStopHint": presentation.hint_line or None,
+                "failedVerifierIds": list(presentation.failed_verifier_ids),
+                "exportKind": presentation.export_kind,
+                "canContinueIterate": presentation.honest_stop,
+                "deferredChangeSummary": presentation.deferred_change_summary,
+                "trialCounters": presentation.trial_counters,
+                "methodsVerificationPassed": presentation.methods_verification_passed,
                 "selectedRoundId": selected_round.round_id if selected_round else "",
                 "selectedMethodId": selected_method_id(research),
                 "rounds": rounds_for_desktop(research, version_number),
                 "metrics": metrics_for_completed(research),
                 "failedExportChecks": list(eligibility.failed_checks),
                 "eligibility": {
-                    "allMethodsPassed": "all_current_methods_passed" not in eligibility.failed_checks,
+                    "allMethodsPassed": presentation.methods_verification_passed,
                     "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
                     "reverifiesPassed": "all_reverifies_passed" not in eligibility.failed_checks,
                     "pitExecutedAndPassed": "pit_executed_and_passed" not in eligibility.failed_checks,
@@ -661,6 +674,12 @@ class ResearchCommandService:
                 thesis_change_hint=thesis_divergence_hint(previous, proposed),
             )
             self._record_version_methods(updated)
+        elif kind == "continue_iterate":
+            assert_can_manual_continue(research)
+            resumed = transition(research, ResearchEvent.CONTINUE_ITERATE, now)
+            self.store.save(resumed, research.updated_at)
+            after = build_loop(self.store, self.paths).run_once(research.research_id)
+            return self._save(research, after)
         elif kind == "extend_research":
             current_hours = research.brief.max_effective_hours.value or 0.0
             extended = replace(

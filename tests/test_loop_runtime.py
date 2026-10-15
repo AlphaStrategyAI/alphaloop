@@ -101,16 +101,29 @@ class FakeBuilder(RoundBuilder):
     def build(self, research, attempt_number: int) -> RoundDraft:
         self.calls += 1
         version = research.current_version_number or 1
+        if research.versions and version <= len(research.versions):
+            round_number = len(research.versions[version - 1].rounds) + 1
+        else:
+            round_number = 1
+        spec = strategy(attempt_number)
+        if research.versions and version <= len(research.versions):
+            prior_rounds = research.versions[version - 1].rounds
+            if prior_rounds:
+                prior_spec = prior_rounds[-1].accepted_attempt.spec
+                spec = replace(
+                    spec,
+                    lookback_days=prior_spec.lookback_days + 5,
+                )
         attempt = Attempt(
-            attempt_id=f"a-{version}-{attempt_number}",
+            attempt_id=f"a-{version}-r{round_number}-a{attempt_number}",
             number=attempt_number,
             change_class=ChangeClass.PARAM,
-            spec=strategy(attempt_number),
+            spec=spec,
             simulation=simulation(),
             verification=report(),
             review=None,
         )
-        return RoundDraft(1, 1, attempt)
+        return RoundDraft(version, round_number, attempt)
 
     def retry(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
         return self.build_for_retry(prior.attempt.number + 1)
@@ -144,6 +157,20 @@ class FailedMethodsParamBuilder(FakeBuilder):
         return replace(
             draft,
             attempt=replace(draft.attempt, verification=report(False)),
+        )
+
+
+class LogicSignalStopBuilder(FailedMethodsParamBuilder):
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange("signal_definition", "baseline", "variant")
+
+
+class ImplModelFamilyStopBuilder(FailedMethodsParamBuilder):
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange(
+            "model_family",
+            accepted.spec.model_family,
+            "momentum",
         )
 
 
@@ -307,6 +334,35 @@ def test_paused_loop_does_no_work_or_clock_charge(tmp_path: Path) -> None:
     assert result == paused
     assert builder.calls == 0
     assert result.effective_seconds == 3.0
+
+
+def test_logic_signal_change_waits_for_confirm_not_honest_complete(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    waiting = ResearchLoop(
+        store,
+        LogicSignalStopBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert waiting.status is ResearchStatus.AWAITING_CONFIRM
+    assert waiting.pending_confirm is not None
+    assert waiting.pending_confirm.patch[0][0] == "signal_definition"
+
+
+def test_impl_model_family_takes_honest_complete_not_confirm(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    completed = ResearchLoop(
+        store,
+        ImplModelFamilyStopBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert completed.status is ResearchStatus.COMPLETED
+    assert completed.pending_confirm is None
 
 
 def test_failed_method_verification_completes_without_param_iteration(tmp_path: Path) -> None:
