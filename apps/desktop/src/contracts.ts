@@ -64,6 +64,10 @@ type ViewBody =
       dataCutoff?: string;
       honestStopHint?: string | null;
       trialBudget?: {used: number; budget: number; remaining: number};
+      dataWindowKey?: string | null;
+      cumulativeRoundsOnWindow?: number;
+      highSuspicionRoundThreshold?: number;
+      latePassPresentation?: LatePassPresentation | null;
       anomaly?: AnomalyPresentation | null;
     }
   | {
@@ -93,6 +97,10 @@ type ViewBody =
       canContinueIterate?: boolean;
       budgetExhausted?: boolean;
       trialBudget?: {used: number; budget: number; remaining: number};
+      dataWindowKey?: string | null;
+      cumulativeRoundsOnWindow?: number;
+      highSuspicionRoundThreshold?: number;
+      latePassPresentation?: LatePassPresentation | null;
       deferredChangeSummary?: string | null;
       trialCounters?: {
         candidatesEvaluated: number;
@@ -126,7 +134,10 @@ export interface DesktopApi {
   pauseResearch(researchId: string): Promise<void>;
   resumeResearch(researchId: string): Promise<void>;
   confirmModification(researchId: string): Promise<void>;
-  continueIterate(researchId: string): Promise<void>;
+  continueIterate(
+    researchId: string,
+    options: {userConfirmed: true; highSuspicionAcknowledged?: boolean},
+  ): Promise<void>;
   extendResearch(researchId: string, hours: number): Promise<void>;
   deleteResearch(researchId: string): Promise<void>;
   resolveConfirm(researchId: string, decision: ConfirmationDecision, whoPays?: string): Promise<void>;
@@ -134,6 +145,25 @@ export interface DesktopApi {
   reverify(researchId: string, roundId: string, methodId: string): Promise<void>;
   reviseMethod(methodId: string, definition: string): Promise<void>;
   createMethod(name: string, definition: string): Promise<void>;
+}
+
+export interface LatePassPriorFailure {
+  roundId: string;
+  versionNumber: number;
+  roundNumber: number;
+  cumulativeRoundOnWindow: number;
+  verificationPassed: boolean;
+  failedGateIds: readonly string[];
+  paramChanges: readonly [string, string, string][];
+  modelChanges: readonly string[];
+}
+
+export interface LatePassPresentation {
+  show: boolean;
+  tone: string;
+  cumulativeRoundsOnWindow: number;
+  conclusionRoundId: string;
+  priorFailureRecords: readonly LatePassPriorFailure[];
 }
 
 export interface TrialCounters {

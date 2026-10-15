@@ -115,7 +115,7 @@ P0 是 V1 的工程主体。P1–P3 是收口之后的顺序，不是 V1 的隐�
 
 ## 已知限制（P0）
 
-**实现层迭代预算（已落地）：** 验证方法集未全部通过时，若下一步是实现层 PARAM / `model_family` 调整（`change_requires_user_confirm()` 为 false），`ResearchLoop` 在**当前版本**内按轮次自动迭代，直到 `implementation_trial_budget` 用尽（默认 **5** 轮，环境变量 `ALPHALOOP_MAX_TRIALS`）才 `COMPLETED` 并只能导出 `research_record`。经济/覆盖/B3 逻辑字段（含 `signal_definition` / `feature_set`）始终 `REQUEST_CONFIRM`，不占该预算、不自动迭代。预算用尽后可点「继续迭代」，`ALPHALOOP_TRIAL_BUDGET_INCREMENT`（默认 **5**）追加预算后再跑；阈值不放宽。后续可再收紧为产品级全局策略，但 P0 以该预算语义为准。
+**实现层迭代预算（已落地）：** 验证方法集未全部通过时，若下一步是实现层 PARAM / `model_family` 调整（`change_requires_user_confirm()` 为 false），`ResearchLoop` 在**当前版本**内按轮次自动迭代，直到 `implementation_trial_budget` 用尽（默认 **5** 轮，环境变量 `ALPHALOOP_MAX_TRIALS`）才 `COMPLETED` 并只能导出 `research_record`。同一**数据窗口**（universe 标的 + 模拟起止日，见 `data_window_key`）上跨版本累计轮次 **M** 写入 B2 `history/rounds.json` 与视图，仅披露、不做统计校正。**Holdout、更强反假发现** 等留 **P2**；V1 只展示累计轮次与先前失败记录（B5）。经济/覆盖/B3 逻辑字段始终 `REQUEST_CONFIRM`。预算用尽后「继续迭代」需每次用户确认（高累计轮次二次确认），`ALPHALOOP_TRIAL_BUDGET_INCREMENT` 默认 **5** 追加预算；阈值不放宽。
 
 ## 6. 和现有文档怎么一起读
 

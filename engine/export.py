@@ -41,12 +41,36 @@ def _find_pit_result(attempt: Attempt) -> VerifierResult | None:
     return None
 
 
-def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict[str, object]]:
-    """Export round history with B2/B3 trial counts and logic/impl split."""
-    return [
+def _round_history_with_trials(
+    research: Research,
+    rounds: list[RoundV2],
+) -> dict[str, object]:
+    """Export round history with B2/B3 trial counts, logic/impl split, and cumulative M."""
+    from engine.research.data_window import (
+        anchor_data_window_key,
+        cumulative_rounds_on_window,
+        data_window_key_from_round,
+        rounds_on_window_chronological,
+    )
+
+    anchor = anchor_data_window_key(research)
+    on_window = rounds_on_window_chronological(research)
+    cumulative_index = {
+        round_.round_id: index for index, (_, round_) in enumerate(on_window, start=1)
+    }
+    return {
+        "data_window_key": anchor.serialize() if anchor else None,
+        "cumulative_rounds_on_window": cumulative_rounds_on_window(research),
+        "rounds": [
         {
             "round_id": round_.round_id,
             "number": round_.number,
+            "cumulative_round_on_window": cumulative_index.get(round_.round_id),
+            "data_window_key": (
+                data_window_key_from_round(round_).serialize()
+                if data_window_key_from_round(round_) is not None
+                else None
+            ),
             "logic_statement": {
                 "statement": round_.logic_statement.statement,
                 "changed_from_prior": round_.logic_statement.changed_from_prior,
@@ -65,7 +89,8 @@ def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict[str, object]]
             },
         }
         for round_ in rounds
-    ]
+        ],
+    }
 
 
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
@@ -387,7 +412,10 @@ def build_strategy_pack(
             for version in research.versions
             for round_ in version.rounds
         ]
-        _json(root / "history" / "rounds.json", _round_history_with_trials(all_rounds))
+        _json(
+            root / "history" / "rounds.json",
+            _round_history_with_trials(research, all_rounds),
+        )
         bundle_root = Path(
             getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
         )

@@ -207,16 +207,20 @@ pub async fn confirm_modification(
 #[tauri::command]
 pub async fn continue_iterate(
     research_id: String,
+    user_confirmed: bool,
+    high_suspicion_acknowledged: Option<bool>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    mutate(
-        &app,
-        &connection,
-        json!({"type": "continue_iterate", "research_id": research_id}),
-    )
-    .await
-    .map(|_| ())
+    let mut body = json!({
+        "type": "continue_iterate",
+        "research_id": research_id,
+        "user_confirmed": user_confirmed
+    });
+    if let Some(value) = high_suspicion_acknowledged {
+        body["high_suspicion_acknowledged"] = json!(value);
+    }
+    mutate(&app, &connection, body).await.map(|_| ())
 }
 
 #[tauri::command]

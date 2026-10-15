@@ -42,13 +42,16 @@ from engine.research.desktop_view import (
     selected_method_id,
     universe_label_for,
 )
+from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
 from engine.research.honest_stop import (
     assert_can_manual_continue,
     can_manual_continue_iterate,
     completed_presentation,
+    high_suspicion_round_threshold,
     running_budget_hint,
     trial_budget_increment,
     trial_budget_view,
+    validate_continue_iterate_confirm,
 )
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
 from engine.research.methods import (
@@ -527,6 +530,11 @@ class ResearchCommandService:
             }
             if hint:
                 running_payload["honestStopHint"] = hint
+            running_payload.update(trial_tracking_for_view(research))
+            running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
+            late = late_pass_presentation(research)
+            if late is not None:
+                running_payload["latePassPresentation"] = late
             return self._host_payload(running_payload, research)
         if research.status.value == "awaiting_confirm":
             request = research.pending_confirm
@@ -582,6 +590,9 @@ class ResearchCommandService:
                 "budgetExhausted": presentation.budget_exhausted,
                 "canContinueIterate": can_manual_continue_iterate(research),
                 "deferredChangeSummary": presentation.deferred_change_summary,
+                **trial_tracking_for_view(research),
+                "highSuspicionRoundThreshold": high_suspicion_round_threshold(),
+                "latePassPresentation": late_pass_presentation(research),
                 "trialCounters": presentation.trial_counters,
                 "methodsVerificationPassed": presentation.methods_verification_passed,
                 "selectedRoundId": selected_round.round_id if selected_round else "",
@@ -696,6 +707,13 @@ class ResearchCommandService:
             )
             self._record_version_methods(updated)
         elif kind == "continue_iterate":
+            validate_continue_iterate_confirm(
+                research,
+                user_confirmed=bool(request.get("user_confirmed")),
+                high_suspicion_acknowledged=bool(
+                    request.get("high_suspicion_acknowledged")
+                ),
+            )
             assert_can_manual_continue(research)
             increment = trial_budget_increment()
             boosted = replace(

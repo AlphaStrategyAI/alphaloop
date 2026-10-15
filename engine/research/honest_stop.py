@@ -6,18 +6,27 @@ import os
 from dataclasses import dataclass
 
 from engine.export import strategy_pack_eligibility
+from engine.research.data_window import cumulative_rounds_on_window
 from engine.research.models import ChangeClass, Research, ResearchStatus
 from engine.research.specify import ProposedChange, classify_change
 from engine.verifiers import VerificationReport, method_set_excluding_pit
 
 DEFAULT_IMPLEMENTATION_TRIAL_BUDGET = 5
 DEFAULT_TRIAL_BUDGET_INCREMENT = 5
+DEFAULT_HIGH_SUSPICION_ROUNDS = 20
 
 
 def max_implementation_trials() -> int:
     raw = os.environ.get("ALPHALOOP_MAX_TRIALS")
     if raw is None or raw == "":
         return DEFAULT_IMPLEMENTATION_TRIAL_BUDGET
+    return max(1, int(raw))
+
+
+def high_suspicion_round_threshold() -> int:
+    raw = os.environ.get("ALPHALOOP_HIGH_SUSPICION_ROUNDS")
+    if raw is None or raw == "":
+        return DEFAULT_HIGH_SUSPICION_ROUNDS
     return max(1, int(raw))
 
 
@@ -167,21 +176,22 @@ def _format_change(change: ProposedChange) -> str:
 
 
 def running_budget_hint(research: Research) -> str:
-    if not auto_iterating_under_budget(research):
-        if (
-            research.status is ResearchStatus.RUNNING
-            and not methods_verification_passed(research)
-            and implementation_trials_used(research) > 0
-        ):
-            view = trial_budget_view(research)
-            return (
-                f"验证未通过：在实现层预算内自动迭代中，已用 {view.used}/{view.budget} 轮。"
-            )
+    if research.status is not ResearchStatus.RUNNING:
+        return ""
+    if methods_verification_passed(research):
+        return ""
+    if implementation_trials_used(research) == 0:
         return ""
     view = trial_budget_view(research)
-    return (
-        f"验证未通过：在实现层预算内自动迭代中，已用 {view.used}/{view.budget} 轮。"
+    gates = "、".join(failed_verifier_ids(research)) or "冻结验证"
+    m = cumulative_rounds_on_window(research)
+    base = (
+        f"第 {view.used}/{view.budget} 轮验证未通过（未通过：{gates}）。"
+        "系统仅在实现层调整参数，不改经济逻辑，阈值不变，自动迭代中。"
     )
+    if m > view.used:
+        return f"{base} 本数据窗口累计 {m} 轮。"
+    return base
 
 
 def completed_presentation(research: Research) -> CompletedPresentation:
@@ -224,16 +234,18 @@ def completed_presentation(research: Research) -> CompletedPresentation:
             f"不能导出 strategy_pack，只能导出 research_record。"
             f"未通过的门禁包括：{gates}。"
         )
+        m = cumulative_rounds_on_window(research)
         if exhausted:
             hint = (
                 f"实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
+                f"本研究在该数据窗口累计 {m} 轮；轮数越多，偶然通过的可能性越高。"
                 f"验证仍未通过；只能导出 research_record。"
                 f"未通过门禁：{gates}。"
                 "可点「继续迭代」追加预算后再跑（阈值不变）。"
             )
             summary = (
                 f"验证未通过且实现层预算已用尽（{budget.used}/{budget.budget} 轮）。"
-                f"只能导出 research_record。未通过门禁：{gates}。"
+                f"本数据窗口累计 {m} 轮。只能导出 research_record。未通过门禁：{gates}。"
             )
         else:
             hint = ""
@@ -251,6 +263,23 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         summary=summary,
         hint_line=hint,
     )
+
+
+def validate_continue_iterate_confirm(
+    research: Research,
+    *,
+    user_confirmed: bool,
+    high_suspicion_acknowledged: bool,
+) -> None:
+    if not user_confirmed:
+        raise ValueError("continue_iterate requires user_confirmed=true")
+    m = cumulative_rounds_on_window(research)
+    threshold = high_suspicion_round_threshold()
+    if m >= threshold and not high_suspicion_acknowledged:
+        raise ValueError(
+            f"continue_iterate requires high_suspicion_acknowledged=true "
+            f"when cumulative rounds on window ({m}) >= {threshold}"
+        )
 
 
 def assert_can_manual_continue(research: Research) -> ProposedChange:

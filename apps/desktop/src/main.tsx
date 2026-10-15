@@ -18,7 +18,13 @@ const desktopApi: DesktopApi = {
   async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },
   async resumeResearch(researchId) { await invoke("resume_research", {researchId}); },
   async confirmModification(researchId) { await invoke("confirm_modification", {researchId}); },
-  async continueIterate(researchId) { await invoke("continue_iterate", {researchId}); },
+  async continueIterate(researchId, options) {
+    await invoke("continue_iterate", {
+      researchId,
+      userConfirmed: options.userConfirmed,
+      highSuspicionAcknowledged: options.highSuspicionAcknowledged ?? false,
+    });
+  },
   async extendResearch(researchId, hours) { await invoke("extend_research", {researchId, hours}); },
   async deleteResearch(researchId) { await invoke("delete_research", {researchId}); },
   async resolveConfirm(researchId, decision, whoPays) {

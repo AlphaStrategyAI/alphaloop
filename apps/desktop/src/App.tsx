@@ -384,9 +384,56 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       {view.subtitle && <p>{view.subtitle}</p>}
       {view.honestStopHint && <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>}
       {view.canContinueIterate && (
-        <button type="button" data-testid="continue-iterate" onClick={() => void api.continueIterate(view.researchId)}>
+        <button
+          type="button"
+          data-testid="continue-iterate"
+          onClick={() => {
+            const m = view.cumulativeRoundsOnWindow ?? 0;
+            const threshold = view.highSuspicionRoundThreshold ?? 20;
+            const first = window.confirm(
+              `本数据窗口已累计 ${m} 轮。\n再加预算不放宽任何阈值，只增加偶然通过的可能性。\n确认继续迭代？`,
+            );
+            if (!first) return;
+            let highSuspicionAcknowledged = false;
+            if (m >= threshold) {
+              const second = window.confirm(
+                `高怀疑提示：已累计 ${m} 轮（阈值 ${threshold}）。偶然通过的可能性更高。\n确认仍要追加预算并继续？`,
+              );
+              if (!second) return;
+              highSuspicionAcknowledged = true;
+            }
+            void api.continueIterate(view.researchId, {
+              userConfirmed: true,
+              highSuspicionAcknowledged,
+            });
+          }}
+        >
           继续迭代
         </button>
+      )}
+      {view.latePassPresentation?.show && (
+        <section className="late-pass-record" data-testid="late-pass-prior-failures">
+          <p className="eyebrow">先前未通过轮次（验证记录）</p>
+          <p>
+            本数据窗口累计 {view.latePassPresentation.cumulativeRoundsOnWindow} 轮；
+            结论来自第 {view.latePassPresentation.conclusionRoundId}。
+          </p>
+          <ul>
+            {view.latePassPresentation.priorFailureRecords.map((record) => (
+              <li key={record.roundId}>
+                v{record.versionNumber} 第 {record.roundNumber} 轮（累计第 {record.cumulativeRoundOnWindow} 轮）：
+                未通过 {record.failedGateIds.join("、") || "验证"}
+                {record.paramChanges.length > 0 && (
+                  <span>
+                    {" "}
+                    参数：
+                    {record.paramChanges.map(([p, a, b]) => `${p}:${a}→${b}`).join(", ")}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {view.overturnedExports && <p>此前导出的策略包所依据的验证已被推翻</p>}
       {view.anomaly && <AnomalyChecklist anomaly={view.anomaly} />}

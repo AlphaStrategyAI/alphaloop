@@ -336,6 +336,33 @@ describe("Night desktop contract", () => {
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeEnabled();
   });
 
+  it("escalates continue iterate when cumulative rounds exceed threshold", () => {
+    const continueIterate = vi.fn(async () => undefined);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
+    render(
+      <App
+        api={{...api, continueIterate}}
+        initialView={{
+          kind: "completed",
+          researchId: "r-high",
+          status: "completed",
+          title: "SPY",
+          cumulativeRoundsOnWindow: 20,
+          highSuspicionRoundThreshold: 20,
+          canContinueIterate: true,
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: false, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: false},
+          currentAction: "idle",
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("continue-iterate"));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(continueIterate).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
   it("shows honest-stop hint and continue iterate when methods failed (P0 transitional)", () => {
     const continueIterate = vi.fn(async () => undefined);
     render(
@@ -362,8 +389,14 @@ describe("Night desktop contract", () => {
     );
     expect(screen.getByTestId("honest-stop-hint")).toHaveTextContent("预算已用尽");
     expect(screen.getByText("未通过门禁：scorecard.market、pit.consistency")).toBeInTheDocument();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByTestId("continue-iterate"));
-    expect(continueIterate).toHaveBeenCalledWith("r-honest");
+    expect(confirm).toHaveBeenCalled();
+    expect(continueIterate).toHaveBeenCalledWith("r-honest", {
+      userConfirmed: true,
+      highSuspicionAcknowledged: false,
+    });
+    confirm.mockRestore();
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
   });
 

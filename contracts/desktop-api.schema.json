@@ -29,11 +29,21 @@
             "pause",
             "resume",
             "confirm_modification",
-            "continue_iterate",
             "delete_research"
           ]
         },
         "research_id": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "user_confirmed"],
+      "properties": {
+        "type": {"const": "continue_iterate"},
+        "research_id": {"type": "string", "minLength": 1},
+        "user_confirmed": {"const": true},
+        "high_suspicion_acknowledged": {"type": "boolean"}
       }
     },
     {
