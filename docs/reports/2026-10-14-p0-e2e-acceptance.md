@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **197 passed**, 1 skipped (network without opt-in). Desktop vitest **42/42**.
+**Default CI:** `python3 -m pytest tests/ -q` → **208 passed**, 1 skipped (network without opt-in). Desktop vitest **44/44**.
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -26,7 +26,7 @@
 
 ```bash
 python3 -m pytest tests/ -q
-# 197 passed, 1 skipped
+# 208 passed, 1 skipped
 
 ALPHALOOP_ACCEPTANCE_NETWORK=1 python3 -m pytest tests/test_v1_honest_path.py -v
 # test_v1_mean_reversion_reaches_completed_real_ports PASSED (~0.9s)
@@ -35,7 +35,7 @@ bash scripts/verify_v1_done.sh
 # green when network env unset (skip message)
 
 cd apps/desktop && npm test -- --run
-# 42 passed
+# 44 passed
 ```
 
 ## Done #1 — network at default `max_drawdown_floor=-0.25`
@@ -124,7 +124,15 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Methods hash / list** | `decodeURIComponent`; latest revision per id; `.active` | 通过 | `routing.test.ts`, `methods-ui.test.tsx`, `test_methods_view_route.py` |
 | **Failed gate labels** | Deduped + `PRESET_NAMES` display | 通过 | `tests/test_verifier_display.py`; vitest formatted `failedVerifierIds` |
 | **Late-pass paramChanges** | `prior_spec` in review gate → `lookback_days` delta | 通过 | `test_late_pass_after_third_round_success` + `_round_history_with_trials` |
-| **§1.2 Desktop** | Vitest + build | 通过 | 42/42; real Tauri window smoke / Night 7-screen **未测** |
+| **review_attempts PK** | Composite `(research_id, attempt_id)` + migration | 通过 | `tests/test_review_attempts_store.py` |
+| **Run error pause** | N identical errors → PAUSED + `lastError` | 通过 | `tests/test_run_errors.py`, `last-error.test.tsx` |
+| **Delete cascade** | Child rows cleared on `delete_research` | 通过 | `tests/test_delete_research_cascade.py` |
+| **research_record B2** | `history/rounds.json` in record export | 通过 | `tests/test_research_record_export.py` |
+| **continue_iterate race** | No inline `run_once` in HTTP handler | 通过 | `tests/test_continue_iterate_handler.py` |
+| **Running coverage text** | `format_coverage_vs_floor` | 通过 | `test_format_coverage_vs_floor_*` |
+| **Completed copy dedupe** | Single exhausted paragraph | 通过 | `test_honest_stop.py` (adjusted) |
+| **Draft polish** | Intro order, role classes, thesis strip | 通过 | `draft-polish.test.tsx`, `test_dialogue_intent.py` |
+| **§1.2 Desktop** | Vitest + build | 通过 | 44/44; real Tauri window smoke / Night 7-screen **未测** |
 
 ## Defects found and fixed (this pass)
 
@@ -142,6 +150,21 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Methods library** | Hash decode, active link, latest revision only | `test_methods.py`, `methods-ui.test.tsx`, `test_methods_view_route.py` |
 | **Empty late-pass `paramChanges`** | Review gate passes `prior_spec` into `build_implementation_delta` | `test_late_pass_after_third_round_success` |
 | **Raw duplicate gate ids** | `format_verifier_ids` + dedupe in `_failed_gate_ids` | `test_verifier_display.py` |
+| **review_attempts global PK** | Rebuild → `PRIMARY KEY (research_id, attempt_id)`; `get_attempt(..., research_id=)` | `test_review_attempts_store.py` |
+| **Silent run loop / ConcurrentWrite** | `apply_run_failure` + PAUSED; `lastError` in view | `test_run_errors.py` |
+| **research_record missing rounds.json** | `_round_history_with_trials` in record pack | `test_research_record_export.py` |
+| **continue_iterate ConcurrentWrite** | Handler returns after RUNNING transition only | `test_continue_iterate_handler.py` |
+
+### SQLite scope review (same flaw hunt)
+
+| Table | Key | Verdict |
+| --- | --- | --- |
+| `review_attempts` | Was global `attempt_id` | **Fixed** (composite PK + migration) |
+| `method_usage` | `(method_id, revision_hash, research_id, version_number)` | OK — `research_id` in PK |
+| `method_revisions` | `(method_id, revision_hash)` | OK — global method catalog |
+| `researches` | `research_id` | OK |
+| `engine_errors` | `error_id` AUTOINCREMENT | OK (rows per event, rate-limited) |
+| Reverifications / rounds | Inside `state_json` only | N/A |
 
 ## 已知问题（本轮不修）
 
@@ -152,8 +175,9 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Crossref 每轮请求** | 文献 crossref 每轮调用，易触发 HTTP 429。影响：运行中断或降级，与导航/UI 无关。 |
 | **Engine SQLite 致命退出** | 引擎进程遇 SQLite 错误直接退出且无自动重启。影响：桌面会话需用户重启应用。 |
 | **草稿 `universe` 无 `symbols`** | 对话草稿阶段 brief 的 universe 常无 `symbols`，列表/设定仅显示市场·资产类。影响：展示不完整，开跑前需锁定标的。 |
+| **原生 `window.confirm` 对话框** | Tauri/WebKit 显示英文 Cancel/OK 与 `JavaScript - http://localhost:1420/…` 标题；「继续迭代」等确认应改为应用内对话框（后续迭代）。 |
 
-以上均非本轮 1–3 的一行修复项；未为修已知问题扩大范围。
+以上均非本轮的一行修复项；未为修已知问题扩大范围。
 
 ## Open / not fixed in P0
 
