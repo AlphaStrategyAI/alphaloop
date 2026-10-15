@@ -8,6 +8,7 @@ import {createRoot} from "react-dom/client";
 
 import {App} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
+import {readBrowserRoute} from "./routing";
 
 const desktopApi: DesktopApi = {
   async fetchView(route) { return invoke<DesktopView>("fetch_view", {route}); },
@@ -59,6 +60,9 @@ const previewApi: DesktopApi = {
 
 const preview: DesktopView = {kind: "research_list", rows: []};
 const api = "__TAURI_INTERNALS__" in window ? desktopApi : previewApi;
+const bootRoute = readBrowserRoute();
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><App api={api} initialView={preview} /></StrictMode>,
+  <StrictMode>
+    <App api={api} initialView={preview} initialRoute={bootRoute} />
+  </StrictMode>,
 );

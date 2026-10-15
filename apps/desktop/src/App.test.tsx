@@ -25,6 +25,7 @@ const api: DesktopApi = {
   reverify: vi.fn(async () => undefined),
   reviseMethod: vi.fn(async () => undefined),
   createMethod: vi.fn(async () => undefined),
+  continueIterate: vi.fn(async () => undefined),
 };
 
 const settings = {
@@ -242,12 +243,37 @@ describe("Night desktop contract", () => {
     expect(routeFor(views[6])).toBe("#/methods/overfit.walk");
   });
 
-  it("shows research list with universe and timestamps (filters removed per 小迪)", () => {
+  it("shows research list with universe and formatted local timestamps", () => {
     const view = views[0];
     render(<App api={api} initialView={view} />);
     expect(screen.getByText("美股 · 股票")).toBeInTheDocument();
     expect(screen.getByText("美债收益率曲线")).toBeInTheDocument();
     expect(screen.getByText("沪深300波动收缩")).toBeInTheDocument();
+    expect(screen.getByText(/20:00/)).toBeInTheDocument();
+  });
+
+  it("shows readable Chinese settings on confirm-run (not Python repr)", () => {
+    render(<ConfirmRunCard api={api} view={views[2] as Extract<DesktopView, {kind: "confirm_run"}>} />);
+    const slots = screen.getAllByTestId("brief-slot");
+    const universe = slots.find((el) => el.textContent?.includes("资产类别"));
+    const coverage = slots.find((el) => el.textContent?.includes("最低数据覆盖"));
+    expect(universe?.textContent).toContain("美股 · 股票");
+    expect(universe?.textContent).not.toMatch(/Universe\(/);
+    expect(coverage?.textContent).toContain("至少");
+    expect(coverage?.textContent).not.toMatch(/CoverageFloor\(/);
+  });
+
+  it("renders honestStopHint on the running screen", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          ...views[3],
+          honestStopHint: "第 2/5 轮验证未通过，在实现层预算内自动迭代中。",
+        } as Extract<DesktopView, {kind: "running"}>}
+      />,
+    );
+    expect(screen.getByTestId("honest-stop-hint-running")).toHaveTextContent("第 2/5 轮");
   });
 
   it("shows overturned prior exports on a completed research that failed reverify", () => {

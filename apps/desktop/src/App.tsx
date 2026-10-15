@@ -8,6 +8,8 @@ import type {
   ResearchStatus,
   ValidationMethod,
 } from "./contracts";
+import {formatResearchTimestamp} from "./format";
+import {readBrowserRoute, routeFromHash} from "./routing";
 import "./night.css";
 
 const anomalyIndicatorLabels: Record<string, string> = {
@@ -46,6 +48,8 @@ function AnomalyChecklist({anomaly}: {anomaly: AnomalyPresentation}) {
 export interface AppProps {
   api: DesktopApi;
   initialView: DesktopView;
+  /** Hash route for first paint; defaults to browser location. */
+  initialRoute?: string;
 }
 
 const statusLabels: Record<ResearchStatus, string> = {
@@ -129,7 +133,9 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
             <h2>{awaiting.title}</h2>
             <p>
               <span>{awaiting.universeLabel ?? "未锁定"}</span>
-              {awaiting.createdAt ? ` · ${awaiting.createdAt}` : " · 等了 2 小时"}
+              {awaiting.createdAt
+                ? ` · ${formatResearchTimestamp(awaiting.createdAt)}`
+                : " · 等了 2 小时"}
             </p>
           </a>
           <div className="row-actions">
@@ -146,8 +152,8 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
               <h3>{row.title}</h3>
               <p>
                 <span>{row.universeLabel ?? "未锁定"}</span>
-                {row.createdAt ? ` · ${row.createdAt}` : ""}
-                {row.updatedAt ? ` · ${row.updatedAt}` : ""}
+                {row.createdAt ? ` · ${formatResearchTimestamp(row.createdAt)}` : ""}
+                {row.updatedAt ? ` · 更新 ${formatResearchTimestamp(row.updatedAt)}` : ""}
               </p>
             </div>
             <div className="row-actions">
@@ -232,6 +238,11 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
         {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
         {" · "}{view.coverage}
       </header>
+      {view.honestStopHint && (
+        <p className="honest-stop-hint" data-testid="honest-stop-hint-running">
+          {view.honestStopHint}
+        </p>
+      )}
       <section className="materials-note">
         <p className="eyebrow">资料与数据说明</p>
         <p>用到的资料：{view.sources ?? "公开资料与本机材料"}</p>
@@ -547,20 +558,30 @@ function Screen({api, initialView: view}: AppProps) {
   }
 }
 
-export function App({api, initialView}: AppProps) {
+export function App({api, initialView, initialRoute}: AppProps) {
+  const [route, setRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [view, setView] = useState(initialView);
+
+  useEffect(() => {
+    const onHashChange = () => setRoute(readBrowserRoute());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
   useEffect(() => {
     let active = true;
     const refresh = () => {
-      void api.fetchView(routeFor(view)).then((next) => {
+      void api.fetchView(route).then((next) => {
         if (active) setView(next);
       });
     };
+    refresh();
     const timer = window.setInterval(refresh, 1_000);
     return () => {
       active = false;
       window.clearInterval(timer);
     };
-  }, [api, view]);
+  }, [api, route]);
+
   return <NightShell view={view}><Screen api={api} initialView={view} /></NightShell>;
 }

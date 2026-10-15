@@ -37,6 +37,8 @@ from engine.research.gather import (
     YahooDataAdapter,
 )
 from engine.research.desktop_view import (
+    format_coverage_floor_display,
+    format_universe_display,
     metrics_for_completed,
     rounds_for_desktop,
     selected_method_id,
@@ -264,14 +266,15 @@ class ResearchCommandService:
     @staticmethod
     def _settings(research: Research) -> dict[str, str]:
         brief = research.brief
+        hours = brief.max_effective_hours.value
         return {
             "thesis": str(brief.thesis.value or ""),
-            "universe": str(brief.universe.value or ""),
-            "max_effective_hours": str(brief.max_effective_hours.value or ""),
+            "universe": format_universe_display(brief.universe.value),
+            "max_effective_hours": f"{hours:g} 小时" if hours is not None else "",
             "round1_methods": " · ".join(
                 method.method_id for method in (brief.round1_methods.value or ())
             ),
-            "coverage_floor": str(brief.coverage_floor.value or ""),
+            "coverage_floor": format_coverage_floor_display(brief.coverage_floor.value),
         }
 
     def _host_payload(

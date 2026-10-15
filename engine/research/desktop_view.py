@@ -2,12 +2,32 @@ from __future__ import annotations
 
 from typing import Any
 
-from engine.research.models import AssetClass, Market, Research, RoundV2
+from engine.research.models import AssetClass, CoverageFloor, Market, Research, RoundV2, Universe
 from engine.research.progress import _ASSET, _MARKET
 from engine.verifiers import method_set_excluding_pit
 
 _MARKET_LABEL = _MARKET
 _ASSET_LABEL = _ASSET
+
+
+def format_universe_display(universe: Universe | None) -> str:
+    if universe is None:
+        return ""
+    market = _MARKET_LABEL[universe.market]
+    asset = _ASSET_LABEL[universe.asset_class]
+    if universe.symbols:
+        symbols = "、".join(universe.symbols)
+        return f"{market} · {asset}（{symbols}）"
+    return f"{market} · {asset}"
+
+
+def format_coverage_floor_display(floor: CoverageFloor | None) -> str:
+    if floor is None:
+        return ""
+    return (
+        f"至少 {floor.min_assets} 个标的、"
+        f"{floor.min_years:g} 年数据，缺失不超过 {floor.max_missing_pct:g}%"
+    )
 
 
 def universe_label_for(research: Research) -> str:

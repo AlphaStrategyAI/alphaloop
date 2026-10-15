@@ -8,15 +8,17 @@
 
 | Metric | Count |
 | --- | ---: |
-| 通过 | 38 |
+| 通过 | 41 |
 | 失败 | 0 |
-| 未测 | 5 |
+| 未测 | 4 |
 
 **Done #1 network (-0.25 default floor):** `ALPHALOOP_ACCEPTANCE_NETWORK=1 pytest tests/test_v1_honest_path.py -v` → **PASSED**. Research reaches **`COMPLETED`** with **not-passed** method verification (`all_current_methods_passed` false); export is **`research_record`** only (not strategy pack). Failed gates: **`scorecard.market`** (max_drawdown -0.324 vs floor -0.25) and **`pit.consistency`**.
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **185 passed**, 1 skipped (network without opt-in). Desktop vitest **28/28**.
+**Default CI:** `python3 -m pytest tests/ -q` → **192 passed**, 1 skipped (network without opt-in). Desktop vitest **29/29**.
+
+**Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
 **Implementation trial budget (default 5):** failed verification auto-iterates per version until budget exhausted; UI hint `已用 X/N 轮`; exhausted copy names gates + `research_record` only. Env: `ALPHALOOP_MAX_TRIALS`, `ALPHALOOP_TRIAL_BUDGET_INCREMENT` (default 5).
 
@@ -80,6 +82,17 @@ Not run as a separate window hunt. The single frozen acceptance window above **d
 
 **Tests:** `tests/test_honest_stop.py` (auto-continue, exhaustion, configurable env, economic still confirms, manual continue); loop tests with `ALPHALOOP_MAX_TRIALS=1`; desktop vitest budget-exhausted hint.
 
+## Cumulative M + B5 late-pass + continue confirm
+
+| Item | Evidence |
+| --- | --- |
+| Cumulative M in pack/view | `history/rounds.json` fields `data_window_key`, `cumulative_rounds_on_window`, per-round `cumulative_round_on_window`; view `cumulativeRoundsOnWindow` |
+| B5 late-pass UI | `latePassPresentation` in `view_for`; `tests/test_cumulative_trials.py::test_late_pass_after_third_round_success` |
+| Continue confirm | `user_confirmed` + optional `high_suspicion_acknowledged`; schema + `commands.rs`; vitest escalation |
+| Copy | `running_budget_hint` / exhausted hint in `honest_stop.py` |
+
+Command: `pytest tests/test_cumulative_trials.py -v`
+
 ## B4 SQLite `resolve_confirm` E2E (not Done #1)
 
 | Item | Detail |
@@ -99,6 +112,9 @@ Not run as a separate window hunt. The single frozen acceptance window above **d
 | **Plan (b)** | `COMPLETED` uses `passed_for` excluding PIT for **export** | 通过 | `strategy_pack_eligibility`; review no longer requires pass |
 | **B4** | `resolve_confirm` + SQLite `get_attempt` + EvidenceRef | 通过 | `tests/test_b4_sqlite_confirm.py` (-0.35 **not** Done #1) |
 | **P0 budget** | Auto-iterate until trial budget exhausted | 通过 | `tests/test_honest_stop.py`; `v1-cut-line.md` 已知限制 |
+| **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
+| **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
+| **Continue guard** | Engine + UI confirm flags; high-M escalation | 通过 | `test_continue_*`, desktop vitest |
 | **§1.2 Desktop** | Vitest + build | 通过 | 28/28; Tauri shell / Night 7-screen walk **未测** (Master Bot) |
 
 ## Defects found and fixed (this pass)
