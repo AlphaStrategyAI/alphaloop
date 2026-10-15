@@ -84,12 +84,13 @@ def methods_verification_passed(research: Research) -> bool:
 
 
 def failed_verifier_ids(research: Research) -> tuple[str, ...]:
+    from engine.research.methods import format_verifier_ids
+
     attempt = _last_accepted_attempt(research)
     if attempt is None or attempt.verification is None:
         return ()
-    return tuple(
-        item.verifier_id for item in attempt.verification.results if not item.passed
-    )
+    raw = tuple(item.verifier_id for item in attempt.verification.results if not item.passed)
+    return format_verifier_ids(raw)
 
 
 def deferred_implementation_change(research: Research) -> ProposedChange | None:

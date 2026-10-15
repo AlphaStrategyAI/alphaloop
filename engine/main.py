@@ -14,13 +14,14 @@ from datetime import UTC, date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 import httpx
 import jsonschema
 import pandas as pd
 
-from engine.dialogue.intent import interpret
-from engine.dialogue.slots import apply_intent, unlock_all_slots
+from engine.dialogue.slots import unlock_all_slots
+from engine.dialogue.turns import process_send_dialogue
 from engine.export import (
     build_research_record_pack,
     build_strategy_pack,
@@ -472,6 +473,11 @@ class ResearchCommandService:
                 for item in self.store.list_method_definitions()
             ]
             selected = route.removeprefix("#/methods/") if route.startswith("#/methods/") else None
+            if selected:
+                try:
+                    selected = unquote(selected)
+                except ValueError:
+                    pass
             return self._host_payload({"kind": "methods", "selected": selected, "methods": methods})
         if route == "#/research" or route.startswith("#/research?"):
             status_raw = None
@@ -497,7 +503,10 @@ class ResearchCommandService:
                 {
                     "kind": kind,
                     "researchId": research_id,
-                    "messages": [],
+                    "dialogue": [
+                        {"role": turn.role.value, "text": turn.text}
+                        for turn in research.dialogue
+                    ],
                     "settings": self._settings(research),
                 },
                 research,
@@ -684,11 +693,7 @@ class ResearchCommandService:
             self.store.delete(research.research_id)
             return {"research_id": research.research_id, "deleted": True}
         if kind == "send_dialogue":
-            updated = apply_intent(
-                research,
-                interpret(request["message"], research),
-                now,
-            )
+            updated = process_send_dialogue(research, request["message"], now)
         elif kind == "unlock_brief":
             updated = unlock_all_slots(research, now)
         elif kind == "confirm_run":

@@ -34,7 +34,7 @@ from engine.research.specify import ModelProposal, ProposedChange, classify_chan
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.review.subagent import MAX_CONSECUTIVE_REVIEW_FAILURES
-from engine.strategy import MeanReversionStrategy
+from engine.strategy import MeanReversionStrategy, StrategySpec
 from engine.verifiers import method_set_excluding_pit, run_verifiers
 
 if TYPE_CHECKING:
@@ -65,9 +65,18 @@ def run_review_gate(
     *,
     prior_failures: int = 0,
     on_attempt: Callable[[Attempt], None] | None = None,
+    prior_spec: StrategySpec | None = None,
 ) -> ReviewGateOutcome:
     from engine.review.subagent import run_review_gate as _run_review_gate
-    return _run_review_gate(draft, reviewer, retry_fn, now, prior_failures=prior_failures, on_attempt=on_attempt)
+    return _run_review_gate(
+        draft,
+        reviewer,
+        retry_fn,
+        now,
+        prior_failures=prior_failures,
+        on_attempt=on_attempt,
+        prior_spec=prior_spec,
+    )
 
 
 class RoundBuilder(Protocol):
@@ -308,6 +317,10 @@ class ResearchLoop:
                 prior_failures = 0
             persist_action(ResearchAction.GATHER)
             draft = self.builder.build(research, prior_failures + 1)
+            version = research.versions[version_number - 1]
+            prior_spec = (
+                version.rounds[-1].accepted_attempt.spec if version.rounds else None
+            )
             outcome = run_review_gate(
                 draft,
                 self.reviewer,
@@ -321,6 +334,7 @@ class ResearchLoop:
                     attempt,
                     self.now(),
                 ),
+                prior_spec=prior_spec,
             )
             if outcome.successful_round is None:
                 if outcome.confirm_request is None:

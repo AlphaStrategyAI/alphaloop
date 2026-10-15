@@ -21,7 +21,7 @@ const listView: DesktopView = {
 const detailView: DesktopView = {
   kind: "draft",
   researchId: "r-detail",
-  messages: ["hello"],
+  dialogue: [{role: "user", text: "hello"}],
   settings: {
     thesis: "测试",
     universe: "A股 · 股票",

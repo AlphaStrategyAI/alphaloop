@@ -137,8 +137,16 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .methods-layout { display: grid; grid-template-columns: 260px 1fr; min-height: 900px; }
 .method-list { padding: 52px 28px; border-right: 1px solid var(--line); }
 .method-list a { display: grid; color: var(--ink); text-decoration: none; padding: 14px; border-radius: var(--radius-control); }
-.method-list a:first-of-type { background: var(--glass); border: 1px solid var(--line); }
-.method-list small { margin-top: 4px; }
+.method-list a.active { background: var(--glass); border: 1px solid var(--line); }
+.method-list small { margin-top: 4px; word-break: break-all; }
+.mutation-error {
+  margin: 0;
+  padding: 10px 16px;
+  background: rgba(248, 113, 113, 0.12);
+  border-bottom: 1px solid var(--line);
+  color: #fecaca;
+  font-size: 13px;
+}
 .method-detail { padding: 52px 64px; background: var(--glass); }
 .method-create { display: grid; gap: 8px; margin: 16px 0 24px; }
 .method-create input {

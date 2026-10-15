@@ -394,7 +394,7 @@ class SQLiteStore:
             for item in self.list_method_definitions()
         )
 
-    def list_method_definitions(self) -> tuple[MethodDefinition, ...]:
+    def _all_method_revision_rows(self) -> tuple[MethodDefinition, ...]:
         rows = self.connection.execute(
             """
             SELECT method_id,revision_hash,name,description,body,source,
@@ -418,8 +418,16 @@ class SQLiteStore:
             for row in rows
         )
 
+    def list_method_definitions(self) -> tuple[MethodDefinition, ...]:
+        latest: dict[str, MethodDefinition] = {}
+        for item in self._all_method_revision_rows():
+            current = latest.get(item.method_id)
+            if current is None or item.created_at >= current.created_at:
+                latest[item.method_id] = item
+        return tuple(latest[method_id] for method_id in sorted(latest))
+
     def latest_method_definition(self, method_id: str) -> MethodDefinition | None:
-        rows = [item for item in self.list_method_definitions() if item.method_id == method_id]
+        rows = [item for item in self._all_method_revision_rows() if item.method_id == method_id]
         if not rows:
             return None
         superseded = {item.supersedes for item in rows if item.supersedes}

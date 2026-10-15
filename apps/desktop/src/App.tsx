@@ -1,4 +1,6 @@
-import {FormEvent, useEffect, useState} from "react";
+import {FormEvent, useCallback, useEffect, useMemo, useState} from "react";
+
+import {bindDesktopApi} from "./api-bind";
 
 import type {
   AnomalyPresentation,
@@ -192,15 +194,26 @@ function Settings({values}: {values: Extract<DesktopView, {kind: "draft" | "conf
 
 function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "draft"}>}) {
   const [message, setMessage] = useState("");
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (message.trim()) void api.sendDialogue(view.researchId, message.trim());
+    const text = message.trim();
+    if (!text) return;
+    try {
+      await api.sendDialogue(view.researchId, text);
+      setMessage("");
+    } catch {
+      /* mutation error banner */
+    }
   };
   return (
     <div className="draft-layout">
       <section className="conversation">
         <h1>新研究</h1>
-        {view.messages.map((item) => <p className="message" key={item}>{item}</p>)}
+        {view.dialogue.map((turn, index) => (
+          <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
+            {turn.text}
+          </p>
+        ))}
         <p className="message system">我会逐项锁定原理、资产、时间、方法和覆盖底线。</p>
         <form onSubmit={submit}>
           <input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="把方向说清楚，不用填表。" />
@@ -534,9 +547,15 @@ function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
           }}>预先新建方法</button>
         </div>
         {view.methods.map((method) => (
-          <a href={`#/methods/${method.id}`} key={method.id}>
+          <a
+            className={method.id === selected?.id ? "active" : undefined}
+            href={`#/methods/${encodeURIComponent(method.id)}`}
+            key={method.id}
+          >
             {method.name}
-            <small>{method.revision}</small>
+            <small title={method.revision}>
+              {method.revision.length > 8 ? `${method.revision.slice(0, 8)}…` : method.revision}
+            </small>
             {method.usageCount != null ? <small>被 {method.usageCount} 次研究用过</small> : null}
           </a>
         ))}
@@ -561,6 +580,17 @@ function Screen({api, initialView: view}: AppProps) {
 export function App({api, initialView, initialRoute}: AppProps) {
   const [route, setRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [view, setView] = useState(initialView);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  const refreshView = useCallback(async () => {
+    const next = await api.fetchView(route);
+    setView(next);
+  }, [api, route]);
+
+  const boundApi = useMemo(
+    () => bindDesktopApi(api, {refresh: refreshView, onError: setMutationError}),
+    [api, refreshView],
+  );
 
   useEffect(() => {
     const onHashChange = () => setRoute(readBrowserRoute());
@@ -583,5 +613,14 @@ export function App({api, initialView, initialRoute}: AppProps) {
     };
   }, [api, route]);
 
-  return <NightShell view={view}><Screen api={api} initialView={view} /></NightShell>;
+  return (
+    <NightShell view={view}>
+      {mutationError && (
+        <p className="mutation-error" data-testid="mutation-error" role="alert">
+          {mutationError}
+        </p>
+      )}
+      <Screen api={boundApi} initialView={view} />
+    </NightShell>
+  );
 }

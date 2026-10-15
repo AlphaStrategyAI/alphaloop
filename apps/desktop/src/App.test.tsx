@@ -55,7 +55,15 @@ const views: DesktopView[] = [
       {id: "r-end", title: "转债估值修复", status: "ended", universeLabel: "A股 · 债券"},
     ],
   },
-  {kind: "draft", researchId: "r-1", messages: ["我想研究美股低波动回归"], settings},
+  {
+    kind: "draft",
+    researchId: "r-1",
+    dialogue: [
+      {role: "user", text: "我想研究美股低波动回归"},
+      {role: "assistant", text: "我想研究美股低波动回归"},
+    ],
+    settings,
+  },
   {kind: "confirm_run", researchId: "r-1", settings},
   {
     kind: "running",
@@ -219,7 +227,7 @@ describe("Night desktop contract", () => {
     fireEvent.click(screen.getByRole("button", {name: "同意，开新的一版"}));
     fireEvent.click(screen.getByRole("button", {name: "不同意，维持原逻辑继续"}));
     fireEvent.click(screen.getByRole("button", {name: "暂停，我自己改"}));
-    expect(api.resolveConfirm).toHaveBeenNthCalledWith(1, "r-1", "approve_new_version", undefined);
+    expect(api.resolveConfirm).toHaveBeenNthCalledWith(1, "r-1", "approve_new_version");
     expect(api.resolveConfirm).toHaveBeenNthCalledWith(2, "r-1", "reject_keep_logic");
     expect(api.resolveConfirm).toHaveBeenNthCalledWith(3, "r-1", "pause_and_edit");
   });
@@ -261,6 +269,24 @@ describe("Night desktop contract", () => {
     expect(universe?.textContent).not.toMatch(/Universe\(/);
     expect(coverage?.textContent).toContain("至少");
     expect(coverage?.textContent).not.toMatch(/CoverageFloor\(/);
+  });
+
+  it("renders duplicate dialogue lines with distinct keys", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "draft",
+          researchId: "r-dup",
+          dialogue: [
+            {role: "user", text: "重复"},
+            {role: "assistant", text: "重复"},
+          ],
+          settings,
+        }}
+      />,
+    );
+    expect(screen.getAllByTestId("dialogue-turn")).toHaveLength(2);
   });
 
   it("renders honestStopHint on the running screen", () => {
@@ -404,7 +430,10 @@ describe("Night desktop contract", () => {
           honestStopHint: "实现层迭代预算已用尽（5/5 轮）。验证仍未通过；只能导出 research_record。",
           trialBudget: {used: 5, budget: 5, remaining: 0},
           budgetExhausted: true,
-          failedVerifierIds: ["scorecard.market", "pit.consistency"],
+          failedVerifierIds: [
+            "市场计分卡 (scorecard.market)",
+            "时点一致性 (pit.consistency)",
+          ],
           canContinueIterate: true,
           selectedRoundId: "round-1",
           selectedMethodId: "overfit.walk",
@@ -414,7 +443,7 @@ describe("Night desktop contract", () => {
       />,
     );
     expect(screen.getByTestId("honest-stop-hint")).toHaveTextContent("预算已用尽");
-    expect(screen.getByText("未通过门禁：scorecard.market、pit.consistency")).toBeInTheDocument();
+    expect(screen.getByText(/未通过门禁：市场计分卡 \(scorecard\.market\)、时点一致性 \(pit\.consistency\)/)).toBeInTheDocument();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByTestId("continue-iterate"));
     expect(confirm).toHaveBeenCalled();

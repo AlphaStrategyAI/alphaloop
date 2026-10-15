@@ -3,8 +3,6 @@
 import json
 from dataclasses import replace
 from pathlib import Path
-from zipfile import ZipFile
-
 import pytest
 
 from engine.export import _round_history_with_trials, build_strategy_pack
@@ -115,8 +113,21 @@ def test_late_pass_after_third_round_success(tmp_path: Path, monkeypatch: pytest
     paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
     service = ResearchCommandService(store, paths)
     view = service.view_for("#/research/r-loop")
+    assert view["cumulativeRoundsOnWindow"] == 3
     assert view["latePassPresentation"]["cumulativeRoundsOnWindow"] == 3
-    assert len(view["latePassPresentation"]["priorFailureRecords"]) == 2
+    prior = view["latePassPresentation"]["priorFailureRecords"]
+    assert len(prior) == 2
+    assert any(record["paramChanges"] for record in prior)
+    second = next(record for record in prior if record["roundNumber"] >= 2)
+    assert second["paramChanges"][0][0] == "lookback_days"
+
+    all_rounds = [round_ for version in current.versions for round_ in version.rounds]
+    history = _round_history_with_trials(current, all_rounds)
+    assert history["cumulative_rounds_on_window"] == 3
+    assert len(history["rounds"]) == 3
+    assert history["rounds"][0]["cumulative_round_on_window"] == 1
+    assert history["rounds"][-1]["cumulative_round_on_window"] == 3
+    assert any(item["implementation_delta"]["param_changes"] for item in history["rounds"])
 
 
 def test_round_one_pass_no_late_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -33,10 +33,12 @@ def test_revise_creates_a_new_definition_and_keeps_the_old_row(tmp_path) -> None
     )
     second = revise_method(store, "custom.gap", "缺口", "v2 body", "body-v2", NOW)
     rows = store.list_method_definitions()
-    assert len(rows) == 2
+    assert len(rows) == 1
     assert first.revision_hash != second.revision_hash
     assert second.supersedes == first.revision_hash
-    assert {row.revision_hash for row in rows} == {first.revision_hash, second.revision_hash}
+    assert rows[0].revision_hash == second.revision_hash
+    all_rows = store._all_method_revision_rows()
+    assert {row.revision_hash for row in all_rows} == {first.revision_hash, second.revision_hash}
 
 
 def test_deposit_marks_source_and_survives_research_delete(tmp_path) -> None:

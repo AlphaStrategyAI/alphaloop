@@ -8,15 +8,15 @@
 
 | Metric | Count |
 | --- | ---: |
-| 通过 | 41 |
+| 通过 | 48 |
 | 失败 | 0 |
-| 未测 | 4 |
+| 未测 | 3 |
 
 **Done #1 network (-0.25 default floor):** `ALPHALOOP_ACCEPTANCE_NETWORK=1 pytest tests/test_v1_honest_path.py -v` → **PASSED**. Research reaches **`COMPLETED`** with **not-passed** method verification (`all_current_methods_passed` false); export is **`research_record`** only (not strategy pack). Failed gates: **`scorecard.market`** (max_drawdown -0.324 vs floor -0.25) and **`pit.consistency`**.
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **192 passed**, 1 skipped (network without opt-in). Desktop vitest **29/29**.
+**Default CI:** `python3 -m pytest tests/ -q` → **195 passed**, 1 skipped (network without opt-in). Desktop vitest **37/37**.
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -26,7 +26,7 @@
 
 ```bash
 python3 -m pytest tests/ -q
-# 176 passed, 1 skipped
+# 195 passed, 1 skipped
 
 ALPHALOOP_ACCEPTANCE_NETWORK=1 python3 -m pytest tests/test_v1_honest_path.py -v
 # test_v1_mean_reversion_reaches_completed_real_ports PASSED (~0.9s)
@@ -35,7 +35,7 @@ bash scripts/verify_v1_done.sh
 # green when network env unset (skip message)
 
 cd apps/desktop && npm test -- --run
-# 27 passed
+# 37 passed
 ```
 
 ## Done #1 — network at default `max_drawdown_floor=-0.25`
@@ -115,7 +115,10 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
 | **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
 | **Continue guard** | Engine + UI confirm flags; high-M escalation | 通过 | `test_continue_*`, desktop vitest |
-| **§1.2 Desktop** | Vitest + build | 通过 | 28/28; Tauri shell / Night 7-screen walk **未测** (Master Bot) |
+| **Hash navigation** | `#/research/<id>` / `#/methods` drive `fetchView(route)` | 通过 | `apps/desktop/src/navigation.test.tsx` (jsdom; **not** full Tauri IPC) |
+| **Running `honestStopHint`** | Budget / auto-iterate copy on running screen | 通过 | `App.test.tsx` `honest-stop-hint-running` |
+| **Confirm/list display** | Chinese universe & coverage; local timestamps | 通过 | `tests/test_desktop_view_format.py`, `format.test.ts`, `App.test.tsx` |
+| **§1.2 Desktop** | Vitest + build | 通过 | 37/37; real Tauri window smoke / Night 7-screen **未测** |
 
 ## Defects found and fixed (this pass)
 
@@ -124,8 +127,25 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | Product rejected silent `-0.35` in acceptance | Removed override; honest complete at -0.25 | `test_v1_mean_reversion_reaches_completed_real_ports` |
 | Loop/reviewer blocked Done #1 at default floor | Reviewer + `COMPLETE` on failed PARAM path | `test_failed_method_verification_completes_without_param_iteration` |
 | In-floor shrink test relied on failed-verify iteration | Pre-seed `last_coverage`; one passing round | `test_in_floor_shrink_across_rounds_is_recorded_and_can_complete` |
+| **BLOCKER:** hash links change URL but UI stays on list | `route` state from hash + `hashchange`; poll `fetchView(route)` | `navigation.test.tsx` |
+| Running screen omitted `honestStopHint` | Render hint on `RunningScreen` | `App.test.tsx` |
+| Confirm card showed `Universe(...)` / `CoverageFloor(...)` repr | `format_*_display` in `desktop_view.py` → `_settings()` | `test_desktop_view_format.py` |
+| List showed raw ISO timestamps | `formatResearchTimestamp` (default `Asia/Shanghai`) | `format.test.ts`, `App.test.tsx` |
+
+## 已知问题（本轮不修）
+
+| Issue | 事实与影响 |
+| --- | --- |
+| **经济确认 `EvidenceRef` 未填充** | 真实 `ResearchLoop` 进入 `AWAITING_CONFIRM`（经济类）时 `ConfirmRequest.why_change` 仍为空；桌面 `AwaitingConfirmCard` 要求 `whyChange` 非空才启用「同意」，故**真实桌面流程**下经济确认无法批准。SQLite B4 E2E（`tests/test_b4_sqlite_confirm.py`）在 `handle(resolve_confirm)` 前**手工注入** `why_change`，不反映生产路径。影响：经济逻辑变更卡在确认屏。 |
+| **Tauri `resources` / PyInstaller** | `tauri.conf.json` 打包 onedir 时目录被拍平；spec 未包含 akshare 数据文件。影响：部分发行包缺数据/资源。 |
+| **Crossref 每轮请求** | 文献 crossref 每轮调用，易触发 HTTP 429。影响：运行中断或降级，与导航/UI 无关。 |
+| **Engine SQLite 致命退出** | 引擎进程遇 SQLite 错误直接退出且无自动重启。影响：桌面会话需用户重启应用。 |
+| **草稿 `universe` 无 `symbols`** | 对话草稿阶段 brief 的 universe 常无 `symbols`，列表/设定仅显示市场·资产类。影响：展示不完整，开跑前需锁定标的。 |
+
+以上均非本轮 1–3 的一行修复项；未为修已知问题扩大范围。
 
 ## Open / not fixed in P0
 
 1. **Green `strategy_pack` on live gather** without PIT evidence dates — out of scope for honest path.
-2. **Tauri GUI / Night 7-screen manual walk** — Master Bot elsewhere.
+2. **Tauri GUI / Night 7-screen manual walk** — re-smoke in real window after hash fix; vitest covers routing contract only.
+3. **经济确认 EvidenceRef 管线** — see 已知问题；需引擎在 `REQUEST_CONFIRM` 时写入可追溯引用，桌面 `resolveConfirm` 透传（若需要）。

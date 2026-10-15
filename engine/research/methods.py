@@ -84,6 +84,18 @@ PRESET_NAMES = {
 }
 
 
+def format_verifier_display(verifier_id: str) -> str:
+    label = PRESET_NAMES.get(verifier_id)
+    if label:
+        return f"{label} ({verifier_id})"
+    return verifier_id
+
+
+def format_verifier_ids(verifier_ids: tuple[str, ...]) -> tuple[str, ...]:
+    deduped = tuple(dict.fromkeys(verifier_ids))
+    return tuple(format_verifier_display(item) for item in deduped)
+
+
 def _revision_hash(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 

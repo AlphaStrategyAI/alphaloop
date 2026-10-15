@@ -87,10 +87,13 @@ def _verification_passed_round(round_: RoundV2, research: Research) -> bool:
 
 
 def _failed_gate_ids(round_: RoundV2) -> tuple[str, ...]:
+    from engine.research.methods import format_verifier_ids
+
     verification = round_.accepted_attempt.verification
     if verification is None:
         return ()
-    return tuple(item.verifier_id for item in verification.results if not item.passed)
+    raw = tuple(item.verifier_id for item in verification.results if not item.passed)
+    return format_verifier_ids(raw)
 
 
 def late_pass_presentation(research: Research) -> dict[str, Any] | None:

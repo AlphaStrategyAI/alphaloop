@@ -48,7 +48,12 @@ export interface ValidationMethod {
 
 type ViewBody =
   | {kind: "research_list"; awaiting?: ResearchSummary; rows: readonly ResearchSummary[]}
-  | {kind: "draft"; researchId: string; messages: readonly string[]; settings: BriefSettings}
+  | {
+      kind: "draft";
+      researchId: string;
+      dialogue: readonly {role: "user" | "assistant"; text: string}[];
+      settings: BriefSettings;
+    }
   | {kind: "confirm_run"; researchId: string; settings: BriefSettings}
   | {
       kind: "running";

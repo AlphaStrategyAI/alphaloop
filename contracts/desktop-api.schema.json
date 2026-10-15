@@ -29,7 +29,8 @@
             "pause",
             "resume",
             "confirm_modification",
-            "delete_research"
+            "delete_research",
+            "unlock_brief"
           ]
         },
         "research_id": {"type": "string", "minLength": 1}

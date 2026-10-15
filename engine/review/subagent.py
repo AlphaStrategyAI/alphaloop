@@ -146,6 +146,7 @@ def run_review_gate(
     now: datetime,
     prior_failures: int = 0,
     on_attempt: AttemptSink | None = None,
+    prior_spec: StrategySpec | None = None,
 ) -> ReviewGateOutcome:
     if not 0 <= prior_failures < MAX_CONSECUTIVE_REVIEW_FAILURES:
         raise ValueError("prior_failures must be 0, 1, or 2")
@@ -161,7 +162,6 @@ def run_review_gate(
         if on_attempt is not None:
             on_attempt(reviewed_attempt)
         if report.passed:
-            prior_spec: StrategySpec | None = None
             accepted = reviewed_attempt
             logic = build_logic_statement(
                 accepted.spec.thesis_locked,
@@ -169,7 +169,8 @@ def run_review_gate(
                 version_number=initial.version_number,
                 had_prior_round=initial.round_number > 1,
             )
-            impl = build_implementation_delta(accepted, prior_spec)
+            delta_prior = prior_spec if initial.round_number > 1 else None
+            impl = build_implementation_delta(accepted, delta_prior)
             counters = build_trial_counters(tuple(attempts), accepted)
             return ReviewGateOutcome(
                 version_number=initial.version_number,

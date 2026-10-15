@@ -9,6 +9,17 @@ from typing import Any, Generic, TypeVar
 T = TypeVar("T")
 
 
+class DialogueRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+@dataclass(frozen=True, slots=True)
+class DialogueTurn:
+    role: DialogueRole
+    text: str
+
+
 class ResearchStatus(StrEnum):
     DRAFT = "draft"
     RUNNING = "running"
@@ -458,6 +469,7 @@ class Research:
     current_action: ResearchAction = ResearchAction.IDLE
     thesis_change_hint: str | None = None
     implementation_trial_budget: int = 5
+    dialogue: tuple[DialogueTurn, ...] = ()
 
 
 def new_research(research_id: str, now: datetime) -> Research:
