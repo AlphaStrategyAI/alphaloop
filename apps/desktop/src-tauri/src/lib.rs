@@ -1,4 +1,5 @@
 mod commands;
+mod engine_paths;
 mod sidecar;
 mod sidecar_policy;
 mod sidecar_runtime;
@@ -124,6 +125,8 @@ fn schedule_sidecar_restart(
     detail: &'static str,
 ) {
     if !runtime.record_crash(detail) {
+        let _ = engine_paths::clear_owner_file();
+        connection.clear();
         return;
     }
     let attempt = runtime.ui.lock().expect("sidecar ui lock poisoned").restart_count;

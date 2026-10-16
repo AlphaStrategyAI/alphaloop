@@ -641,6 +641,7 @@ export function App({
   const [syncedRoute, setSyncedRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [sidecarState, setSidecarState] = useState<SidecarUiState | null>(null);
+  const engineStopped = sidecarState?.phase === "stopped";
   const routePending = route !== syncedRoute;
 
   const refreshView = useCallback(async () => {
@@ -663,9 +664,13 @@ export function App({
     if (!pollSidecar) return;
     let active = true;
     const tick = () => {
-      void pollSidecar().then((next) => {
-        if (active) setSidecarState(next);
-      });
+      void pollSidecar()
+        .then((next) => {
+          if (active) setSidecarState(next);
+        })
+        .catch(() => {
+          /* sidecar state poll failed; keep last UI state */
+        });
     };
     tick();
     const timer = window.setInterval(tick, 2_000);
@@ -676,13 +681,19 @@ export function App({
   }, [pollSidecar]);
 
   useEffect(() => {
+    if (engineStopped) return;
     let active = true;
     const refresh = () => {
-      void api.fetchView(route).then((next) => {
-        if (!active) return;
-        setView(next);
-        setSyncedRoute(route);
-      });
+      void api
+        .fetchView(route)
+        .then((next) => {
+          if (!active) return;
+          setView(next);
+          setSyncedRoute(route);
+        })
+        .catch(() => {
+          /* engine unreachable; avoid unhandled rejection while polling */
+        });
     };
     refresh();
     const timer = window.setInterval(refresh, 1_000);
@@ -690,7 +701,20 @@ export function App({
       active = false;
       window.clearInterval(timer);
     };
-  }, [api, route]);
+  }, [api, route, engineStopped]);
+
+  const handleRestartSidecar = useCallback(async () => {
+    if (!restartSidecar) return;
+    try {
+      await restartSidecar();
+      if (pollSidecar) {
+        const next = await pollSidecar();
+        setSidecarState(next);
+      }
+    } catch {
+      /* restart failed; banner stays until user retries */
+    }
+  }, [restartSidecar, pollSidecar]);
 
   return (
     <NightShell view={view}>
@@ -703,7 +727,7 @@ export function App({
         <div className="sidecar-stopped" data-testid="sidecar-stopped" role="alert">
           <p>{sidecarState.message || "引擎已停止"}</p>
           {restartSidecar && (
-            <button type="button" onClick={() => void restartSidecar()}>
+            <button type="button" onClick={() => void handleRestartSidecar()}>
               重启引擎
             </button>
           )}

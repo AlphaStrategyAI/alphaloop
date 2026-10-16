@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
 
+use crate::engine_paths;
 use crate::sidecar::EngineSupervisor;
 use crate::sidecar_runtime::SidecarRuntime;
 use crate::start_desktop_sidecar;
@@ -32,6 +33,20 @@ impl EngineConnection {
             auth_token,
         });
         Ok(())
+    }
+
+    pub fn clear(&self) {
+        if let Ok(mut connection) = self.connection.lock() {
+            *connection = None;
+        }
+    }
+
+    #[cfg(test)]
+    fn is_configured(&self) -> bool {
+        self.connection
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
     }
 
     async fn post(&self, request: Value) -> Result<Value, String> {
@@ -390,6 +405,8 @@ pub fn restart_engine_sidecar(
 ) -> Result<(), String> {
     runtime.prepare_user_restart();
     supervisor.quit()?;
+    engine_paths::clear_owner_file()?;
+    connection.clear();
     start_desktop_sidecar(
         app,
         supervisor.inner().clone(),
@@ -400,7 +417,7 @@ pub fn restart_engine_sidecar(
 
 #[cfg(test)]
 mod tests {
-    use super::{notification_title, notify_kinds};
+    use super::{EngineConnection, notification_title, notify_kinds};
 
     #[test]
     fn notify_titles_cover_only_awaiting_and_terminal_states() {
@@ -413,6 +430,16 @@ mod tests {
         assert_eq!(notification_title("paused"), None);
         assert_eq!(notification_title("running"), None);
         assert_eq!(notification_title("draft"), None);
+    }
+
+    #[test]
+    fn engine_connection_clear_drops_stored_endpoint() {
+        let conn = EngineConnection::default();
+        conn.set("http://127.0.0.1:9".into(), "token".into())
+            .expect("set");
+        assert!(conn.is_configured());
+        conn.clear();
+        assert!(!conn.is_configured());
     }
 
     #[test]

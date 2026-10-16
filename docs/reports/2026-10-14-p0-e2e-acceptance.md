@@ -8,7 +8,7 @@
 
 | Metric | Count |
 | --- | ---: |
-| 通过 | 63 |
+| 通过 | 66 |
 | 失败 | 0 |
 | 未测 | 3 |
 
@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **231 passed**, 1 skipped. Desktop vitest **59/59**. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (15 Rust tests on Linux VM).
+**Default CI:** `python3 -m pytest tests/ -q` → **236 passed**, 1 skipped. Desktop `npm test` → vitest **62/62** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (**17** unit/integration tests on Linux VM).
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -26,7 +26,7 @@
 
 ```bash
 python3 -m pytest tests/ -q
-# 226 passed, 1 skipped
+# 236 passed, 1 skipped
 
 ALPHALOOP_ACCEPTANCE_NETWORK=1 python3 -m pytest tests/test_v1_honest_path.py -v
 # test_v1_mean_reversion_reaches_completed_real_ports PASSED (~0.9s)
@@ -34,11 +34,20 @@ ALPHALOOP_ACCEPTANCE_NETWORK=1 python3 -m pytest tests/test_v1_honest_path.py -v
 bash scripts/verify_v1_done.sh
 # green when network env unset (skip message)
 
-cd apps/desktop && npm test -- --run
-# 59 passed
+cd apps/desktop && npm test
+# 62 vitest + tsc --noEmit
+
+cd apps/desktop && npm run build
+# tsc --noEmit && vite build
 
 bash scripts/build_sidecar.sh && bash scripts/smoke_sidecar.sh
-# PyInstaller onedir + handshake + akshare calendar (VM; not full Tauri bundle)
+# .venv-sidecar + PyInstaller onedir + bundled akshare calendar (VM)
+
+cd apps/desktop/src-tauri && cargo check --all-targets && cargo test
+# 17 passed (owner clear + SharedChild supervision + sidecar lifecycle)
+
+bash scripts/stage_engine_for_tauri.sh
+# verify_engine_resource_layout: alphaloop-engine + _internal/ (not flattened)
 ```
 
 ## Done #1 — network at default `max_drawdown_floor=-0.25`
@@ -119,8 +128,12 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **View repr guard** | No `CoverageFloor(...)` across list/draft/run/confirm/completed | 通过 | `test_desktop_view_repr_guard.py`, `App.test.tsx` |
 | **Completed copy once** | Exhausted / not-passed text not duplicated in view/UI | 通过 | `test_completed_view_duplicate_copy.py`, `completed-copy.test.tsx` |
 | **Running header idle** | Omit `currentAction` when IDLE; no route flash | 通过 | `test_running_view_idle_action.py`, `route-loading.test.tsx` |
-| **Sidecar supervision** | Crash restart w/ backoff + cap; 引擎已停止 + 重启引擎 | 通过 | `sidecar_policy.rs` tests, `sidecar-ui.test.tsx`, `test_desktop_shell_schema_contract.py` |
-| **Packaging onedir + akshare** | Tauri preserves `engine/alphaloop-engine/`; spec collects akshare data | 通过 | `test_sidecar_packaging_docs.py`, `scripts/build_sidecar.sh`, `scripts/smoke_sidecar.sh` |
+| **Desktop typecheck gate** | `api-bind` + typed vitest fixtures; CI `npm run typecheck`/`build` | 通过 | `test_desktop_typecheck_ci.py`, `.github/workflows/desktop-typecheck.yml` |
+| **Stopped-engine polling** | Pause `fetchView` when sidecar `stopped`; `.catch` on polls; resume after 重启 | 通过 | `engine-polling.test.tsx`, `App.tsx` |
+| **owner.json on stop/restart** | Clear stale desktop pid when cap exceeded + user restart | 通过 | `engine_paths.rs`, `commands.rs`, `test_engine_owner_clear_rust.py` |
+| **Sidecar supervision** | try_wait + stdin keepalive; no mutex deadlock on kill | 通过 | `sidecar.rs` integration tests (3), `shared_child_supervision.rs`, `sidecar-ui.test.tsx` |
+| **Tauri compile gate** | `on_exit` closure + CI `cargo check`/`cargo test` | 通过 | `test_lib_rs_on_exit_closure.py`, `.github/workflows/desktop-tauri-rust.yml` |
+| **Packaging onedir + akshare** | Directory resource map; `.venv-sidecar` build; layout verifier | 通过 | `test_tauri_engine_resource_layout.py`, `verify_engine_resource_layout.py`, smoke scripts |
 | **P0 budget** | Auto-iterate until trial budget exhausted | 通过 | `tests/test_honest_stop.py`; `v1-cut-line.md` 已知限制 |
 | **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
 | **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
@@ -142,7 +155,7 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Running coverage text** | `format_coverage_vs_floor` | 通过 | `test_format_coverage_vs_floor_*` |
 | **Completed copy dedupe** | Single exhausted paragraph | 通过 | `test_honest_stop.py` (adjusted) |
 | **Draft polish** | Intro order, role classes, thesis strip | 通过 | `draft-polish.test.tsx`, `test_dialogue_intent.py` |
-| **§1.2 Desktop** | Vitest + build | 通过 | 56/56; real Tauri window smoke / Night 7-screen **未测** |
+| **§1.2 Desktop** | Vitest + typecheck + build | 通过 | 62 vitest + `tsc`; real Tauri window smoke / Night 7-screen **未测** |
 
 ## Defects found and fixed (this pass)
 
@@ -166,6 +179,8 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **continue_iterate ConcurrentWrite** | Handler returns after RUNNING transition only | `test_continue_iterate_handler.py` |
 | **Economic confirm empty `why_change`** | Loop builds `EvidenceRef` from failed attempt + gate labels | `test_economic_confirm_evidence_real_loop.py` |
 | **Export buttons silent** | Tauri returns `path`; completed screen success/error + opener | `test_export_artifact_feedback.py`, `export-feedback.test.tsx` |
+| **P1: `npm run build` tsc errors** | `revealExportInFolder` in `api-bind`; `DesktopView` test fixtures | `test_desktop_typecheck_ci.py`, `test-fixtures.ts` |
+| **P2: dead-engine poll spam** | Pause view poll when stopped; handle rejections; clear `owner.json` | `engine-polling.test.tsx`, `engine_paths.rs`, `test_engine_owner_clear_rust.py` |
 
 ### SQLite scope review (same flaw hunt)
 
@@ -183,7 +198,7 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | Issue | 事实与影响 |
 | --- | --- |
 | **Crossref 每轮请求** | 文献 crossref 每轮调用，易触发 HTTP 429。影响：运行中断或降级，与导航/UI 无关。 |
-| **Tauri 发行包端到端** | 本 VM 仅验证 PyInstaller onedir + smoke；未打包/运行完整 Tauri `.app`/安装包。 |
+| **Tauri 发行包端到端** | Linux VM：`cargo check`/`cargo test` + staged onedir layout；**未**运行 `tauri build` 安装包、**未**验证 macOS/Windows bundle、**未**开真实 Tauri 窗口端到端。 |
 | **草稿 `universe` 无 `symbols`** | 对话草稿阶段 brief 的 universe 常无 `symbols`，列表/设定仅显示市场·资产类。影响：展示不完整，开跑前需锁定标的。 |
 | **原生 `window.confirm` 对话框** | Tauri/WebKit 显示英文 Cancel/OK 与 `JavaScript - http://localhost:1420/…` 标题；「继续迭代」等确认应改为应用内对话框（后续迭代）。 |
 
