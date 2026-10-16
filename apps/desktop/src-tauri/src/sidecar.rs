@@ -1,4 +1,6 @@
-use std::sync::Mutex;
+use std::process::Child;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +23,45 @@ pub struct OwnerRecord {
 pub trait ManagedChild: Send {
     fn pid(&self) -> u32;
     fn kill(self: Box<Self>) -> Result<(), String>;
+}
+
+pub struct SharedChild {
+    child: Arc<Mutex<Option<Child>>>,
+}
+
+impl SharedChild {
+    pub fn spawn(child: Child, on_exit: impl FnOnce() + Send + 'static) -> Self {
+        let shared = Arc::new(Mutex::new(Some(child)));
+        let waiter = shared.clone();
+        thread::spawn(move || {
+            let mut slot = waiter.lock().expect("child lock poisoned");
+            if let Some(mut process) = slot.take() {
+                let _ = process.wait();
+            }
+            on_exit();
+        });
+        Self { child: shared }
+    }
+}
+
+impl ManagedChild for SharedChild {
+    fn pid(&self) -> u32 {
+        self.child
+            .lock()
+            .expect("child lock poisoned")
+            .as_ref()
+            .map(|process| process.id())
+            .unwrap_or(0)
+    }
+
+    fn kill(self: Box<Self>) -> Result<(), String> {
+        let mut slot = self.child.lock().map_err(|_| "child lock poisoned")?;
+        if let Some(mut process) = slot.take() {
+            process.kill().map_err(|error| error.to_string())?;
+            process.wait().map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
 }
 
 enum Binding {

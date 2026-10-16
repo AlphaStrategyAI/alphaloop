@@ -8,6 +8,7 @@ import type {
   DesktopView,
   HostStatus,
   ResearchStatus,
+  SidecarUiState,
   ValidationMethod,
 } from "./contracts";
 import {formatResearchTimestamp} from "./format";
@@ -52,6 +53,10 @@ export interface AppProps {
   initialView: DesktopView;
   /** Hash route for first paint; defaults to browser location. */
   initialRoute?: string;
+  /** Test hook: poll Tauri sidecar supervision state. */
+  pollSidecar?: () => Promise<SidecarUiState | null>;
+  /** Test hook: manual engine restart from the shell. */
+  restartSidecar?: () => Promise<void>;
 }
 
 const statusLabels: Record<ResearchStatus, string> = {
@@ -624,11 +629,18 @@ function Screen({api, initialView: view}: AppProps) {
   }
 }
 
-export function App({api, initialView, initialRoute}: AppProps) {
+export function App({
+  api,
+  initialView,
+  initialRoute,
+  pollSidecar,
+  restartSidecar,
+}: AppProps) {
   const [route, setRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [view, setView] = useState(initialView);
   const [syncedRoute, setSyncedRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [sidecarState, setSidecarState] = useState<SidecarUiState | null>(null);
   const routePending = route !== syncedRoute;
 
   const refreshView = useCallback(async () => {
@@ -646,6 +658,22 @@ export function App({api, initialView, initialRoute}: AppProps) {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  useEffect(() => {
+    if (!pollSidecar) return;
+    let active = true;
+    const tick = () => {
+      void pollSidecar().then((next) => {
+        if (active) setSidecarState(next);
+      });
+    };
+    tick();
+    const timer = window.setInterval(tick, 2_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [pollSidecar]);
 
   useEffect(() => {
     let active = true;
@@ -670,6 +698,16 @@ export function App({api, initialView, initialRoute}: AppProps) {
         <p className="mutation-error" data-testid="mutation-error" role="alert">
           {mutationError}
         </p>
+      )}
+      {sidecarState?.phase === "stopped" && (
+        <div className="sidecar-stopped" data-testid="sidecar-stopped" role="alert">
+          <p>{sidecarState.message || "引擎已停止"}</p>
+          {restartSidecar && (
+            <button type="button" onClick={() => void restartSidecar()}>
+              重启引擎
+            </button>
+          )}
+        </div>
       )}
       {routePending ? (
         <p className="route-loading" data-testid="route-loading">加载中…</p>

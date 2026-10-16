@@ -8,6 +8,15 @@ export type ResearchStatus =
 
 export type HostStatus = "awaiting_confirm" | "running" | "completed" | "idle";
 
+export type SidecarPhase = "running" | "restarting" | "stopped";
+
+export interface SidecarUiState {
+  phase: SidecarPhase;
+  restartCount: number;
+  maxRestarts: number;
+  message: string;
+}
+
 export type ConfirmationDecision =
   | "approve_new_version"
   | "reject_keep_logic"

@@ -1,5 +1,7 @@
 mod commands;
 mod sidecar;
+mod sidecar_policy;
+mod sidecar_runtime;
 
 pub use sidecar::{
     BindingSnapshot, EngineOwner, EngineSupervisor, ManagedChild, OwnerRecord, SidecarError,
@@ -16,20 +18,8 @@ use serde::Deserialize;
 use tauri::{Manager, RunEvent, WindowEvent};
 
 use commands::EngineConnection;
-
-struct TauriChild(Child);
-
-impl ManagedChild for TauriChild {
-    fn pid(&self) -> u32 {
-        self.0.id()
-    }
-
-    fn kill(mut self: Box<Self>) -> Result<(), String> {
-        self.0.kill().map_err(|error| error.to_string())?;
-        self.0.wait().map_err(|error| error.to_string())?;
-        Ok(())
-    }
-}
+use sidecar::SharedChild;
+use sidecar_runtime::SidecarRuntime;
 
 #[derive(Deserialize)]
 struct Handshake {
@@ -41,14 +31,16 @@ struct Handshake {
     auth_token: String,
 }
 
-fn start_desktop_sidecar(
+pub fn start_desktop_sidecar(
     app: tauri::AppHandle,
     supervisor: Arc<EngineSupervisor>,
     connection: EngineConnection,
+    runtime: Arc<SidecarRuntime>,
 ) -> Result<(), String> {
     let resource_dir = app.path().resource_dir().map_err(|error| error.to_string())?;
     let executable = resource_dir
         .join("engine")
+        .join("alphaloop-engine")
         .join(if cfg!(windows) {
             "alphaloop-engine.exe"
         } else {
@@ -92,8 +84,15 @@ fn start_desktop_sidecar(
         auth_token: handshake.auth_token.clone(),
     };
     connection.set(handshake.endpoint, handshake.auth_token)?;
+    let on_exit = {
+        let app_handle = app.clone();
+        let supervisor = supervisor.clone();
+        let connection = connection.clone();
+        let runtime = runtime.clone();
+        move || schedule_sidecar_restart(app_handle, supervisor, connection, runtime, "process exited");
+    };
     match handshake.status.as_str() {
-        "ready" => supervisor.adopt_owned(Box::new(TauriChild(child)), owner)?,
+        "ready" => supervisor.adopt_owned(Box::new(SharedChild::spawn(child, on_exit)), owner)?,
         "already_running" => {
             if owner.owner != EngineOwner::Cli {
                 child.kill().map_err(|error| error.to_string())?;
@@ -112,14 +111,40 @@ fn start_desktop_sidecar(
             eprintln!("alphaloop-engine: {line}");
         }
     });
+    runtime.mark_running();
     Ok(())
+}
+
+fn schedule_sidecar_restart(
+    app: tauri::AppHandle,
+    supervisor: Arc<EngineSupervisor>,
+    connection: EngineConnection,
+    runtime: Arc<SidecarRuntime>,
+    detail: &'static str,
+) {
+    if !runtime.record_crash(detail) {
+        return;
+    }
+    let attempt = runtime.ui.lock().expect("sidecar ui lock poisoned").restart_count;
+    let delay = runtime.policy.backoff_delay(attempt);
+    thread::spawn(move || {
+        thread::sleep(delay);
+        let _ = supervisor.quit();
+        if let Err(error) = start_desktop_sidecar(app.clone(), supervisor, connection, runtime.clone()) {
+            eprintln!("alphaloop sidecar restart failed: {error}");
+            let message = error.clone();
+            runtime.record_crash(&message);
+        }
+    });
 }
 
 pub fn run() {
     let supervisor = Arc::new(EngineSupervisor::default());
     let connection = EngineConnection::default();
+    let runtime = Arc::new(SidecarRuntime::default());
     let setup_supervisor = supervisor.clone();
     let setup_connection = connection.clone();
+    let setup_runtime = runtime.clone();
     let window_supervisor = supervisor.clone();
     let exit_supervisor = supervisor.clone();
     let app = tauri::Builder::default()
@@ -127,6 +152,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(supervisor.clone())
         .manage(connection)
+        .manage(runtime.clone())
         .invoke_handler(tauri::generate_handler![
             commands::fetch_view,
             commands::create_draft,
@@ -145,12 +171,15 @@ pub fn run() {
             commands::reverify,
             commands::revise_method,
             commands::create_method,
+            commands::engine_sidecar_state,
+            commands::restart_engine_sidecar,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
             let sidecar = setup_supervisor.clone();
             let engine_connection = setup_connection.clone();
-            if let Err(error) = start_desktop_sidecar(handle, sidecar, engine_connection) {
+            let sidecar_runtime = setup_runtime.clone();
+            if let Err(error) = start_desktop_sidecar(handle, sidecar, engine_connection, sidecar_runtime) {
                 eprintln!("alphaloop sidecar startup failed: {error}");
             }
             Ok(())

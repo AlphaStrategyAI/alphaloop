@@ -2,7 +2,11 @@ use std::sync::{Arc, Mutex};
 
 use reqwest::Client;
 use serde_json::{json, Value};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
+
+use crate::sidecar::EngineSupervisor;
+use crate::sidecar_runtime::SidecarRuntime;
+use crate::start_desktop_sidecar;
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -359,6 +363,39 @@ pub async fn create_method(
         }))
         .await
         .map(|_| ())
+}
+
+#[tauri::command]
+pub fn engine_sidecar_state(runtime: State<'_, Arc<SidecarRuntime>>) -> Result<Value, String> {
+    let ui = runtime.ui.lock().map_err(|_| "sidecar ui lock poisoned")?;
+    let phase = match ui.phase {
+        crate::sidecar_policy::SidecarUiPhase::Running => "running",
+        crate::sidecar_policy::SidecarUiPhase::Restarting => "restarting",
+        crate::sidecar_policy::SidecarUiPhase::Stopped => "stopped",
+    };
+    Ok(json!({
+        "phase": phase,
+        "restartCount": ui.restart_count,
+        "maxRestarts": ui.max_restarts,
+        "message": ui.message,
+    }))
+}
+
+#[tauri::command]
+pub fn restart_engine_sidecar(
+    app: AppHandle,
+    runtime: State<'_, Arc<SidecarRuntime>>,
+    supervisor: State<'_, Arc<EngineSupervisor>>,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    runtime.prepare_user_restart();
+    supervisor.quit()?;
+    start_desktop_sidecar(
+        app,
+        supervisor.inner().clone(),
+        connection.inner().clone(),
+        runtime.inner().clone(),
+    )
 }
 
 #[cfg(test)]
