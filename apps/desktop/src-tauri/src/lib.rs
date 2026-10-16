@@ -2,6 +2,7 @@ mod commands;
 mod engine_paths;
 mod sidecar;
 mod sidecar_policy;
+mod sidecar_restart;
 mod sidecar_runtime;
 
 pub use sidecar::{
@@ -124,22 +125,13 @@ fn schedule_sidecar_restart(
     runtime: Arc<SidecarRuntime>,
     detail: &'static str,
 ) {
-    if !runtime.record_crash(detail) {
-        let _ = engine_paths::clear_owner_file();
-        connection.clear();
-        return;
-    }
-    let attempt = runtime.ui.lock().expect("sidecar ui lock poisoned").restart_count;
-    let delay = runtime.policy.backoff_delay(attempt);
-    thread::spawn(move || {
-        thread::sleep(delay);
-        let _ = supervisor.quit();
-        if let Err(error) = start_desktop_sidecar(app.clone(), supervisor, connection, runtime.clone()) {
-            eprintln!("alphaloop sidecar restart failed: {error}");
-            let message = error.clone();
-            runtime.record_crash(&message);
-        }
-    });
+    sidecar_restart::schedule_sidecar_recovery(
+        app,
+        supervisor,
+        connection,
+        runtime,
+        detail.to_string(),
+    );
 }
 
 pub fn run() {
@@ -183,8 +175,20 @@ pub fn run() {
             let sidecar = setup_supervisor.clone();
             let engine_connection = setup_connection.clone();
             let sidecar_runtime = setup_runtime.clone();
-            if let Err(error) = start_desktop_sidecar(handle, sidecar, engine_connection, sidecar_runtime) {
+            if let Err(error) = start_desktop_sidecar(
+                handle.clone(),
+                sidecar.clone(),
+                engine_connection.clone(),
+                sidecar_runtime.clone(),
+            ) {
                 eprintln!("alphaloop sidecar startup failed: {error}");
+                sidecar_restart::schedule_sidecar_recovery(
+                    handle,
+                    sidecar,
+                    engine_connection,
+                    sidecar_runtime,
+                    error,
+                );
             }
             Ok(())
         })
