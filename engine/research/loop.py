@@ -17,6 +17,7 @@ from engine.research.models import (
     ConfirmKind,
     ConfirmRequest,
     CoverageSnapshot,
+    EvidenceRef,
     Research,
     ResearchAction,
     ResearchEvent,
@@ -25,6 +26,10 @@ from engine.research.models import (
     RoundDraft,
 )
 from engine.research.simulate import simulate_daily
+from engine.research.confirm_evidence import (
+    confirm_created_at_after_evidence,
+    evidence_refs_from_failed_attempt,
+)
 from engine.research.honest_stop import (
     can_auto_continue_impl_iteration,
     change_requires_user_confirm,
@@ -432,6 +437,18 @@ class ResearchLoop:
                 change = self.builder.next_change(accepted)
                 change_class = classify_change(change)
                 if change_requires_user_confirm(change):
+                    why_change: tuple[EvidenceRef, ...] = ()
+                    created_at = self.now()
+                    if change_class is not ChangeClass.COVERAGE:
+                        recorded_at = outcome.successful_round.completed_at
+                        why_change = evidence_refs_from_failed_attempt(
+                            accepted,
+                            recorded_at=recorded_at,
+                        )
+                        created_at = confirm_created_at_after_evidence(
+                            why_change,
+                            self.now(),
+                        )
                     request = ConfirmRequest(
                         request_id=f"change-v{version_number}-r{round_number}",
                         kind=(
@@ -444,7 +461,8 @@ class ResearchLoop:
                         effect="确认后应用改动并开新版本",
                         change_class=change_class,
                         patch=((change.field, change.after),),
-                        created_at=self.now(),
+                        why_change=why_change,
+                        created_at=created_at,
                     )
                     result = transition(
                         charged,

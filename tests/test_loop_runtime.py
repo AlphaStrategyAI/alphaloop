@@ -406,6 +406,14 @@ def test_economic_next_change_waits_and_applies_only_after_approval(tmp_path: Pa
     assert waiting.pending_confirm is not None
     assert waiting.pending_confirm.kind is ConfirmKind.ECONOMIC
     assert waiting.pending_confirm.patch == (("max_drawdown_floor", -0.30),)
+    assert len(waiting.pending_confirm.why_change) >= 1
+    attempt_id = waiting.versions[0].rounds[0].accepted_attempt.attempt_id
+    assert waiting.pending_confirm.why_change[0].record_id == attempt_id
+    assert waiting.pending_confirm.created_at is not None
+    assert all(
+        ref.recorded_at < waiting.pending_confirm.created_at
+        for ref in waiting.pending_confirm.why_change
+    )
 
 
 class EconomicDrawdown35Builder(EconomicBuilder):

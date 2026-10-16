@@ -111,6 +111,7 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **§2.3** | Real DataPort / MaterialPort | 通过 | Yahoo + `LocalMaterialAdapter` |
 | **Plan (b)** | `COMPLETED` uses `passed_for` excluding PIT for **export** | 通过 | `strategy_pack_eligibility`; review no longer requires pass |
 | **B4** | `resolve_confirm` + SQLite `get_attempt` + EvidenceRef | 通过 | `tests/test_b4_sqlite_confirm.py` (-0.35 **not** Done #1) |
+| **B4 real loop evidence** | `REQUEST_CONFIRM` fills `why_change` from pre-confirm attempt | 通过 | `tests/test_economic_confirm_evidence_real_loop.py`, `test_confirm_evidence.py` |
 | **P0 budget** | Auto-iterate until trial budget exhausted | 通过 | `tests/test_honest_stop.py`; `v1-cut-line.md` 已知限制 |
 | **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
 | **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
