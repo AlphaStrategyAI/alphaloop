@@ -53,4 +53,15 @@ describe("draft polish", () => {
     expect(screen.getByText("你好").className).toContain("user");
     expect(screen.getByText("回复").className).toContain("assistant");
   });
+
+  it("does not show stray trailing slot label in dialogue bubbles", () => {
+    const view: DesktopView = {
+      kind: "draft",
+      researchId: "r-1",
+      dialogue: [{role: "assistant", text: "美股低波动回归"}],
+      settings,
+    };
+    render(<App api={api} initialView={view} />);
+    expect(screen.queryByText(/，大致原理/)).not.toBeInTheDocument();
+  });
 });

@@ -126,7 +126,23 @@ const views: DesktopView[] = [
   },
 ];
 
+const REPR_LIKE = /\w+\(\w+=/;
+
+function collectStrings(value: unknown, out: string[] = []): string[] {
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) value.forEach((item) => collectStrings(item, out));
+  else if (value && typeof value === "object")
+    Object.values(value).forEach((item) => collectStrings(item, out));
+  return out;
+}
+
 describe("Night desktop contract", () => {
+  it.each(views)("view payload $kind has no Python repr strings", (view) => {
+    for (const text of collectStrings(view)) {
+      expect(REPR_LIKE.test(text)).toBe(false);
+    }
+  });
+
   it.each(views)("renders the $kind Figma view in one fixed shell", (view) => {
     render(<App api={api} initialView={view} />);
     expect(screen.getByTestId("night-shell")).toHaveAttribute("data-view", view.kind);
