@@ -12,4 +12,7 @@ def test_build_and_smoke_scripts_exist() -> None:
     tauri = (root / "apps" / "desktop" / "src-tauri" / "tauri.conf.json").read_text(
         encoding="utf-8"
     )
-    assert "engine/alphaloop-engine/" in tauri
+    assert '"resources/engine/alphaloop-engine": "engine/alphaloop-engine"' in tauri.replace(
+        "\n", ""
+    ) or '"resources/engine/alphaloop-engine": "engine/alphaloop-engine"' in tauri
+    assert "**/*" not in tauri

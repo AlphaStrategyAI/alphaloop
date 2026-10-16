@@ -10,7 +10,14 @@ if [[ ! -x "$BIN" ]]; then
   exit 1
 fi
 
-ROOT="$ROOT" python3 - <<'PY'
+VENV="$ROOT/.venv-sidecar"
+if [[ -x "$VENV/bin/python" ]]; then
+  PYTHON="$VENV/bin/python"
+else
+  PYTHON="python3"
+fi
+
+ROOT="$ROOT" "$PYTHON" - <<'PY'
 import json
 import os
 import subprocess
