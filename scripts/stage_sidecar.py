@@ -10,7 +10,7 @@ def stage(target: str, source: Path, tauri_root: Path) -> None:
     source_executable = source / executable_name
     if not source_executable.is_file():
         raise FileNotFoundError(source_executable)
-    destination = tauri_root / "resources" / "engine"
+    destination = tauri_root / "resources" / "engine" / "alphaloop-engine"
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(source, destination)

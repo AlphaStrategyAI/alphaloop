@@ -1,12 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_submodules
+import os
 
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 hidden = collect_submodules("engine")
+akshare_datas = collect_data_files("akshare")
 analysis = Analysis(
-    ["engine/main.py"],
-    pathex=["."],
+    [os.path.join(ROOT, "engine", "main.py")],
+    pathex=[ROOT],
     binaries=[],
-    datas=[("contracts", "contracts")],
+    datas=[(os.path.join(ROOT, "contracts"), "contracts")] + akshare_datas,
     hiddenimports=hidden,
     hookspath=[],
     runtime_hooks=[],

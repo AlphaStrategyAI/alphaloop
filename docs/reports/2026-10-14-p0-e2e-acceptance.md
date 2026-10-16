@@ -8,7 +8,7 @@
 
 | Metric | Count |
 | --- | ---: |
-| 通过 | 55 |
+| 通过 | 63 |
 | 失败 | 0 |
 | 未测 | 3 |
 
@@ -26,7 +26,7 @@
 
 ```bash
 python3 -m pytest tests/ -q
-# 208 passed, 1 skipped
+# 226 passed, 1 skipped
 
 ALPHALOOP_ACCEPTANCE_NETWORK=1 python3 -m pytest tests/test_v1_honest_path.py -v
 # test_v1_mean_reversion_reaches_completed_real_ports PASSED (~0.9s)
@@ -35,7 +35,10 @@ bash scripts/verify_v1_done.sh
 # green when network env unset (skip message)
 
 cd apps/desktop && npm test -- --run
-# 44 passed
+# 59 passed
+
+bash scripts/build_sidecar.sh && bash scripts/smoke_sidecar.sh
+# PyInstaller onedir + handshake + akshare calendar (VM; not full Tauri bundle)
 ```
 
 ## Done #1 — network at default `max_drawdown_floor=-0.25`
@@ -116,6 +119,8 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **View repr guard** | No `CoverageFloor(...)` across list/draft/run/confirm/completed | 通过 | `test_desktop_view_repr_guard.py`, `App.test.tsx` |
 | **Completed copy once** | Exhausted / not-passed text not duplicated in view/UI | 通过 | `test_completed_view_duplicate_copy.py`, `completed-copy.test.tsx` |
 | **Running header idle** | Omit `currentAction` when IDLE; no route flash | 通过 | `test_running_view_idle_action.py`, `route-loading.test.tsx` |
+| **Sidecar supervision** | Crash restart w/ backoff + cap; 引擎已停止 + 重启引擎 | 通过 | `sidecar_policy.rs` tests, `sidecar-ui.test.tsx`, `test_desktop_shell_schema_contract.py` |
+| **Packaging onedir + akshare** | Tauri preserves `engine/alphaloop-engine/`; spec collects akshare data | 通过 | `test_sidecar_packaging_docs.py`, `scripts/build_sidecar.sh`, `scripts/smoke_sidecar.sh` |
 | **P0 budget** | Auto-iterate until trial budget exhausted | 通过 | `tests/test_honest_stop.py`; `v1-cut-line.md` 已知限制 |
 | **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
 | **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
@@ -177,9 +182,8 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 
 | Issue | 事实与影响 |
 | --- | --- |
-| **Tauri `resources` / PyInstaller** | `tauri.conf.json` 打包 onedir 时目录被拍平；spec 未包含 akshare 数据文件。影响：部分发行包缺数据/资源。 |
 | **Crossref 每轮请求** | 文献 crossref 每轮调用，易触发 HTTP 429。影响：运行中断或降级，与导航/UI 无关。 |
-| **Engine SQLite 致命退出** | 引擎进程遇 SQLite 错误直接退出且无自动重启。影响：桌面会话需用户重启应用。 |
+| **Tauri 发行包端到端** | 本 VM 仅验证 PyInstaller onedir + smoke；未打包/运行完整 Tauri `.app`/安装包。 |
 | **草稿 `universe` 无 `symbols`** | 对话草稿阶段 brief 的 universe 常无 `symbols`，列表/设定仅显示市场·资产类。影响：展示不完整，开跑前需锁定标的。 |
 | **原生 `window.confirm` 对话框** | Tauri/WebKit 显示英文 Cancel/OK 与 `JavaScript - http://localhost:1420/…` 标题；「继续迭代」等确认应改为应用内对话框（后续迭代）。 |
 

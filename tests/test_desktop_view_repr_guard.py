@@ -1,6 +1,5 @@
 """Ensure desktop view payloads never expose Python repr strings (e.g. CoverageFloor(...))."""
 
-import os
 import re
 from dataclasses import replace
 from pathlib import Path
@@ -63,7 +62,9 @@ VIEW_CASES = (
 
 
 @pytest.mark.parametrize("case", VIEW_CASES)
-def test_view_paths_avoid_python_repr(service: ResearchCommandService, case: str) -> None:
+def test_view_paths_avoid_python_repr(
+    service: ResearchCommandService, case: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     if case == "research_list":
         view = service.view_for("#/research")
         assert_no_repr_like(view)
@@ -124,7 +125,7 @@ def test_view_paths_avoid_python_repr(service: ResearchCommandService, case: str
         return
 
     if case == "ended_exhausted":
-        os.environ["ALPHALOOP_MAX_TRIALS"] = "1"
+        monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
         service.store.create(running_research())
         ended = ResearchLoop(
             service.store,

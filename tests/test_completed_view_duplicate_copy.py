@@ -1,5 +1,6 @@
-import os
 from pathlib import Path
+
+import pytest
 
 from engine.main import ResearchCommandService
 from engine.research.clock import TimeBudget
@@ -20,8 +21,10 @@ def _visible_copy_chunks(view: dict) -> str:
     return "\n".join(str(p) for p in parts if p)
 
 
-def test_exhausted_completed_view_shows_budget_copy_once(tmp_path: Path) -> None:
-    os.environ["ALPHALOOP_MAX_TRIALS"] = "1"
+def test_exhausted_completed_view_shows_budget_copy_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
     store = SQLiteStore(tmp_path / "dup.db")
     paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
     service = ResearchCommandService(store, paths)
