@@ -47,6 +47,7 @@ export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
       ),
     exportArtifact: (researchId, kind) =>
       runMutation(() => api.exportArtifact(researchId, kind), deps),
+    revealExportInFolder: (path) => api.revealExportInFolder(path),
     reverify: (researchId, roundId, methodId) =>
       runMutation(() => api.reverify(researchId, roundId, methodId), deps),
     reviseMethod: (methodId, definition) =>

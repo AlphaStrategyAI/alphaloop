@@ -3,29 +3,12 @@ import {cleanup, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {App} from "./App";
-import type {DesktopApi, DesktopView} from "./contracts";
+import type {DesktopView} from "./contracts";
+import {minimalDesktopApi} from "./test-fixtures";
 
 afterEach(() => cleanup());
 
-const api: DesktopApi = {
-  fetchView: vi.fn(async () => ({kind: "research_list", rows: []})),
-  createDraft: vi.fn(async () => "r"),
-  confirmRun: vi.fn(async () => undefined),
-  unlockBrief: vi.fn(async () => undefined),
-  sendDialogue: vi.fn(async () => undefined),
-  pauseResearch: vi.fn(async () => undefined),
-  resumeResearch: vi.fn(async () => undefined),
-  confirmModification: vi.fn(async () => undefined),
-  continueIterate: vi.fn(async () => undefined),
-  extendResearch: vi.fn(async () => undefined),
-  deleteResearch: vi.fn(async () => undefined),
-  resolveConfirm: vi.fn(async () => undefined),
-  exportArtifact: vi.fn(async () => "/tmp/export.zip"),
-  revealExportInFolder: vi.fn(async () => undefined),
-  reverify: vi.fn(async () => undefined),
-  reviseMethod: vi.fn(async () => undefined),
-  createMethod: vi.fn(async () => undefined),
-};
+const api = minimalDesktopApi();
 
 describe("method library UI", () => {
   it("marks the selected method link active, not always the first", () => {
