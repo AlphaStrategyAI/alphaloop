@@ -89,7 +89,7 @@ pub fn start_desktop_sidecar(
         let supervisor = supervisor.clone();
         let connection = connection.clone();
         let runtime = runtime.clone();
-        move || schedule_sidecar_restart(app_handle, supervisor, connection, runtime, "process exited");
+        move || schedule_sidecar_restart(app_handle, supervisor, connection, runtime, "process exited")
     };
     match handshake.status.as_str() {
         "ready" => supervisor.adopt_owned(Box::new(SharedChild::spawn(child, on_exit)), owner)?,
