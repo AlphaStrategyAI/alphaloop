@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → see latest run in Commands section. Desktop vitest **56/56** (after export + repr/copy tests).
+**Default CI:** `python3 -m pytest tests/ -q` → **231 passed**, 1 skipped. Desktop vitest **59/59**. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (15 Rust tests on Linux VM).
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 

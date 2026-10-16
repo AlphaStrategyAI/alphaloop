@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use reqwest::Client;
 use serde_json::{json, Value};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 use crate::sidecar::EngineSupervisor;
 use crate::sidecar_runtime::SidecarRuntime;

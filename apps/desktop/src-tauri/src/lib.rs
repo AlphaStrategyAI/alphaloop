@@ -6,10 +6,11 @@ mod sidecar_runtime;
 pub use sidecar::{
     BindingSnapshot, EngineOwner, EngineSupervisor, ManagedChild, OwnerRecord, SidecarError,
 };
+pub use sidecar_policy::{RestartPolicy, SidecarUiPhase, SidecarUiState};
 
 use std::{
     io::{BufRead, BufReader},
-    process::{Child, Command, Stdio},
+    process::{Command, Stdio},
     sync::Arc,
     thread,
 };
