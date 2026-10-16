@@ -1,0 +1,44 @@
+[
+  {
+    "id": "override",
+    "env": {
+      "ALPHALOOP_RUNTIME_ROOT": "/tmp/alphaloop-contract-override"
+    },
+    "uid": 1001,
+    "temp_dir": "/tmp",
+    "xdg_runtime_dir": null,
+    "xdg_usable": false,
+    "run_user_usable": false,
+    "expected_root": "/tmp/alphaloop-contract-override"
+  },
+  {
+    "id": "xdg_usable",
+    "env": {},
+    "uid": 1001,
+    "temp_dir": "/tmp",
+    "xdg_runtime_dir": "/tmp/alphaloop-xdg-case",
+    "xdg_usable": true,
+    "run_user_usable": true,
+    "expected_root": "/tmp/alphaloop-xdg-case/alphaloop"
+  },
+  {
+    "id": "run_user_usable",
+    "env": {},
+    "uid": 1001,
+    "temp_dir": "/tmp",
+    "xdg_runtime_dir": null,
+    "xdg_usable": false,
+    "run_user_usable": true,
+    "expected_root": "/run/user/1001/alphaloop"
+  },
+  {
+    "id": "temp_fallback",
+    "env": {},
+    "uid": 1001,
+    "temp_dir": "/tmp",
+    "xdg_runtime_dir": null,
+    "xdg_usable": false,
+    "run_user_usable": false,
+    "expected_root": "/tmp/runtime-1001/alphaloop"
+  }
+]

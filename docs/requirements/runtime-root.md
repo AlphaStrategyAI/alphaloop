@@ -25,4 +25,6 @@ On non-Linux, use the same base directory as `platformdirs` for the app name `al
 - Python: `engine.research.runtime.resolve_runtime_root()`
 - Rust: `engine_paths::resolve_runtime_root()`
 
-Cross-language parity: `tests/test_runtime_root_contract.py` and `engine_paths` unit tests share the same fixture table.
+Cross-language parity: shared fixture table `tests/fixtures/runtime_root_cases.json` — consumed by `tests/test_runtime_root_contract.py` (Python `runtime_contract.resolve_runtime_root_contract`) and Rust `engine_paths::tests::shared_fixture_table_runtime_root` with injectable `runtime_dir_usable` / env probes (host-independent).
+
+Production Python uses `platformdirs.user_runtime_path("alphaloop")` (same precedence as above on Linux). Production Rust uses `engine_paths::resolve_runtime_root()` with filesystem probes matching platformdirs.
