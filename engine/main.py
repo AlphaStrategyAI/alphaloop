@@ -517,7 +517,6 @@ class ResearchCommandService:
                 "remaining": self._remaining(research),
                 "coverage": self._coverage_vs_floor(research),
                 "rounds": rounds_for_desktop(research, version),
-                "currentAction": _ACTION_LABELS[research.current_action],
                 "sources": self._sources(research),
                 "anomaly": self._compute_anomaly(research),
             }
@@ -532,6 +531,8 @@ class ResearchCommandService:
             }
             if hint:
                 running_payload["honestStopHint"] = hint
+            if research.current_action is not ResearchAction.IDLE:
+                running_payload["currentAction"] = _ACTION_LABELS[research.current_action]
             if research.last_run_error:
                 running_payload["lastError"] = {
                     "message": research.last_run_error,

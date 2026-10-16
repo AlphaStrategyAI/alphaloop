@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **208 passed**, 1 skipped (network without opt-in). Desktop vitest **44/44**.
+**Default CI:** `python3 -m pytest tests/ -q` → see latest run in Commands section. Desktop vitest **56/56** (after export + repr/copy tests).
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -113,6 +113,9 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **B4** | `resolve_confirm` + SQLite `get_attempt` + EvidenceRef | 通过 | `tests/test_b4_sqlite_confirm.py` (-0.35 **not** Done #1) |
 | **B4 real loop evidence** | `REQUEST_CONFIRM` fills `why_change` from pre-confirm attempt | 通过 | `tests/test_economic_confirm_evidence_real_loop.py`, `test_confirm_evidence.py` |
 | **Export feedback** | Export returns path; UI shows 已导出到 + reveal folder | 通过 | `test_export_artifact_feedback.py`, `export-feedback.test.tsx` |
+| **View repr guard** | No `CoverageFloor(...)` across list/draft/run/confirm/completed | 通过 | `test_desktop_view_repr_guard.py`, `App.test.tsx` |
+| **Completed copy once** | Exhausted / not-passed text not duplicated in view/UI | 通过 | `test_completed_view_duplicate_copy.py`, `completed-copy.test.tsx` |
+| **Running header idle** | Omit `currentAction` when IDLE; no route flash | 通过 | `test_running_view_idle_action.py`, `route-loading.test.tsx` |
 | **P0 budget** | Auto-iterate until trial budget exhausted | 通过 | `tests/test_honest_stop.py`; `v1-cut-line.md` 已知限制 |
 | **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
 | **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
@@ -134,7 +137,7 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Running coverage text** | `format_coverage_vs_floor` | 通过 | `test_format_coverage_vs_floor_*` |
 | **Completed copy dedupe** | Single exhausted paragraph | 通过 | `test_honest_stop.py` (adjusted) |
 | **Draft polish** | Intro order, role classes, thesis strip | 通过 | `draft-polish.test.tsx`, `test_dialogue_intent.py` |
-| **§1.2 Desktop** | Vitest + build | 通过 | 44/44; real Tauri window smoke / Night 7-screen **未测** |
+| **§1.2 Desktop** | Vitest + build | 通过 | 56/56; real Tauri window smoke / Night 7-screen **未测** |
 
 ## Defects found and fixed (this pass)
 

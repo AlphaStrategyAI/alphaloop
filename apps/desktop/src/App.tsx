@@ -248,7 +248,9 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
     <div className="focus running-screen">
       <header>
         <StatusPill status={view.status} />
-        {view.currentAction ? ` ${view.currentAction} · ` : " "}
+        {view.currentAction && view.currentAction !== "idle"
+          ? ` ${view.currentAction} · `
+          : " "}
         第 {view.version} 版 · 有效研究 {view.effective}
         {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
         {" · "}{view.coverage}
@@ -625,7 +627,9 @@ function Screen({api, initialView: view}: AppProps) {
 export function App({api, initialView, initialRoute}: AppProps) {
   const [route, setRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [view, setView] = useState(initialView);
+  const [syncedRoute, setSyncedRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const routePending = route !== syncedRoute;
 
   const refreshView = useCallback(async () => {
     const next = await api.fetchView(route);
@@ -647,7 +651,9 @@ export function App({api, initialView, initialRoute}: AppProps) {
     let active = true;
     const refresh = () => {
       void api.fetchView(route).then((next) => {
-        if (active) setView(next);
+        if (!active) return;
+        setView(next);
+        setSyncedRoute(route);
       });
     };
     refresh();
@@ -665,7 +671,11 @@ export function App({api, initialView, initialRoute}: AppProps) {
           {mutationError}
         </p>
       )}
-      <Screen api={boundApi} initialView={view} />
+      {routePending ? (
+        <p className="route-loading" data-testid="route-loading">加载中…</p>
+      ) : (
+        <Screen api={boundApi} initialView={view} />
+      )}
     </NightShell>
   );
 }
