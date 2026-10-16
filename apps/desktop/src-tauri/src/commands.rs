@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_opener::OpenerExt;
 
 #[derive(Clone)]
 struct Connection {
@@ -283,14 +284,24 @@ pub async fn export_artifact(
     kind: String,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
-) -> Result<(), String> {
-    mutate(
+) -> Result<String, String> {
+    let payload = mutate(
         &app,
         &connection,
         json!({"type": "export_artifact", "research_id": research_id, "kind": kind}),
     )
-    .await
-    .map(|_| ())
+    .await?;
+    payload["path"]
+        .as_str()
+        .map(str::to_owned)
+        .ok_or("export_artifact response omitted path".into())
+}
+
+#[tauri::command]
+pub fn reveal_export_in_folder(path: String, app: AppHandle) -> Result<(), String> {
+    app.opener()
+        .reveal_item_in_dir(path)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

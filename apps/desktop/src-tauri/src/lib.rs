@@ -124,6 +124,7 @@ pub fn run() {
     let exit_supervisor = supervisor.clone();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(supervisor.clone())
         .manage(connection)
         .invoke_handler(tauri::generate_handler![
@@ -140,6 +141,7 @@ pub fn run() {
             commands::delete_research,
             commands::resolve_confirm,
             commands::export_artifact,
+            commands::reveal_export_in_folder,
             commands::reverify,
             commands::revise_method,
             commands::create_method,

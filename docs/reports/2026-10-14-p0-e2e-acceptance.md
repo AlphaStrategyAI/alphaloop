@@ -112,6 +112,7 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Plan (b)** | `COMPLETED` uses `passed_for` excluding PIT for **export** | 通过 | `strategy_pack_eligibility`; review no longer requires pass |
 | **B4** | `resolve_confirm` + SQLite `get_attempt` + EvidenceRef | 通过 | `tests/test_b4_sqlite_confirm.py` (-0.35 **not** Done #1) |
 | **B4 real loop evidence** | `REQUEST_CONFIRM` fills `why_change` from pre-confirm attempt | 通过 | `tests/test_economic_confirm_evidence_real_loop.py`, `test_confirm_evidence.py` |
+| **Export feedback** | Export returns path; UI shows 已导出到 + reveal folder | 通过 | `test_export_artifact_feedback.py`, `export-feedback.test.tsx` |
 | **P0 budget** | Auto-iterate until trial budget exhausted | 通过 | `tests/test_honest_stop.py`; `v1-cut-line.md` 已知限制 |
 | **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
 | **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
@@ -155,6 +156,8 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Silent run loop / ConcurrentWrite** | `apply_run_failure` + PAUSED; `lastError` in view | `test_run_errors.py` |
 | **research_record missing rounds.json** | `_round_history_with_trials` in record pack | `test_research_record_export.py` |
 | **continue_iterate ConcurrentWrite** | Handler returns after RUNNING transition only | `test_continue_iterate_handler.py` |
+| **Economic confirm empty `why_change`** | Loop builds `EvidenceRef` from failed attempt + gate labels | `test_economic_confirm_evidence_real_loop.py` |
+| **Export buttons silent** | Tauri returns `path`; completed screen success/error + opener | `test_export_artifact_feedback.py`, `export-feedback.test.tsx` |
 
 ### SQLite scope review (same flaw hunt)
 
@@ -171,7 +174,6 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 
 | Issue | 事实与影响 |
 | --- | --- |
-| **经济确认 `EvidenceRef` 未填充** | 真实 `ResearchLoop` 进入 `AWAITING_CONFIRM`（经济类）时 `ConfirmRequest.why_change` 仍为空；桌面 `AwaitingConfirmCard` 要求 `whyChange` 非空才启用「同意」，故**真实桌面流程**下经济确认无法批准。SQLite B4 E2E（`tests/test_b4_sqlite_confirm.py`）在 `handle(resolve_confirm)` 前**手工注入** `why_change`，不反映生产路径。影响：经济逻辑变更卡在确认屏。 |
 | **Tauri `resources` / PyInstaller** | `tauri.conf.json` 打包 onedir 时目录被拍平；spec 未包含 akshare 数据文件。影响：部分发行包缺数据/资源。 |
 | **Crossref 每轮请求** | 文献 crossref 每轮调用，易触发 HTTP 429。影响：运行中断或降级，与导航/UI 无关。 |
 | **Engine SQLite 致命退出** | 引擎进程遇 SQLite 错误直接退出且无自动重启。影响：桌面会话需用户重启应用。 |

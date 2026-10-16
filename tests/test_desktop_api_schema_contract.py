@@ -34,6 +34,14 @@ def _commands_rs_types(commands_source: str) -> set[str]:
     return set(re.findall(r'"type":\s*"([a-z_]+)"', commands_source))
 
 
+def test_export_artifact_path_contract() -> None:
+    main_source = MAIN_PY.read_text(encoding="utf-8")
+    rust_source = COMMANDS_RS.read_text(encoding="utf-8")
+    assert 'payload["path"]' in main_source
+    assert "export_artifact response omitted path" in rust_source
+    assert "Result<String, String>" in rust_source
+
+
 def test_desktop_schema_covers_engine_and_tauri_command_types() -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     schema_types = _schema_request_types(schema)

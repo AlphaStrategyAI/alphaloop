@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Main alphaloop webview; process spawn is Rust-owned.",
   "windows": ["main"],
-  "permissions": ["core:default", "notification:default"]
+  "permissions": ["core:default", "notification:default", "opener:allow-reveal-item-in-dir"]
 }

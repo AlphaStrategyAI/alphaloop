@@ -400,6 +400,22 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
 function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
   const [extensionHours, setExtensionHours] = useState("4");
   const [modification, setModification] = useState("");
+  const [exportFeedback, setExportFeedback] = useState<
+    {status: "success"; path: string} | {status: "error"; message: string} | null
+  >(null);
+
+  const runExport = async (kind: "strategy_pack" | "research_record") => {
+    setExportFeedback(null);
+    try {
+      const path = await api.exportArtifact(view.researchId, kind);
+      setExportFeedback({status: "success", path});
+    } catch (error) {
+      setExportFeedback({
+        status: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
   const checks = [
     ["当前验证方法全部通过", view.eligibility.allMethodsPassed],
     ["没有待确认", view.eligibility.noPendingConfirm],
@@ -474,9 +490,26 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         {view.failedVerifierIds && view.failedVerifierIds.length > 0 && (
           <p>未通过门禁：{view.failedVerifierIds.join("、")}</p>
         )}
-        <button disabled={!eligible || view.status === "ended"} onClick={() => void api.exportArtifact(view.researchId, "strategy_pack")}>导出策略包</button>
+        <button disabled={!eligible || view.status === "ended"} onClick={() => void runExport("strategy_pack")}>导出策略包</button>
         <button className="text-button" onClick={() => void api.reverify(view.researchId, view.selectedRoundId, view.selectedMethodId)}>对某一步重新验证</button>
-        <button className="text-button" onClick={() => void api.exportArtifact(view.researchId, "research_record")}>导出研究记录包</button>
+        <button className="text-button" onClick={() => void runExport("research_record")}>导出研究记录包</button>
+        {exportFeedback?.status === "success" && (
+          <p className="export-feedback success" data-testid="export-success" role="status">
+            已导出到 {exportFeedback.path}
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => void api.revealExportInFolder(exportFeedback.path)}
+            >
+              打开所在文件夹
+            </button>
+          </p>
+        )}
+        {exportFeedback?.status === "error" && (
+          <p className="export-feedback error" data-testid="export-error" role="alert">
+            导出失败：{exportFeedback.message}
+          </p>
+        )}
         <label>
           改策略再跑
           <input value={modification} onChange={(event) => setModification(event.target.value)} placeholder="说明要改的研究设定" />

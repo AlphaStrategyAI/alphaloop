@@ -31,7 +31,10 @@ const desktopApi: DesktopApi = {
   async resolveConfirm(researchId, decision, whoPays) {
     await invoke("resolve_confirm", {researchId, decision, whoPays});
   },
-  async exportArtifact(researchId, kind) { await invoke("export_artifact", {researchId, kind}); },
+  async exportArtifact(researchId, kind) {
+    return invoke<string>("export_artifact", {researchId, kind});
+  },
+  async revealExportInFolder(path) { await invoke("reveal_export_in_folder", {path}); },
   async reverify(researchId, roundId, methodId) {
     await invoke("reverify", {researchId, roundId, methodId});
   },
@@ -52,7 +55,8 @@ const previewApi: DesktopApi = {
   async extendResearch() { return undefined; },
   async deleteResearch() { return undefined; },
   async resolveConfirm() { return undefined; },
-  async exportArtifact() { return undefined; },
+  async exportArtifact() { return "/tmp/preview-export.zip"; },
+  async revealExportInFolder() { return undefined; },
   async reverify() { return undefined; },
   async reviseMethod() { return undefined; },
   async createMethod() { return undefined; },
