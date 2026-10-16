@@ -29,8 +29,20 @@ class RuntimePaths:
 
     @classmethod
     def default(cls) -> Self:
-        root = Path(user_runtime_path("alphaloop", ensure_exists=True))
+        root = resolve_runtime_root(ensure_exists=True)
         return cls(root, root / "engine.lock", root / "owner.json")
+
+
+def resolve_runtime_root(*, ensure_exists: bool = False) -> Path:
+    """Runtime root shared with the Tauri desktop (`docs/requirements/runtime-root.md`)."""
+    override = os.environ.get("ALPHALOOP_RUNTIME_ROOT")
+    if override:
+        root = Path(override)
+    else:
+        root = Path(user_runtime_path("alphaloop", ensure_exists=ensure_exists))
+    if ensure_exists:
+        root.mkdir(parents=True, exist_ok=True)
+    return root
 
 
 @dataclass(frozen=True, slots=True)
