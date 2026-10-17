@@ -117,6 +117,24 @@ def _structure_verification_report(data: Any, _: type) -> VerificationReport | N
     )
 
 
+def _coerce_path(value: Any) -> Path | None:
+    if value is None:
+        return None
+    return value if isinstance(value, Path) else Path(str(value))
+
+
+def _coerce_path_tuple(value: Any) -> tuple[Path, ...]:
+    if not value:
+        return ()
+    if isinstance(value, tuple):
+        items = value
+    elif isinstance(value, list):
+        items = value
+    else:
+        return ()
+    return tuple(item if isinstance(item, Path) else Path(str(item)) for item in items)
+
+
 def _structure_attempt(data: dict[str, Any], _: type) -> Attempt:
     payload = dict(data)
     payload["verification"] = _structure_verification_report(payload.get("verification"), VerificationReport)
@@ -126,6 +144,8 @@ def _structure_attempt(data: dict[str, Any], _: type) -> Attempt:
         payload["spec"] = CONVERTER.structure(payload["spec"], StrategySpec)
     if isinstance(payload.get("review"), dict):
         payload["review"] = CONVERTER.structure(payload["review"], ReviewReport)
+    payload["data_snapshot_path"] = _coerce_path(payload.get("data_snapshot_path"))
+    payload["evidence_paths"] = _coerce_path_tuple(payload.get("evidence_paths"))
     return Attempt(**payload)
 
 

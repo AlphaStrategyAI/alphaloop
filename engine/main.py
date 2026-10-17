@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import secrets
 import signal
@@ -24,6 +25,7 @@ from engine.dialogue.slots import unlock_all_slots, unlock_slot
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.research.confirm_view import symbol_selection_payload
+from engine.research.method_labels import format_methods_display
 from engine.dialogue.turns import process_send_dialogue
 from engine.export import (
     build_research_record_pack,
@@ -288,9 +290,7 @@ class ResearchCommandService:
             "universe": format_universe_display(brief.universe.value),
             "universe_symbols": symbols_line,
             "max_effective_hours": f"{hours:g} 小时" if hours is not None else "",
-            "round1_methods": " · ".join(
-                method.method_id for method in (brief.round1_methods.value or ())
-            ),
+            "round1_methods": format_methods_display(brief.round1_methods.value),
             "coverage_floor": format_coverage_floor_display(brief.coverage_floor.value),
         }
 
@@ -527,7 +527,11 @@ class ResearchCommandService:
                 "researchId": research_id,
                 "status": research.status.value,
                 "version": version,
-                "effective": f"{research.effective_seconds / 3600:.2f}h",
+                "effective": (
+                    f"{research.effective_seconds / 3600:.2f}h"
+                    if research.effective_seconds > 0
+                    else "尚未计入"
+                ),
                 "remaining": self._remaining(research),
                 "coverage": self._coverage_vs_floor(research),
                 "rounds": rounds_for_desktop(research, version),
@@ -633,6 +637,10 @@ class ResearchCommandService:
                 "overturnedExports": any(item.overturned for item in research.exports),
                 "currentAction": _ACTION_LABELS[research.current_action],
                 "anomaly": self._compute_anomaly(research),
+                "recentDialogue": [
+                    {"role": turn.role.value, "text": turn.text}
+                    for turn in research.dialogue[-8:]
+                ],
             },
             research,
         )
@@ -728,6 +736,13 @@ class ResearchCommandService:
                 raise UserFacingError(
                     "RUNNING_CANNOT_MODIFY",
                     "研究仍在运行中，请先暂停再确认修改。",
+                )
+            from engine.dialogue.modification import brief_differs_from_latest_version
+
+            if not brief_differs_from_latest_version(research):
+                raise UserFacingError(
+                    "MODIFICATION_UNCHANGED",
+                    "研究设定没有变化。请先用上方输入说明要改什么，再确认开新版。",
                 )
             previous = ""
             if research.versions:
@@ -997,6 +1012,15 @@ class EngineApiHandler(BaseHTTPRequestHandler):
             self._send(400, http_error_payload(error))
         except InvalidTransition as error:
             self._send(400, http_error_payload(error))
+        except Exception as error:  # noqa: BLE001
+            logging.exception("engine command failed")
+            self._send(
+                500,
+                {
+                    "error": "服务器内部错误，请稍后重试。",
+                    "code": "internal_error",
+                },
+            )
 
     def log_message(self, format: str, *args: object) -> None:
         return
