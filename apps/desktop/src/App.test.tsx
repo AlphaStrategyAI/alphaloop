@@ -224,11 +224,31 @@ describe("Night desktop contract", () => {
   });
 
 
-  it("再改改 calls unlockBrief instead of a dead hash link", () => {
+  it("改一改 on a slot calls unlockBrief with that slot", () => {
     render(<ConfirmRunCard api={api} view={views[2] as Extract<DesktopView, {kind: "confirm_run"}>} />);
-    fireEvent.click(screen.getByRole("button", {name: "再改改"}));
-    expect(api.unlockBrief).toHaveBeenCalledWith("r-1");
-    expect(screen.queryByRole("link", {name: "再改改"})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("edit-slot-universe"));
+    expect(api.unlockBrief).toHaveBeenCalledWith("r-1", "universe");
+  });
+
+  it("hides confirm modification while research is running", () => {
+    render(<App api={api} initialView={views[3]} />);
+    expect(screen.queryByTestId("confirm-modification-button")).not.toBeInTheDocument();
+  });
+
+  it("keeps paused modification text across view refreshes", () => {
+    const running = views[3] as Extract<DesktopView, {kind: "running"}>;
+    const paused: Extract<DesktopView, {kind: "running"}> = {...running, status: "paused"};
+    const {rerender} = render(<App api={api} initialView={paused} />);
+    fireEvent.change(screen.getByTestId("paused-modification-input"), {
+      target: {value: "只改时间到 8 小时"},
+    });
+    rerender(
+      <App
+        api={api}
+        initialView={{...paused, effective: "4.00h", version: 3}}
+      />,
+    );
+    expect(screen.getByTestId("paused-modification-input")).toHaveValue("只改时间到 8 小时");
   });
 
   it("uses two distinct non-modal confirmation cards", () => {

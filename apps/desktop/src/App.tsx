@@ -4,6 +4,7 @@ import {bindDesktopApi} from "./api-bind";
 
 import type {
   AnomalyPresentation,
+  BriefSlotName,
   DesktopApi,
   DesktopView,
   HostStatus,
@@ -175,15 +176,21 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
   );
 }
 
-const settingLabels = [
+const settingLabels: readonly [BriefSlotName, string][] = [
   ["thesis", "大致原理"],
   ["universe", "资产类别"],
   ["max_effective_hours", "最长研究时间"],
   ["round1_methods", "第一轮验证方法"],
   ["coverage_floor", "最低数据覆盖"],
-] as const;
+];
 
-function Settings({values}: {values: Extract<DesktopView, {kind: "draft" | "confirm_run"}>["settings"]}) {
+function Settings({
+  values,
+  onEditSlot,
+}: {
+  values: Extract<DesktopView, {kind: "draft" | "confirm_run"}>["settings"];
+  onEditSlot?: (slot: BriefSlotName) => void;
+}) {
   return (
     <aside className="settings">
       <p className="eyebrow">研究设定</p>
@@ -191,6 +198,21 @@ function Settings({values}: {values: Extract<DesktopView, {kind: "draft" | "conf
         <div data-testid="brief-slot" key={key}>
           <dt>{label}</dt>
           <dd>{values[key] || "未锁定"}</dd>
+          {key === "universe" && values.universe_symbols ? (
+            <dd className="universe-symbols" data-testid="universe-symbols">
+              {values.universe_symbols}
+            </dd>
+          ) : null}
+          {onEditSlot ? (
+            <button
+              className="text-button slot-edit"
+              type="button"
+              data-testid={`edit-slot-${key}`}
+              onClick={() => onEditSlot(key)}
+            >
+              改一改
+            </button>
+          ) : null}
         </div>
       ))}
     </aside>
@@ -232,23 +254,32 @@ function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {
 }
 
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
+  const editSlot = (slot: BriefSlotName) => void api.unlockBrief(view.researchId, slot);
   return (
     <article className="confirm-card" data-testid="confirm-run-card">
       <h1>确认开跑</h1>
       <p>认下这次研究做什么、跑多久、拿什么验证。确认前不会自己开始。</p>
       <p>研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。</p>
       <p>最长研究时间只计有效研究时间，暂停和等你确认的时间不算。</p>
-      <Settings values={view.settings} />
+      <Settings values={view.settings} onEditSlot={editSlot} />
       <div className="actions">
         <button className="cyan-button" onClick={() => void api.confirmRun(view.researchId)}>确认开跑</button>
-        <button className="text-button" type="button" onClick={() => void api.unlockBrief(view.researchId)}>再改改</button>
       </div>
     </article>
   );
 }
 
-function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "running"}>}) {
-  const [modification, setModification] = useState("");
+function RunningScreen({
+  api,
+  view,
+  modification,
+  onModificationChange,
+}: {
+  api: DesktopApi;
+  view: Extract<DesktopView, {kind: "running"}>;
+  modification: string;
+  onModificationChange: (text: string) => void;
+}) {
   return (
     <div className="focus running-screen">
       <header>
@@ -262,7 +293,8 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
       </header>
       {view.lastError && (
         <p className="run-error" data-testid="last-run-error">
-          运行错误（{view.lastError.count} 次）：{view.lastError.message}
+          运行错误（{view.lastError.count} 次
+          {view.lastError.code ? ` · ${view.lastError.code}` : ""}）：{view.lastError.message}
         </p>
       )}
       {view.honestStopHint && (
@@ -323,11 +355,23 @@ function RunningScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
       ) : (
         <>
           <button className="quiet-button" onClick={() => void api.resumeResearch(view.researchId)}>按当前版本继续</button>
-          <input value={modification} onChange={(event) => setModification(event.target.value)} placeholder="说明要改的研究设定" />
-          <button className="quiet-button" disabled={!modification.trim()} onClick={() => void (async () => {
-            await api.sendDialogue(view.researchId, modification.trim());
-            await api.confirmModification(view.researchId);
-          })()}>确认修改并开新版</button>
+          <input
+            value={modification}
+            onChange={(event) => onModificationChange(event.target.value)}
+            placeholder="说明要改的研究设定"
+            data-testid="paused-modification-input"
+          />
+          <button
+            className="quiet-button"
+            data-testid="confirm-modification-button"
+            disabled={!modification.trim()}
+            onClick={() => void (async () => {
+              await api.sendDialogue(view.researchId, modification.trim());
+              await api.confirmModification(view.researchId);
+            })()}
+          >
+            确认修改并开新版
+          </button>
         </>
       )}
     </div>
@@ -617,12 +661,30 @@ function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
   );
 }
 
-function Screen({api, initialView: view}: AppProps) {
+type ScreenProps = AppProps & {
+  pausedModificationByResearch: Record<string, string>;
+  onPausedModificationChange: (researchId: string, text: string) => void;
+};
+
+function Screen({
+  api,
+  initialView: view,
+  pausedModificationByResearch,
+  onPausedModificationChange,
+}: ScreenProps) {
   switch (view.kind) {
     case "research_list": return <ResearchList api={api} view={view} />;
     case "draft": return <DraftScreen api={api} view={view} />;
     case "confirm_run": return <div className="focus"><ConfirmRunCard api={api} view={view} /></div>;
-    case "running": return <RunningScreen api={api} view={view} />;
+    case "running":
+      return (
+        <RunningScreen
+          api={api}
+          view={view}
+          modification={pausedModificationByResearch[view.researchId] ?? ""}
+          onModificationChange={(text) => onPausedModificationChange(view.researchId, text)}
+        />
+      );
     case "awaiting_confirm": return <div className="focus"><AwaitingConfirmCard api={api} view={view} /></div>;
     case "completed": return <CompletedScreen api={api} view={view} />;
     case "methods": return <MethodsScreen api={api} view={view} />;
@@ -641,6 +703,12 @@ export function App({
   const [syncedRoute, setSyncedRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [sidecarState, setSidecarState] = useState<SidecarUiState | null>(null);
+  const [pausedModificationByResearch, setPausedModificationByResearch] = useState<
+    Record<string, string>
+  >({});
+  const onPausedModificationChange = useCallback((researchId: string, text: string) => {
+    setPausedModificationByResearch((prev) => ({...prev, [researchId]: text}));
+  }, []);
   const engineStopped = sidecarState?.phase === "stopped";
   const routePending = route !== syncedRoute;
 
@@ -736,7 +804,12 @@ export function App({
       {routePending ? (
         <p className="route-loading" data-testid="route-loading">加载中…</p>
       ) : (
-        <Screen api={boundApi} initialView={view} />
+        <Screen
+          api={boundApi}
+          initialView={view}
+          pausedModificationByResearch={pausedModificationByResearch}
+          onPausedModificationChange={onPausedModificationChange}
+        />
       )}
     </NightShell>
   );

@@ -27,9 +27,17 @@ export type ConfirmationDecision =
 
 export type ExportKind = "strategy_pack" | "research_record";
 
+export type BriefSlotName =
+  | "thesis"
+  | "universe"
+  | "max_effective_hours"
+  | "round1_methods"
+  | "coverage_floor";
+
 export interface BriefSettings {
   thesis: string;
   universe: string;
+  universe_symbols?: string;
   max_effective_hours: string;
   round1_methods: string;
   coverage_floor: string;
@@ -77,7 +85,7 @@ type ViewBody =
       sources?: string;
       dataCutoff?: string;
       honestStopHint?: string | null;
-      lastError?: {message: string; count: number};
+      lastError?: {message: string; count: number; code?: string};
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;
       cumulativeRoundsOnWindow?: number;
@@ -144,7 +152,7 @@ export interface DesktopApi {
   fetchView(route: string): Promise<DesktopView>;
   createDraft(): Promise<string>;
   confirmRun(researchId: string): Promise<void>;
-  unlockBrief(researchId: string): Promise<void>;
+  unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;
   resumeResearch(researchId: string): Promise<void>;

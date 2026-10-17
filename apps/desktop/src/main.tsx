@@ -16,7 +16,7 @@ const desktopApi: DesktopApi = {
   async fetchView(route) { return invoke<DesktopView>("fetch_view", {route}); },
   async createDraft() { return invoke<string>("create_draft"); },
   async confirmRun(researchId) { await invoke("confirm_run", {researchId}); },
-  async unlockBrief(researchId) { await invoke("unlock_brief", {researchId}); },
+  async unlockBrief(researchId, slot) { await invoke("unlock_brief", {researchId, slot}); },
   async sendDialogue(researchId, message) { await invoke("send_dialogue", {researchId, message}); },
   async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },
   async resumeResearch(researchId) { await invoke("resume_research", {researchId}); },
