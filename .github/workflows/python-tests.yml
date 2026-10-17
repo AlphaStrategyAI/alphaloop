@@ -25,6 +25,12 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
       - uses: dtolnay/rust-toolchain@stable
+      - name: Stub engine bundle for tauri build script (runtime-root contract test)
+        working-directory: apps/desktop/src-tauri
+        run: |
+          mkdir -p resources/engine/alphaloop-engine/_internal
+          printf '#!/bin/sh\nexit 0\n' > resources/engine/alphaloop-engine/alphaloop-engine
+          chmod +x resources/engine/alphaloop-engine/alphaloop-engine
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
