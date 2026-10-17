@@ -113,6 +113,8 @@ type ViewBody =
       sources?: string;
       dataCutoff?: string;
       honestStopHint?: string | null;
+      effectiveTimeHint?: string | null;
+      versionOpenedNotice?: string | null;
       lastError?: {message: string; count: number; code?: string};
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;

@@ -189,7 +189,11 @@ class FailClosedLLM(LLMPort):
         )
 
 
-def build_loop(store: SQLiteStore, paths: EnginePaths) -> ResearchLoop:
+def build_loop(
+    store: SQLiteStore,
+    paths: EnginePaths,
+    budget: TimeBudget | None = None,
+) -> ResearchLoop:
     client = httpx.Client()
     material_root = paths.data.materials_dir
     material_root.mkdir(parents=True, exist_ok=True)
@@ -224,23 +228,35 @@ def build_loop(store: SQLiteStore, paths: EnginePaths) -> ResearchLoop:
         end=today,
         snapshot_root=paths.data.snapshots_dir,
     )
+    clock = budget or TimeBudget(time.monotonic)
     return ResearchLoop(
         store,
         builder,
         reviewer,
-        TimeBudget(time.monotonic),
+        clock,
         lambda: datetime.now(UTC),
     )
 
 
 class ResearchCommandService:
-    def __init__(self, store: SQLiteStore, paths: EnginePaths) -> None:
+    def __init__(
+        self,
+        store: SQLiteStore,
+        paths: EnginePaths,
+        budget: TimeBudget | None = None,
+    ) -> None:
         self.store = store
         self.paths = paths
+        self.budget = budget
         self._observed_status: dict[str, ResearchStatus] = {}
         seed_preset_methods(store)
 
     def _save(self, before: Research, after: Research) -> dict[str, Any]:
+        if self.budget is not None:
+            if before.status is ResearchStatus.RUNNING and after.status is not ResearchStatus.RUNNING:
+                after = self.budget.finish(after)
+            elif before.status is not ResearchStatus.RUNNING and after.status is ResearchStatus.RUNNING:
+                self.budget.begin(after.status)
         self.store.save(after, before.updated_at)
         self._observed_status[after.research_id] = after.status
         payload: dict[str, Any] = {
@@ -606,6 +622,13 @@ class ResearchCommandService:
                     else None
                 )
             )
+            version_notice = None
+            if research.dialogue:
+                last_turn = research.dialogue[-1]
+                if last_turn.role.value == "assistant" and last_turn.text.startswith(
+                    "已开始第"
+                ):
+                    version_notice = last_turn.text
             running_payload: dict[str, Any] = {
                 "kind": "running",
                 "researchId": research_id,
@@ -613,6 +636,10 @@ class ResearchCommandService:
                 "version": version,
                 "effective": format_effective_display(research),
                 "remaining": self._remaining(research),
+                "effectiveTimeHint": (
+                    "有效研究时间计入「运行中」状态下的采集、建模与验证执行；"
+                    "暂停、等待确认与列表轮询间隔不计入。"
+                ),
                 "coverage": self._coverage_vs_floor(research),
                 "rounds": rounds_for_desktop(research, version),
                 "sources": self._sources(research),
@@ -629,6 +656,8 @@ class ResearchCommandService:
             }
             if hint:
                 running_payload["honestStopHint"] = hint
+            if version_notice:
+                running_payload["versionOpenedNotice"] = version_notice
             if research.current_action is not ResearchAction.IDLE:
                 running_payload["currentAction"] = _ACTION_LABELS[research.current_action]
             if research.last_run_error:
@@ -1208,8 +1237,9 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     store = SQLiteStore(paths.data.database_file)
     seed_preset_methods(store)
-    loop = build_loop(store, paths)
-    service = ResearchCommandService(SQLiteStore(paths.data.database_file), paths)
+    budget = TimeBudget(time.monotonic)
+    loop = build_loop(store, paths, budget)
+    service = ResearchCommandService(SQLiteStore(paths.data.database_file), paths, budget)
     token = secrets.token_urlsafe(32)
     server, endpoint = start_api(service, token)
     owner = publish_ready(lock, endpoint, token)

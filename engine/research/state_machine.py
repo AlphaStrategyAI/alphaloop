@@ -64,6 +64,7 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
         current_version_number=number,
         pending_confirm=None,
         export_eligible=False,
+        reverifications=(),
         updated_at=now,
     )
 

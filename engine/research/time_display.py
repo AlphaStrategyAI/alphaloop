@@ -16,7 +16,7 @@ def format_remaining_display(research: Research) -> str:
     if max_hours is None:
         return ""
     if research.effective_seconds <= 0:
-        return f"{max_hours:g} 小时"
+        return f"{max_hours:.2f} 小时"
     used = research.effective_seconds / 3600
     remaining = max(0.0, max_hours - used)
     return f"{remaining:.2f} 小时"

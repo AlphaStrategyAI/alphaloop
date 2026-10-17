@@ -10,7 +10,11 @@ class TimeBudget:
     _started: float | None = None
 
     def begin(self, status: ResearchStatus) -> None:
-        self._started = self.monotonic() if status is ResearchStatus.RUNNING else None
+        if status is not ResearchStatus.RUNNING:
+            self._started = None
+            return
+        if self._started is None:
+            self._started = self.monotonic()
 
     def finish(self, research: Research) -> Research:
         if self._started is None:

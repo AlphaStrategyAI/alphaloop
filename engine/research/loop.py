@@ -276,6 +276,10 @@ class ResearchLoop:
             expected_updated_at = snapshot.updated_at
 
         def finish(result: Research) -> Research:
+            if entry_running:
+                result = self.budget.finish(result)
+                if result.status is ResearchStatus.RUNNING:
+                    self.budget.begin(ResearchStatus.RUNNING)
             final_action = (
                 action if result.status is ResearchStatus.RUNNING else ResearchAction.IDLE
             )
@@ -289,12 +293,15 @@ class ResearchLoop:
             self.store.save(result, expected_updated_at)
             return result
 
+        entry_running = research.status is ResearchStatus.RUNNING
+        if entry_running:
+            self.budget.begin(ResearchStatus.RUNNING)
+
         previous_hook = None
         if isinstance(self.builder, DefaultRoundBuilder):
             previous_hook = self.builder.on_action
             self.builder.on_action = persist_action
         try:
-            self.budget.begin(research.status)
             version_number = research.current_version_number
             if version_number is None:
                 raise ValueError("running research must have a current version")
@@ -319,7 +326,7 @@ class ResearchLoop:
                         ResearchEvent.BUDGET_EXHAUSTED,
                         self.now(),
                     )
-                    return finish(self.budget.finish(ended))
+                    return finish(ended)
                 self.store.clear_review_attempts(
                     research.research_id,
                     version_number,
@@ -368,7 +375,7 @@ class ResearchLoop:
                         self.now(),
                         outcome.confirm_request,
                     )
-                return finish(self.budget.finish(blocked))
+                return finish(blocked)
 
             version_index = version_number
             versions = list(research.versions)
@@ -388,7 +395,7 @@ class ResearchLoop:
             window_key = data_window_key_from_research(running)
             if window_key is not None:
                 self.store.increment_window_round_count(window_key.serialize())
-            charged = self.budget.finish(running)
+            charged = running
             accepted = outcome.successful_round.accepted_attempt
             from engine.research.methods import record_verification_execution
 

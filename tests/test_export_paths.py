@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from engine.export_paths import export_zip_filename
@@ -10,6 +11,16 @@ from engine.research.models import new_research, ResearchStatus
 from dataclasses import replace
 
 NOW = datetime(2026, 10, 17, 8, 0, tzinfo=UTC)
+
+
+def test_export_zip_filename_uses_shanghai_wall_clock() -> None:
+    research = replace(
+        new_research("abcd1234-5678-90ab-cdef", NOW),
+        brief=locked_brief(),
+    )
+    utc_noon = datetime(2026, 10, 17, 8, 44, 59, tzinfo=UTC)
+    name = export_zip_filename(research, "research_record", now=utc_noon)
+    assert "20261017-164459" in name
 
 
 def test_export_zip_filename_is_readable() -> None:

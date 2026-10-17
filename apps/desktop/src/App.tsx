@@ -430,7 +430,12 @@ function RunningScreen({
 }) {
   return (
     <div className="focus running-screen">
-      <header>
+      {view.versionOpenedNotice && (
+        <p className="version-opened-banner" data-testid="version-opened-banner" role="status">
+          {view.versionOpenedNotice}
+        </p>
+      )}
+      <header className="running-header">
         <StatusPill status={view.status} />
         {view.currentAction && view.currentAction !== "idle"
           ? ` ${view.currentAction} · `
@@ -444,6 +449,11 @@ function RunningScreen({
           ? ` · ${view.windowCumulativeLabel}`
           : ""}
       </header>
+      {view.effectiveTimeHint && (
+        <p className="effective-time-hint" data-testid="effective-time-hint">
+          {view.effectiveTimeHint}
+        </p>
+      )}
       {view.lastError && (
         <p className="run-error" data-testid="last-run-error">
           运行错误（{view.lastError.count} 次

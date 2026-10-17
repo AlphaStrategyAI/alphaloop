@@ -276,6 +276,17 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **C6** | Export UUID filename | **Fixed** (B9) | `test_export_paths.py` |
 | **C7** | First click after focus | **Not fixing** | No `mousedown`/`preventDefault` on buttons; 1s `fetchView` poll may refocus WebKit — likely host/xdotool; no reproducible in-app swallow |
 
+### Master Bot batch D (2026-10-17, after `036939b`)
+
+| # | Topic | Status | Tests |
+| --- | --- | --- | --- |
+| **1** | Effective time stuck at 0.00h | **Fixed (bug)** | Root: `TimeBudget.finish` only at mid-round; idle 1s polls while RUNNING not charged. Now finish+re-begin each `run_once` slice + shared budget on status transitions. `test_effective_time_budget.py` + running `effectiveTimeHint` |
+| **2** | Remaining `3 小时` vs `3.00 小时` + header wrap | **Fixed** | `format_remaining_display` always `.2f 小时`; `running-header` flex CSS |
+| **3** |「已开始第 N 版」not visible on running | **Fixed** | `versionOpenedNotice` banner; `version-opened-banner.test.tsx` |
+| **4** | Stale reverify after new version | **Fixed** | `_open_version` clears `reverifications`; `test_reverification_version_reset.py` |
+| **5** | Export stamp UTC vs Shanghai | **Fixed** | `export_paths` Asia/Shanghai; `test_export_zip_filename_uses_shanghai_wall_clock` |
+| **6** | Low-priority UI / first-click | **Not fixing** | Reverify flash ok; slot-edit offset / 2s methods load not reproduced in VM;「改一改」double-click likely WebKit focus (real mouse) |
+
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
 | Item | Implementation |

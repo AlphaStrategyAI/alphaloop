@@ -14,7 +14,7 @@ def test_remaining_shows_full_budget_before_effective_time_starts() -> None:
             max_effective_hours=Slot(3.0, True),
         ),
     )
-    assert format_remaining_display(research) == "3 小时"
+    assert format_remaining_display(research) == "3.00 小时"
 
 
 def test_effective_and_remaining_use_same_hour_unit() -> None:
@@ -27,7 +27,7 @@ def test_effective_and_remaining_use_same_hour_unit() -> None:
         ),
     )
     assert format_effective_display(research) == "0.00 小时"
-    assert format_remaining_display(research) == "3 小时"
+    assert format_remaining_display(research) == "3.00 小时"
     assert "h" not in format_effective_display(research)
 
 
