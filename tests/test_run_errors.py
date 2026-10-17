@@ -55,3 +55,22 @@ def test_last_error_surfaces_in_running_view(tmp_path: Path) -> None:
     view = service.view_for("#/research/r-loop")
     assert view["status"] == "paused"
     assert view["lastError"]["message"] == "boom"
+
+
+def test_last_error_includes_code_when_classified(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "code.db")
+    research = running_research()
+    research = apply_run_failure(
+        research,
+        "数据源未返回行情，请检查标的和网络。",
+        NOW,
+        code="DATA_EMPTY_PRICES",
+    )
+    research = transition(research, ResearchEvent.PAUSE, NOW)
+    store.create(research)
+    service = ResearchCommandService(
+        store,
+        EnginePaths.for_colocated_root(tmp_path),
+    )
+    view = service.view_for("#/research/r-loop")
+    assert view["lastError"]["code"] == "DATA_EMPTY_PRICES"

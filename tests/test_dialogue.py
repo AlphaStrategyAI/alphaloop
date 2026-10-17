@@ -78,3 +78,19 @@ def test_unlock_brief_schema_and_handler(tmp_path: Path) -> None:
     assert all(not getattr(loaded.brief, name).locked for name in (
         "thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor"
     ))
+
+
+def test_unlock_brief_single_slot(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from tests.test_state_machine import locked_brief
+
+    research = replace(new_research("r-draft", NOW), brief=locked_brief())
+    service = _service(tmp_path)
+    service.store.create(research)
+    service.handle(
+        {"type": "unlock_brief", "research_id": "r-draft", "slot": "universe"}
+    )
+    loaded = service.store.load("r-draft")
+    assert not loaded.brief.universe.locked
+    assert loaded.brief.thesis.locked
