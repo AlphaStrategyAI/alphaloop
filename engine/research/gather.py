@@ -225,6 +225,10 @@ class RoutingDataAdapter:
         start: date,
         end: date,
     ) -> pd.DataFrame:
+        if not symbols:
+            from engine.research.data_errors import EmptySymbolsError
+
+            raise EmptySymbolsError()
         is_cn = all(
             symbol == "CBA00101.CS"
             or symbol.startswith(("CN_BOND:", "CN_FUND:"))
