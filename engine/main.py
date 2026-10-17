@@ -22,6 +22,8 @@ import jsonschema
 import pandas as pd
 
 from engine.dialogue.slots import unlock_all_slots, unlock_slot
+from engine.dialogue.pool_errors import reopen_after_pool_failure
+from engine.research.universe_pool import materialize_default_pool, pool_resolvable
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.research.confirm_view import symbol_selection_payload
@@ -535,17 +537,22 @@ class ResearchCommandService:
         research_id = route.removeprefix("#/research/")
         research = self.store.load(research_id)
         if research.status.value == "draft":
-            kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
+            materialized = materialize_default_pool(research)
+            if materialized.brief != research.brief:
+                self.store.save(materialized, research.updated_at)
+                research = materialized
+            view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
             body: dict[str, Any] = {
-                "kind": kind,
+                "kind": view_kind,
                 "researchId": research_id,
                 "dialogue": [
                     {"role": turn.role.value, "text": turn.text}
                     for turn in research.dialogue
                 ],
                 "settings": self._settings(research),
+                "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
             }
-            if kind == "confirm_run":
+            if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
@@ -755,7 +762,18 @@ class ResearchCommandService:
                 updated = unlock_all_slots(research, now)
         elif kind == "confirm_run":
             expected_at = research.updated_at
-            research = ensure_runnable_universe(research)
+            try:
+                research = ensure_runnable_universe(research)
+            except UserFacingError as error:
+                if error.code in {
+                    "UNIVERSE_SYMBOLS_EMPTY",
+                    "UNIVERSE_MISSING",
+                    "UNIVERSE_DEFAULT_TOO_SMALL",
+                    "POOL_DATA_SHRINK_TOO_FEW",
+                }:
+                    reopened = reopen_after_pool_failure(research, error, now)
+                    self._save(research, reopened)
+                raise
             self.store.save(research, expected_at)
             research = self.store.load(research.research_id)
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)

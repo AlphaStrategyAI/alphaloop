@@ -14,6 +14,7 @@ from engine.research.models import (
     Research,
     Universe,
 )
+from engine.research.coverage_parse import merge_coverage_floor, parse_coverage_parts
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT
 
 
@@ -97,17 +98,8 @@ def _parse_hours(message: str) -> float | None:
     return None
 
 
-def _parse_coverage(message: str) -> CoverageFloor | None:
-    assets = re.search(r"至少\s*(\d+)\s*个", message)
-    years = re.search(r"(\d+)\s*年", message)
-    missing = re.search(r"缺失不超过\s*(\d+(?:\.\d+)?)\s*%", message)
-    if assets and years and missing:
-        return CoverageFloor(
-            min_assets=int(assets.group(1)),
-            min_years=int(years.group(1)),
-            max_missing_pct=float(missing.group(1)),
-        )
-    return None
+def _parse_coverage(message: str, current: CoverageFloor | None = None) -> CoverageFloor | None:
+    return merge_coverage_floor(message, current)
 
 
 def _parse_methods(message: str) -> tuple[MethodRef, ...]:
@@ -115,9 +107,21 @@ def _parse_methods(message: str) -> tuple[MethodRef, ...]:
     return methods
 
 
+_STRATEGY_HINT = re.compile(
+    r"均值|回归|动量|套利|波动|多空|轮动|价值|成长|利差|收缩|修复|量价"
+)
+_MARKET_HINT = re.compile(r"美股|美国|A股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
+
+
+def _thesis_acceptable(message: str) -> bool:
+    if _parse_universe(message) is not None:
+        return True
+    return bool(_STRATEGY_HINT.search(message) and _MARKET_HINT.search(message))
+
+
 def _parse_thesis(message: str) -> str | None:
     text = message.strip()
-    if len(text) < 4:
+    if len(text) < 4 or not _thesis_acceptable(text):
         return None
     return text
 
@@ -144,7 +148,7 @@ def _fill_slot(active: SlotName, text: str) -> list[tuple[str, Any]]:
         if methods:
             updates.append(("round1_methods", methods))
     elif active is SlotName.COVERAGE_FLOOR:
-        floor = _parse_coverage(text)
+        floor = _parse_coverage(text, None)
         if floor is not None:
             updates.append(("coverage_floor", floor))
     return updates
@@ -169,7 +173,7 @@ def _extras_from_any_slot(text: str, brief_filled: set[str]) -> list[tuple[str, 
         if methods:
             extras.append(("round1_methods", methods))
     if "coverage_floor" not in brief_filled:
-        floor = _parse_coverage(text)
+        floor = _parse_coverage(text, None)
         if floor is not None:
             extras.append(("coverage_floor", floor))
     if "thesis" not in brief_filled:
@@ -215,7 +219,12 @@ def interpret(
         return Intent(IntentKind.PROVIDE, tuple(unique))
 
     if active_slot is not None:
-        return Intent(IntentKind.OFF_TOPIC, response=QUESTIONS[active_slot])
+        return Intent(
+            IntentKind.OFF_TOPIC,
+            response=(
+                f"没能理解你的意思。{QUESTIONS[active_slot]}"
+            ),
+        )
     return Intent(
         IntentKind.OFF_TOPIC,
         response=EMPTY_POOL_DIALOGUE_PROMPT,

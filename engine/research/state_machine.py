@@ -21,6 +21,8 @@ class InvalidTransition(ValueError):
 
 def all_slots_locked(brief: ResearchBrief) -> bool:
     """Draft is ready for confirm when all five settings have values (lock on confirm)."""
+    from engine.research.universe_pool import pool_resolvable_brief
+
     slots = (
         brief.thesis,
         brief.universe,
@@ -28,7 +30,9 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
         brief.round1_methods,
         brief.coverage_floor,
     )
-    return all(slot.value is not None for slot in slots)
+    if not all(slot.value is not None for slot in slots):
+        return False
+    return pool_resolvable_brief(brief)
 
 
 def _open_version(research: Research, now: datetime, opened_by: str) -> Research:

@@ -52,7 +52,7 @@ def test_send_dialogue_on_topic_returns_next_question(tmp_path: Path) -> None:
     loaded = store.load("r-draft")
     assert loaded.brief.max_effective_hours.value == 12.0
     assert loaded.dialogue[-1].role is DialogueRole.ASSISTANT
-    assert "研究哪类资产" in loaded.dialogue[-1].text
+    assert "原理想靠什么赚钱" in loaded.dialogue[-1].text
 
 
 def test_dialogue_round_trip_sqlite_reload(tmp_path: Path) -> None:

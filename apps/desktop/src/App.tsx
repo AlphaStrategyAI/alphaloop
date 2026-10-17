@@ -258,36 +258,83 @@ function Settings({
   );
 }
 
-function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "draft"}>}) {
+function DialoguePanel({
+  researchId,
+  api,
+  dialogue,
+  chatEnabled = true,
+  title = "新研究",
+}: {
+  researchId: string;
+  api: DesktopApi;
+  dialogue: readonly {role: "user" | "assistant"; text: string}[];
+  chatEnabled?: boolean;
+  title?: string;
+}) {
   const [message, setMessage] = useState("");
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const text = message.trim();
-    if (!text) return;
+    if (!text || !chatEnabled) return;
     try {
-      await api.sendDialogue(view.researchId, text);
+      await api.sendDialogue(researchId, text);
       setMessage("");
     } catch {
       /* mutation error banner */
     }
   };
   return (
-    <div className="draft-layout">
-      <section className="conversation">
-        <h1>新研究</h1>
-        <p className="message assistant system" data-testid="dialogue-system-intro">
-          我会逐项问清原理、资产、时间、方法和覆盖底线；齐全后进入确认开跑。
+    <section className="conversation">
+      <h1>{title}</h1>
+      <p className="message assistant system" data-testid="dialogue-system-intro">
+        我会逐项问清原理、资产、时间、方法和覆盖底线；齐全后进入确认开跑。
+      </p>
+      {dialogue.map((turn, index) => (
+        <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
+          {turn.text}
         </p>
-        {view.dialogue.map((turn, index) => (
-          <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
-            {turn.text}
-          </p>
-        ))}
+      ))}
+      {chatEnabled && (
         <form onSubmit={submit}>
-          <input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="把方向说清楚，不用填表。" />
+          <input
+            data-testid="dialogue-input"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="把方向说清楚，不用填表。"
+          />
         </form>
-      </section>
+      )}
+    </section>
+  );
+}
+
+function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "draft"}>}) {
+  return (
+    <div className="draft-layout">
+      <DialoguePanel
+        api={api}
+        researchId={view.researchId}
+        dialogue={view.dialogue}
+        chatEnabled
+      />
       <Settings values={view.settings} />
+    </div>
+  );
+}
+
+export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
+  return (
+    <div className="draft-layout confirm-run-layout">
+      <DialoguePanel
+        api={api}
+        researchId={view.researchId}
+        dialogue={view.dialogue}
+        chatEnabled={view.chatEnabled ?? false}
+        title="确认开跑"
+      />
+      <div className="confirm-run-side">
+        <ConfirmRunCard api={api} view={view} />
+      </div>
     </div>
   );
 }
@@ -305,12 +352,12 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       {sel && (
         <section className="symbol-selection" data-testid="symbol-selection">
           <p className="eyebrow">标的与数据窗口（确认后锁定）</p>
-          <p>
+          <p data-testid="symbol-selection-summary">
             {sel.count} 只 · {sel.listName} · 版本 {sel.listVersion}
             {sel.generatedDate ? ` · ${sel.generatedDate}` : ""}
-            {sel.source === "user_override" || sel.overrideNote
-              ? ` · ${sel.overrideNote ?? "已覆盖默认标的池"}`
-              : " · 默认标的池"}
+            {sel.isDefaultPool || sel.source === "default_pool"
+              ? " · 默认标的池"
+              : ` · ${sel.overrideNote ?? "用户指定标的"}`}
           </p>
           <p>数据区间 {sel.dataStart} 至 {sel.dataEnd}（截止 {sel.dataCutoff}） · 来源 {sel.dataSource}</p>
           {sel.shrinkNote && (
@@ -846,7 +893,7 @@ function Screen({
   switch (view.kind) {
     case "research_list": return <ResearchList api={api} view={view} />;
     case "draft": return <DraftScreen api={api} view={view} />;
-    case "confirm_run": return <div className="focus"><ConfirmRunCard api={api} view={view} /></div>;
+    case "confirm_run": return <ConfirmRunScreen api={api} view={view} />;
     case "running":
       return (
         <RunningScreen

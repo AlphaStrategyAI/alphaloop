@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
-import {ConfirmRunCard} from "./App";
+import {ConfirmRunScreen} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
 
 afterEach(() => cleanup());
@@ -22,6 +22,7 @@ describe("single-slot 改一改 on confirm card", () => {
     const view: Extract<DesktopView, {kind: "confirm_run"}> = {
       kind: "confirm_run",
       researchId: "r-slot",
+      dialogue: [],
       settings,
       symbolSelection: {
         count: 30,
@@ -37,7 +38,8 @@ describe("single-slot 改一改 on confirm card", () => {
         shrinkNote: "因缺少行情数据，已从标的池剔除 0 只，剩余 30 只可用于本轮研究。",
       },
     };
-    render(<ConfirmRunCard api={api} view={view} />);
+    render(<ConfirmRunScreen api={api} view={view} />);
+    expect(screen.getByTestId("symbol-selection-summary")).toHaveTextContent("美股大盘");
     expect(screen.getByTestId("pool-shrink-note")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("edit-slot-max_effective_hours"));
     expect(unlockBrief).toHaveBeenCalledWith("r-slot", "max_effective_hours");

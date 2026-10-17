@@ -48,6 +48,7 @@ export interface SymbolSelectionSummary {
   dataSource: string;
   droppedForMissingData?: number;
   shrinkNote?: string | null;
+  isDefaultPool?: boolean;
 }
 
 export interface BriefSettings {
@@ -91,7 +92,9 @@ type ViewBody =
   | {
       kind: "confirm_run";
       researchId: string;
+      dialogue: readonly {role: "user" | "assistant"; text: string}[];
       settings: BriefSettings;
+      chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
     }
   | {

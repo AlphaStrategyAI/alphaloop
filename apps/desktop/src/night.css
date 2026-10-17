@@ -145,7 +145,11 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   box-shadow: 0 0 42px rgba(94, 234, 212, .18);
 }
 .confirm-card .settings { padding: 8px 0; background: transparent; border: 0; }
-.confirm-card .settings div { display: flex; justify-content: space-between; margin: 13px 0; }
+.confirm-card .settings div { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 13px 0; }
+.confirm-run-layout { padding-left: 64px; }
+.confirm-run-side { min-width: 0; }
+.confirm-run-side .confirm-card { max-width: 100%; }
+.slot-edit { flex-shrink: 0; }
 .cyan-button { background: var(--cyan); border-color: var(--cyan); color: var(--void); font-weight: 700; }
 .actions { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
 .actions a { color: var(--mute); }

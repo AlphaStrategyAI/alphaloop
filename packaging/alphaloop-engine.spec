@@ -10,7 +10,14 @@ analysis = Analysis(
     [os.path.join(ROOT, "engine", "main.py")],
     pathex=[ROOT],
     binaries=[],
-    datas=[(os.path.join(ROOT, "contracts"), "contracts")] + akshare_datas,
+    datas=[
+        (os.path.join(ROOT, "contracts"), "contracts"),
+        (
+            os.path.join(ROOT, "engine", "research", "symbol_pools"),
+            "engine/research/symbol_pools",
+        ),
+    ]
+    + akshare_datas,
     hiddenimports=hidden,
     hookspath=[],
     runtime_hooks=[],

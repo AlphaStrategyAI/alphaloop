@@ -9,12 +9,14 @@ from engine.research.planned_data_window import (
     planned_data_window,
 )
 from engine.research.pool_data_shrink import shrink_pool_to_available_data
+from engine.research.universe_pool import materialize_default_pool
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT, pool_for_market
 from engine.research.user_errors import UserFacingError
 
 
 def resolve_universe_symbols(research: Research, now: datetime) -> Research:
     """Apply versioned default pool or validate user symbols before confirm."""
+    research = materialize_default_pool(research)
     universe = research.brief.universe.value
     if universe is None:
         raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)

@@ -492,6 +492,9 @@ class Research:
     last_run_error_code: str | None = None
     consecutive_identical_run_errors: int = 0
     pool_data_dropped_count: int = 0
+    coverage_min_assets_scratch: int | None = None
+    coverage_min_years_scratch: int | None = None
+    coverage_max_missing_pct_scratch: float | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:
