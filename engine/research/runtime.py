@@ -10,27 +10,58 @@ from typing import Literal, Self
 import portalocker
 from platformdirs import user_runtime_path
 
+from engine.research.data_paths import DataPaths
+from engine.research.path_migration import migrate_legacy_runtime_data
+
 OwnerKind = Literal["desktop", "cli"]
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimePaths:
+    """Ephemeral runtime state (tmpfs-safe): lock + owner handshake only."""
+
     root: Path
     lock_file: Path
     owner_file: Path
 
-    @property
-    def database_file(self) -> Path:
-        return self.root / "research.db"
+    @classmethod
+    def default(cls) -> Self:
+        root = resolve_runtime_root(ensure_exists=True)
+        return cls(root, root / "engine.lock", root / "owner.json")
 
-    @property
-    def engine_log(self) -> Path:
-        return self.root / "engine.log"
+
+@dataclass(frozen=True, slots=True)
+class EnginePaths:
+    runtime: RuntimePaths
+    data: DataPaths
 
     @classmethod
     def default(cls) -> Self:
-        root = Path(user_runtime_path("alphaloop", ensure_exists=True))
-        return cls(root, root / "engine.lock", root / "owner.json")
+        runtime = RuntimePaths.default()
+        data = DataPaths.default()
+        migrate_legacy_runtime_data(runtime.root, data.root)
+        return cls(runtime, data)
+
+    @classmethod
+    def for_colocated_root(cls, root: Path) -> Self:
+        """Tests and env overrides: keep runtime + data under one directory."""
+        root.mkdir(parents=True, exist_ok=True)
+        return cls(
+            RuntimePaths(root, root / "engine.lock", root / "owner.json"),
+            DataPaths(root),
+        )
+
+
+def resolve_runtime_root(*, ensure_exists: bool = False) -> Path:
+    """Runtime root shared with the Tauri desktop (`docs/requirements/runtime-root.md`)."""
+    override = os.environ.get("ALPHALOOP_RUNTIME_ROOT")
+    if override:
+        root = Path(override)
+    else:
+        root = Path(user_runtime_path("alphaloop", ensure_exists=ensure_exists))
+    if ensure_exists:
+        root.mkdir(parents=True, exist_ok=True)
+    return root
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,6 +11,7 @@ from typing import Any, get_args, get_origin
 
 import cattrs
 
+from engine.metrics import SimulationReport
 from engine.research.models import (
     Attempt,
     CoverageFloor,
@@ -19,8 +20,11 @@ from engine.research.models import (
     MethodSource,
     MethodUsage,
     Research,
+    ReviewReport,
     Slot,
 )
+from engine.strategy import StrategySpec
+from engine.verifiers import PitVerifierResult, VerificationReport, VerifierResult
 from engine.research.runtime import OwnerRecord
 
 
@@ -95,6 +99,59 @@ CONVERTER.register_structure_hook_func(
     _structure_slot,
 )
 
+
+def _structure_verifier_result(item: dict[str, Any], _: type) -> VerifierResult:
+    target = PitVerifierResult if item.get("verifier_id") == "pit.consistency" else VerifierResult
+    return CONVERTER.structure(item, target)
+
+
+def _structure_verification_report(data: Any, _: type) -> VerificationReport | None:
+    if data is None:
+        return None
+    if isinstance(data, VerificationReport):
+        return data
+    if not isinstance(data, dict):
+        raise TypeError("verification must decode to VerificationReport")
+    return VerificationReport(
+        tuple(_structure_verifier_result(item, VerifierResult) for item in data["results"])
+    )
+
+
+def _coerce_path(value: Any) -> Path | None:
+    if value is None:
+        return None
+    return value if isinstance(value, Path) else Path(str(value))
+
+
+def _coerce_path_tuple(value: Any) -> tuple[Path, ...]:
+    if not value:
+        return ()
+    if isinstance(value, tuple):
+        items = value
+    elif isinstance(value, list):
+        items = value
+    else:
+        return ()
+    return tuple(item if isinstance(item, Path) else Path(str(item)) for item in items)
+
+
+def _structure_attempt(data: dict[str, Any], _: type) -> Attempt:
+    payload = dict(data)
+    payload["verification"] = _structure_verification_report(payload.get("verification"), VerificationReport)
+    if isinstance(payload.get("simulation"), dict):
+        payload["simulation"] = CONVERTER.structure(payload["simulation"], SimulationReport)
+    if isinstance(payload.get("spec"), dict):
+        payload["spec"] = CONVERTER.structure(payload["spec"], StrategySpec)
+    if isinstance(payload.get("review"), dict):
+        payload["review"] = CONVERTER.structure(payload["review"], ReviewReport)
+    payload["data_snapshot_path"] = _coerce_path(payload.get("data_snapshot_path"))
+    payload["evidence_paths"] = _coerce_path_tuple(payload.get("evidence_paths"))
+    return Attempt(**payload)
+
+
+CONVERTER.register_structure_hook(VerificationReport, _structure_verification_report)
+CONVERTER.register_structure_hook(Attempt, _structure_attempt)
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS researches (
@@ -143,6 +200,10 @@ CREATE TABLE IF NOT EXISTS engine_errors (
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS data_window_round_counts (
+    window_key TEXT PRIMARY KEY,
+    cumulative_rounds INTEGER NOT NULL
+);
 """
 
 
@@ -163,6 +224,41 @@ class SQLiteStore:
         self.connection = sqlite3.connect(path, check_same_thread=False)
         self.connection.executescript(SCHEMA)
         self._migrate_method_schema()
+        self._migrate_review_attempts_schema()
+
+    def _migrate_review_attempts_schema(self) -> None:
+        row = self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='review_attempts'"
+        ).fetchone()
+        if row is None:
+            return
+        ddl = row[0] or ""
+        if "PRIMARY KEY (research_id, attempt_id)" in ddl:
+            return
+        with self.connection:
+            self.connection.executescript(
+                """
+                CREATE TABLE review_attempts_v2 (
+                    attempt_id TEXT NOT NULL,
+                    research_id TEXT NOT NULL,
+                    version_number INTEGER NOT NULL,
+                    round_number INTEGER NOT NULL,
+                    passed INTEGER NOT NULL,
+                    attempt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (research_id, attempt_id)
+                );
+                INSERT INTO review_attempts_v2 (
+                    attempt_id, research_id, version_number, round_number,
+                    passed, attempt_json, created_at
+                )
+                SELECT attempt_id, research_id, version_number, round_number,
+                       passed, attempt_json, created_at
+                  FROM review_attempts;
+                DROP TABLE review_attempts;
+                ALTER TABLE review_attempts_v2 RENAME TO review_attempts;
+                """
+            )
 
     def _migrate_method_schema(self) -> None:
         columns = {
@@ -276,6 +372,40 @@ class SQLiteStore:
                 ),
             )
 
+    def get_attempt(
+        self,
+        record_id: str,
+        *,
+        research_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        if research_id is not None:
+            row = self.connection.execute(
+                """
+                SELECT attempt_json FROM review_attempts
+                 WHERE research_id=? AND attempt_id=?
+                """,
+                (research_id, record_id),
+            ).fetchone()
+            if row is not None:
+                return json.loads(row[0])
+        else:
+            rows = self.connection.execute(
+                "SELECT attempt_json FROM review_attempts WHERE attempt_id=?",
+                (record_id,),
+            ).fetchall()
+            if len(rows) == 1:
+                return json.loads(rows[0][0])
+            if len(rows) > 1:
+                return None
+        for research in self.list_research():
+            if research_id is not None and research.research_id != research_id:
+                continue
+            for version in research.versions:
+                for round_ in version.rounds:
+                    if round_.accepted_attempt.attempt_id == record_id:
+                        return {"attempt_id": record_id}
+        return None
+
     def review_failure_count(
         self,
         research_id: str,
@@ -343,7 +473,7 @@ class SQLiteStore:
             for item in self.list_method_definitions()
         )
 
-    def list_method_definitions(self) -> tuple[MethodDefinition, ...]:
+    def _all_method_revision_rows(self) -> tuple[MethodDefinition, ...]:
         rows = self.connection.execute(
             """
             SELECT method_id,revision_hash,name,description,body,source,
@@ -367,8 +497,16 @@ class SQLiteStore:
             for row in rows
         )
 
+    def list_method_definitions(self) -> tuple[MethodDefinition, ...]:
+        latest: dict[str, MethodDefinition] = {}
+        for item in self._all_method_revision_rows():
+            current = latest.get(item.method_id)
+            if current is None or item.created_at >= current.created_at:
+                latest[item.method_id] = item
+        return tuple(latest[method_id] for method_id in sorted(latest))
+
     def latest_method_definition(self, method_id: str) -> MethodDefinition | None:
-        rows = [item for item in self.list_method_definitions() if item.method_id == method_id]
+        rows = [item for item in self._all_method_revision_rows() if item.method_id == method_id]
         if not rows:
             return None
         superseded = {item.supersedes for item in rows if item.supersedes}
@@ -441,6 +579,18 @@ class SQLiteStore:
     def delete(self, research_id: str) -> None:
         with self.connection:
             self.connection.execute(
+                "DELETE FROM review_attempts WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM method_usage WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM engine_errors WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
                 "DELETE FROM researches WHERE research_id=?",
                 (research_id,),
             )
@@ -471,7 +621,51 @@ class SQLiteStore:
         self.insert_method_definition(row)
         return row.revision_hash
 
-    def record_error(self, research_id: str, message: str, now: datetime) -> None:
+    def window_round_count(self, window_key: str) -> int:
+        row = self.connection.execute(
+            "SELECT cumulative_rounds FROM data_window_round_counts WHERE window_key=?",
+            (window_key,),
+        ).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def increment_window_round_count(self, window_key: str) -> int:
+        with self.connection:
+            row = self.connection.execute(
+                "SELECT cumulative_rounds FROM data_window_round_counts WHERE window_key=?",
+                (window_key,),
+            ).fetchone()
+            next_count = (int(row[0]) if row is not None else 0) + 1
+            self.connection.execute(
+                """
+                INSERT INTO data_window_round_counts(window_key, cumulative_rounds)
+                VALUES(?, ?)
+                ON CONFLICT(window_key) DO UPDATE SET cumulative_rounds=excluded.cumulative_rounds
+                """,
+                (window_key, next_count),
+            )
+        return next_count
+
+    def record_error(
+        self,
+        research_id: str,
+        message: str,
+        now: datetime,
+        *,
+        force: bool = False,
+    ) -> None:
+        if not force:
+            recent = self.connection.execute(
+                """
+                SELECT created_at FROM engine_errors
+                 WHERE research_id=? AND message=?
+                 ORDER BY created_at DESC LIMIT 1
+                """,
+                (research_id, message),
+            ).fetchone()
+            if recent is not None:
+                last = datetime.fromisoformat(recent[0])
+                if (now - last).total_seconds() < 300:
+                    return
         with self.connection:
             self.connection.execute(
                 "INSERT INTO engine_errors(research_id,message,created_at) VALUES(?,?,?)",

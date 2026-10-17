@@ -14,7 +14,7 @@ from engine.research.models import (
     MethodUsage,
     Research,
 )
-from engine.verifiers import VERIFIER_REVISIONS
+from engine.verifiers import PIT_VERIFIER_REVISION, VERIFIER_REVISIONS
 
 
 class ScorecardDimensionKind(StrEnum):
@@ -80,7 +80,19 @@ PRESET_NAMES = {
     "stability.oos": "样本外稳定",
     "crowding.load": "拥挤度",
     "cost.turnover": "换手成本",
+    "pit.consistency": "时点一致性",
 }
+
+
+def format_verifier_display(verifier_id: str) -> str:
+    from engine.research.display_names import method_label
+
+    return method_label(verifier_id)
+
+
+def format_verifier_ids(verifier_ids: tuple[str, ...]) -> tuple[str, ...]:
+    deduped = tuple(dict.fromkeys(verifier_ids))
+    return tuple(format_verifier_display(item) for item in deduped)
 
 
 def _revision_hash(body: str) -> str:
@@ -171,25 +183,61 @@ def record_method_usage(
     store.record_method_usage(research_id, version_number, method_set)
 
 
-def seed_preset_methods(store: SQLiteStore, now: datetime | None = None) -> None:
-    if store.list_method_definitions():
+def record_verification_execution(
+    store: SQLiteStore,
+    research_id: str,
+    version_number: int,
+    verification: object | None,
+) -> None:
+    """Count researches that executed each verifier (pass or fail)."""
+    if verification is None:
         return
-    created_at = now or datetime(2026, 1, 1, tzinfo=UTC)
-    for method_id, meta in VERIFIER_REVISIONS.items():
-        body = json.dumps(dict(meta), sort_keys=True)
-        store.insert_method_definition(
-            MethodDefinition(
-                method_id=method_id,
-                revision_hash=str(meta["revision"]),
-                name=PRESET_NAMES[method_id],
-                description=body,
-                body=body,
-                source=MethodSource.PRESET,
-                deposited_from_research_id=None,
-                created_at=created_at,
-                supersedes=None,
-            )
+    results = getattr(verification, "results", ())
+    refs = tuple(
+        MethodRef(item.verifier_id, item.revision)
+        for item in results
+    )
+    if refs:
+        record_method_usage(store, research_id, version_number, refs)
+
+
+def distinct_research_usage_count(store: SQLiteStore, method_id: str) -> int:
+    return len({row.research_id for row in list_method_usage(store, method_id)})
+
+
+def _insert_preset_if_missing(
+    store: SQLiteStore,
+    method_id: str,
+    meta: dict[str, object],
+    created_at: datetime,
+) -> None:
+    if store.latest_method_definition(method_id) is not None:
+        return
+    body = json.dumps(dict(meta), sort_keys=True)
+    store.insert_method_definition(
+        MethodDefinition(
+            method_id=method_id,
+            revision_hash=str(meta["revision"]),
+            name=PRESET_NAMES[method_id],
+            description=body,
+            body=body,
+            source=MethodSource.PRESET,
+            deposited_from_research_id=None,
+            created_at=created_at,
+            supersedes=None,
         )
+    )
+
+
+def seed_preset_methods(store: SQLiteStore, now: datetime | None = None) -> None:
+    created_at = now or datetime(2026, 1, 1, tzinfo=UTC)
+    if not store.list_method_definitions():
+        for method_id, meta in VERIFIER_REVISIONS.items():
+            _insert_preset_if_missing(store, method_id, dict(meta), created_at)
+    for method_id, meta in VERIFIER_REVISIONS.items():
+        _insert_preset_if_missing(store, method_id, dict(meta), created_at)
+    for method_id, meta in PIT_VERIFIER_REVISION.items():
+        _insert_preset_if_missing(store, method_id, dict(meta), created_at)
 
 
 def _method_payload(value: object) -> tuple[str, str, str, str] | None:

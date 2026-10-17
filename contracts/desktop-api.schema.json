@@ -38,12 +38,71 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["type", "research_id"],
+      "properties": {
+        "type": {"const": "unlock_brief"},
+        "research_id": {"type": "string", "minLength": 1},
+        "slot": {
+          "type": "string",
+          "enum": [
+            "thesis",
+            "universe",
+            "max_effective_hours",
+            "round1_methods",
+            "coverage_floor"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "user_confirmed"],
+      "properties": {
+        "type": {"const": "continue_iterate"},
+        "research_id": {"type": "string", "minLength": 1},
+        "user_confirmed": {"const": true},
+        "high_suspicion_acknowledged": {"type": "boolean"}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["type", "research_id", "decision"],
       "properties": {
         "type": {"const": "resolve_confirm"},
         "research_id": {"type": "string", "minLength": 1},
         "decision": {
-          "enum": ["approve_new_version", "reject_keep_logic", "pause_and_edit"]
+          "enum": [
+            "approve_new_version",
+            "reject_keep_logic",
+            "pause_and_edit",
+            "accept_lower_floor",
+            "supply_local_materials",
+            "redefine_scope"
+          ]
+        },
+        "who_pays": {"type": "string"},
+        "why_change": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["record_id", "recorded_at", "kind"],
+            "properties": {
+              "record_id": {"type": "string", "minLength": 1},
+              "recorded_at": {"type": "string", "minLength": 1},
+              "kind": {
+                "enum": [
+                  "attempt",
+                  "round",
+                  "verification_report",
+                  "simulation_report"
+                ]
+              },
+              "summary": {"type": "string"}
+            }
+          }
         }
       }
     },

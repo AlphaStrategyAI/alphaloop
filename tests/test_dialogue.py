@@ -1,89 +1,98 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
-from engine.dialogue.intent import IntentKind, interpret
-from engine.dialogue.slots import SlotName, apply_intent, next_question, unlock_all_slots
-from engine.research.models import AssetClass, Market, new_research
+from engine.main import ResearchCommandService
+from engine.research.models import DialogueRole, new_research
+from engine.research.runtime import EnginePaths
+from engine.research.store import SQLiteStore
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
 
-def test_direction_message_fills_relevant_slots_but_does_not_start() -> None:
-    research = new_research("r-dialogue", NOW)
-
-    intent = interpret("我想研究美股低波动回归", research)
-    updated = apply_intent(research, intent, NOW)
-
-    assert intent.kind is IntentKind.PROVIDE
-    assert updated.brief.thesis.value == "美股低波动回归"
-    assert updated.brief.universe.value is not None
-    assert updated.brief.universe.value.market is Market.US
-    assert updated.brief.universe.value.asset_class is AssetClass.EQUITY
-    assert not updated.brief.thesis.locked
-    assert updated.status.value == "draft"
-    assert next_question(updated).slot is SlotName.THESIS
+def _service(tmp_path: Path) -> ResearchCommandService:
+    store = SQLiteStore(tmp_path / "d.db")
+    paths = EnginePaths.for_colocated_root(tmp_path)
+    return ResearchCommandService(store, paths)
 
 
-def test_each_slot_requires_explicit_lock_before_confirm_run() -> None:
-    research = new_research("r-lock", NOW)
-    messages = (
-        "研究美股低波动回归",
-        "锁定大致原理",
-        "锁定资产类别",
-        "最长有效研究时间12小时并锁定",
-        "第一轮用走样检验、样本外稳定、拥挤度、换手成本并锁定",
-        "最低覆盖至少50个资产、10年、缺失不超过5%并锁定",
+def test_send_dialogue_off_topic_persists_user_and_reply(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "d.db")
+    research = new_research("r-draft", NOW)
+    store.create(research)
+    service = _service(tmp_path)
+
+    service.handle({"type": "send_dialogue", "research_id": "r-draft", "message": "你好"})
+
+    loaded = store.load("r-draft")
+    assert len(loaded.dialogue) == 2
+    assert loaded.dialogue[0].role is DialogueRole.USER
+    assert loaded.dialogue[0].text == "你好"
+    assert loaded.dialogue[1].role is DialogueRole.ASSISTANT
+    assert "原理想靠什么赚钱" in loaded.dialogue[1].text
+
+    view = service.view_for("#/research/r-draft")
+    assert view["kind"] == "draft"
+    assert len(view["dialogue"]) == 2
+    assert view["dialogue"][1]["text"] == loaded.dialogue[1].text
+
+
+def test_send_dialogue_on_topic_returns_next_question(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "d.db")
+    store.create(new_research("r-draft", NOW))
+    service = _service(tmp_path)
+
+    service.handle(
+        {
+            "type": "send_dialogue",
+            "research_id": "r-draft",
+            "message": "最长研究时间 12 小时",
+        }
     )
-    for message in messages:
-        research = apply_intent(research, interpret(message, research), NOW)
 
-    prompt = next_question(research)
-    assert prompt.slot is None
-    assert prompt.message == "五项研究设定已锁定，请检查确认开跑卡。"
-
-
-def test_off_topic_is_rejected_without_mutation() -> None:
-    research = new_research("r-offtopic", NOW)
-    intent = interpret("给我讲个笑话", research)
-
-    assert intent.kind is IntentKind.OFF_TOPIC
-    assert apply_intent(research, intent, NOW) == research
-    assert "只用于完善五项研究设定" in intent.response
+    loaded = store.load("r-draft")
+    assert loaded.brief.max_effective_hours.value == 12.0
+    assert loaded.dialogue[-1].role is DialogueRole.ASSISTANT
+    assert "原理想靠什么赚钱" in loaded.dialogue[-1].text
 
 
-def test_confirmation_cannot_be_inferred_from_casual_affirmation() -> None:
-    research = new_research("r-yes", NOW)
-    intent = interpret("好啊", research)
-    assert intent.kind is IntentKind.OFF_TOPIC
+def test_dialogue_round_trip_sqlite_reload(tmp_path: Path) -> None:
+    path = tmp_path / "persist.db"
+    store = SQLiteStore(path)
+    store.create(new_research("r-draft", NOW))
+    paths = EnginePaths.for_colocated_root(tmp_path)
+    service = ResearchCommandService(store, paths)
+    service.handle({"type": "send_dialogue", "research_id": "r-draft", "message": "你好"})
+
+    reloaded = SQLiteStore(path)
+    research = reloaded.load("r-draft")
+    assert len(research.dialogue) == 2
 
 
-def test_fund_message_locks_fund_universe_with_equity_underlying() -> None:
-    research = new_research("r-fund", NOW)
-    intent = interpret("研究沪深300ETF基金的低波动回归", research)
-    assert intent.universe is not None
-    assert intent.universe.asset_class is AssetClass.FUND
-    assert intent.universe.underlying_asset_class is AssetClass.EQUITY
+def test_unlock_brief_schema_and_handler(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "d.db")
+    research = new_research("r-draft", NOW)
+    store.create(research)
+    service = _service(tmp_path)
+    service.handle({"type": "unlock_brief", "research_id": "r-draft"})
+    loaded = store.load("r-draft")
+    assert all(not getattr(loaded.brief, name).locked for name in (
+        "thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor"
+    ))
 
 
-def test_unlock_all_slots_returns_editable_draft_with_values_kept() -> None:
-    research = new_research("r-unlock", NOW)
-    messages = (
-        "研究美股低波动回归",
-        "锁定大致原理",
-        "锁定资产类别",
-        "最长有效研究时间12小时并锁定",
-        "第一轮用走样检验、样本外稳定、拥挤度、换手成本并锁定",
-        "最低覆盖至少50个资产、10年、缺失不超过5%并锁定",
+def test_unlock_brief_single_slot(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from tests.test_state_machine import locked_brief
+
+    research = replace(new_research("r-draft", NOW), brief=locked_brief())
+    service = _service(tmp_path)
+    service.store.create(research)
+    service.handle(
+        {"type": "unlock_brief", "research_id": "r-draft", "slot": "universe"}
     )
-    for message in messages:
-        research = apply_intent(research, interpret(message, research), NOW)
-    assert next_question(research).slot is None
-
-    unlocked = unlock_all_slots(research, NOW)
-    assert unlocked.status.value == "draft"
-    assert unlocked.brief.thesis.value == research.brief.thesis.value
-    assert unlocked.brief.thesis.locked is False
-    assert unlocked.brief.universe.locked is False
-    assert unlocked.brief.max_effective_hours.locked is False
-    assert unlocked.brief.round1_methods.locked is False
-    assert unlocked.brief.coverage_floor.locked is False
-    assert next_question(unlocked).slot is SlotName.THESIS
+    loaded = service.store.load("r-draft")
+    assert not loaded.brief.universe.locked
+    assert loaded.brief.thesis.locked
+    assert loaded.dialogue[-1].role.value == "assistant"
+    assert "哪类资产" in loaded.dialogue[-1].text

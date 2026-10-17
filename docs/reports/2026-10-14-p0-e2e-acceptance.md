@@ -1,0 +1,342 @@
+# P0 E2E acceptance report — 2026-10-14
+
+**Branch:** `cursor/p0-v1-honest-path-impl-c923` (PR #124)  
+**Plan:** [#123](https://github.com/AlphaStrategyAI/alphaloop/pull/123) @ `428f71c` — decision **(b)** + round-3 advisories  
+**Cut line:** `docs/requirements/v1-cut-line.md`
+
+## Executive summary
+
+| Metric | Count |
+| --- | ---: |
+| 通过 | 68 |
+| 失败 | 0 |
+| 未测 | 3 |
+
+**Done #1 network (-0.25 default floor):** `ALPHALOOP_ACCEPTANCE_NETWORK=1 pytest tests/test_v1_honest_path.py -v` → **PASSED**. Research reaches **`COMPLETED`** with **not-passed** method verification (`all_current_methods_passed` false); export is **`research_record`** only (not strategy pack). Failed gates: **`scorecard.market`** (max_drawdown -0.324 vs floor -0.25) and **`pit.consistency`**.
+
+**`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
+
+**Default CI:** GitHub **`python-tests`** workflow (`pip install -e ".[dev]"` + `python -m pytest -q -m "not network"`). **Before 2026-10-17:** no workflow ran Python pytest (only `desktop-typecheck` + `desktop-tauri-rust`). Local clean venv: **295 passed**, 1 deselected. Desktop `npm test` → vitest **71/71** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (Linux VM).
+
+**Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
+
+**Implementation trial budget (default 5):** failed verification auto-iterates per version until budget exhausted; UI hint `已用 X/N 轮`; exhausted copy names gates + `research_record` only. Env: `ALPHALOOP_MAX_TRIALS`, `ALPHALOOP_TRIAL_BUDGET_INCREMENT` (default 5).
+
+## Commands run (evidence)
+
+```bash
+python3 -m pytest tests/ -q
+# 241 passed, 1 skipped
+
+ALPHALOOP_ACCEPTANCE_NETWORK=1 python3 -m pytest tests/test_v1_honest_path.py -v
+# test_v1_mean_reversion_reaches_completed_real_ports PASSED (~0.9s)
+
+bash scripts/verify_v1_done.sh
+# green when network env unset (skip message)
+
+cd apps/desktop && npm test
+# 62 vitest + tsc --noEmit
+
+cd apps/desktop && npm run build
+# tsc --noEmit && vite build
+
+bash scripts/build_sidecar.sh && bash scripts/smoke_sidecar.sh
+# .venv-sidecar + PyInstaller onedir + bundled akshare calendar (VM)
+
+cd apps/desktop/src-tauri && cargo check --all-targets && cargo test
+# 23 passed (runtime root contract + restart loop + supervision lifecycle)
+
+bash scripts/stage_engine_for_tauri.sh
+# verify_engine_resource_layout: alphaloop-engine + _internal/ (not flattened)
+```
+
+## Done #1 — network at default `max_drawdown_floor=-0.25`
+
+| Field | Value |
+| --- | --- |
+| Window (frozen) | `2000-01-04` – `2010-12-31` (SPY, yfinance) |
+| Status | `COMPLETED` |
+| Method verification | **Not passed** (`passed_for` false) |
+| Failed verifier | `scorecard.market` (drawdown below default floor) |
+| PIT | `pit.consistency` executed, **failed** (no Material `as_of`) |
+| Trial counters (concluding round) | `candidates_evaluated=1`, `candidates_passed=0`, `conclusion_attempt_number=1` |
+| Export kind | `research_record` (`build_research_record_pack`) |
+| `strategy_pack_eligibility.failed_checks` | `all_current_methods_passed`, `pit_executed_and_passed` |
+
+No `-0.35` override in acceptance config or tests.
+
+## Done #1 — `-0.35` via product confirm (not Done evidence)
+
+| Field | Value |
+| --- | --- |
+| How applied | `EconomicDrawdown35Builder` → `AWAITING_CONFIRM` → `CONFIRM_APPROVE` with `why_change` `EvidenceRef` citing pre-confirm attempt |
+| Version history | New version `opened_by=economic_confirm`, `confirmed_changes` includes `("max_drawdown_floor", -0.35)` |
+| Trial counters before confirm | `candidates_evaluated=1` on concluding round of v1 |
+| Counts toward Done #1? | **No** (product rule) |
+
+Unit test: `tests/test_loop_runtime.py::test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`.
+
+## Optional strategy_pack demo at -0.25
+
+Not run as a separate window hunt. The single frozen acceptance window above **does not** produce a green pack (PIT + scorecard); failure is recorded in the network test assertions and `research_record` export.
+
+## Implementation trial budget (replaces transitional fail-stop)
+
+| Item | Detail |
+| --- | --- |
+| Semantics | Per-version round budget (`implementation_trial_budget`, default **5** via `ALPHALOOP_MAX_TRIALS`); each committed round counts; thresholds unchanged |
+| Auto path | `can_auto_continue_impl_iteration` → `AUTO_CONTINUE` while `used < budget`; else `COMPLETED` not-passed |
+| Confirm path | `change_requires_user_confirm` (economic/coverage/`signal_definition`/`feature_set`) → never consumes budget auto path |
+| Manual continue | `continue_iterate` adds `ALPHALOOP_TRIAL_BUDGET_INCREMENT` (default **5**) then `run_once` |
+| UI copy (running) | `验证未通过：在实现层预算内自动迭代中，已用 X/N 轮。` |
+| UI copy (exhausted) | `实现层迭代预算已用尽（X/N 轮）…只能导出 research_record` + gate names |
+| Code | `engine/research/honest_stop.py`, `engine/research/loop.py`, `engine/main.py` view fields `trialBudget` / `honestStopHint` |
+
+**Tests:** `tests/test_honest_stop.py` (auto-continue, exhaustion, configurable env, economic still confirms, manual continue); loop tests with `ALPHALOOP_MAX_TRIALS=1`; desktop vitest budget-exhausted hint.
+
+## Cumulative M + B5 late-pass + continue confirm
+
+| Item | Evidence |
+| --- | --- |
+| Cumulative M in pack/view | `history/rounds.json` fields `data_window_key`, `cumulative_rounds_on_window`, per-round `cumulative_round_on_window`; view `cumulativeRoundsOnWindow` |
+| B5 late-pass UI | `latePassPresentation` in `view_for`; `tests/test_cumulative_trials.py::test_late_pass_after_third_round_success` |
+| Continue confirm | `user_confirmed` + optional `high_suspicion_acknowledged`; schema + `commands.rs`; vitest escalation |
+| Copy | `running_budget_hint` / exhausted hint in `honest_stop.py` |
+
+Command: `pytest tests/test_cumulative_trials.py -v`
+
+## B4 SQLite `resolve_confirm` E2E (not Done #1)
+
+| Item | Detail |
+| --- | --- |
+| Command | `pytest tests/test_b4_sqlite_confirm.py -v` |
+| Path | `ResearchCommandService.handle(resolve_confirm)` + `SQLiteStore.get_attempt` + `-0.35` in v2 `confirmed_changes` |
+| Evidence | `why_change` cites pre-confirm `attempt_id`; `who_pays` recorded |
+| File | `tests/test_b4_sqlite_confirm.py` |
+
+## Goal matrix (selected)
+
+| ID | Goal | Status | Evidence |
+| --- | --- | --- | --- |
+| **§2.1 #1** | Real `ResearchLoop` → `COMPLETED` | 通过 | Network test at **-0.25**; completes with not-passed verification |
+| **§2.1 #3** | Honest `research_record` when blocked | 通过 | Network test builds `research_record`; names `scorecard.market` + PIT |
+| **§2.3** | Real DataPort / MaterialPort | 通过 | Yahoo + `LocalMaterialAdapter` |
+| **Plan (b)** | `COMPLETED` uses `passed_for` excluding PIT for **export** | 通过 | `strategy_pack_eligibility`; review no longer requires pass |
+| **B4** | `resolve_confirm` + SQLite `get_attempt` + EvidenceRef | 通过 | `tests/test_b4_sqlite_confirm.py` (-0.35 **not** Done #1) |
+| **B4 real loop evidence** | `REQUEST_CONFIRM` fills `why_change` from pre-confirm attempt | 通过 | `tests/test_economic_confirm_evidence_real_loop.py`, `test_confirm_evidence.py` |
+| **Export feedback** | Export returns path; UI shows 已导出到 + reveal folder | 通过 | `test_export_artifact_feedback.py`, `export-feedback.test.tsx` |
+| **View repr guard** | No `CoverageFloor(...)` across list/draft/run/confirm/completed | 通过 | `test_desktop_view_repr_guard.py`, `App.test.tsx` |
+| **Completed copy once** | Exhausted / not-passed text not duplicated in view/UI | 通过 | `test_completed_view_duplicate_copy.py`, `completed-copy.test.tsx` |
+| **Running header idle** | Omit `currentAction` when IDLE; no route flash | 通过 | `test_running_view_idle_action.py`, `route-loading.test.tsx` |
+| **Desktop typecheck gate** | `api-bind` + typed vitest fixtures; CI `npm run typecheck`/`build` | 通过 | `test_desktop_typecheck_ci.py`, `.github/workflows/desktop-typecheck.yml` |
+| **Stopped-engine polling** | Pause `fetchView` when sidecar `stopped`; `.catch` on polls; resume after 重启 | 通过 | `engine-polling.test.tsx`, `App.tsx` |
+| **Runtime vs data roots** | Persistent DB/materials/exports under `user_data_dir`; runtime lock/owner in tmpfs-safe dir | 通过 | `docs/requirements/paths-contract.md`, `EnginePaths`, `test_data_path_migration.py` |
+| **Runtime root parity** | Injectable fixture table; `/run/user/<uid>` before temp fallback | 通过 | `runtime_root_cases.json`, `test_runtime_root_contract.py` |
+| **Deb bundle metadata** | `bundle.icon`, Finance category, descriptions | 通过 | `test_tauri_bundle_metadata.py`, `tauri.conf.json` |
+| **Handshake restart loop** | Startup/handshake failures retry with backoff; cap → stopped + owner clear | 通过 | `sidecar_restart.rs`, `drive_recovery_sync` tests |
+| **owner.json on stop/restart** | Clear stale desktop pid when cap exceeded + user restart | 通过 | `engine_paths::clear_owner_file_logged`, `commands.rs`, `test_engine_owner_clear_rust.py` |
+| **Sidecar supervision** | try_wait + stdin keepalive; no mutex deadlock on kill | 通过 | `sidecar.rs` integration tests (3), `shared_child_supervision.rs`, `sidecar-ui.test.tsx` |
+| **Tauri compile gate** | `on_exit` closure + CI `cargo check`/`cargo test` | 通过 | `test_lib_rs_on_exit_closure.py`, `.github/workflows/desktop-tauri-rust.yml` |
+| **Packaging onedir + akshare** | Directory resource map; `.venv-sidecar` build; layout verifier | 通过 | `test_tauri_engine_resource_layout.py`, `verify_engine_resource_layout.py`, smoke scripts |
+| **P0 budget** | Auto-iterate until trial budget exhausted | 通过 | `tests/test_honest_stop.py`; `v1-cut-line.md` 已知限制 |
+| **B2 cumulative M** | Cross-version rounds on data window in pack + view | 通过 | `tests/test_cumulative_trials.py` |
+| **B5 late-pass** | Prior failure records before late pass conclusion | 通过 | `latePassPresentation` + vitest |
+| **Continue guard** | Engine + UI confirm flags; high-M escalation | 通过 | `test_continue_*`, desktop vitest |
+| **Hash navigation** | `#/research/<id>` / `#/methods` drive `fetchView(route)` | 通过 | `apps/desktop/src/navigation.test.tsx` (jsdom; **not** full Tauri IPC) |
+| **Running `honestStopHint`** | Budget / auto-iterate copy on running screen | 通过 | `App.test.tsx` `honest-stop-hint-running` |
+| **Confirm/list display** | Chinese universe & coverage; local timestamps | 通过 | `tests/test_desktop_view_format.py`, `format.test.ts`, `App.test.tsx` |
+| **unlock_brief schema** | `unlock_brief` in desktop request schema | 通过 | `tests/test_desktop_api_schema_contract.py` |
+| **Draft dialogue** | Persisted `dialogue`; off-topic + next_question replies | 通过 | `tests/test_dialogue.py`; vitest duplicate bubbles |
+| **Mutation errors** | `bindDesktopApi` refresh + `mutation-error` banner | 通过 | `api-bind.test.ts` |
+| **Methods hash / list** | `decodeURIComponent`; latest revision per id; `.active` | 通过 | `routing.test.ts`, `methods-ui.test.tsx`, `test_methods_view_route.py` |
+| **Failed gate labels** | Deduped + `PRESET_NAMES` display | 通过 | `tests/test_verifier_display.py`; vitest formatted `failedVerifierIds` |
+| **Late-pass paramChanges** | `prior_spec` in review gate → `lookback_days` delta | 通过 | `test_late_pass_after_third_round_success` + `_round_history_with_trials` |
+| **review_attempts PK** | Composite `(research_id, attempt_id)` + migration | 通过 | `tests/test_review_attempts_store.py` |
+| **Run error pause** | N identical errors → PAUSED + `lastError` | 通过 | `tests/test_run_errors.py`, `last-error.test.tsx` |
+| **Delete cascade** | Child rows cleared on `delete_research` | 通过 | `tests/test_delete_research_cascade.py` |
+| **research_record B2** | `history/rounds.json` in record export | 通过 | `tests/test_research_record_export.py` |
+| **continue_iterate race** | No inline `run_once` in HTTP handler | 通过 | `tests/test_continue_iterate_handler.py` |
+| **Running coverage text** | `format_coverage_vs_floor` | 通过 | `test_format_coverage_vs_floor_*` |
+| **Completed copy dedupe** | Single exhausted paragraph | 通过 | `test_honest_stop.py` (adjusted) |
+| **Draft polish** | Intro order, role classes, thesis strip | 通过 | `draft-polish.test.tsx`, `test_dialogue_intent.py` |
+| **§1.2 Desktop** | Vitest + typecheck + build | 通过 | 62 vitest + `tsc`; real Tauri window smoke / Night 7-screen **未测** |
+
+## Defects found and fixed (this pass)
+
+| Defect | Fix | Test |
+| --- | --- | --- |
+| Product rejected silent `-0.35` in acceptance | Removed override; honest complete at -0.25 | `test_v1_mean_reversion_reaches_completed_real_ports` |
+| Loop/reviewer blocked Done #1 at default floor | Reviewer + `COMPLETE` on failed PARAM path | `test_failed_method_verification_completes_without_param_iteration` |
+| In-floor shrink test relied on failed-verify iteration | Pre-seed `last_coverage`; one passing round | `test_in_floor_shrink_across_rounds_is_recorded_and_can_complete` |
+| **BLOCKER:** hash links change URL but UI stays on list | `route` state from hash + `hashchange`; poll `fetchView(route)` | `navigation.test.tsx` |
+| Running screen omitted `honestStopHint` | Render hint on `RunningScreen` | `App.test.tsx` |
+| Confirm card showed `Universe(...)` / `CoverageFloor(...)` repr | `format_*_display` in `desktop_view.py` → `_settings()` | `test_desktop_view_format.py` |
+| List showed raw ISO timestamps | `formatResearchTimestamp` (default `Asia/Shanghai`) | `format.test.ts`, `App.test.tsx` |
+| **`unlock_brief` HTTP 400** | Schema enum missing type; mutations show errors + refresh | `test_desktop_api_schema_contract.py`, `api-bind.test.ts` |
+| **Draft dialogue mute** | `Research.dialogue` + `process_send_dialogue`; view `dialogue` | `tests/test_dialogue.py` |
+| **Methods library** | Hash decode, active link, latest revision only | `test_methods.py`, `methods-ui.test.tsx`, `test_methods_view_route.py` |
+| **Empty late-pass `paramChanges`** | Review gate passes `prior_spec` into `build_implementation_delta` | `test_late_pass_after_third_round_success` |
+| **Raw duplicate gate ids** | `format_verifier_ids` + dedupe in `_failed_gate_ids` | `test_verifier_display.py` |
+| **review_attempts global PK** | Rebuild → `PRIMARY KEY (research_id, attempt_id)`; `get_attempt(..., research_id=)` | `test_review_attempts_store.py` |
+| **Silent run loop / ConcurrentWrite** | `apply_run_failure` + PAUSED; `lastError` in view | `test_run_errors.py` |
+| **research_record missing rounds.json** | `_round_history_with_trials` in record pack | `test_research_record_export.py` |
+| **continue_iterate ConcurrentWrite** | Handler returns after RUNNING transition only | `test_continue_iterate_handler.py` |
+| **Economic confirm empty `why_change`** | Loop builds `EvidenceRef` from failed attempt + gate labels | `test_economic_confirm_evidence_real_loop.py` |
+| **Export buttons silent** | Tauri returns `path`; completed screen success/error + opener | `test_export_artifact_feedback.py`, `export-feedback.test.tsx` |
+| **P1: `npm run build` tsc errors** | `revealExportInFolder` in `api-bind`; `DesktopView` test fixtures | `test_desktop_typecheck_ci.py`, `test-fixtures.ts` |
+| **P2: dead-engine poll spam** | Pause view poll when stopped; handle rejections; clear `owner.json` | `engine-polling.test.tsx`, `engine_paths.rs`, `test_engine_owner_clear_rust.py` |
+| **A: owner clear no-op without XDG** | Rust `dirs::runtime_dir()` None vs Python `/tmp/runtime-<uid>` | `engine_paths.rs` + `runtime.py` contract |
+| **B: stuck restarting on handshake kill** | `schedule_sidecar_recovery` recurses on spawn `Err` | `sidecar_restart.rs` unit tests |
+
+### SQLite scope review (same flaw hunt)
+
+| Table | Key | Verdict |
+| --- | --- | --- |
+| `review_attempts` | Was global `attempt_id` | **Fixed** (composite PK + migration) |
+| `method_usage` | `(method_id, revision_hash, research_id, version_number)` | OK — `research_id` in PK |
+| `method_revisions` | `(method_id, revision_hash)` | OK — global method catalog |
+| `researches` | `research_id` | OK |
+| `engine_errors` | `error_id` AUTOINCREMENT | OK (rows per event, rate-limited) |
+| Reverifications / rounds | Inside `state_json` only | N/A |
+
+## Master Bot hand-test batch (2026-10-17)
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| **A** reverify/strategy_pack Path crash | **Done** | `_structure_attempt` coerces `Path`; `do_POST` catch-all 500 JSON; `test_attempt_path_roundtrip.py` |
+| **B** symbol pool / dialogue / data dir | **Done** (prior commits `d7ad7e8`) | `EnginePaths.data` for DB/exports |
+| **C** mutation banner + engine errors | **Done** | clear on success/route/timeout; × dismiss; Rust body parse (prior) |
+| **D** modify-then-rerun | **Done** | `modification.py`; `MODIFICATION_UNCHANGED`; placeholder + `recentDialogue` on completed |
+| **E** open export folder | **Done** | catch + copy path message; Rust `open_path(parent)` fallback |
+| **F** data errors Chinese | **Done** (prior + gather codes) | |
+| **G** copy/UI polish | **Done** (`4ece418`) | Method `definitionDisplay`; scorecard 预测力/大于/不小于; full revision; one「未通过门禁」line; 研究记录包 copy; completed per-round evidence; localized 变更/模型变更 |
+| **H** method library / confirm / extend | **Done** (`745b8d4`) | In-app confirm for delete + continue-iterate (+ high-M second step);「编辑为新定义」dialog with textarea |
+| **I** shell/CSS/nav | **Done** (`4ece418`) | `night-shell` 100% width / 100vh; focus max 960px; rail engine line + title tooltip; Tauri `maximized`; single-slot unlock E2E + vitest |
+| **Product #3** pool shrink | **Done** (`4ec8e63`) | `pool_data_shrink.py`; subset-only drop; stop if &lt; N; confirm `shrinkNote` + completed disclosure; `test_pool_data_shrink.py` |
+| **J** packaging | **Done** (prior `6ad11dd`) | deb metadata + icons |
+
+**Real desktop still needed:** installed `.deb` smoke, D-Bus folder reveal, GNOME maximize + rail engine line legibility, full Master Bot hand-test.
+
+**Heads (2026-10-17 batch):** `4ec8e63` item 3 · `745b8d4` H · `4ece418` G/I · **`bdc9332` P0 NL pool (PyInstaller `symbol_pools` + confirm UX)** · **`ae72d0e` docs for P0 pool**.
+
+### Master Bot regression batch (2026-10-17, after `5d3a636`)
+
+| # | Topic | Status | Notes |
+| --- | --- | --- | --- |
+| 1 | Method library raw JSON / English PIT | **Fixed** | Root: `<p>{description}</p>` still emitted JSON body; `format_method_body_display` left `revision` tokens and `{violations}`. Now `method_purpose` + structured dimensions; list uses `revisionLabel`. |
+| 2 | Confirm card grid / duplicate pool | **Fixed** | `settings-row` 3-column grid; `universe_symbols` only `count · version_label`. |
+| 3 | 改一改 → question + input overlap | **Fixed** | `unlock_brief` appends `QUESTIONS[slot]`; dialogue scroll padding; vitest + `test_dialogue`. |
+| 4 | Completed modify label overlap | **Fixed** | `stacked-field` layout. |
+| 5 | Black square icon | **Fixed (provisional)** | `scripts/generate_app_icon.py` + `source-icon.svg`; `test_app_icons.py`. **Pending designer agent** for final brand. |
+| 6 | Black area below method library | **Fixed** | `html/body/#root` height + `method-detail` min-height. |
+| 7 | Window M copy + cutoff mismatch | **Fixed** | `window_copy.py` product strings; running `dataCutoff` = pinned `data_window_end` (not `last_coverage.end`). Card preview uses `ensure_runnable_universe` display-only. |
+| 8–9 | Usage 0 / extend hint | **No change** | As expected. |
+
+### Master Bot hand-test batch 2 (2026-10-17, `.deb` @ `ae72d0e`)
+
+| # | Topic | Status | Evidence |
+| --- | --- | --- | --- |
+| 1 | Window **M** single source (`disclosure_rounds_on_window` = max(per-research, `data_window_round_counts`)); completed header | **Done** | `data_window.py`, `trial_tracking_for_view`; `test_window_disclosure.py`, `test_cumulative_trials.py` |
+| 2 | Reverify round + method selectors + feedback | **Done** | `reverifyOptions` / `lastReverification`; `App.tsx` `reverify-panel` |
+| 3 | Export strategy pack blockers visible (Chinese) | **Done** | `display_names.export_blocker_messages` → `exportBlockerMessages` |
+| 4 | Confirm card layout / ticker flow / input overlap | **Done** | `confirm-run-layout` single column; `night.css` sticky form + grid settings |
+| 5 | Central display names + leak guard | **Done** | `display_names.py`; `test_desktop_view_repr_guard.py` internal-id scan |
+| 6 | Method usage = executed verifiers | **Done** | `record_verification_execution` in `loop.py`; `test_method_usage_execution.py` |
+| 7 | Remaining time 3h vs 2.98h | **Explained + consistent** | `time_display.py`: `0` effective → full budget `3 小时`; else `max−used` e.g. `2.98 小时`; `test_time_display.py` |
+| 8 | Completed pool / data range; extend hint | **Done** | `symbolSelection` on completed; `extend-research-hint` (extend only on `status=ended`) |
+| 9 | Fixed rail scroll; black blocks; dedupe pit line | **Done** | `night-shell` sticky rail; `methods-layout` min-height; completed `round-verdict` |
+| 10 | Running modify by design (paused only) + hint | **Done** | `running-modify-hint`; spec: modify UI only when `paused` |
+
+### Master Bot hand-test batch 3 (2026-10-17, after `8fd6538`)
+
+| # | Topic | Status | SHA / tests |
+| --- | --- | --- | --- |
+| **A** | Pillow undeclared → `test_app_icons` import fail in clean env; no pytest in CI | **Fixed** | `62fc754` + `python-tests.yml`; `test_app_icons.py`, workflow |
+| **B1** | Reverify step passes; round cards / export unchanged | **By design** | `55c5af5` — plan **(b)** `passed_for(method_set)` frozen; UI `lastReverification.userMessage` (`test_reverification_feedback.py`) |
+| **B2** | Round selector resets method to scorecard | **Fixed** | `55c5af5` — `reverify-ui.test.tsx` |
+| **B3** | Reverify loading state | **Fixed** | `55c5af5` — `重新验证中…`, disabled + `aria-busy` (`reverify-submit`) |
+| **B4** | Stale「已记下修改…」after confirm | **Fixed** | `55c5af5` — `finalize_modification_confirm_dialogue` (`test_modification_confirm_dialogue.py`) |
+| **B5** | Narrow modify input / placeholder | **Fixed** | `55c5af5` — `night.css` full-width + placeholder styling |
+| **B6** | Empty confirm-modification no hint | **Fixed** | `55c5af5` — `modify-empty-hint` in `App.tsx` |
+| **B7** | Completed header missing effective / remaining | **Fixed** | `55c5af5` — `effective` / `remaining` on completed view (`App.tsx`) |
+| **B8** | List `updatedAt` stale after run | **Fixed** | `55c5af5` — `loop.finish` sets `updated_at` (`test_list_updated_on_complete.py`) |
+| **B9** | Export path raw UUID filename | **Fixed** | `55c5af5` — `export_zip_filename` (`test_export_paths.py`); legacy paths still open |
+
+**Heads:** `62fc754` (batch A) · `55c5af5` (batch B) · CI fixes through `3b8e2c0`.
+
+### Master Bot addendum batch C (2026-10-17, with A/B on same head)
+
+| # | Topic | Status | Tests |
+| --- | --- | --- | --- |
+| **C1** | Pool name duplicated in confirm + completed row | **Fixed** | `test_symbol_selection_display.py` — `summaryLine` single formatter |
+| **C2** | Shrink line at 0 dropped | **Fixed** | `pool_shrink_disclosure(0, …)` → `""`; vitest `single-slot-confirm` |
+| **C3** | Effective `0.00h` vs remaining `3 小时` | **Fixed** | `test_time_display.py` — both `小时` |
+| **C4** | Draft settings symbol column / BRK-B break | **Fixed** | `universe_symbol_chips` + `draft-universe-chips.test.tsx` |
+| **C5** | Raw `0.666667` in stability detail | **Fixed** | `format_display_number` → `2/3`; `test_display_numbers.py` |
+| **C6** | Export UUID filename | **Fixed** (B9) | `test_export_paths.py` |
+| **C7** | First click after focus | **Not fixing** | No `mousedown`/`preventDefault` on buttons; 1s `fetchView` poll may refocus WebKit — likely host/xdotool; no reproducible in-app swallow |
+
+### Master Bot batch D (2026-10-17, after `036939b`)
+
+| # | Topic | Status | Tests |
+| --- | --- | --- | --- |
+| **1** | Effective time stuck at 0.00h | **Fixed (bug)** | Root: `TimeBudget.finish` only at mid-round; idle 1s polls while RUNNING not charged. Now finish+re-begin each `run_once` slice + shared budget on status transitions. `test_effective_time_budget.py` + running `effectiveTimeHint` |
+| **2** | Remaining `3 小时` vs `3.00 小时` + header wrap | **Fixed** | `format_remaining_display` always `.2f 小时`; `running-header` flex CSS |
+| **3** |「已开始第 N 版」not visible on running | **Fixed** | `versionOpenedNotice` banner; `version-opened-banner.test.tsx` |
+| **4** | Stale reverify after new version | **Fixed** | `_open_version` clears `reverifications`; `test_reverification_version_reset.py` |
+| **5** | Export stamp UTC vs Shanghai | **Fixed** | `export_paths` Asia/Shanghai; `test_export_zip_filename_uses_shanghai_wall_clock` |
+| **6** | Low-priority UI / first-click | **Not fixing** | Reverify flash ok; slot-edit offset / 2s methods load not reproduced in VM;「改一改」double-click likely WebKit focus (real mouse) |
+
+### Master Bot batch E (2026-10-17, after `e371a28`)
+
+| # | Topic | Status | Tests |
+| --- | --- | --- | --- |
+| **1** | Yahoo outage at confirm clears pool | **Fixed** | Empty/error frame → `DATA_SOURCE_UNAVAILABLE`（行情数据源暂时不可用…）；不 unlock universe；`test_confirm_transient_data.py`；`confirm-data-notice.test.tsx` |
+| **2** | E2E tests hit live Yahoo | **Fixed** | `tests/conftest.py` offline pool loader + socket guard；`309 passed` `-m not network` |
+
+**Genuine shrink (unchanged):** per-symbol missing bars still drop via `pool_data_shrink.py`; `POOL_DATA_SHRINK_TOO_FEW` still unlocks universe via `reopen_after_pool_failure` so user can adjust coverage/symbols.
+
+## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
+
+| Item | Implementation |
+| --- | --- |
+| Pool | `engine/research/symbol_pools/us_equity_large_cap_v1.json` (40 tickers, `generated_date`) |
+| Override | `Universe.user_symbols_override` + confirm card `overrideNote` |
+| Confirm card | `symbolSelection` payload: count, list version, expandable tickers, data start/end/cutoff |
+| Dialogue | Slot-context `interpret()`; examples in `prompts.py`; minutes/半小时; no「锁定」 |
+| Window M | `DataWindowKey` = version + data source + dates; `data_window_round_counts` table |
+
+## Additional P0 — chat draft empty `symbols` (2026-10-17)
+
+| # | Root cause (confirmed) | Fix | Tests |
+| --- | --- | --- | --- |
+| 1 | `intent._universe()` sets `symbols=()`; confirm had no guard | `ensure_runnable_universe()` at `confirm_run`; static `default_universe_symbols()` for US equity (`PROPOSAL_DATE=2026-10-17`, **pending product sign-off**); confirm view `settings.universe_symbols` | `test_universe_validation.py`, E2E |
+| 2 | `RoutingDataAdapter.load_daily(())` — `all(())` is True → CN/AkShare → empty frame | `EmptySymbolsError` (`DATA_SYMBOLS_EMPTY`) before routing | `test_gather_empty_symbols.py` |
+| 3 | Run loop surfaced raw `str(error)` (English assertion) | `classify_run_error` + `last_run_error_code` on research + `lastError.code` in running view | `test_run_errors.py`, E2E classified path |
+| 4 | Tauri `error_for_status()` dropped engine JSON body; modify while running opaque | `parse_engine_error_body`; `RUNNING_CANNOT_MODIFY`; UI hides modify when `status=running`; lifted paused modification state in `App` | `commands.rs` unit test, `App.test.tsx`, `api-bind.test.ts` |
+| 5 | `unlock_brief` cleared all five locks | Optional `slot`; `_set_slot` clears on explicit `None`; per-slot「改一改」| `test_dialogue.py`, `test_single_slot_unlock_confirm.py`, vitest |
+| 6 | Missing daily data expanded pool incorrectly | Pool-only auto-shrink at confirm; stop if &lt; `min_assets`; counts on confirm + conclusion | `test_pool_data_shrink.py` |
+
+**Default universe proposal (technical):** static US large-cap / broad ETF list (`SPY`, `QQQ`, `IWM`, `DIA`, `AAPL`, `MSFT`, `GOOGL`, `AMZN`, `NVDA`) in `engine/research/default_universe.py`. **Trade-offs:** static list is deterministic and offline-testable but drifts from index membership; live constituent fetch needs network, caching, and product rules for delistings. **Sign-off:** 产品小马 — list marked `pending product sign-off` until approved.
+
+**E2E:** `tests/test_draft_confirm_run_e2e.py` — `create_draft` → dialogue lock sequence (no hand-built brief) → `confirm_run` → `ResearchLoop.run_once` with `FakeBuilder`; asserts `SPY` in symbols and no `prices must be non-empty`.
+
+## 已知问题（本轮不修）
+
+| Issue | 事实与影响 |
+| --- | --- |
+| **Crossref 每轮请求** | 文献 crossref 每轮调用，易触发 HTTP 429。影响：运行中断或降级，与导航/UI 无关。 |
+| **Tauri 发行包端到端** | Linux VM：`cargo check`/`cargo test` + staged onedir layout；**未**运行 `tauri build` 安装包、**未**验证 macOS/Windows bundle、**未**开真实 Tauri 窗口端到端。 |
+| **(a) 对话关键词解析器** | `engine/dialogue/intent.py` `interpret`：thesis 需一条里带市场+资产；时间只认「N 小时」；锁定需「锁定」+槽位词同句；覆盖底线三项缺一不可。建议：按当前提问槽填值、答后自动锁定、系统提示示例、识别分钟/半小时。 |
+| **(b) 右侧研究设定只读** | 草稿/确认右侧 `Settings` 仅展示，不能在面板内直接编辑。 |
+| **(c) 对话底部被输入框遮挡** | **已收口**（batch 2 #4 sticky form + padding）；极端 WebKit 仍建议真机看一眼。 |
+| **(d)–(f) 方法库 / confirm / 布局** | **已收口**（batch 2 #4–#5、#9 + 早前 `745b8d4` / `4ece418`）；真机仍需确认最大化与 WebKit 对话框观感。 |
+| **(g) 新建研究不自动打开** | 列表新增一行但不导航到该研究。 |
+
+以上均非本轮的一行修复项；未为修已知问题扩大范围。
+
+## Open / not fixed in P0
+
+1. **Green `strategy_pack` on live gather** without PIT evidence dates — out of scope for honest path.
+2. **Tauri GUI / Night 7-screen manual walk** — re-smoke in real window after hash fix; vitest covers routing contract only.
+3. **经济确认 EvidenceRef 管线** — see 已知问题；需引擎在 `REQUEST_CONFIRM` 时写入可追溯引用，桌面 `resolveConfirm` 透传（若需要）。

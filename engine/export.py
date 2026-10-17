@@ -17,7 +17,12 @@ from engine.research.models import (
     RoundV2,
 )
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
-from engine.verifiers import VERIFIER_REVISIONS, PitVerifierResult, VerifierResult
+from engine.verifiers import (
+    PitVerifierResult,
+    VERIFIER_REVISIONS,
+    VerifierResult,
+    method_set_excluding_pit,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,12 +41,47 @@ def _find_pit_result(attempt: Attempt) -> VerifierResult | None:
     return None
 
 
-def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict[str, object]]:
-    """Export round history with B2/B3 trial counts and logic/impl split."""
-    return [
+def _round_history_with_trials(
+    research: Research,
+    rounds: list[RoundV2],
+) -> dict[str, object]:
+    """Export round history with B2/B3 trial counts, logic/impl split, and cumulative M."""
+    from engine.research.data_window import (
+        anchor_data_window_key,
+        cumulative_rounds_on_window,
+        data_window_key_from_round,
+        rounds_on_window_chronological,
+    )
+
+    anchor = anchor_data_window_key(research)
+    on_window = rounds_on_window_chronological(research)
+    cumulative_index = {
+        round_.round_id: index for index, (_, round_) in enumerate(on_window, start=1)
+    }
+    from engine.research.data_window import data_window_key_from_research
+
+    pinned = data_window_key_from_research(research)
+    return {
+        "data_window_key": anchor.serialize() if anchor else None,
+        "symbol_list_version": research.symbol_list_version,
+        "data_source_id": research.data_source_id,
+        "data_window_start": (
+            research.data_window_start.isoformat() if research.data_window_start else None
+        ),
+        "data_window_end": (
+            research.data_window_end.isoformat() if research.data_window_end else None
+        ),
+        "cumulative_rounds_on_window": cumulative_rounds_on_window(research),
+        "rounds": [
         {
             "round_id": round_.round_id,
             "number": round_.number,
+            "cumulative_round_on_window": cumulative_index.get(round_.round_id),
+            "data_window_key": (
+                data_window_key_from_round(round_, research).serialize()
+                if data_window_key_from_round(round_, research) is not None
+                else None
+            ),
             "logic_statement": {
                 "statement": round_.logic_statement.statement,
                 "changed_from_prior": round_.logic_statement.changed_from_prior,
@@ -60,7 +100,8 @@ def _round_history_with_trials(rounds: list[RoundV2]) -> list[dict[str, object]]
             },
         }
         for round_ in rounds
-    ]
+        ],
+    }
 
 
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
@@ -71,18 +112,29 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
         else None
     )
     pit_result = _find_pit_result(current_attempt) if current_attempt else None
+    current_round_id = (
+        research.versions[-1].rounds[-1].round_id
+        if research.versions and research.versions[-1].rounds
+        else None
+    )
+    method_set = ()
+    if current_attempt is not None and current_attempt.spec is not None:
+        method_set = method_set_excluding_pit(current_attempt.spec.method_set)
+    methods_passed = (
+        current_attempt is not None
+        and current_attempt.verification is not None
+        and current_attempt.verification.passed_for(method_set)
+    )
     checks = {
         "completed": research.status is ResearchStatus.COMPLETED,
-        "all_current_methods_passed": (
-            current_attempt is not None and current_attempt.verification.passed
-        ),
+        "all_current_methods_passed": methods_passed,
         "no_pending_confirm": research.pending_confirm is None,
         "all_reverifies_passed": all(
             reverification.passed
             for reverification in research.reverifications
-            if current_attempt is not None
-            and reverification.round_id
-            == research.versions[-1].rounds[-1].round_id
+            if current_round_id is not None
+            and reverification.round_id == current_round_id
+            and reverification.method_id != "pit.consistency"
         ),
         "pit_executed_and_passed": pit_result is not None and pit_result.passed,
     }
@@ -366,6 +418,15 @@ def build_strategy_pack(
                 "effective_seconds": research.effective_seconds,
             },
         )
+        all_rounds = [
+            round_
+            for version in research.versions
+            for round_ in version.rounds
+        ]
+        _json(
+            root / "history" / "rounds.json",
+            _round_history_with_trials(research, all_rounds),
+        )
         bundle_root = Path(
             getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
         )
@@ -424,12 +485,38 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
                 "export_eligible": research.export_eligible,
             },
         )
+        all_rounds = [round_ for version in research.versions for round_ in version.rounds]
+        from engine.research.data_window import (
+            cumulative_rounds_on_window,
+            data_window_key_from_round,
+            rounds_on_window_chronological,
+        )
+
+        cumulative_m = cumulative_rounds_on_window(research)
+        cumulative_index = {
+            round_.round_id: index
+            for index, (_, round_) in enumerate(
+                rounds_on_window_chronological(research),
+                start=1,
+            )
+        }
+        _json(
+            root / "history" / "rounds.json",
+            _round_history_with_trials(research, all_rounds),
+        )
         _json(
             root / "history" / "verification_attempts.json",
             [
                 {
                     "round_id": round_.round_id,
                     "attempt_id": round_.accepted_attempt.attempt_id,
+                    "data_window_key": (
+                        data_window_key_from_round(round_, research).serialize()
+                        if data_window_key_from_round(round_, research) is not None
+                        else None
+                    ),
+                    "cumulative_rounds_on_window": cumulative_m,
+                    "cumulative_round_on_window": cumulative_index.get(round_.round_id),
                     "verification": asdict(round_.accepted_attempt.verification),
                 }
                 for version in research.versions

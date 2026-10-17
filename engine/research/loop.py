@@ -17,6 +17,7 @@ from engine.research.models import (
     ConfirmKind,
     ConfirmRequest,
     CoverageSnapshot,
+    EvidenceRef,
     Research,
     ResearchAction,
     ResearchEvent,
@@ -25,12 +26,22 @@ from engine.research.models import (
     RoundDraft,
 )
 from engine.research.simulate import simulate_daily
+from engine.research.confirm_evidence import (
+    confirm_created_at_after_evidence,
+    evidence_refs_from_failed_attempt,
+)
+from engine.research.honest_stop import (
+    can_auto_continue_impl_iteration,
+    change_requires_user_confirm,
+    default_implementation_next_change,
+)
+from engine.research.run_errors import clear_run_errors
 from engine.research.specify import ModelProposal, ProposedChange, classify_change, specify
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.review.subagent import MAX_CONSECUTIVE_REVIEW_FAILURES
-from engine.strategy import MeanReversionStrategy
-from engine.verifiers import run_verifiers
+from engine.strategy import MeanReversionStrategy, StrategySpec
+from engine.verifiers import method_set_excluding_pit, run_verifiers
 
 if TYPE_CHECKING:
     from engine.review.subagent import ReviewerPort, ReviewGateOutcome
@@ -60,9 +71,18 @@ def run_review_gate(
     *,
     prior_failures: int = 0,
     on_attempt: Callable[[Attempt], None] | None = None,
+    prior_spec: StrategySpec | None = None,
 ) -> ReviewGateOutcome:
     from engine.review.subagent import run_review_gate as _run_review_gate
-    return _run_review_gate(draft, reviewer, retry_fn, now, prior_failures=prior_failures, on_attempt=on_attempt)
+    return _run_review_gate(
+        draft,
+        reviewer,
+        retry_fn,
+        now,
+        prior_failures=prior_failures,
+        on_attempt=on_attempt,
+        prior_spec=prior_spec,
+    )
 
 
 class RoundBuilder(Protocol):
@@ -143,7 +163,13 @@ class DefaultRoundBuilder:
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
-        verification = run_verifiers(simulation, spec)
+        missing_as_of = tuple(item.material_id for item in materials)
+        verification = run_verifiers(
+            simulation,
+            spec,
+            evidence_as_of=(),
+            missing_as_of_material_ids=missing_as_of,
+        )
         return RoundDraft(
             version_number=version.number,
             round_number=round_number,
@@ -183,6 +209,12 @@ class DefaultRoundBuilder:
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
+        missing_as_of: tuple[str, ...] = ()
+        if prior.attempt.evidence_paths:
+            missing_as_of = tuple(
+                json.loads(path.read_text(encoding="utf-8"))["material_id"]
+                for path in prior.attempt.evidence_paths
+            )
         return replace(
             prior,
             attempt=Attempt(
@@ -191,18 +223,19 @@ class DefaultRoundBuilder:
                 change_class=ChangeClass.PARAM,
                 spec=spec,
                 simulation=simulation,
-                verification=run_verifiers(simulation, spec),
+                verification=run_verifiers(
+                    simulation,
+                    spec,
+                    evidence_as_of=(),
+                    missing_as_of_material_ids=missing_as_of,
+                ),
                 data_snapshot_path=snapshot,
                 evidence_paths=prior.attempt.evidence_paths,
             ),
         )
 
     def next_change(self, accepted: Attempt) -> ProposedChange:
-        return ProposedChange(
-            field="lookback_days",
-            before=accepted.spec.lookback_days,
-            after=accepted.spec.lookback_days + 5,
-        )
+        return default_implementation_next_change(accepted)
 
 
 @dataclass(slots=True)
@@ -243,19 +276,32 @@ class ResearchLoop:
             expected_updated_at = snapshot.updated_at
 
         def finish(result: Research) -> Research:
+            if entry_running:
+                result = self.budget.finish(result)
+                if result.status is ResearchStatus.RUNNING:
+                    self.budget.begin(ResearchStatus.RUNNING)
             final_action = (
                 action if result.status is ResearchStatus.RUNNING else ResearchAction.IDLE
             )
-            result = replace(result, current_action=final_action)
+            result = clear_run_errors(
+                replace(
+                    result,
+                    current_action=final_action,
+                    updated_at=self.now(),
+                ),
+            )
             self.store.save(result, expected_updated_at)
             return result
+
+        entry_running = research.status is ResearchStatus.RUNNING
+        if entry_running:
+            self.budget.begin(ResearchStatus.RUNNING)
 
         previous_hook = None
         if isinstance(self.builder, DefaultRoundBuilder):
             previous_hook = self.builder.on_action
             self.builder.on_action = persist_action
         try:
-            self.budget.begin(research.status)
             version_number = research.current_version_number
             if version_number is None:
                 raise ValueError("running research must have a current version")
@@ -280,7 +326,7 @@ class ResearchLoop:
                         ResearchEvent.BUDGET_EXHAUSTED,
                         self.now(),
                     )
-                    return finish(self.budget.finish(ended))
+                    return finish(ended)
                 self.store.clear_review_attempts(
                     research.research_id,
                     version_number,
@@ -290,6 +336,10 @@ class ResearchLoop:
                 prior_failures = 0
             persist_action(ResearchAction.GATHER)
             draft = self.builder.build(research, prior_failures + 1)
+            version = research.versions[version_number - 1]
+            prior_spec = (
+                version.rounds[-1].accepted_attempt.spec if version.rounds else None
+            )
             outcome = run_review_gate(
                 draft,
                 self.reviewer,
@@ -303,6 +353,7 @@ class ResearchLoop:
                     attempt,
                     self.now(),
                 ),
+                prior_spec=prior_spec,
             )
             if outcome.successful_round is None:
                 if outcome.confirm_request is None:
@@ -324,7 +375,7 @@ class ResearchLoop:
                         self.now(),
                         outcome.confirm_request,
                     )
-                return finish(self.budget.finish(blocked))
+                return finish(blocked)
 
             version_index = version_number
             versions = list(research.versions)
@@ -339,8 +390,21 @@ class ResearchLoop:
                 consecutive_review_failures=0,
                 updated_at=self.now(),
             )
-            charged = self.budget.finish(running)
+            from engine.research.data_window import data_window_key_from_research
+
+            window_key = data_window_key_from_research(running)
+            if window_key is not None:
+                self.store.increment_window_round_count(window_key.serialize())
+            charged = running
             accepted = outcome.successful_round.accepted_attempt
+            from engine.research.methods import record_verification_execution
+
+            record_verification_execution(
+                self.store,
+                research.research_id,
+                version_number,
+                accepted.verification,
+            )
             floor = charged.brief.coverage_floor.value
             window_start, window_end = _coverage_window(
                 accepted.simulation,
@@ -381,7 +445,10 @@ class ResearchLoop:
                     return finish(result)
                 if not within_floor(observed, floor):
                     raise RuntimeError("below-floor coverage cannot complete or auto-pass")
-            if accepted.verification.passed:
+            method_set = method_set_excluding_pit(
+                charged.brief.round1_methods.value or accepted.spec.method_set
+            )
+            if accepted.verification.passed_for(method_set):
                 result = transition(charged, ResearchEvent.COMPLETE, self.now())
             elif (
                 charged.brief.max_effective_hours.value is not None
@@ -393,7 +460,19 @@ class ResearchLoop:
                 persist_action(ResearchAction.ITERATE)
                 change = self.builder.next_change(accepted)
                 change_class = classify_change(change)
-                if change_class in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE}:
+                if change_requires_user_confirm(change):
+                    why_change: tuple[EvidenceRef, ...] = ()
+                    created_at = self.now()
+                    if change_class is not ChangeClass.COVERAGE:
+                        recorded_at = outcome.successful_round.completed_at
+                        why_change = evidence_refs_from_failed_attempt(
+                            accepted,
+                            recorded_at=recorded_at,
+                        )
+                        created_at = confirm_created_at_after_evidence(
+                            why_change,
+                            self.now(),
+                        )
                     request = ConfirmRequest(
                         request_id=f"change-v{version_number}-r{round_number}",
                         kind=(
@@ -406,6 +485,8 @@ class ResearchLoop:
                         effect="确认后应用改动并开新版本",
                         change_class=change_class,
                         patch=((change.field, change.after),),
+                        why_change=why_change,
+                        created_at=created_at,
                     )
                     result = transition(
                         charged,
@@ -413,8 +494,10 @@ class ResearchLoop:
                         self.now(),
                         request,
                     )
-                else:
+                elif can_auto_continue_impl_iteration(charged, change):
                     result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
+                else:
+                    result = transition(charged, ResearchEvent.COMPLETE, self.now())
             return finish(result)
         finally:
             if isinstance(self.builder, DefaultRoundBuilder):

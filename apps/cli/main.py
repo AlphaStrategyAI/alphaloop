@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Protocol, TextIO
 
 from engine.research.runtime import (
+    EnginePaths,
     OwnerKind,
-    RuntimePaths,
     read_live_owner,
 )
 from engine.research.store import SQLiteStore
@@ -34,7 +34,7 @@ class Launcher(Protocol):
 
 
 class DetachedLauncher:
-    def __init__(self, paths: RuntimePaths) -> None:
+    def __init__(self, paths: EnginePaths) -> None:
         self.paths = paths
 
     @staticmethod
@@ -46,8 +46,8 @@ class DetachedLauncher:
         return [sys.executable, "-m", "engine.main"]
 
     def start(self, owner: str) -> None:
-        self.paths.root.mkdir(parents=True, exist_ok=True)
-        log = open(self.paths.engine_log, "ab", buffering=0)  # noqa: SIM115
+        self.paths.runtime.root.mkdir(parents=True, exist_ok=True)
+        log = open(self.paths.data.engine_log, "ab", buffering=0)  # noqa: SIM115
         kwargs: dict[str, object] = {
             "stdin": subprocess.DEVNULL,
             "stdout": log,
@@ -66,7 +66,7 @@ class DetachedLauncher:
         log.close()
         deadline = time.monotonic() + 10.0
         while time.monotonic() < deadline:
-            record = read_live_owner(self.paths)
+            record = read_live_owner(self.paths.runtime)
             if (
                 record is not None
                 and record.phase == "ready"
@@ -88,11 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def get_status(paths: RuntimePaths) -> EngineStatus:
-    owner = read_live_owner(paths)
+def get_status(paths: EnginePaths) -> EngineStatus:
+    owner = read_live_owner(paths.runtime)
     if owner is None:
         return EngineStatus(False, None, None, False, False)
-    store = SQLiteStore(paths.database_file)
+    store = SQLiteStore(paths.data.database_file)
     running, awaiting = store.status_flags()
     return EngineStatus(True, owner.owner, owner.pid, running, awaiting)
 
@@ -103,12 +103,12 @@ def _public(status: EngineStatus) -> dict[str, object]:
 
 def run(
     argv: Sequence[str],
-    paths: RuntimePaths,
+    paths: EnginePaths,
     launcher: Launcher,
     output: TextIO,
 ) -> int:
     command = build_parser().parse_args(argv).command
-    if command == "start" and read_live_owner(paths) is None:
+    if command == "start" and read_live_owner(paths.runtime) is None:
         launcher.start("cli")
     status = get_status(paths)
     output.write(json.dumps(_public(status), sort_keys=True) + "\n")
@@ -116,7 +116,7 @@ def run(
 
 
 def main() -> int:
-    paths = RuntimePaths.default()
+    paths = EnginePaths.default()
     return run(sys.argv[1:], paths, DetachedLauncher(paths), sys.stdout)
 
 

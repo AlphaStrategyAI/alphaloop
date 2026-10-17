@@ -1,0 +1,72 @@
+name: desktop-release-macos
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main, "cursor/**"]
+  workflow_dispatch:
+
+jobs:
+  build-macos-bundle:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build engine sidecar (PyInstaller onedir)
+        run: bash scripts/build_sidecar.sh
+
+      - name: Stage engine for Tauri
+        run: |
+          python3 scripts/stage_sidecar.py \
+            --target macos \
+            --source dist/alphaloop-engine \
+            --tauri-root apps/desktop/src-tauri
+          python3 scripts/verify_engine_resource_layout.py \
+            --staged apps/desktop/src-tauri/resources/engine/alphaloop-engine
+
+      - name: Build Tauri desktop bundle
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run tauri -- build
+
+      - name: Package .app zip and DMG fallback
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          OUT="release-artifacts/macos-${SHORT_SHA}"
+          mkdir -p "$OUT"
+          APP=$(find apps/desktop/src-tauri/target/release/bundle/macos -name '*.app' -maxdepth 1 | head -1)
+          if [[ -z "$APP" ]]; then
+            find apps/desktop/src-tauri/target/release/bundle -maxdepth 4 -type d -name '*.app' || true
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT/alphaloop-macos-${SHORT_SHA}.zip"
+          DMG=$(find apps/desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' -maxdepth 1 2>/dev/null | head -1 || true)
+          if [[ -n "$DMG" && -f "$DMG" ]]; then
+            cp "$DMG" "$OUT/"
+          else
+            hdiutil create -volname alphaloop -srcfolder "$APP" -ov -format UDZO \
+              "$OUT/alphaloop-macos-${SHORT_SHA}.dmg"
+          fi
+          ls -la "$OUT"
+
+      - name: Upload macOS bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphaloop-desktop-macos-${{ github.sha }}
+          path: release-artifacts/**
+          if-no-files-found: error

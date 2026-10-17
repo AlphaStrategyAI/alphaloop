@@ -69,3 +69,25 @@ def test_backtest_uses_previous_day_signal_without_lookahead() -> None:
 
 def test_to_executable_is_part_of_the_strategy_contract() -> None:
     assert callable(strategy().to_executable)
+
+
+def test_single_symbol_universe_uses_time_series_zscore() -> None:
+    index = pd.date_range("2026-01-01", periods=30, tz=UTC)
+    wave = [10.0, 9.0, 8.5, 9.5, 10.5, 11.0, 10.0, 9.0, 8.8, 9.2] * 3
+    prices = pd.DataFrame({"SPY": wave}, index=index)
+    universe = Universe(Market.US, AssetClass.EQUITY, AssetClass.EQUITY, ("SPY",))
+    spec = StrategySpec(
+        id="spy-only",
+        thesis_locked="time-series mean reversion",
+        universe=universe,
+        frequency="1d",
+        side="long_only",
+        method_set=(),
+        model_family="mean_reversion",
+        lookback_days=5,
+        entry_z=0.5,
+    )
+    signals = MeanReversionStrategy(spec).generate_signals(
+        MarketPanel(prices, datetime(2026, 1, 30, tzinfo=UTC))
+    )
+    assert 1.0 in set(signals["SPY"].unique())

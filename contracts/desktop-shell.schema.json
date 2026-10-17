@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphaloop.local/contracts/desktop-shell.schema.json",
+  "title": "DesktopShellCommands",
+  "description": "Tauri shell commands (not engine HTTP); kept in sync with commands.rs invoke handlers.",
+  "type": "object",
+  "properties": {
+    "engine_sidecar_state": {
+      "type": "object",
+      "required": ["phase", "restartCount", "maxRestarts", "message"],
+      "properties": {
+        "phase": {"enum": ["running", "restarting", "stopped"]},
+        "restartCount": {"type": "integer", "minimum": 0},
+        "maxRestarts": {"type": "integer", "minimum": 1},
+        "message": {"type": "string"}
+      }
+    },
+    "restart_engine_sidecar": {
+      "type": "object",
+      "properties": {"ok": {"const": true}}
+    }
+  }
+}

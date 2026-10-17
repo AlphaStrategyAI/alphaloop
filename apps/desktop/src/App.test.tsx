@@ -21,10 +21,12 @@ const api: DesktopApi = {
   extendResearch: vi.fn(async () => undefined),
   deleteResearch: vi.fn(async () => undefined),
   resolveConfirm: vi.fn(async (_researchId: string, _decision: string, _whoPays?: string) => undefined),
-  exportArtifact: vi.fn(async () => undefined),
+  exportArtifact: vi.fn(async () => "/tmp/export.zip"),
+  revealExportInFolder: vi.fn(async () => undefined),
   reverify: vi.fn(async () => undefined),
   reviseMethod: vi.fn(async () => undefined),
   createMethod: vi.fn(async () => undefined),
+  continueIterate: vi.fn(async () => undefined),
 };
 
 const settings = {
@@ -54,8 +56,33 @@ const views: DesktopView[] = [
       {id: "r-end", title: "转债估值修复", status: "ended", universeLabel: "A股 · 债券"},
     ],
   },
-  {kind: "draft", researchId: "r-1", messages: ["我想研究美股低波动回归"], settings},
-  {kind: "confirm_run", researchId: "r-1", settings},
+  {
+    kind: "draft",
+    researchId: "r-1",
+    dialogue: [
+      {role: "user", text: "我想研究美股低波动回归"},
+      {role: "assistant", text: "我想研究美股低波动回归"},
+    ],
+    settings,
+  },
+  {
+    kind: "confirm_run",
+    researchId: "r-1",
+    dialogue: [{role: "user", text: "美股股票的均值回归"}, {role: "assistant", text: "最多允许多少有效研究时间？"}],
+    settings,
+    symbolSelection: {
+      count: 40,
+      listName: "美股大市值",
+      listVersion: "us_equity_large_cap_v1",
+      symbols: ["SPY", "QQQ"],
+      source: "default_pool",
+      isDefaultPool: true,
+      dataStart: "2016-01-01",
+      dataEnd: "2026-10-17",
+      dataCutoff: "2026-10-17",
+      dataSource: "yahoo_daily",
+    },
+  },
   {
     kind: "running",
     researchId: "r-1",
@@ -116,7 +143,23 @@ const views: DesktopView[] = [
   },
 ];
 
+const REPR_LIKE = /\w+\(\w+=/;
+
+function collectStrings(value: unknown, out: string[] = []): string[] {
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) value.forEach((item) => collectStrings(item, out));
+  else if (value && typeof value === "object")
+    Object.values(value).forEach((item) => collectStrings(item, out));
+  return out;
+}
+
 describe("Night desktop contract", () => {
+  it.each(views)("view payload $kind has no Python repr strings", (view) => {
+    for (const text of collectStrings(view)) {
+      expect(REPR_LIKE.test(text)).toBe(false);
+    }
+  });
+
   it.each(views)("renders the $kind Figma view in one fixed shell", (view) => {
     render(<App api={api} initialView={view} />);
     expect(screen.getByTestId("night-shell")).toHaveAttribute("data-view", view.kind);
@@ -131,17 +174,33 @@ describe("Night desktop contract", () => {
     expect(screen.getAllByTestId("research-row")).toHaveLength(5);
   });
 
+  it("shows 确认开跑 on the list when status is confirm_run", () => {
+    const listView: DesktopView = {
+      kind: "research_list",
+      rows: [
+        {
+          id: "r-confirm",
+          title: "美股低波动回归",
+          status: "confirm_run",
+          universeLabel: "美股 · 股票",
+        },
+      ],
+    };
+    render(<App api={api} initialView={listView} />);
+    expect(screen.getByText("确认开跑")).toBeInTheDocument();
+    expect(screen.queryByText("草稿")).not.toBeInTheDocument();
+  });
+
   it("lets the awaiting primary card enter and delete like ordinary rows", () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<App api={api} initialView={views[0]} />);
     const card = screen.getAllByRole("article")[0];
     expect(card.querySelector('a[href="#/research/r-wait"]')).not.toBeNull();
     const enter = screen.getAllByRole("link", {name: "进入"})[0];
     expect(enter).toHaveAttribute("href", "#/research/r-wait");
     fireEvent.click(card.querySelectorAll("button")[0]);
-    expect(confirm).toHaveBeenCalled();
+    const dialog = screen.getByTestId("in-app-confirm");
+    fireEvent.click(dialog.querySelector(".cyan-button")!);
     expect(api.deleteResearch).toHaveBeenCalledWith("r-wait");
-    confirm.mockRestore();
   });
 
   it("titles coverage awaiting cards differently from economic ones", () => {
@@ -193,16 +252,36 @@ describe("Night desktop contract", () => {
 
   it("shows exactly five read-only setting slots in draft", () => {
     render(<App api={api} initialView={views[1]} />);
-    expect(screen.getAllByTestId("brief-slot")).toHaveLength(5);
+    expect(screen.getAllByTestId(/^brief-slot-/)).toHaveLength(5);
     expect(screen.getByPlaceholderText("把方向说清楚，不用填表。")).toBeInTheDocument();
   });
 
 
-  it("再改改 calls unlockBrief instead of a dead hash link", () => {
+  it("改一改 on a slot calls unlockBrief with that slot", () => {
     render(<ConfirmRunCard api={api} view={views[2] as Extract<DesktopView, {kind: "confirm_run"}>} />);
-    fireEvent.click(screen.getByRole("button", {name: "再改改"}));
-    expect(api.unlockBrief).toHaveBeenCalledWith("r-1");
-    expect(screen.queryByRole("link", {name: "再改改"})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("edit-slot-universe"));
+    expect(api.unlockBrief).toHaveBeenCalledWith("r-1", "universe");
+  });
+
+  it("hides confirm modification while research is running", () => {
+    render(<App api={api} initialView={views[3]} />);
+    expect(screen.queryByTestId("confirm-modification-button")).not.toBeInTheDocument();
+  });
+
+  it("keeps paused modification text across view refreshes", () => {
+    const running = views[3] as Extract<DesktopView, {kind: "running"}>;
+    const paused: Extract<DesktopView, {kind: "running"}> = {...running, status: "paused"};
+    const {rerender} = render(<App api={api} initialView={paused} />);
+    fireEvent.change(screen.getByTestId("paused-modification-input"), {
+      target: {value: "只改时间到 8 小时"},
+    });
+    rerender(
+      <App
+        api={api}
+        initialView={{...paused, effective: "4.00h", version: 3}}
+      />,
+    );
+    expect(screen.getByTestId("paused-modification-input")).toHaveValue("只改时间到 8 小时");
   });
 
   it("uses two distinct non-modal confirmation cards", () => {
@@ -218,7 +297,7 @@ describe("Night desktop contract", () => {
     fireEvent.click(screen.getByRole("button", {name: "同意，开新的一版"}));
     fireEvent.click(screen.getByRole("button", {name: "不同意，维持原逻辑继续"}));
     fireEvent.click(screen.getByRole("button", {name: "暂停，我自己改"}));
-    expect(api.resolveConfirm).toHaveBeenNthCalledWith(1, "r-1", "approve_new_version", undefined);
+    expect(api.resolveConfirm).toHaveBeenNthCalledWith(1, "r-1", "approve_new_version");
     expect(api.resolveConfirm).toHaveBeenNthCalledWith(2, "r-1", "reject_keep_logic");
     expect(api.resolveConfirm).toHaveBeenNthCalledWith(3, "r-1", "pause_and_edit");
   });
@@ -242,12 +321,55 @@ describe("Night desktop contract", () => {
     expect(routeFor(views[6])).toBe("#/methods/overfit.walk");
   });
 
-  it("shows research list with universe and timestamps (filters removed per 小迪)", () => {
+  it("shows research list with universe and formatted local timestamps", () => {
     const view = views[0];
     render(<App api={api} initialView={view} />);
     expect(screen.getByText("美股 · 股票")).toBeInTheDocument();
     expect(screen.getByText("美债收益率曲线")).toBeInTheDocument();
     expect(screen.getByText("沪深300波动收缩")).toBeInTheDocument();
+    expect(screen.getByText(/20:00/)).toBeInTheDocument();
+  });
+
+  it("shows readable Chinese settings on confirm-run (not Python repr)", () => {
+    render(<ConfirmRunCard api={api} view={views[2] as Extract<DesktopView, {kind: "confirm_run"}>} />);
+    const slots = screen.getAllByTestId(/^brief-slot-/);
+    const universe = slots.find((el) => el.textContent?.includes("资产类别"));
+    const coverage = slots.find((el) => el.textContent?.includes("最低数据覆盖"));
+    expect(universe?.textContent).toContain("美股 · 股票");
+    expect(universe?.textContent).not.toMatch(/Universe\(/);
+    expect(coverage?.textContent).toContain("至少");
+    expect(coverage?.textContent).not.toMatch(/CoverageFloor\(/);
+  });
+
+  it("renders duplicate dialogue lines with distinct keys", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "draft",
+          researchId: "r-dup",
+          dialogue: [
+            {role: "user", text: "重复"},
+            {role: "assistant", text: "重复"},
+          ],
+          settings,
+        }}
+      />,
+    );
+    expect(screen.getAllByTestId("dialogue-turn")).toHaveLength(2);
+  });
+
+  it("renders honestStopHint on the running screen", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          ...views[3],
+          honestStopHint: "第 2/5 轮验证未通过，在实现层预算内自动迭代中。",
+        } as Extract<DesktopView, {kind: "running"}>}
+      />,
+    );
+    expect(screen.getByTestId("honest-stop-hint-running")).toHaveTextContent("第 2/5 轮");
   });
 
   it("shows overturned prior exports on a completed research that failed reverify", () => {
@@ -334,6 +456,71 @@ describe("Night desktop contract", () => {
     );
     expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeEnabled();
+  });
+
+  it("escalates continue iterate when cumulative rounds exceed threshold", () => {
+    const continueIterate = vi.fn(async () => undefined);
+    render(
+      <App
+        api={{...api, continueIterate}}
+        initialView={{
+          kind: "completed",
+          researchId: "r-high",
+          status: "completed",
+          title: "SPY",
+          cumulativeRoundsOnWindow: 20,
+          highSuspicionRoundThreshold: 20,
+          canContinueIterate: true,
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: false, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: false},
+          currentAction: "idle",
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("continue-iterate"));
+    expect(screen.getByTestId("in-app-confirm")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "取消"}));
+    expect(continueIterate).not.toHaveBeenCalled();
+  });
+
+  it("shows honest-stop hint and continue iterate when methods failed (P0 transitional)", () => {
+    const continueIterate = vi.fn(async () => undefined);
+    render(
+      <App
+        api={{...api, continueIterate}}
+        initialView={{
+          kind: "completed",
+          researchId: "r-honest",
+          status: "completed",
+          title: "SPY 回归",
+          resultHeadline: "研究已结束，验证未通过",
+          subtitle: "只能导出 research_record。未通过：scorecard.market",
+          honestStopHint: "实现层迭代预算已用尽（5/5 轮）。验证仍未通过；只能导出 research_record。",
+          trialBudget: {used: 5, budget: 5, remaining: 0},
+          budgetExhausted: true,
+          failedVerifierIds: [
+            "市场计分卡 (scorecard.market)",
+            "时点一致性 (pit.consistency)",
+          ],
+          canContinueIterate: true,
+          selectedRoundId: "round-1",
+          selectedMethodId: "overfit.walk",
+          eligibility: {allMethodsPassed: false, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: false},
+          currentAction: "idle",
+        }}
+      />,
+    );
+    expect(screen.getByText(/预算已用尽/)).toBeInTheDocument();
+    expect(screen.getByText(/未通过门禁：市场计分卡 \(scorecard\.market\)、时点一致性 \(pit\.consistency\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("continue-iterate"));
+    const dialog = screen.getByTestId("in-app-confirm");
+    fireEvent.click(dialog.querySelector(".cyan-button")!);
+    expect(continueIterate).toHaveBeenCalledWith("r-honest", {
+      userConfirmed: true,
+      highSuspicionAcknowledged: false,
+    });
+    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
   });
 
   it("shows four eligibility gates including PIT and disables export when PIT fails (B1)", () => {

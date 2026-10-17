@@ -64,7 +64,7 @@ class MockStore:
     def __init__(self, existing_ids: set[str]) -> None:
         self._existing = existing_ids
 
-    def get_attempt(self, record_id: str) -> dict | None:
+    def get_attempt(self, record_id: str, *, research_id: str | None = None) -> dict | None:
         return {"id": record_id} if record_id in self._existing else None
 
     def get_verification_report(self, record_id: str) -> dict | None:
@@ -90,7 +90,7 @@ def test_assert_preconfirm_evidence_passes_for_valid_refs() -> None:
         ),
         created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
-    assert_preconfirm_evidence(request, store)
+    assert_preconfirm_evidence(request, store, "r-1")
 
 
 def test_assert_preconfirm_evidence_rejects_missing_ref() -> None:
@@ -107,7 +107,7 @@ def test_assert_preconfirm_evidence_rejects_missing_ref() -> None:
         created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
     with pytest.raises(InvalidEvidenceRefError, match="not found"):
-        assert_preconfirm_evidence(request, store)
+        assert_preconfirm_evidence(request, store, "r-1")
 
 
 def test_assert_preconfirm_evidence_rejects_future_ref() -> None:
@@ -124,7 +124,7 @@ def test_assert_preconfirm_evidence_rejects_future_ref() -> None:
         created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
     with pytest.raises(InvalidEvidenceRefError, match="not before"):
-        assert_preconfirm_evidence(request, store)
+        assert_preconfirm_evidence(request, store, "r-1")
 
 
 def test_assert_preconfirm_evidence_rejects_same_time_ref() -> None:
@@ -143,7 +143,7 @@ def test_assert_preconfirm_evidence_rejects_same_time_ref() -> None:
         created_at=same_time,
     )
     with pytest.raises(InvalidEvidenceRefError, match="not before"):
-        assert_preconfirm_evidence(request, store)
+        assert_preconfirm_evidence(request, store, "r-1")
 
 
 def test_assert_preconfirm_evidence_requires_created_at() -> None:
@@ -161,7 +161,7 @@ def test_assert_preconfirm_evidence_requires_created_at() -> None:
         created_at=None,
     )
     with pytest.raises(InvalidEvidenceRefError, match="must have created_at"):
-        assert_preconfirm_evidence(request, store)
+        assert_preconfirm_evidence(request, store, "r-1")
 
 
 def test_confirm_request_who_pays_optional() -> None:
@@ -203,7 +203,7 @@ def test_empty_why_change_rejects_validation() -> None:
         created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
     with pytest.raises(InvalidEvidenceRefError, match="at least one EvidenceRef"):
-        assert_preconfirm_evidence(request, store)
+        assert_preconfirm_evidence(request, store, "r-1")
 
 
 def test_reason_only_without_evidence_rejects() -> None:
@@ -219,7 +219,7 @@ def test_reason_only_without_evidence_rejects() -> None:
         created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
     with pytest.raises(InvalidEvidenceRefError, match="free-text reason does not substitute"):
-        assert_preconfirm_evidence(request, store)
+        assert_preconfirm_evidence(request, store, "r-1")
 
 
 def test_one_valid_evidence_ref_passes() -> None:
@@ -236,4 +236,4 @@ def test_one_valid_evidence_ref_passes() -> None:
         ),
         created_at=datetime(2026, 9, 15, 12, 0, tzinfo=UTC),
     )
-    assert_preconfirm_evidence(request, store)
+    assert_preconfirm_evidence(request, store, "r-1")

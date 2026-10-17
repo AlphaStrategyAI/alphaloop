@@ -3,7 +3,13 @@ use std::sync::{Arc, Mutex};
 use reqwest::Client;
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
+
+use crate::engine_paths;
+use crate::sidecar::EngineSupervisor;
+use crate::sidecar_runtime::SidecarRuntime;
+use crate::start_desktop_sidecar;
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_opener::OpenerExt;
 
 #[derive(Clone)]
 struct Connection {
@@ -29,6 +35,20 @@ impl EngineConnection {
         Ok(())
     }
 
+    pub fn clear(&self) {
+        if let Ok(mut connection) = self.connection.lock() {
+            *connection = None;
+        }
+    }
+
+    #[cfg(test)]
+    fn is_configured(&self) -> bool {
+        self.connection
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
+    }
+
     async fn post(&self, request: Value) -> Result<Value, String> {
         let connection = self
             .connection
@@ -36,19 +56,32 @@ impl EngineConnection {
             .map_err(|_| "engine connection lock poisoned")?
             .clone()
             .ok_or("engine is not ready")?;
-        Client::new()
+        let response = Client::new()
             .post(format!("{}/commands", connection.endpoint))
             .bearer_auth(connection.auth_token)
             .json(&request)
             .send()
             .await
-            .map_err(|error| error.to_string())?
-            .error_for_status()
-            .map_err(|error| error.to_string())?
-            .json()
+            .map_err(|error| error.to_string())?;
+        let status = response.status();
+        let body = response
+            .text()
             .await
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        if !status.is_success() {
+            return Err(parse_engine_error_body(&body));
+        }
+        serde_json::from_str(&body).map_err(|error| error.to_string())
     }
+}
+
+fn parse_engine_error_body(body: &str) -> String {
+    if let Ok(payload) = serde_json::from_str::<Value>(body) {
+        if let Some(message) = payload.get("error").and_then(|value| value.as_str()) {
+            return message.to_string();
+        }
+    }
+    body.to_string()
 }
 
 fn notification_title(kind: &str) -> Option<&'static str> {
@@ -131,13 +164,18 @@ pub async fn confirm_run(
 #[tauri::command]
 pub async fn unlock_brief(
     research_id: String,
+    slot: Option<String>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
+    let mut request = json!({"type": "unlock_brief", "research_id": research_id});
+    if let Some(slot) = slot {
+        request["slot"] = json!(slot);
+    }
     mutate(
         &app,
         &connection,
-        json!({"type": "unlock_brief", "research_id": research_id}),
+        request,
     )
     .await
     .map(|_| ())
@@ -205,6 +243,25 @@ pub async fn confirm_modification(
 }
 
 #[tauri::command]
+pub async fn continue_iterate(
+    research_id: String,
+    user_confirmed: bool,
+    high_suspicion_acknowledged: Option<bool>,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    let mut body = json!({
+        "type": "continue_iterate",
+        "research_id": research_id,
+        "user_confirmed": user_confirmed
+    });
+    if let Some(value) = high_suspicion_acknowledged {
+        body["high_suspicion_acknowledged"] = json!(value);
+    }
+    mutate(&app, &connection, body).await.map(|_| ())
+}
+
+#[tauri::command]
 pub async fn extend_research(
     research_id: String,
     hours: f64,
@@ -243,20 +300,19 @@ pub async fn delete_research(
 pub async fn resolve_confirm(
     research_id: String,
     decision: String,
+    who_pays: Option<String>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    mutate(
-        &app,
-        &connection,
-        json!({
-            "type": "resolve_confirm",
-            "research_id": research_id,
-            "decision": decision
-        }),
-    )
-    .await
-    .map(|_| ())
+    let mut body = json!({
+        "type": "resolve_confirm",
+        "research_id": research_id,
+        "decision": decision
+    });
+    if let Some(value) = who_pays.filter(|item| !item.is_empty()) {
+        body["who_pays"] = json!(value);
+    }
+    mutate(&app, &connection, body).await.map(|_| ())
 }
 
 #[tauri::command]
@@ -265,14 +321,30 @@ pub async fn export_artifact(
     kind: String,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
-) -> Result<(), String> {
-    mutate(
+) -> Result<String, String> {
+    let payload = mutate(
         &app,
         &connection,
         json!({"type": "export_artifact", "research_id": research_id, "kind": kind}),
     )
-    .await
-    .map(|_| ())
+    .await?;
+    payload["path"]
+        .as_str()
+        .map(str::to_owned)
+        .ok_or("export_artifact response omitted path".into())
+}
+
+#[tauri::command]
+pub fn reveal_export_in_folder(path: String, app: AppHandle) -> Result<(), String> {
+    if app.opener().reveal_item_in_dir(&path).is_ok() {
+        return Ok(());
+    }
+    let parent = std::path::Path::new(&path)
+        .parent()
+        .ok_or_else(|| "无法打开文件夹：路径无效".to_string())?;
+    app.opener()
+        .open_path(parent.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|error| format!("无法打开文件夹：{}", error))
 }
 
 #[tauri::command]
@@ -332,9 +404,44 @@ pub async fn create_method(
         .map(|_| ())
 }
 
+#[tauri::command]
+pub fn engine_sidecar_state(runtime: State<'_, Arc<SidecarRuntime>>) -> Result<Value, String> {
+    let ui = runtime.ui.lock().map_err(|_| "sidecar ui lock poisoned")?;
+    let phase = match ui.phase {
+        crate::sidecar_policy::SidecarUiPhase::Running => "running",
+        crate::sidecar_policy::SidecarUiPhase::Restarting => "restarting",
+        crate::sidecar_policy::SidecarUiPhase::Stopped => "stopped",
+    };
+    Ok(json!({
+        "phase": phase,
+        "restartCount": ui.restart_count,
+        "maxRestarts": ui.max_restarts,
+        "message": ui.message,
+    }))
+}
+
+#[tauri::command]
+pub fn restart_engine_sidecar(
+    app: AppHandle,
+    runtime: State<'_, Arc<SidecarRuntime>>,
+    supervisor: State<'_, Arc<EngineSupervisor>>,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    runtime.prepare_user_restart();
+    supervisor.quit()?;
+    engine_paths::clear_owner_file()?;
+    connection.clear();
+    start_desktop_sidecar(
+        app,
+        supervisor.inner().clone(),
+        connection.inner().clone(),
+        runtime.inner().clone(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{notification_title, notify_kinds};
+    use super::{EngineConnection, notification_title, notify_kinds, parse_engine_error_body};
 
     #[test]
     fn notify_titles_cover_only_awaiting_and_terminal_states() {
@@ -347,6 +454,25 @@ mod tests {
         assert_eq!(notification_title("paused"), None);
         assert_eq!(notification_title("running"), None);
         assert_eq!(notification_title("draft"), None);
+    }
+
+    #[test]
+    fn engine_connection_clear_drops_stored_endpoint() {
+        let conn = EngineConnection::default();
+        conn.set("http://127.0.0.1:9".into(), "token".into())
+            .expect("set");
+        assert!(conn.is_configured());
+        conn.clear();
+        assert!(!conn.is_configured());
+    }
+
+    #[test]
+    fn parse_engine_error_body_uses_json_error_field() {
+        let body = r#"{"error":"请先暂停","code":"RUNNING_CANNOT_MODIFY"}"#;
+        assert_eq!(
+            parse_engine_error_body(body),
+            "请先暂停"
+        );
     }
 
     #[test]

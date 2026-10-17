@@ -82,6 +82,7 @@ def test_confirm_run_is_a_draft_view_and_opens_version_one() -> None:
         (ResearchStatus.AWAITING_CONFIRM, ResearchEvent.CONFIRM_REJECT, ResearchStatus.RUNNING),
         (ResearchStatus.AWAITING_CONFIRM, ResearchEvent.CONFIRM_PAUSE, ResearchStatus.PAUSED),
         (ResearchStatus.PAUSED, ResearchEvent.RESUME, ResearchStatus.RUNNING),
+        (ResearchStatus.COMPLETED, ResearchEvent.CONTINUE_ITERATE, ResearchStatus.RUNNING),
         (ResearchStatus.COMPLETED, ResearchEvent.REVERIFY_PASS, ResearchStatus.COMPLETED),
         (ResearchStatus.COMPLETED, ResearchEvent.REVERIFY_FAIL, ResearchStatus.COMPLETED),
         (ResearchStatus.PAUSED, ResearchEvent.MODIFY_CONFIRM, ResearchStatus.RUNNING),
@@ -212,7 +213,7 @@ class MockEvidenceStore:
     def __init__(self, existing_ids: set[str]) -> None:
         self._existing = existing_ids
 
-    def get_attempt(self, record_id: str) -> dict | None:
+    def get_attempt(self, record_id: str, *, research_id: str | None = None) -> dict | None:
         return {"id": record_id} if record_id in self._existing else None
 
     def get_verification_report(self, record_id: str) -> dict | None:

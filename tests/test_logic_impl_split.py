@@ -1,4 +1,5 @@
 """Tests for B2/B3: Trial counters and logic/implementation split."""
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from engine.research.models import (
@@ -126,7 +127,23 @@ def test_round_history_includes_trial_counts() -> None:
         implementation_delta=ImplementationDelta(),
         trial_counters=TrialCounters(15, 3, 2),
     )
-    history = _round_history_with_trials([round_])
+    from engine.research.models import Version, new_research
+
+    research = replace(
+        new_research("r-hist", now),
+        versions=(
+            Version(
+                "r-hist-v1",
+                1,
+                new_research("r-hist", now).brief,
+                (round_,),
+                now,
+                "confirm_run",
+            ),
+        ),
+        current_version_number=1,
+    )
+    history = _round_history_with_trials(research, [round_])["rounds"]
     assert history[0]["trial_counters"]["candidates_evaluated"] == 15
     assert history[0]["trial_counters"]["candidates_passed"] == 3
     assert history[0]["trial_counters"]["conclusion_attempt_number"] == 2
@@ -161,7 +178,14 @@ def test_round_history_includes_logic_statement() -> None:
         ),
         trial_counters=TrialCounters(10, 2, 1),
     )
-    history = _round_history_with_trials([round_])
+    from engine.research.models import Version, new_research
+
+    research = replace(
+        new_research("r-hist2", now),
+        versions=(Version("r-hist2-v1", 1, new_research("r-hist2", now).brief, (round_,), now, "confirm_run"),),
+        current_version_number=1,
+    )
+    history = _round_history_with_trials(research, [round_])["rounds"]
     assert history[0]["logic_statement"]["statement"] == "低波动量价回归策略"
     assert history[0]["logic_statement"]["changed_from_prior"] is True
     assert history[0]["logic_statement"]["change_description"] == "增加了趋势过滤"

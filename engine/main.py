@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import secrets
 import signal
@@ -11,16 +12,34 @@ import time
 import uuid
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 import httpx
 import jsonschema
 import pandas as pd
 
-from engine.dialogue.intent import interpret
-from engine.dialogue.slots import apply_intent, unlock_all_slots
+from engine.dialogue.slots import first_open_slot, unlock_all_slots, unlock_slot
+from engine.dialogue.pool_errors import (
+    record_transient_confirm_notice,
+    reopen_after_pool_failure,
+)
+from engine.research.data_availability import TRANSIENT_DATA_CODE
+from engine.research.universe_pool import materialize_default_pool, pool_resolvable
+from engine.research.universe_validation import ensure_runnable_universe
+from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
+from engine.research.confirm_view import symbol_selection_payload
+from engine.research.method_body_display import (
+    format_method_body_display,
+    method_purpose,
+    revision_display_label,
+    revision_token_from_body,
+)
+from engine.research.method_labels import format_methods_display
+from engine.dialogue.turns import process_send_dialogue
+from engine.export_paths import export_zip_filename
 from engine.export import (
     build_research_record_pack,
     build_strategy_pack,
@@ -36,12 +55,38 @@ from engine.research.gather import (
     SecEdgarAdapter,
     YahooDataAdapter,
 )
+from engine.research.desktop_view import (
+    format_coverage_floor_display,
+    format_coverage_vs_floor,
+    format_universe_display,
+    last_reverification_summary,
+    metrics_for_completed,
+    reverify_options_for,
+    rounds_for_desktop,
+    selected_method_id,
+    universe_label_for,
+)
+from engine.research.display_names import export_blocker_messages, format_display_number
+from engine.research.symbol_selection_display import format_symbol_selection_summary
+from engine.research.time_display import format_effective_display, format_remaining_display
+from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
+from engine.research.run_errors import apply_run_failure, max_consecutive_run_errors
+from engine.research.honest_stop import (
+    assert_can_manual_continue,
+    can_manual_continue_iterate,
+    completed_presentation,
+    high_suspicion_round_threshold,
+    running_budget_hint,
+    trial_budget_increment,
+    trial_budget_view,
+    validate_continue_iterate_confirm,
+)
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
 from engine.research.methods import (
     as_method_refs,
     create_method,
     deposit_confirmed_methods,
-    list_method_usage,
+    distinct_research_usage_count,
     record_method_usage,
     revise_method,
     seed_preset_methods,
@@ -49,15 +94,17 @@ from engine.research.methods import (
 from engine.research.models import (
     AnomalyBaseline,
     AnomalyPresentation,
+    EvidenceKind,
+    EvidenceRef,
     ExportKind,
     ExportRecord,
     MethodSource,
     Research,
     ResearchAction,
+    ConfirmKind,
     ResearchEvent,
     ResearchStatus,
     Reverification,
-    Round,
     Slot,
     detect_anomalies,
     new_research,
@@ -73,16 +120,18 @@ from engine.research.runtime import (
     EngineLock,
     OwnerKind,
     OwnerRecord,
+    EnginePaths,
     RuntimePaths,
     publish_ready,
     read_live_owner,
 )
 from engine.research.simulate import simulate_daily
-from engine.research.state_machine import all_slots_locked, transition
+from engine.research.state_machine import InvalidTransition, all_slots_locked, transition
 from engine.research.store import SQLiteStore
+from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
 from engine.strategy import MarketPanel, MeanReversionStrategy
-from engine.verifiers import run_verifiers
+from engine.verifiers import method_set_excluding_pit, run_verifiers
 
 PROTOCOL_VERSION = 1
 
@@ -144,9 +193,13 @@ class FailClosedLLM(LLMPort):
         )
 
 
-def build_loop(store: SQLiteStore, paths: RuntimePaths) -> ResearchLoop:
+def build_loop(
+    store: SQLiteStore,
+    paths: EnginePaths,
+    budget: TimeBudget | None = None,
+) -> ResearchLoop:
     client = httpx.Client()
-    material_root = paths.root / "materials"
+    material_root = paths.data.materials_dir
     material_root.mkdir(parents=True, exist_ok=True)
     material_ports = (
         PapersAdapter(client, lambda: datetime.now(UTC)),
@@ -158,39 +211,56 @@ def build_loop(store: SQLiteStore, paths: RuntimePaths) -> ResearchLoop:
         LocalMaterialAdapter(material_root, lambda: datetime.now(UTC)),
     )
     data_port = RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter())
-    base_url = os.environ.get("ALPHALOOP_LLM_BASE_URL")
-    api_key = os.environ.get("ALPHALOOP_LLM_API_KEY")
-    model = os.environ.get("ALPHALOOP_LLM_MODEL")
-    llm: LLMPort = (
-        OpenAICompatibleLLM(client, base_url, api_key, model)
-        if base_url and api_key and model
-        else FailClosedLLM()
-    )
+    reviewer_mode = os.environ.get("ALPHALOOP_REVIEWER", "deterministic")
+    if reviewer_mode == "subagent":
+        base_url = os.environ.get("ALPHALOOP_LLM_BASE_URL")
+        api_key = os.environ.get("ALPHALOOP_LLM_API_KEY")
+        model = os.environ.get("ALPHALOOP_LLM_MODEL")
+        llm: LLMPort = (
+            OpenAICompatibleLLM(client, base_url, api_key, model)
+            if base_url and api_key and model
+            else FailClosedLLM()
+        )
+        reviewer = SubagentReviewer(llm)
+    else:
+        reviewer = DeterministicReviewer()
     today = datetime.now(UTC).date()
     builder = DefaultRoundBuilder(
         material_ports=material_ports,
         data_port=data_port,
         start=today - timedelta(days=365 * 12),
         end=today,
-        snapshot_root=paths.root / "snapshots",
+        snapshot_root=paths.data.snapshots_dir,
     )
+    clock = budget or TimeBudget(time.monotonic)
     return ResearchLoop(
         store,
         builder,
-        SubagentReviewer(llm),
-        TimeBudget(time.monotonic),
+        reviewer,
+        clock,
         lambda: datetime.now(UTC),
     )
 
 
 class ResearchCommandService:
-    def __init__(self, store: SQLiteStore, paths: RuntimePaths) -> None:
+    def __init__(
+        self,
+        store: SQLiteStore,
+        paths: EnginePaths,
+        budget: TimeBudget | None = None,
+    ) -> None:
         self.store = store
         self.paths = paths
+        self.budget = budget
         self._observed_status: dict[str, ResearchStatus] = {}
         seed_preset_methods(store)
 
     def _save(self, before: Research, after: Research) -> dict[str, Any]:
+        if self.budget is not None:
+            if before.status is ResearchStatus.RUNNING and after.status is not ResearchStatus.RUNNING:
+                after = self.budget.finish(after)
+            elif before.status is not ResearchStatus.RUNNING and after.status is ResearchStatus.RUNNING:
+                self.budget.begin(after.status)
         self.store.save(after, before.updated_at)
         self._observed_status[after.research_id] = after.status
         payload: dict[str, Any] = {
@@ -237,16 +307,23 @@ class ResearchCommandService:
         )
 
     @staticmethod
-    def _settings(research: Research) -> dict[str, str]:
+    def _settings(research: Research) -> dict[str, Any]:
         brief = research.brief
+        hours = brief.max_effective_hours.value
+        selection = symbol_selection_payload(research)
+        symbols_line = format_symbol_selection_summary(selection) if selection else ""
+        symbol_chips = list(selection["symbols"]) if selection else []
         return {
             "thesis": str(brief.thesis.value or ""),
-            "universe": str(brief.universe.value or ""),
-            "max_effective_hours": str(brief.max_effective_hours.value or ""),
-            "round1_methods": " · ".join(
-                method.method_id for method in (brief.round1_methods.value or ())
+            "universe": format_universe_display(
+                brief.universe.value,
+                include_symbols=False,
             ),
-            "coverage_floor": str(brief.coverage_floor.value or ""),
+            "universe_symbols": symbols_line,
+            "universe_symbol_chips": symbol_chips,
+            "max_effective_hours": f"{hours:g} 小时" if hours is not None else "",
+            "round1_methods": format_methods_display(brief.round1_methods.value),
+            "coverage_floor": format_coverage_floor_display(brief.coverage_floor.value),
         }
 
     def _host_payload(
@@ -264,7 +341,7 @@ class ResearchCommandService:
         return {
             "id": item.research_id,
             "title": item.title,
-            "status": item.status.value,
+            "status": item.list_status,
             "universeLabel": item.universe_label,
             "createdAt": item.created_at.isoformat(),
             "updatedAt": item.updated_at.isoformat(),
@@ -272,27 +349,11 @@ class ResearchCommandService:
 
     @staticmethod
     def _coverage_vs_floor(research: Research) -> str:
-        floor = research.brief.coverage_floor.value
-        observed = research.last_coverage
-        if observed is None:
-            return str(floor or "")
-        current = (
-            f"{len(observed.assets)}资产/{observed.years:.1f}年/缺失{observed.missing_pct:.1f}%"
-        )
-        if floor is None:
-            return current
-        return (
-            f"{current} vs 底线 {floor.min_assets}资产/{floor.min_years}年/"
-            f"缺失≤{floor.max_missing_pct:.1f}%"
-        )
+        return format_coverage_vs_floor(research)
 
     @staticmethod
     def _remaining(research: Research) -> str:
-        max_hours = research.brief.max_effective_hours.value
-        used = research.effective_seconds / 3600
-        if max_hours is None:
-            return ""
-        return f"{max(0.0, max_hours - used):.2f}h"
+        return format_remaining_display(research)
 
     @staticmethod
     def _sources(research: Research) -> str:
@@ -314,11 +375,30 @@ class ResearchCommandService:
         trial_count = attempt.number
         coverage_shrunk = len(research.coverage_history) > 0
         method_revision_age_days = 30
-        baseline = AnomalyBaseline(
-            kind="version_1_logic",
-            sharpe=0.5,
-            trial_count=5,
-        )
+        baseline: AnomalyBaseline | None = None
+        version = research.versions[-1]
+        if len(version.rounds) >= 2:
+            prior = version.rounds[-2].accepted_attempt
+            prior_sim = prior.simulation
+            baseline = AnomalyBaseline(
+                kind="prior_accepted_attempt",
+                sharpe=getattr(prior_sim, "sharpe", None),
+                trial_count=prior.number,
+                attempt_id=prior.attempt_id,
+            )
+        elif len(research.versions) >= 2:
+            prior_version = research.versions[-2]
+            if prior_version.rounds:
+                prior = prior_version.rounds[-1].accepted_attempt
+                prior_sim = prior.simulation
+                baseline = AnomalyBaseline(
+                    kind="version_1_logic",
+                    sharpe=getattr(prior_sim, "sharpe", None),
+                    trial_count=prior.number,
+                    attempt_id=prior.attempt_id,
+                )
+        if baseline is None:
+            return None
         anomaly = detect_anomalies(
             sharpe=sharpe,
             trial_count=trial_count,
@@ -340,6 +420,27 @@ class ResearchCommandService:
         }
 
     @staticmethod
+    def _comparison_label(comparison: str) -> str:
+        return {
+            "gt": "大于",
+            "gte": "不小于",
+            "eq": "等于",
+            "lte": "不大于",
+            "lt": "小于",
+        }.get(comparison, comparison)
+
+    @staticmethod
+    def _dimension_kind_label(kind: str) -> str:
+        return {
+            "predictive_power": "预测力",
+            "stability": "稳定性",
+            "pit_consistency": "时点一致性",
+            "cost_sensitivity": "成本敏感度",
+            "crowding": "拥挤度",
+            "custom": "自定义",
+        }.get(kind, kind)
+
+    @staticmethod
     def _method_dimensions(method_id: str, body: str) -> list[dict[str, object]]:
         """Extract Scorecard dimensions from method body (B6)."""
         dimensions: list[dict[str, object]] = []
@@ -351,40 +452,75 @@ class ResearchCommandService:
             if "sharpe_oos_min_exclusive" in parsed:
                 dimensions.append({
                     "kind": "predictive_power",
+                    "kindLabel": "预测力",
                     "name": "夏普比率",
                     "description": "样本外夏普比率下限",
                     "passThreshold": parsed["sharpe_oos_min_exclusive"],
                     "comparison": "gt",
+                    "comparisonLabel": "大于",
                     "failureDisplay": "夏普不高于基准",
                 })
             if "default_max_drawdown_floor" in parsed:
                 dimensions.append({
                     "kind": "stability",
+                    "kindLabel": "稳定性",
                     "name": "最大回撤",
                     "description": "回撤上限",
                     "passThreshold": parsed["default_max_drawdown_floor"],
                     "comparison": "gte",
+                    "comparisonLabel": "不小于",
                     "failureDisplay": "回撤过大",
                 })
         elif method_id == "overfit.walk":
             if "oos_to_is_min" in parsed:
                 dimensions.append({
                     "kind": "stability",
+                    "kindLabel": "稳定性",
                     "name": "样本外/样本内比",
                     "description": "样本外表现与样本内的比值下限",
                     "passThreshold": parsed["oos_to_is_min"],
                     "comparison": "gte",
+                    "comparisonLabel": "不小于",
                     "failureDisplay": "样本外走样",
+                })
+        elif method_id == "stability.oos":
+            if "same_sign_ratio_min" in parsed:
+                dimensions.append({
+                    "kind": "stability",
+                    "kindLabel": "稳定性",
+                    "name": "同号比例",
+                    "description": "样本外分段收益方向一致的比例下限",
+                    "passThreshold": parsed["same_sign_ratio_min"],
+                    "comparison": "gte",
+                    "comparisonLabel": "不小于",
+                    "failureDisplay": "样本外方向不稳定",
+                })
+            if "segments_min" in parsed:
+                dimensions.append({
+                    "kind": "stability",
+                    "kindLabel": "稳定性",
+                    "name": "分段数",
+                    "description": "样本外分段数量下限",
+                    "passThreshold": parsed["segments_min"],
+                    "comparison": "gte",
+                    "comparisonLabel": "不小于",
+                    "failureDisplay": "样本外分段不足",
                 })
         elif method_id == "pit.consistency":
             dimensions.append({
                 "kind": "pit_consistency",
+                "kindLabel": "时点一致性",
                 "name": "时点一致性",
                 "description": "检查是否存在前视偏差",
                 "passThreshold": 1.0,
                 "comparison": "eq",
+                "comparisonLabel": "等于",
                 "failureDisplay": "存在前视偏差",
             })
+        for dim in dimensions:
+            threshold = dim.get("passThreshold")
+            if isinstance(threshold, (int, float)) and not isinstance(threshold, bool):
+                dim["passThreshold"] = format_display_number(threshold)
         return dimensions
 
     @staticmethod
@@ -411,20 +547,30 @@ class ResearchCommandService:
                     "id": item.method_id,
                     "name": item.name or item.method_id,
                     "revision": item.revision_hash,
-                    "description": item.description,
+                    "revisionLabel": revision_display_label(
+                        revision_token_from_body(item.body) or item.revision_hash[:8]
+                    ),
+                    "description": method_purpose(item.method_id),
+                    "definitionDisplay": format_method_body_display(
+                        item.method_id, item.body
+                    ),
                     "source": item.source.value,
                     "depositedFromResearchId": item.deposited_from_research_id,
                     "supersedes": item.supersedes,
-                    "usageCount": len({
-                        row.research_id
-                        for row in list_method_usage(self.store, item.method_id)
-                    }),
+                    "usageCount": distinct_research_usage_count(
+                        self.store, item.method_id
+                    ),
                     "category": self._method_category(item.method_id),
                     "dimensions": self._method_dimensions(item.method_id, item.body),
                 }
                 for item in self.store.list_method_definitions()
             ]
             selected = route.removeprefix("#/methods/") if route.startswith("#/methods/") else None
+            if selected:
+                try:
+                    selected = unquote(selected)
+                except ValueError:
+                    pass
             return self._host_payload({"kind": "methods", "selected": selected, "methods": methods})
         if route == "#/research" or route.startswith("#/research?"):
             status_raw = None
@@ -445,64 +591,97 @@ class ResearchCommandService:
         research_id = route.removeprefix("#/research/")
         research = self.store.load(research_id)
         if research.status.value == "draft":
-            kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
-            return self._host_payload(
-                {
-                    "kind": kind,
-                    "researchId": research_id,
-                    "messages": [],
-                    "settings": self._settings(research),
-                },
-                research,
-            )
+            materialized = materialize_default_pool(research)
+            if materialized.brief != research.brief:
+                self.store.save(materialized, research.updated_at)
+                research = materialized
+            view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
+            display_research = research
+            confirm_data_notice: str | None = None
+            if view_kind == "confirm_run" and research.data_window_end is None:
+                try:
+                    display_research = ensure_runnable_universe(research)
+                except UserFacingError as error:
+                    display_research = research
+                    if error.code == TRANSIENT_DATA_CODE:
+                        confirm_data_notice = error.message
+            body: dict[str, Any] = {
+                "kind": view_kind,
+                "researchId": research_id,
+                "dialogue": [
+                    {"role": turn.role.value, "text": turn.text}
+                    for turn in research.dialogue
+                ],
+                "settings": self._settings(research),
+                "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
+            }
+            if view_kind == "confirm_run":
+                body["symbolSelection"] = symbol_selection_payload(display_research)
+                if confirm_data_notice:
+                    body["confirmDataNotice"] = confirm_data_notice
+            return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
-            rounds = research.versions[version - 1].rounds if research.versions else ()
-            return self._host_payload(
-                {
-                    "kind": "running",
-                    "researchId": research_id,
-                    "status": research.status.value,
-                    "version": version,
-                    "effective": f"{research.effective_seconds / 3600:.2f}h",
-                    "remaining": self._remaining(research),
-                    "coverage": self._coverage_vs_floor(research),
-                    "rounds": [
-                        {
-                            "roundId": round_.round_id,
-                            "number": round_.number,
-                            "logicStatement": {
-                                "statement": round_.accepted_attempt.spec.id,
-                                "changedFromPrior": idx > 0,
-                                "changeDescription": None,
-                                "baselineVersion": version,
-                            },
-                            "implementationDelta": {
-                                "researchMethodChanges": [],
-                                "modelChanges": [],
-                                "paramChanges": [],
-                            },
-                            "trialCounters": {
-                                "candidatesEvaluated": round_.accepted_attempt.number,
-                                "candidatesPassed": 1 if round_.accepted_attempt.verification.passed else 0,
-                                "conclusionAttemptNumber": round_.accepted_attempt.number,
-                            },
-                            "verificationPassed": round_.accepted_attempt.verification.passed,
-                            "pitPassed": None,
-                        }
-                        for idx, round_ in enumerate(reversed(rounds))
-                    ],
-                    "currentAction": _ACTION_LABELS[research.current_action],
-                    "sources": self._sources(research),
-                    "dataCutoff": (
-                        research.last_coverage.end.isoformat()
-                        if research.last_coverage is not None
-                        else ""
-                    ),
-                    "anomaly": self._compute_anomaly(research),
-                },
-                research,
+            cutoff = (
+                research.data_window_end.isoformat()
+                if research.data_window_end is not None
+                else (
+                    research.last_coverage.end.isoformat()
+                    if research.last_coverage is not None
+                    else None
+                )
             )
+            version_notice = None
+            if research.dialogue:
+                last_turn = research.dialogue[-1]
+                if last_turn.role.value == "assistant" and last_turn.text.startswith(
+                    "已开始第"
+                ):
+                    version_notice = last_turn.text
+            running_payload: dict[str, Any] = {
+                "kind": "running",
+                "researchId": research_id,
+                "status": research.status.value,
+                "version": version,
+                "effective": format_effective_display(research),
+                "remaining": self._remaining(research),
+                "effectiveTimeHint": (
+                    "有效研究时间计入「运行中」状态下的采集、建模与验证执行；"
+                    "暂停、等待确认与列表轮询间隔不计入。"
+                ),
+                "coverage": self._coverage_vs_floor(research),
+                "rounds": rounds_for_desktop(research, version),
+                "sources": self._sources(research),
+                "anomaly": self._compute_anomaly(research),
+            }
+            if cutoff is not None:
+                running_payload["dataCutoff"] = cutoff
+            budget = trial_budget_view(research)
+            hint = running_budget_hint(research, self.store)
+            running_payload["trialBudget"] = {
+                "used": budget.used,
+                "budget": budget.budget,
+                "remaining": budget.remaining,
+            }
+            if hint:
+                running_payload["honestStopHint"] = hint
+            if version_notice:
+                running_payload["versionOpenedNotice"] = version_notice
+            if research.current_action is not ResearchAction.IDLE:
+                running_payload["currentAction"] = _ACTION_LABELS[research.current_action]
+            if research.last_run_error:
+                running_payload["lastError"] = {
+                    "message": research.last_run_error,
+                    "count": research.consecutive_identical_run_errors,
+                }
+                if research.last_run_error_code:
+                    running_payload["lastError"]["code"] = research.last_run_error_code
+            running_payload.update(trial_tracking_for_view(research, self.store))
+            running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
+            late = late_pass_presentation(research)
+            if late is not None:
+                running_payload["latePassPresentation"] = late
+            return self._host_payload(running_payload, research)
         if research.status.value == "awaiting_confirm":
             request = research.pending_confirm
             if request is None:
@@ -532,18 +711,52 @@ class ResearchCommandService:
                 research,
             )
         rounds = research.versions[-1].rounds if research.versions else ()
-        selected_round: Round | None = rounds[-1] if rounds else None
+        selected_round = rounds[-1] if rounds else None
         eligibility = strategy_pack_eligibility(research)
+        presentation = completed_presentation(research, self.store)
+        version_number = research.current_version_number or 1
+        subtitle = universe_label_for(research)
         return self._host_payload(
             {
                 "kind": "completed",
                 "researchId": research_id,
+                "version": version_number,
+                "effective": format_effective_display(research),
+                "remaining": self._remaining(research),
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
+                "universeLabel": subtitle,
+                "subtitle": presentation.summary,
+                "resultHeadline": presentation.headline,
+                "honestStopHint": presentation.hint_line or None,
+                "failedVerifierIds": list(presentation.failed_verifier_ids),
+                "exportKind": presentation.export_kind,
+                "trialBudget": {
+                    "used": presentation.trial_budget.used,
+                    "budget": presentation.trial_budget.budget,
+                    "remaining": presentation.trial_budget.remaining,
+                },
+                "budgetExhausted": presentation.budget_exhausted,
+                "canContinueIterate": can_manual_continue_iterate(research),
+                "deferredChangeSummary": presentation.deferred_change_summary,
+                **trial_tracking_for_view(research, self.store),
+                "highSuspicionRoundThreshold": high_suspicion_round_threshold(),
+                "latePassPresentation": late_pass_presentation(research),
+                "trialCounters": presentation.trial_counters,
+                "methodsVerificationPassed": presentation.methods_verification_passed,
                 "selectedRoundId": selected_round.round_id if selected_round else "",
-                "selectedMethodId": "overfit.walk",
+                "selectedMethodId": selected_method_id(research),
+                "rounds": rounds_for_desktop(research, version_number),
+                "metrics": metrics_for_completed(research),
+                "failedExportChecks": list(eligibility.failed_checks),
+                "exportBlockerMessages": list(
+                    export_blocker_messages(eligibility.failed_checks)
+                ),
+                "symbolSelection": symbol_selection_payload(research),
+                "reverifyOptions": reverify_options_for(research),
+                "lastReverification": last_reverification_summary(research),
                 "eligibility": {
-                    "allMethodsPassed": "all_current_methods_passed" not in eligibility.failed_checks,
+                    "allMethodsPassed": presentation.methods_verification_passed,
                     "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
                     "reverifiesPassed": "all_reverifies_passed" not in eligibility.failed_checks,
                     "pitExecutedAndPassed": "pit_executed_and_passed" not in eligibility.failed_checks,
@@ -551,6 +764,10 @@ class ResearchCommandService:
                 "overturnedExports": any(item.overturned for item in research.exports),
                 "currentAction": _ACTION_LABELS[research.current_action],
                 "anomaly": self._compute_anomaly(research),
+                "recentDialogue": [
+                    {"role": turn.role.value, "text": turn.text}
+                    for turn in research.dialogue[-8:]
+                ],
             },
             research,
         )
@@ -623,14 +840,51 @@ class ResearchCommandService:
             self.store.delete(research.research_id)
             return {"research_id": research.research_id, "deleted": True}
         if kind == "send_dialogue":
-            updated = apply_intent(
-                research,
-                interpret(request["message"], research),
-                now,
-            )
+            updated = process_send_dialogue(research, request["message"], now)
         elif kind == "unlock_brief":
-            updated = unlock_all_slots(research, now)
+            from engine.dialogue.prompts import QUESTIONS, SlotName
+            from engine.dialogue.turns import append_dialogue
+            from engine.research.models import DialogueRole
+
+            slot = request.get("slot")
+            if slot:
+                updated = unlock_slot(research, str(slot), now)
+                updated = append_dialogue(
+                    updated,
+                    DialogueRole.ASSISTANT,
+                    QUESTIONS[SlotName(str(slot))],
+                    now,
+                )
+            else:
+                updated = unlock_all_slots(research, now)
+                open_slot = first_open_slot(updated.brief)
+                if open_slot is not None:
+                    updated = append_dialogue(
+                        updated,
+                        DialogueRole.ASSISTANT,
+                        QUESTIONS[open_slot],
+                        now,
+                    )
         elif kind == "confirm_run":
+            expected_at = research.updated_at
+            try:
+                research = ensure_runnable_universe(research)
+            except UserFacingError as error:
+                if error.code == TRANSIENT_DATA_CODE:
+                    updated = record_transient_confirm_notice(research, error, now)
+                    self._save(research, updated)
+                    raise
+                if error.code in {
+                    "UNIVERSE_SYMBOLS_EMPTY",
+                    "UNIVERSE_MISSING",
+                    "UNIVERSE_DEFAULT_TOO_SMALL",
+                    "POOL_DATA_SHRINK_TOO_FEW",
+                }:
+                    reopened = reopen_after_pool_failure(research, error, now)
+                    self._save(research, reopened)
+                raise
+            self.store.save(research, expected_at)
+            research = self.store.load(research.research_id)
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
             self._record_version_methods(updated)
         elif kind == "pause":
@@ -638,16 +892,50 @@ class ResearchCommandService:
         elif kind == "resume":
             updated = transition(research, ResearchEvent.RESUME, now)
         elif kind == "confirm_modification":
+            if research.status is ResearchStatus.RUNNING:
+                raise UserFacingError(
+                    "RUNNING_CANNOT_MODIFY",
+                    "研究仍在运行中，请先暂停再确认修改。",
+                )
+            from engine.dialogue.modification import brief_differs_from_latest_version
+
+            if not brief_differs_from_latest_version(research):
+                raise UserFacingError(
+                    "MODIFICATION_UNCHANGED",
+                    "研究设定没有变化。请先用上方输入说明要改什么，再确认开新版。",
+                )
             previous = ""
             if research.versions:
                 previous = research.versions[-1].brief_snapshot.thesis.value or ""
             proposed = research.brief.thesis.value or ""
             updated = transition(research, ResearchEvent.MODIFY_CONFIRM, now)
+            from engine.dialogue.modification import finalize_modification_confirm_dialogue
+
+            updated = finalize_modification_confirm_dialogue(updated, now)
             updated = replace(
                 updated,
                 thesis_change_hint=thesis_divergence_hint(previous, proposed),
             )
             self._record_version_methods(updated)
+        elif kind == "continue_iterate":
+            validate_continue_iterate_confirm(
+                research,
+                user_confirmed=bool(request.get("user_confirmed")),
+                high_suspicion_acknowledged=bool(
+                    request.get("high_suspicion_acknowledged")
+                ),
+                store=self.store,
+            )
+            assert_can_manual_continue(research)
+            increment = trial_budget_increment()
+            boosted = replace(
+                research,
+                implementation_trial_budget=research.implementation_trial_budget + increment,
+                updated_at=now,
+            )
+            self.store.save(boosted, research.updated_at)
+            resumed = transition(boosted, ResearchEvent.CONTINUE_ITERATE, now)
+            return self._save(boosted, resumed)
         elif kind == "extend_research":
             current_hours = research.brief.max_effective_hours.value or 0.0
             extended = replace(
@@ -672,6 +960,37 @@ class ResearchCommandService:
                 "supply_local_materials": ResearchEvent.CONFIRM_PAUSE,
                 "redefine_scope": ResearchEvent.CONFIRM_APPROVE,
             }[request["decision"]]
+            if event is ResearchEvent.CONFIRM_APPROVE and research.pending_confirm is not None:
+                pending = research.pending_confirm
+                refs: list[EvidenceRef] = []
+                for item in request.get("why_change") or ():
+                    refs.append(
+                        EvidenceRef(
+                            record_id=item["record_id"],
+                            recorded_at=datetime.fromisoformat(item["recorded_at"]),
+                            kind=EvidenceKind(item["kind"]),
+                            summary=item.get("summary"),
+                        )
+                    )
+                if refs:
+                    pending = replace(
+                        pending,
+                        why_change=tuple(refs),
+                        created_at=pending.created_at or now,
+                    )
+                if (
+                    request["decision"] == "approve_new_version"
+                    and pending.kind is ConfirmKind.ECONOMIC
+                ):
+                    who_pays = request.get("who_pays")
+                    text = (
+                        who_pays if isinstance(who_pays, str) and who_pays.strip() else "未作答"
+                    )
+                    pending = replace(
+                        pending,
+                        patch=pending.patch + (("who_pays_optional", text),),
+                    )
+                research = replace(research, pending_confirm=pending)
             if event is ResearchEvent.CONFIRM_APPROVE:
                 deposit_confirmed_methods(self.store, research, now)
             updated = transition(research, event, now, store=self.store)
@@ -718,7 +1037,18 @@ class ResearchCommandService:
                 frozen.index.min().date(),
                 frozen.index.max().date(),
             )
-            rerun = run_verifiers(rerun_simulation, accepted.spec)
+            missing_as_of: tuple[str, ...] = ()
+            if accepted.evidence_paths:
+                missing_as_of = tuple(
+                    json.loads(path.read_text(encoding="utf-8"))["material_id"]
+                    for path in accepted.evidence_paths
+                )
+            rerun = run_verifiers(
+                rerun_simulation,
+                accepted.spec,
+                evidence_as_of=(),
+                missing_as_of_material_ids=missing_as_of,
+            )
             matching_method = [
                 result
                 for result in rerun.results
@@ -748,11 +1078,13 @@ class ResearchCommandService:
                 now,
             )
         elif kind == "export_artifact":
-            export_root = self.paths.root / "exports"
+            export_root = self.paths.data.exports_dir
             export_root.mkdir(parents=True, exist_ok=True)
             eligibility = strategy_pack_eligibility(research)
             if request["kind"] == "research_record":
-                destination = export_root / f"{research.research_id}-research-record.zip"
+                destination = export_root / export_zip_filename(
+                    research, "research_record", now=now
+                )
                 build_research_record_pack(research, destination)
                 export_kind = ExportKind.RESEARCH_RECORD
                 failed_checks = eligibility.failed_checks
@@ -777,7 +1109,9 @@ class ResearchCommandService:
                     if "__benchmark__" in snapshot.columns
                     else None
                 )
-                destination = export_root / f"{research.research_id}-strategy-pack.zip"
+                destination = export_root / export_zip_filename(
+                    research, "strategy_pack", now=now
+                )
                 build_strategy_pack(
                     research,
                     MeanReversionStrategy(attempt.spec),
@@ -835,13 +1169,26 @@ class EngineApiHandler(BaseHTTPRequestHandler):
             request = json.loads(self.rfile.read(length))
             jsonschema.validate(request, self.request_schema)
             self._send(200, self.service.handle(request))
+        except UserFacingError as error:
+            self._send(400, {"error": error.message, "code": error.code})
         except (
             ValueError,
             KeyError,
             json.JSONDecodeError,
             jsonschema.ValidationError,
         ) as error:
-            self._send(400, {"error": str(error)})
+            self._send(400, http_error_payload(error))
+        except InvalidTransition as error:
+            self._send(400, http_error_payload(error))
+        except Exception as error:  # noqa: BLE001
+            logging.exception("engine command failed")
+            self._send(
+                500,
+                {
+                    "error": "服务器内部错误，请稍后重试。",
+                    "code": "internal_error",
+                },
+            )
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -850,7 +1197,7 @@ class EngineApiHandler(BaseHTTPRequestHandler):
 def start_api(
     service: ResearchCommandService,
     token: str,
-) -> tuple[HTTPServer, str]:
+) -> tuple[ThreadingHTTPServer, str]:
     bundle_root = Path(
         getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
     )
@@ -864,7 +1211,8 @@ def start_api(
         (EngineApiHandler,),
         {"service": service, "auth_token": token, "request_schema": schema},
     )
-    server = HTTPServer(("127.0.0.1", 0), handler)
+    # ThreadingHTTPServer: confirm_run / fetch_view market probes must not wedge all /commands.
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     endpoint = f"http://127.0.0.1:{server.server_port}"
     threading.Thread(
         target=server.serve_forever,
@@ -874,12 +1222,12 @@ def start_api(
     return server, endpoint
 
 
-def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
+def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     try:
-        lock = EngineLock.acquire(paths, owner_kind)
+        lock = EngineLock.acquire(paths.runtime, owner_kind)
     except RuntimeError:
         deadline = time.monotonic() + 10.0
-        owner = read_live_owner(paths)
+        owner = read_live_owner(paths.runtime)
         while (
             owner is not None
             and (
@@ -890,7 +1238,7 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
             and time.monotonic() < deadline
         ):
             time.sleep(0.05)
-            owner = read_live_owner(paths)
+            owner = read_live_owner(paths.runtime)
         if owner is None:
             return 1
         if owner.phase != "ready" or owner.endpoint is None or owner.auth_token is None:
@@ -901,10 +1249,11 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
     stop = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
-    store = SQLiteStore(paths.database_file)
+    store = SQLiteStore(paths.data.database_file)
     seed_preset_methods(store)
-    loop = build_loop(store, paths)
-    service = ResearchCommandService(SQLiteStore(paths.database_file), paths)
+    budget = TimeBudget(time.monotonic)
+    loop = build_loop(store, paths, budget)
+    service = ResearchCommandService(SQLiteStore(paths.data.database_file), paths, budget)
     token = secrets.token_urlsafe(32)
     server, endpoint = start_api(service, token)
     owner = publish_ready(lock, endpoint, token)
@@ -922,7 +1271,19 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
                 try:
                     loop.run_once(research_id)
                 except Exception as error:  # noqa: BLE001
-                    store.record_error(research_id, str(error), datetime.now(UTC))
+                    now = datetime.now(UTC)
+                    code, message = classify_run_error(error)
+                    before = store.load(research_id)
+                    after = apply_run_failure(before, message, now, code=code)
+                    store.save(after, before.updated_at)
+                    store.record_error(
+                        research_id,
+                        message,
+                        now,
+                        force=after.status.value == "paused"
+                        and after.consecutive_identical_run_errors
+                        >= max_consecutive_run_errors(),
+                    )
             store.heartbeat(owner, datetime.now(UTC))
     finally:
         server.shutdown()
@@ -933,7 +1294,7 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
 
 def main() -> int:
     args = build_parser().parse_args()
-    return serve(args.owner, RuntimePaths.default())
+    return serve(args.owner, EnginePaths.default())
 
 
 if __name__ == "__main__":

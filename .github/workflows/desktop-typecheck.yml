@@ -1,0 +1,26 @@
+name: desktop-typecheck
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main, "cursor/**"]
+
+jobs:
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Production build (tsc + vite)
+        run: npm run build

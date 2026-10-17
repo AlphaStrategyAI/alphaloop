@@ -104,9 +104,18 @@ class MeanReversionStrategy:
     def generate_signals(self, data: MarketPanel) -> pd.DataFrame:
         returns = data.prices.pct_change(fill_method=None)
         score = -returns.rolling(self.spec.lookback_days).mean()
+        signals = pd.DataFrame(0.0, index=data.prices.index, columns=data.prices.columns)
+        if data.prices.shape[1] == 1:
+            column = data.prices.columns[0]
+            series = score[column]
+            dispersion = series.rolling(self.spec.lookback_days).std().replace(0.0, np.nan)
+            zscore = series.div(dispersion)
+            signals.loc[zscore >= self.spec.entry_z, column] = 1.0
+            if self.spec.side == "long_short":
+                signals.loc[zscore <= -self.spec.entry_z, column] = -1.0
+            return signals
         dispersion = score.std(axis=1).replace(0.0, np.nan)
         zscore = score.sub(score.mean(axis=1), axis=0).div(dispersion, axis=0)
-        signals = pd.DataFrame(0.0, index=data.prices.index, columns=data.prices.columns)
         signals[zscore >= self.spec.entry_z] = 1.0
         if self.spec.side == "long_short":
             signals[zscore <= -self.spec.entry_z] = -1.0

@@ -11,6 +11,11 @@ import httpx
 import pandas as pd
 import yfinance as yf
 
+from engine.research import market_data_timeouts as _market_data_timeouts
+from engine.research.data_availability import transient_data_error
+from engine.research.market_data_timeouts import run_with_deadline
+
+
 
 @dataclass(frozen=True, slots=True)
 class Material:
@@ -158,6 +163,14 @@ class AkShareDataAdapter:
         start: date,
         end: date,
     ) -> pd.DataFrame:
+        return self._load_daily_impl(symbols, start, end)
+
+    def _load_daily_impl(
+        self,
+        symbols: tuple[str, ...],
+        start: date,
+        end: date,
+    ) -> pd.DataFrame:
         columns: dict[str, pd.Series] = {}
         for symbol in symbols:
             if symbol == "CBA00101.CS":
@@ -225,17 +238,30 @@ class RoutingDataAdapter:
         start: date,
         end: date,
     ) -> pd.DataFrame:
+        if not symbols:
+            from engine.research.data_errors import EmptySymbolsError
+
+            raise EmptySymbolsError()
         is_cn = all(
             symbol == "CBA00101.CS"
             or symbol.startswith(("CN_BOND:", "CN_FUND:"))
             or symbol.endswith((".SH", ".SZ"))
             for symbol in symbols
         )
-        return (
-            self.akshare.load_daily(symbols, start, end)
-            if is_cn
-            else self.yahoo.load_daily(symbols, start, end)
-        )
+
+        def _load() -> pd.DataFrame:
+            return (
+                self.akshare.load_daily(symbols, start, end)
+                if is_cn
+                else self.yahoo.load_daily(symbols, start, end)
+            )
+
+        try:
+            return run_with_deadline(
+                _market_data_timeouts.MARKET_DATA_LOAD_TIMEOUT_SEC, _load
+            )
+        except TimeoutError:
+            raise transient_data_error() from None
 
 
 def gather(query: str, ports: tuple[MaterialPort, ...]) -> tuple[Material, ...]:

@@ -18,7 +18,7 @@ from engine.research.models import (
     Universe,
     new_research,
 )
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 from engine.strategy import StrategySpec
 from engine.verifiers import run_verifiers
@@ -33,10 +33,12 @@ def test_revise_creates_a_new_definition_and_keeps_the_old_row(tmp_path) -> None
     )
     second = revise_method(store, "custom.gap", "缺口", "v2 body", "body-v2", NOW)
     rows = store.list_method_definitions()
-    assert len(rows) == 2
+    assert len(rows) == 1
     assert first.revision_hash != second.revision_hash
     assert second.supersedes == first.revision_hash
-    assert {row.revision_hash for row in rows} == {first.revision_hash, second.revision_hash}
+    assert rows[0].revision_hash == second.revision_hash
+    all_rows = store._all_method_revision_rows()
+    assert {row.revision_hash for row in all_rows} == {first.revision_hash, second.revision_hash}
 
 
 def test_deposit_marks_source_and_survives_research_delete(tmp_path) -> None:
@@ -55,14 +57,14 @@ def test_deposit_marks_source_and_survives_research_delete(tmp_path) -> None:
     store.delete("r-dep")
     assert store.list_method_definitions()[0].source is MethodSource.DEPOSITED
     assert store.list_method_definitions()[0].deposited_from_research_id == "r-dep"
-    assert list_method_usage(store, "custom.gap")[0].research_id == "r-dep"
+    assert list_method_usage(store, "custom.gap") == ()
 
 
 def test_library_create_method_is_deposited_not_preset(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "m.db")
     service = ResearchCommandService(
         store,
-        RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json"),
+        EnginePaths.for_colocated_root(tmp_path),
     )
     service.handle(
         {
@@ -89,6 +91,7 @@ def test_library_create_method_is_deposited_not_preset(tmp_path: Path) -> None:
         "stability.oos",
         "crowding.load",
         "cost.turnover",
+        "pit.consistency",
     }
 
 
@@ -113,6 +116,8 @@ def test_selected_method_set_must_all_pass_and_does_not_inherit_old_passes() -> 
         observations=756,
         covered_assets=1,
         missing_pct=0.0,
+        start=__import__("datetime").date(2014, 1, 2),
+        end=__import__("datetime").date(2016, 12, 30),
     )
     four = (
         MethodRef("overfit.walk", "walk-v1"),

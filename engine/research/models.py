@@ -9,6 +9,17 @@ from typing import Any, Generic, TypeVar
 T = TypeVar("T")
 
 
+class DialogueRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+@dataclass(frozen=True, slots=True)
+class DialogueTurn:
+    role: DialogueRole
+    text: str
+
+
 class ResearchStatus(StrEnum):
     DRAFT = "draft"
     RUNNING = "running"
@@ -34,6 +45,7 @@ class ResearchEvent(StrEnum):
     REVERIFY_FAIL = "reverify_fail"
     MODIFY_CONFIRM = "modify_confirm"
     EXTEND_CONFIRM = "extend_confirm"
+    CONTINUE_ITERATE = "continue_iterate"
     WAIT = "wait"
 
 
@@ -89,6 +101,8 @@ class Universe:
     asset_class: AssetClass
     underlying_asset_class: AssetClass
     symbols: tuple[str, ...]
+    symbol_list_version: str | None = None
+    user_symbols_override: bool = False
 
     def __post_init__(self) -> None:
         if self.asset_class is not AssetClass.FUND and self.underlying_asset_class is not self.asset_class:
@@ -257,7 +271,7 @@ class Version:
     version_id: str
     number: int
     brief_snapshot: ResearchBrief
-    rounds: tuple[Round, ...]
+    rounds: tuple[RoundV2, ...]
     opened_at: datetime
     opened_by: str
     confirmed_changes: tuple[tuple[str, object], ...] = ()
@@ -290,7 +304,11 @@ class ConfirmRequest:
     created_at: datetime | None = None
 
 
-def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
+def assert_preconfirm_evidence(
+    request: ConfirmRequest,
+    store: object,
+    research_id: str,
+) -> None:
     """Validate that all evidence refs in why_change exist and predate the request (B4 iron rule).
     
     Raises InvalidEvidenceRefError if:
@@ -310,7 +328,15 @@ def assert_preconfirm_evidence(request: ConfirmRequest, store: object) -> None:
         )
     for ref in request.why_change:
         lookup = getattr(store, f"get_{ref.kind.value}", None)
-        if lookup is None or lookup(ref.record_id) is None:
+        if lookup is None:
+            raise InvalidEvidenceRefError(
+                f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
+            )
+        if ref.kind.value == "attempt":
+            payload = lookup(ref.record_id, research_id=research_id)
+        else:
+            payload = lookup(ref.record_id)
+        if payload is None:
             raise InvalidEvidenceRefError(
                 f"Evidence {ref.kind.value}:{ref.record_id} not found in store"
             )
@@ -456,11 +482,26 @@ class Research:
     exports: tuple[ExportRecord, ...] = ()
     current_action: ResearchAction = ResearchAction.IDLE
     thesis_change_hint: str | None = None
+    implementation_trial_budget: int = 5
+    dialogue: tuple[DialogueTurn, ...] = ()
+    symbol_list_version: str | None = None
+    data_window_start: date | None = None
+    data_window_end: date | None = None
+    data_source_id: str = "yahoo_daily"
+    last_run_error: str | None = None
+    last_run_error_code: str | None = None
+    consecutive_identical_run_errors: int = 0
+    pool_data_dropped_count: int = 0
+    coverage_min_assets_scratch: int | None = None
+    coverage_min_years_scratch: int | None = None
+    coverage_max_missing_pct_scratch: float | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:
     if now.tzinfo is None:
         raise ValueError("now must be timezone-aware")
+    from engine.research.honest_stop import max_implementation_trials
+
     return Research(
         research_id=research_id,
         status=ResearchStatus.DRAFT,
@@ -479,4 +520,5 @@ def new_research(research_id: str, now: datetime) -> Research:
         exports=(),
         current_action=ResearchAction.IDLE,
         thesis_change_hint=None,
+        implementation_trial_budget=max_implementation_trials(),
     )

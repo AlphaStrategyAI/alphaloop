@@ -2,6 +2,8 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
+
 from engine.metrics import SimulationReport
 from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop, RoundBuilder
@@ -11,6 +13,9 @@ from engine.research.models import (
     ChangeClass,
     ConfirmKind,
     CoverageFloor,
+    CoverageSnapshot,
+    EvidenceKind,
+    EvidenceRef,
     Market,
     ResearchEvent,
     ResearchStatus,
@@ -21,7 +26,7 @@ from engine.research.models import (
     Version,
     new_research,
 )
-from engine.research.runtime import EngineLock, RuntimePaths, read_live_owner
+from engine.research.runtime import EngineLock, EnginePaths, read_live_owner
 from engine.research.specify import ProposedChange
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
@@ -98,16 +103,29 @@ class FakeBuilder(RoundBuilder):
     def build(self, research, attempt_number: int) -> RoundDraft:
         self.calls += 1
         version = research.current_version_number or 1
+        if research.versions and version <= len(research.versions):
+            round_number = len(research.versions[version - 1].rounds) + 1
+        else:
+            round_number = 1
+        spec = strategy(attempt_number)
+        if research.versions and version <= len(research.versions):
+            prior_rounds = research.versions[version - 1].rounds
+            if prior_rounds:
+                prior_spec = prior_rounds[-1].accepted_attempt.spec
+                spec = replace(
+                    spec,
+                    lookback_days=prior_spec.lookback_days + 5,
+                )
         attempt = Attempt(
-            attempt_id=f"a-{version}-{attempt_number}",
+            attempt_id=f"a-{version}-r{round_number}-a{attempt_number}",
             number=attempt_number,
             change_class=ChangeClass.PARAM,
-            spec=strategy(attempt_number),
+            spec=spec,
             simulation=simulation(),
             verification=report(),
             review=None,
         )
-        return RoundDraft(1, 1, attempt)
+        return RoundDraft(version, round_number, attempt)
 
     def retry(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
         return self.build_for_retry(prior.attempt.number + 1)
@@ -133,6 +151,29 @@ class EconomicBuilder(FakeBuilder):
 
     def next_change(self, accepted: Attempt) -> ProposedChange:
         return ProposedChange("max_drawdown_floor", -0.25, -0.30)
+
+
+class FailedMethodsParamBuilder(FakeBuilder):
+    def build(self, research, attempt_number: int) -> RoundDraft:
+        draft = super().build(research, attempt_number)
+        return replace(
+            draft,
+            attempt=replace(draft.attempt, verification=report(False)),
+        )
+
+
+class LogicSignalStopBuilder(FailedMethodsParamBuilder):
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange("signal_definition", "baseline", "variant")
+
+
+class ImplModelFamilyStopBuilder(FailedMethodsParamBuilder):
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange(
+            "model_family",
+            accepted.spec.model_family,
+            "momentum",
+        )
 
 
 class PassReviewer(ReviewerPort):
@@ -297,6 +338,56 @@ def test_paused_loop_does_no_work_or_clock_charge(tmp_path: Path) -> None:
     assert result.effective_seconds == 3.0
 
 
+def test_logic_signal_change_waits_for_confirm_not_honest_complete(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    waiting = ResearchLoop(
+        store,
+        LogicSignalStopBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert waiting.status is ResearchStatus.AWAITING_CONFIRM
+    assert waiting.pending_confirm is not None
+    assert waiting.pending_confirm.patch[0][0] == "signal_definition"
+
+
+def test_impl_model_family_takes_honest_complete_not_confirm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    completed = ResearchLoop(
+        store,
+        ImplModelFamilyStopBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert completed.status is ResearchStatus.COMPLETED
+    assert completed.pending_confirm is None
+
+
+def test_failed_method_verification_completes_without_param_iteration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    result = ResearchLoop(
+        store,
+        FailedMethodsParamBuilder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    ).run_once("r-loop")
+    assert result.status is ResearchStatus.COMPLETED
+    assert len(result.versions[0].rounds) == 1
+    assert result.versions[0].rounds[0].trial_counters.candidates_evaluated == 1
+
+
 def test_economic_next_change_waits_and_applies_only_after_approval(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "research.db")
     store.create(running_research())
@@ -315,16 +406,90 @@ def test_economic_next_change_waits_and_applies_only_after_approval(tmp_path: Pa
     assert waiting.pending_confirm is not None
     assert waiting.pending_confirm.kind is ConfirmKind.ECONOMIC
     assert waiting.pending_confirm.patch == (("max_drawdown_floor", -0.30),)
+    assert len(waiting.pending_confirm.why_change) >= 1
+    attempt_id = waiting.versions[0].rounds[0].accepted_attempt.attempt_id
+    assert waiting.pending_confirm.why_change[0].record_id == attempt_id
+    assert waiting.pending_confirm.created_at is not None
+    assert all(
+        ref.recorded_at < waiting.pending_confirm.created_at
+        for ref in waiting.pending_confirm.why_change
+    )
+
+
+class EconomicDrawdown35Builder(EconomicBuilder):
+    def next_change(self, accepted: Attempt) -> ProposedChange:
+        return ProposedChange(
+            "max_drawdown_floor",
+            accepted.spec.max_drawdown_floor,
+            -0.35,
+        )
+
+
+class _AttemptEvidenceStore:
+    def __init__(self, attempt_ids: set[str]) -> None:
+        self._ids = attempt_ids
+
+    def get_attempt(self, record_id: str, *, research_id: str | None = None) -> dict | None:
+        return {"id": record_id} if record_id in self._ids else None
+
+
+def test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteStore(tmp_path / "research.db")
+    store.create(running_research())
+    loop = ResearchLoop(
+        store,
+        EconomicDrawdown35Builder(),
+        PassReviewer(),
+        TimeBudget(lambda: 10.0),
+        lambda: NOW,
+    )
+    waiting = loop.run_once("r-loop")
+    assert waiting.status is ResearchStatus.AWAITING_CONFIRM
+    assert waiting.pending_confirm is not None
+    assert waiting.pending_confirm.patch == (("max_drawdown_floor", -0.35),)
+    attempt_id = waiting.versions[0].rounds[0].accepted_attempt.attempt_id
+    assert waiting.versions[0].rounds[0].trial_counters.candidates_evaluated == 1
+
+    pending = waiting.pending_confirm
+    evidence_time = NOW.replace(hour=10)
+    confirm_time = NOW.replace(hour=11)
+    request = replace(
+        pending,
+        why_change=(
+            EvidenceRef(
+                record_id=attempt_id,
+                recorded_at=evidence_time,
+                kind=EvidenceKind.ATTEMPT,
+                summary="scorecard.market failed at default floor",
+            ),
+        ),
+        created_at=confirm_time,
+    )
+    waiting = replace(waiting, pending_confirm=request)
+    evidence_store = _AttemptEvidenceStore({attempt_id})
+    approved = transition(
+        waiting,
+        ResearchEvent.CONFIRM_APPROVE,
+        NOW,
+        store=evidence_store,
+    )
+    store.save(approved, waiting.updated_at)
+
+    assert approved.status is ResearchStatus.RUNNING
+    assert len(approved.versions) == 2
+    v2 = approved.versions[1]
+    assert v2.opened_by == "economic_confirm"
+    assert ("max_drawdown_floor", -0.35) in v2.confirmed_changes
+    assert v2.rounds == ()
 
 
 class InFloorShrinkBuilder(FakeBuilder):
     def build(self, research, attempt_number: int) -> RoundDraft:
         self.calls += 1
         round_number = len(research.versions[0].rounds) + 1
-        if round_number == 1:
-            covered_assets, years, missing_pct, passed = 10, 10.0, 2.0, False
-        else:
-            covered_assets, years, missing_pct, passed = 9, 9.0, 4.0, True
+        covered_assets, years, missing_pct = 9, 9.0, 4.0
         attempt = Attempt(
             attempt_id=f"a-{round_number}-{attempt_number}",
             number=attempt_number,
@@ -336,7 +501,7 @@ class InFloorShrinkBuilder(FakeBuilder):
                 observations=int(years * 252),
                 missing_pct=missing_pct,
             ),
-            verification=report(passed),
+            verification=report(True),
             review=None,
         )
         return RoundDraft(1, round_number, attempt)
@@ -346,6 +511,14 @@ def test_in_floor_shrink_across_rounds_is_recorded_and_can_complete(tmp_path: Pa
     store = SQLiteStore(tmp_path / "research.db")
     research = running_research()
     symbols = tuple(f"S{i}" for i in range(10))
+    prior_coverage = CoverageSnapshot(
+        assets=symbols,
+        years=10.0,
+        missing_pct=2.0,
+        start=date(2014, 1, 2),
+        end=date(2016, 12, 30),
+        as_of=NOW,
+    )
     research = replace(
         research,
         brief=replace(
@@ -356,6 +529,7 @@ def test_in_floor_shrink_across_rounds_is_recorded_and_can_complete(tmp_path: Pa
             ),
             coverage_floor=Slot(CoverageFloor(8, 8, 8.0), True),
         ),
+        last_coverage=prior_coverage,
     )
     store.create(research)
     loop = ResearchLoop(
@@ -366,20 +540,16 @@ def test_in_floor_shrink_across_rounds_is_recorded_and_can_complete(tmp_path: Pa
         lambda: NOW,
     )
 
-    first = loop.run_once("r-loop")
-    assert first.status is ResearchStatus.RUNNING
-    assert first.coverage_history == ()
-    assert first.last_coverage is not None
-    assert len(first.last_coverage.assets) == 10
-
-    second = loop.run_once("r-loop")
-    assert len(second.coverage_history) == 1
-    shrink = second.coverage_history[0]
+    completed = loop.run_once("r-loop")
+    assert len(completed.coverage_history) == 1
+    shrink = completed.coverage_history[0]
     assert shrink.within_floor is True
     assert len(shrink.before.assets) == 10
     assert len(shrink.after.assets) == 9
-    assert second.status is ResearchStatus.COMPLETED
-    assert second.pending_confirm is None
+    assert completed.status is ResearchStatus.COMPLETED
+    assert completed.pending_confirm is None
+    assert completed.last_coverage is not None
+    assert len(completed.last_coverage.assets) == 9
 
 
 def test_coverage_below_any_locked_floor_dimension_waits(tmp_path: Path) -> None:
@@ -430,9 +600,9 @@ def test_sqlite_round_trip_and_heartbeat(tmp_path: Path) -> None:
     research = running_research()
     store.create(research)
     assert store.load("r-loop") == research
-    paths = RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json")
-    with EngineLock.acquire(paths, "cli") as lock:
+    paths = EnginePaths.for_colocated_root(tmp_path)
+    with EngineLock.acquire(paths.runtime, "cli") as lock:
         store.heartbeat(lock.owner, NOW)
-        assert read_live_owner(paths) == lock.owner
+        assert read_live_owner(paths.runtime) == lock.owner
         assert store.read_heartbeat().owner == "cli"
-    assert read_live_owner(paths) is None
+    assert read_live_owner(paths.runtime) is None

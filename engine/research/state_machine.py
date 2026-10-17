@@ -20,6 +20,9 @@ class InvalidTransition(ValueError):
 
 
 def all_slots_locked(brief: ResearchBrief) -> bool:
+    """Draft is ready for confirm when all five settings have values (lock on confirm)."""
+    from engine.research.universe_pool import pool_resolvable_brief
+
     slots = (
         brief.thesis,
         brief.universe,
@@ -27,7 +30,9 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
         brief.round1_methods,
         brief.coverage_floor,
     )
-    return all(slot.locked and slot.value is not None for slot in slots)
+    if not all(slot.value is not None for slot in slots):
+        return False
+    return pool_resolvable_brief(brief)
 
 
 def _open_version(research: Research, now: datetime, opened_by: str) -> Research:
@@ -59,6 +64,7 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
         current_version_number=number,
         pending_confirm=None,
         export_eligible=False,
+        reverifications=(),
         updated_at=now,
     )
 
@@ -88,7 +94,7 @@ def transition(
         return replace(research, updated_at=now)
     if status is ResearchStatus.DRAFT and event is ResearchEvent.CONFIRM_RUN:
         if not all_slots_locked(research.brief):
-            raise InvalidTransition("draft cannot confirm_run until all five slots are locked")
+            raise InvalidTransition("draft cannot confirm_run until all five settings are filled")
         return _open_version(research, now, "confirm_run")
     if status is ResearchStatus.RUNNING and event is ResearchEvent.AUTO_CONTINUE:
         return replace(research, updated_at=now)
@@ -122,7 +128,11 @@ def transition(
                 raise InvalidTransition(
                     "CONFIRM_APPROVE requires store for evidence validation (B4 iron rule)"
                 )
-            assert_preconfirm_evidence(research.pending_confirm, store)
+            assert_preconfirm_evidence(
+                research.pending_confirm,
+                store,
+                research.research_id,
+            )
         return _open_version(research, now, "economic_confirm")
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_REJECT:
         return replace(
@@ -141,6 +151,13 @@ def transition(
         )
     if status is ResearchStatus.PAUSED and event is ResearchEvent.RESUME:
         return replace(research, status=ResearchStatus.RUNNING, updated_at=now)
+    if status is ResearchStatus.COMPLETED and event is ResearchEvent.CONTINUE_ITERATE:
+        return replace(
+            research,
+            status=ResearchStatus.RUNNING,
+            export_eligible=False,
+            updated_at=now,
+        )
     if status is ResearchStatus.COMPLETED and event is ResearchEvent.REVERIFY_PASS:
         return replace(research, updated_at=now)
     if status is ResearchStatus.COMPLETED and event is ResearchEvent.REVERIFY_FAIL:
