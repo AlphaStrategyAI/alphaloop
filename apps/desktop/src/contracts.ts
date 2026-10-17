@@ -99,6 +99,7 @@ type ViewBody =
       settings: BriefSettings;
       chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
+      confirmDataNotice?: string | null;
     }
   | {
       kind: "running";
@@ -165,6 +166,7 @@ type ViewBody =
       workbenchHeaderSummary?: string;
       highSuspicionRoundThreshold?: number;
       symbolSelection?: SymbolSelectionSummary;
+      confirmDataNotice?: string | null;
       exportBlockerMessages?: readonly string[];
       reverifyOptions?: {
         rounds: readonly {

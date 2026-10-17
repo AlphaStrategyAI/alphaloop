@@ -375,6 +375,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       <p>认下这次研究做什么、跑多久、拿什么验证。确认前不会自己开始。</p>
       <p>研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。</p>
       <p>最长研究时间只计有效研究时间，暂停和等你确认的时间不算。</p>
+      {view.confirmDataNotice && (
+        <p className="confirm-data-notice" data-testid="confirm-data-notice" role="alert">
+          {view.confirmDataNotice}
+        </p>
+      )}
       {sel && (
         <section className="symbol-selection" data-testid="symbol-selection">
           <p className="eyebrow">标的与数据窗口（确认后锁定）</p>

@@ -8,6 +8,11 @@ from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
+from engine.research.data_availability import (
+    classify_load_failure,
+    raise_if_total_source_outage,
+    symbols_with_any_bars,
+)
 from engine.research.user_errors import UserFacingError
 
 if TYPE_CHECKING:
@@ -61,15 +66,15 @@ def symbols_with_daily_data(
 ) -> tuple[str, ...]:
     if not symbols:
         return ()
-    data = (loader or _production_loader()).load_daily(symbols, start, end)
-    available: list[str] = []
-    for symbol in symbols:
-        if symbol not in data.columns:
-            continue
-        series = data[symbol]
-        if series.notna().sum() > 0:
-            available.append(symbol)
-    return tuple(available)
+    try:
+        data = (loader or _production_loader()).load_daily(symbols, start, end)
+    except Exception as error:
+        classified = classify_load_failure(error)
+        if classified is not None:
+            raise classified from error
+        raise
+    raise_if_total_source_outage(symbols, data)
+    return symbols_with_any_bars(data, symbols)
 
 
 def shrink_pool_to_available_data(

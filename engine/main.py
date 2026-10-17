@@ -22,7 +22,11 @@ import jsonschema
 import pandas as pd
 
 from engine.dialogue.slots import first_open_slot, unlock_all_slots, unlock_slot
-from engine.dialogue.pool_errors import reopen_after_pool_failure
+from engine.dialogue.pool_errors import (
+    record_transient_confirm_notice,
+    reopen_after_pool_failure,
+)
+from engine.research.data_availability import TRANSIENT_DATA_CODE
 from engine.research.universe_pool import materialize_default_pool, pool_resolvable
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
@@ -593,11 +597,14 @@ class ResearchCommandService:
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
             display_research = research
+            confirm_data_notice: str | None = None
             if view_kind == "confirm_run" and research.data_window_end is None:
                 try:
                     display_research = ensure_runnable_universe(research)
-                except UserFacingError:
+                except UserFacingError as error:
                     display_research = research
+                    if error.code == TRANSIENT_DATA_CODE:
+                        confirm_data_notice = error.message
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
@@ -610,6 +617,8 @@ class ResearchCommandService:
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(display_research)
+                if confirm_data_notice:
+                    body["confirmDataNotice"] = confirm_data_notice
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -861,6 +870,10 @@ class ResearchCommandService:
             try:
                 research = ensure_runnable_universe(research)
             except UserFacingError as error:
+                if error.code == TRANSIENT_DATA_CODE:
+                    updated = record_transient_confirm_notice(research, error, now)
+                    self._save(research, updated)
+                    raise
                 if error.code in {
                     "UNIVERSE_SYMBOLS_EMPTY",
                     "UNIVERSE_MISSING",

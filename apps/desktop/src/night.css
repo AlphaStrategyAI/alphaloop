@@ -185,6 +185,15 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   color: var(--mute);
   white-space: nowrap;
 }
+.confirm-data-notice {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--hold);
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--text);
+  font-size: 14px;
+}
 .confirm-card, .awaiting-card {
   border: 1px solid var(--cyan);
   border-radius: var(--radius-card);
