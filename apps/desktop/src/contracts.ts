@@ -118,6 +118,7 @@ type ViewBody =
       versionTrialLabel?: string;
       researchCumulativeLabel?: string;
       windowCumulativeLabel?: string;
+      workbenchHeaderSummary?: string;
       highSuspicionRoundThreshold?: number;
       latePassPresentation?: LatePassPresentation | null;
       anomaly?: AnomalyPresentation | null;
@@ -139,6 +140,7 @@ type ViewBody =
   | {
       kind: "completed";
       researchId: string;
+      version?: number;
       status: "completed" | "ended";
       title: string;
       universeLabel?: string;
@@ -152,7 +154,25 @@ type ViewBody =
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;
       cumulativeRoundsOnWindow?: number;
+      windowCumulativeLabel?: string;
+      workbenchHeaderSummary?: string;
       highSuspicionRoundThreshold?: number;
+      symbolSelection?: SymbolSelectionSummary;
+      exportBlockerMessages?: readonly string[];
+      reverifyOptions?: {
+        rounds: readonly {
+          roundId: string;
+          roundLabel: string;
+          methods: readonly {methodId: string; methodLabel: string}[];
+        }[];
+      };
+      lastReverification?: {
+        roundId: string;
+        methodId: string;
+        methodLabel: string;
+        passed: boolean;
+        createdAt: string;
+      } | null;
       latePassPresentation?: LatePassPresentation | null;
       deferredChangeSummary?: string | null;
       trialCounters?: {

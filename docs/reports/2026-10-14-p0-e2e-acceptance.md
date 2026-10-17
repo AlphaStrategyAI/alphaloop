@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **255 passed**, 1 skipped. Desktop `npm test` → vitest **62/62** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (**23** unit/integration tests on Linux VM).
+**Default CI:** `python3 -m pytest tests/ -q` → **286 passed**, 1 skipped. Desktop `npm test` → vitest **65/65** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (Linux VM).
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -217,7 +217,22 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 
 **Real desktop still needed:** installed `.deb` smoke, D-Bus folder reveal, GNOME maximize + rail engine line legibility, full Master Bot hand-test.
 
-**Heads (2026-10-17 batch):** `4ec8e63` item 3 · `745b8d4` H · `4ece418` G/I · **`bdc9332` P0 NL pool (PyInstaller `symbol_pools` + confirm UX)**.
+**Heads (2026-10-17 batch):** `4ec8e63` item 3 · `745b8d4` H · `4ece418` G/I · **`bdc9332` P0 NL pool (PyInstaller `symbol_pools` + confirm UX)** · **`ae72d0e` docs for P0 pool**.
+
+### Master Bot hand-test batch 2 (2026-10-17, `.deb` @ `ae72d0e`)
+
+| # | Topic | Status | Evidence |
+| --- | --- | --- | --- |
+| 1 | Window **M** single source (`disclosure_rounds_on_window` = max(per-research, `data_window_round_counts`)); completed header | **Done** | `data_window.py`, `trial_tracking_for_view`; `test_window_disclosure.py`, `test_cumulative_trials.py` |
+| 2 | Reverify round + method selectors + feedback | **Done** | `reverifyOptions` / `lastReverification`; `App.tsx` `reverify-panel` |
+| 3 | Export strategy pack blockers visible (Chinese) | **Done** | `display_names.export_blocker_messages` → `exportBlockerMessages` |
+| 4 | Confirm card layout / ticker flow / input overlap | **Done** | `confirm-run-layout` single column; `night.css` sticky form + grid settings |
+| 5 | Central display names + leak guard | **Done** | `display_names.py`; `test_desktop_view_repr_guard.py` internal-id scan |
+| 6 | Method usage = executed verifiers | **Done** | `record_verification_execution` in `loop.py`; `test_method_usage_execution.py` |
+| 7 | Remaining time 3h vs 2.98h | **Explained + consistent** | `time_display.py`: `0` effective → full budget `3 小时`; else `max−used` e.g. `2.98 小时`; `test_time_display.py` |
+| 8 | Completed pool / data range; extend hint | **Done** | `symbolSelection` on completed; `extend-research-hint` (extend only on `status=ended`) |
+| 9 | Fixed rail scroll; black blocks; dedupe pit line | **Done** | `night-shell` sticky rail; `methods-layout` min-height; completed `round-verdict` |
+| 10 | Running modify by design (paused only) + hint | **Done** | `running-modify-hint`; spec: modify UI only when `paused` |
 
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
@@ -252,8 +267,8 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Tauri 发行包端到端** | Linux VM：`cargo check`/`cargo test` + staged onedir layout；**未**运行 `tauri build` 安装包、**未**验证 macOS/Windows bundle、**未**开真实 Tauri 窗口端到端。 |
 | **(a) 对话关键词解析器** | `engine/dialogue/intent.py` `interpret`：thesis 需一条里带市场+资产；时间只认「N 小时」；锁定需「锁定」+槽位词同句；覆盖底线三项缺一不可。建议：按当前提问槽填值、答后自动锁定、系统提示示例、识别分钟/半小时。 |
 | **(b) 右侧研究设定只读** | 草稿/确认右侧 `Settings` 仅展示，不能在面板内直接编辑。 |
-| **(c) 对话底部被输入框遮挡** | `night.css` `.conversation` 无 padding-bottom/内滚动，绝对定位表单盖住最后一条气泡。 |
-| **(d)–(f) 方法库 / confirm / 布局** | **已收口**（`745b8d4` / `4ece418`）；真机仍需确认最大化与 WebKit 对话框观感。 |
+| **(c) 对话底部被输入框遮挡** | **已收口**（batch 2 #4 sticky form + padding）；极端 WebKit 仍建议真机看一眼。 |
+| **(d)–(f) 方法库 / confirm / 布局** | **已收口**（batch 2 #4–#5、#9 + 早前 `745b8d4` / `4ece418`）；真机仍需确认最大化与 WebKit 对话框观感。 |
 | **(g) 新建研究不自动打开** | 列表新增一行但不导航到该研究。 |
 
 以上均非本轮的一行修复项；未为修已知问题扩大范围。

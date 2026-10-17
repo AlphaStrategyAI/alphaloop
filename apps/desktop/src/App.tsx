@@ -332,9 +332,7 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
         chatEnabled={view.chatEnabled ?? false}
         title="确认开跑"
       />
-      <div className="confirm-run-side">
-        <ConfirmRunCard api={api} view={view} />
-      </div>
+      <ConfirmRunCard api={api} view={view} />
     </div>
   );
 }
@@ -372,9 +370,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             {symbolsOpen ? "收起全部标的" : "展开全部标的"}
           </button>
           {symbolsOpen && (
-            <p className="symbol-ticker-list" data-testid="symbol-ticker-list">
-              {sel.symbols.join("、")}
-            </p>
+            <ul className="symbol-ticker-list" data-testid="symbol-ticker-list">
+              {sel.symbols.map((symbol) => (
+                <li key={symbol}>{symbol}</li>
+              ))}
+            </ul>
           )}
         </section>
       )}
@@ -407,8 +407,11 @@ function RunningScreen({
         第 {view.version} 版 · 有效研究 {view.effective}
         {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
         {" · "}{view.coverage}
+        {view.workbenchHeaderSummary ? ` · ${view.workbenchHeaderSummary}` : ""}
         {view.versionTrialLabel ? ` · ${view.versionTrialLabel}` : ""}
-        {view.windowCumulativeLabel ? ` · ${view.windowCumulativeLabel}` : ""}
+        {!view.workbenchHeaderSummary && view.windowCumulativeLabel
+          ? ` · ${view.windowCumulativeLabel}`
+          : ""}
       </header>
       {view.lastError && (
         <p className="run-error" data-testid="last-run-error">
@@ -473,6 +476,11 @@ function RunningScreen({
           </div>
         </article>
       ))}
+      {view.status === "running" && (
+        <p className="running-modify-hint" data-testid="running-modify-hint">
+          运行中不能改策略，请先暂停。
+        </p>
+      )}
       {view.status === "running" ? (
         <button className="quiet-button" onClick={() => void api.pauseResearch(view.researchId)}>暂停</button>
       ) : (
@@ -575,10 +583,19 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
   const [extensionHours, setExtensionHours] = useState("4");
   const [modification, setModification] = useState("");
   const [iterateConfirm, setIterateConfirm] = useState<InAppConfirmRequest | null>(null);
+  const [reverifyRoundId, setReverifyRoundId] = useState(view.selectedRoundId);
+  const [reverifyMethodId, setReverifyMethodId] = useState(view.selectedMethodId);
+  const [reverifyBusy, setReverifyBusy] = useState(false);
+  const [reverifyError, setReverifyError] = useState<string | null>(null);
   const [exportFeedback, setExportFeedback] = useState<
     {status: "success"; path: string} | {status: "error"; message: string} | null
   >(null);
   const [openFolderError, setOpenFolderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReverifyRoundId(view.selectedRoundId);
+    setReverifyMethodId(view.selectedMethodId);
+  }, [view.selectedRoundId, view.selectedMethodId]);
 
   const runExport = async (kind: "strategy_pack" | "research_record") => {
     setExportFeedback(null);
@@ -605,13 +622,57 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     view.failedVerifierIds &&
     view.failedVerifierIds.length > 0 &&
     !gatesInSubtitle;
+  const reverifyRounds = view.reverifyOptions?.rounds ?? [];
+  const methodsForRound =
+    reverifyRounds.find((item) => item.roundId === reverifyRoundId)?.methods ?? [];
+  const runReverify = async () => {
+    if (!reverifyRoundId || !reverifyMethodId) {
+      setReverifyError("请选择轮次与验证方法");
+      return;
+    }
+    setReverifyBusy(true);
+    setReverifyError(null);
+    try {
+      await api.reverify(view.researchId, reverifyRoundId, reverifyMethodId);
+    } catch (error) {
+      setReverifyError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setReverifyBusy(false);
+    }
+  };
+
   return (
     <div className="focus completed-screen">
       <InAppConfirmOverlay request={iterateConfirm} onClose={() => setIterateConfirm(null)} />
-      <StatusPill status={view.status} />
+      <header className="workbench-header" data-testid="completed-workbench-header">
+        <StatusPill status={view.status} />
+        <span className="workbench-summary">
+          第 {view.version ?? 1} 版 ·{" "}
+          {view.workbenchHeaderSummary || view.windowCumulativeLabel || ""}
+        </span>
+      </header>
       <p>{headline}</p>
       {view.subtitle && <p>{view.subtitle}</p>}
       {view.honestStopHint && <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>}
+      {view.symbolSelection && (
+        <section className="materials-note completed-data-window" data-testid="completed-symbol-selection">
+          <p className="eyebrow">标的与数据窗口</p>
+          <p>
+            {view.symbolSelection.count} 只 · {view.symbolSelection.listName} · 版本{" "}
+            {view.symbolSelection.listVersion}
+          </p>
+          <p>
+            数据区间 {view.symbolSelection.dataStart} 至 {view.symbolSelection.dataEnd}
+            （截止 {view.symbolSelection.dataCutoff}） · 来源{" "}
+            {view.symbolSelection.dataSource}
+          </p>
+        </section>
+      )}
+      {view.status !== "ended" && (
+        <p className="extend-hint" data-testid="extend-research-hint">
+          「延长有效研究时间」仅在研究状态为「已结束（未通过）」时出现；有效时间用尽后会显示延长入口。
+        </p>
+      )}
       {view.canContinueIterate && (
         <button
           type="button"
@@ -691,8 +752,11 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
                 <p>{round.implementationDelta.modelChangesDisplay}</p>
               )}
               <p className="round-verdict">
-                {round.verificationPassed ? "验证通过" : "验证未通过"}
-                {round.pitPassed === false ? " · 时点未通过" : ""}
+                {round.verificationPassed
+                  ? round.pitPassed === false
+                    ? "验证通过 · 时点未通过"
+                    : "验证通过"
+                  : "验证未通过"}
               </p>
             </article>
           ))}
@@ -705,7 +769,66 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
           <p data-testid="failed-gates-line">未通过门禁：{view.failedVerifierIds!.join("、")}</p>
         )}
         <button disabled={!eligible || view.status === "ended"} onClick={() => void runExport("strategy_pack")}>导出策略包</button>
-        <button className="text-button" onClick={() => void api.reverify(view.researchId, view.selectedRoundId, view.selectedMethodId)}>对某一步重新验证</button>
+        {!eligible && view.exportBlockerMessages && view.exportBlockerMessages.length > 0 && (
+          <ul className="export-blockers" data-testid="export-blockers">
+            {view.exportBlockerMessages.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        )}
+        <div className="reverify-panel" data-testid="reverify-panel">
+          <p className="eyebrow">对某一步重新验证</p>
+          <label>
+            轮次
+            <select
+              value={reverifyRoundId}
+              onChange={(event) => {
+                const nextRound = event.target.value;
+                setReverifyRoundId(nextRound);
+                const round = reverifyRounds.find((item) => item.roundId === nextRound);
+                if (round?.methods[0]) {
+                  setReverifyMethodId(round.methods[0].methodId);
+                }
+              }}
+              data-testid="reverify-round-select"
+            >
+              {reverifyRounds.map((round) => (
+                <option key={round.roundId} value={round.roundId}>{round.roundLabel}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            验证方法
+            <select
+              value={reverifyMethodId}
+              onChange={(event) => setReverifyMethodId(event.target.value)}
+              data-testid="reverify-method-select"
+            >
+              {methodsForRound.map((method) => (
+                <option key={method.methodId} value={method.methodId}>
+                  {method.methodLabel}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="text-button"
+            disabled={reverifyBusy}
+            onClick={() => void runReverify()}
+          >
+            {reverifyBusy ? "重新验证中…" : "执行重新验证"}
+          </button>
+          {view.lastReverification && (
+            <p className="reverify-result" data-testid="reverify-result" role="status">
+              最近重验：{view.lastReverification.methodLabel}（
+              {view.lastReverification.passed ? "通过" : "未通过"}）
+            </p>
+          )}
+          {reverifyError && (
+            <p className="reverify-error" data-testid="reverify-error" role="alert">{reverifyError}</p>
+          )}
+        </div>
         <button className="text-button" onClick={() => void runExport("research_record")}>导出研究记录包</button>
         {exportFeedback?.status === "success" && (
           <p className="export-feedback success" data-testid="export-success" role="status">
@@ -776,13 +899,13 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
       <h1>{method.name}</h1>
       {method.category && <span className="method-category-badge">{method.category}</span>}
       <p>{method.description}</p>
-      <pre className="method-definition-display" data-testid="method-definition-display">
+      <div className="method-definition-display" data-testid="method-definition-display">
         {method.definitionDisplay ?? method.description}
-      </pre>
-      <p>
-        当前冻结定义：
+      </div>
+      <details className="method-advanced">
+        <summary>修订标识（高级）</summary>
         <code className="revision-id" title={method.revision}>{method.revision}</code>
-      </p>
+      </details>
       {method.usageCount != null && <p>被 {method.usageCount} 次研究用过</p>}
       {method.dimensions && method.dimensions.length > 0 && (
         <div className="scorecard-dimensions" data-testid="scorecard-dimensions">

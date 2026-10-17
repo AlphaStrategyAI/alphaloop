@@ -25,7 +25,7 @@ button:active { transform: scale(.98); }
 
 .night-shell {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   max-width: none;
   display: grid;
   grid-template-columns: 148px 1fr;
@@ -33,11 +33,14 @@ button:active { transform: scale(.98); }
   background: var(--void);
 }
 .rail {
-  position: relative;
+  position: sticky;
+  top: 0;
+  align-self: start;
   width: 148px;
-  min-height: 100vh;
+  height: 100vh;
   border-right: 1px solid var(--line);
   background: var(--void);
+  overflow-y: auto;
 }
 .rail-center { position: absolute; top: 50%; transform: translateY(-50%); }
 .logo {
@@ -70,7 +73,7 @@ nav a.active { color: var(--ink); background: var(--glass); border-color: var(--
 .host-status.completed { color: var(--ok); }
 .host-status.awaiting_confirm { color: var(--cyan); }
 .host-status.idle { color: var(--mute); }
-.content { min-width: 0; min-height: 100vh; }
+.content { min-width: 0; height: 100vh; overflow-y: auto; }
 .content.confirm_run, .content.awaiting_confirm {
   background: radial-gradient(ellipse at 50% 38%, rgba(94, 234, 212, .12), transparent 28%);
 }
@@ -119,11 +122,17 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .status-pill.paused { color: var(--hold); }
 .status-pill.draft { color: var(--mute); }
 .status-pill.awaiting_confirm { color: var(--cyan); }
-.draft-layout { min-height: 900px; display: grid; grid-template-columns: 1fr 240px; gap: 48px; padding-left: 64px; }
+.draft-layout { min-height: auto; display: grid; grid-template-columns: 1fr 280px; gap: 48px; padding: 48px 64px 120px; }
+.draft-layout.confirm-run-layout {
+  grid-template-columns: 1fr;
+  max-width: 920px;
+  margin: 0 auto;
+  padding-bottom: 160px;
+}
 .conversation {
   position: relative;
   padding-top: 46px;
-  padding-bottom: 120px;
+  padding-bottom: 140px;
   max-height: min(72vh, 720px);
   overflow-y: auto;
 }
@@ -131,7 +140,15 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .message.user { border-color: rgba(94, 234, 212, 0.35); }
 .message.assistant { border-color: var(--line); }
 .message.system { border-color: rgba(255, 255, 255, 0.08); color: var(--mute); }
-.conversation form { position: absolute; bottom: 40px; width: 640px; }
+.conversation form {
+  position: sticky;
+  bottom: 0;
+  width: min(640px, 100%);
+  margin-top: 16px;
+  padding-top: 12px;
+  background: linear-gradient(transparent, var(--void) 24%);
+  z-index: 2;
+}
 .conversation input { width: 100%; color: var(--ink); background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-control); padding: 16px; }
 .settings { background: var(--glass); border: 1px solid var(--line); padding: 36px 24px; }
 .settings div { margin: 20px 0; }
@@ -145,16 +162,80 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   box-shadow: 0 0 42px rgba(94, 234, 212, .18);
 }
 .confirm-card .settings { padding: 8px 0; background: transparent; border: 0; }
-.confirm-card .settings div { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 13px 0; }
-.confirm-run-layout { padding-left: 64px; }
-.confirm-run-side { min-width: 0; }
-.confirm-run-side .confirm-card { max-width: 100%; }
+.confirm-card .settings div {
+  display: grid;
+  grid-template-columns: minmax(96px, 38%) 1fr;
+  gap: 8px 16px;
+  align-items: start;
+  margin: 13px 0;
+}
+.confirm-card .settings dd { word-break: break-word; }
+.confirm-card .settings dt { white-space: nowrap; }
+.confirm-run-layout .confirm-card { max-width: 100%; }
+.symbol-ticker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.symbol-ticker-list li {
+  padding: 4px 8px;
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+.universe-symbols { word-break: break-word; }
 .slot-edit { flex-shrink: 0; }
 .cyan-button { background: var(--cyan); border-color: var(--cyan); color: var(--void); font-weight: 700; }
 .actions { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
 .actions a { color: var(--mute); }
 .running-screen { padding-top: 205px; }
 .running-screen header { color: var(--mute); font: 13px "IBM Plex Mono", monospace; }
+.running-modify-hint { font-size: 13px; color: var(--hold); margin: 12px 0; }
+.workbench-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 16px;
+  font: 13px "IBM Plex Mono", monospace;
+  color: var(--mute);
+}
+.export-blockers {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 16px;
+  color: var(--stop);
+  font-size: 13px;
+}
+.reverify-panel {
+  margin: 16px 0;
+  display: grid;
+  gap: 10px;
+}
+.reverify-panel label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--mute);
+}
+.reverify-panel select {
+  color: var(--ink);
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 8px 10px;
+}
+.reverify-result { color: var(--ok); font-size: 13px; }
+.reverify-error { color: var(--stop); font-size: 13px; }
+.extend-hint { font-size: 12px; color: var(--mute); margin: 12px 0; }
 .round-card, .result-card { margin: 12px 0; padding: 20px 24px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-card); }
 .round-card h2 { font-size: 17px; }
 .awaiting-card { width: min(640px, 100%); }
@@ -211,7 +292,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .result-card { margin-top: 28px; text-align: left; }
 .result-card button { margin-right: 10px; }
 .text-button { border: 0; background: transparent; color: var(--mute); }
-.methods-layout { display: grid; grid-template-columns: 260px 1fr; min-height: 900px; }
+.methods-layout { display: grid; grid-template-columns: 260px 1fr; min-height: auto; padding-bottom: 64px; }
 .method-list { padding: 52px 28px; border-right: 1px solid var(--line); }
 .method-list a { display: grid; color: var(--ink); text-decoration: none; padding: 14px; border-radius: var(--radius-control); }
 .method-list a.active { background: var(--glass); border: 1px solid var(--line); }
@@ -235,7 +316,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   color: #fecaca;
   font-size: 13px;
 }
-.method-detail { padding: 52px 64px; background: var(--glass); }
+.method-detail { padding: 52px 64px; background: var(--glass); min-height: 100%; }
+.method-advanced { margin: 12px 0; color: var(--mute); font-size: 12px; }
 .method-create { display: grid; gap: 8px; margin: 16px 0 24px; }
 .method-create input {
   color: var(--ink);
