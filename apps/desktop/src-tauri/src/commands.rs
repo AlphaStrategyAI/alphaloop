@@ -56,19 +56,32 @@ impl EngineConnection {
             .map_err(|_| "engine connection lock poisoned")?
             .clone()
             .ok_or("engine is not ready")?;
-        Client::new()
+        let response = Client::new()
             .post(format!("{}/commands", connection.endpoint))
             .bearer_auth(connection.auth_token)
             .json(&request)
             .send()
             .await
-            .map_err(|error| error.to_string())?
-            .error_for_status()
-            .map_err(|error| error.to_string())?
-            .json()
+            .map_err(|error| error.to_string())?;
+        let status = response.status();
+        let body = response
+            .text()
             .await
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        if !status.is_success() {
+            return Err(parse_engine_error_body(&body));
+        }
+        serde_json::from_str(&body).map_err(|error| error.to_string())
     }
+}
+
+fn parse_engine_error_body(body: &str) -> String {
+    if let Ok(payload) = serde_json::from_str::<Value>(body) {
+        if let Some(message) = payload.get("error").and_then(|value| value.as_str()) {
+            return message.to_string();
+        }
+    }
+    body.to_string()
 }
 
 fn notification_title(kind: &str) -> Option<&'static str> {
@@ -151,13 +164,18 @@ pub async fn confirm_run(
 #[tauri::command]
 pub async fn unlock_brief(
     research_id: String,
+    slot: Option<String>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
+    let mut request = json!({"type": "unlock_brief", "research_id": research_id});
+    if let Some(slot) = slot {
+        request["slot"] = json!(slot);
+    }
     mutate(
         &app,
         &connection,
-        json!({"type": "unlock_brief", "research_id": research_id}),
+        request,
     )
     .await
     .map(|_| ())
@@ -417,7 +435,7 @@ pub fn restart_engine_sidecar(
 
 #[cfg(test)]
 mod tests {
-    use super::{EngineConnection, notification_title, notify_kinds};
+    use super::{EngineConnection, notification_title, notify_kinds, parse_engine_error_body};
 
     #[test]
     fn notify_titles_cover_only_awaiting_and_terminal_states() {
@@ -440,6 +458,15 @@ mod tests {
         assert!(conn.is_configured());
         conn.clear();
         assert!(!conn.is_configured());
+    }
+
+    #[test]
+    fn parse_engine_error_body_uses_json_error_field() {
+        let body = r#"{"error":"请先暂停","code":"RUNNING_CANNOT_MODIFY"}"#;
+        assert_eq!(
+            parse_engine_error_body(body),
+            "请先暂停"
+        );
     }
 
     #[test]
