@@ -199,14 +199,33 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | `engine_errors` | `error_id` AUTOINCREMENT | OK (rows per event, rate-limited) |
 | Reverifications / rounds | Inside `state_json` only | N/A |
 
+## Additional P0 — chat draft empty `symbols` (2026-10-17)
+
+| # | Root cause (confirmed) | Fix | Tests |
+| --- | --- | --- | --- |
+| 1 | `intent._universe()` sets `symbols=()`; confirm had no guard | `ensure_runnable_universe()` at `confirm_run`; static `default_universe_symbols()` for US equity (`PROPOSAL_DATE=2026-10-17`, **pending product sign-off**); confirm view `settings.universe_symbols` | `test_universe_validation.py`, E2E |
+| 2 | `RoutingDataAdapter.load_daily(())` — `all(())` is True → CN/AkShare → empty frame | `EmptySymbolsError` (`DATA_SYMBOLS_EMPTY`) before routing | `test_gather_empty_symbols.py` |
+| 3 | Run loop surfaced raw `str(error)` (English assertion) | `classify_run_error` + `last_run_error_code` on research + `lastError.code` in running view | `test_run_errors.py`, E2E classified path |
+| 4 | Tauri `error_for_status()` dropped engine JSON body; modify while running opaque | `parse_engine_error_body`; `RUNNING_CANNOT_MODIFY`; UI hides modify when `status=running`; lifted paused modification state in `App` | `commands.rs` unit test, `App.test.tsx`, `api-bind.test.ts` |
+| 5 | `unlock_brief` cleared all five locks | Optional `slot` on `unlock_brief`; per-slot「改一改」on confirm card | `test_dialogue.py`, `test_engine_http_errors.py` |
+
+**Default universe proposal (technical):** static US large-cap / broad ETF list (`SPY`, `QQQ`, `IWM`, `DIA`, `AAPL`, `MSFT`, `GOOGL`, `AMZN`, `NVDA`) in `engine/research/default_universe.py`. **Trade-offs:** static list is deterministic and offline-testable but drifts from index membership; live constituent fetch needs network, caching, and product rules for delistings. **Sign-off:** 产品小马 — list marked `pending product sign-off` until approved.
+
+**E2E:** `tests/test_draft_confirm_run_e2e.py` — `create_draft` → dialogue lock sequence (no hand-built brief) → `confirm_run` → `ResearchLoop.run_once` with `FakeBuilder`; asserts `SPY` in symbols and no `prices must be non-empty`.
+
 ## 已知问题（本轮不修）
 
 | Issue | 事实与影响 |
 | --- | --- |
 | **Crossref 每轮请求** | 文献 crossref 每轮调用，易触发 HTTP 429。影响：运行中断或降级，与导航/UI 无关。 |
 | **Tauri 发行包端到端** | Linux VM：`cargo check`/`cargo test` + staged onedir layout；**未**运行 `tauri build` 安装包、**未**验证 macOS/Windows bundle、**未**开真实 Tauri 窗口端到端。 |
-| **草稿 `universe` 无 `symbols`** | 对话草稿阶段 brief 的 universe 常无 `symbols`，列表/设定仅显示市场·资产类。影响：展示不完整，开跑前需锁定标的。 |
-| **原生 `window.confirm` 对话框** | Tauri/WebKit 显示英文 Cancel/OK 与 `JavaScript - http://localhost:1420/…` 标题；「继续迭代」等确认应改为应用内对话框（后续迭代）。 |
+| **(a) 对话关键词解析器** | `engine/dialogue/intent.py` `interpret`：thesis 需一条里带市场+资产；时间只认「N 小时」；锁定需「锁定」+槽位词同句；覆盖底线三项缺一不可。建议：按当前提问槽填值、答后自动锁定、系统提示示例、识别分钟/半小时。 |
+| **(b) 右侧研究设定只读** | 草稿/确认右侧 `Settings` 仅展示，不能在面板内直接编辑。 |
+| **(c) 对话底部被输入框遮挡** | `night.css` `.conversation` 无 padding-bottom/内滚动，绝对定位表单盖住最后一条气泡。 |
+| **(d) 方法库详情** | 原始 JSON；计分卡表头英文键；revision 截断；「编辑为新定义」无确认即新版本。 |
+| **(e) 原生 `window.confirm`** | Tauri/WebKit 英文按钮与 `JavaScript - tauri://localhost#/research` 标题。 |
+| **(f) 引擎状态与窗口尺寸** | 左下角引擎状态文案截断；最大化后内容区约 960×650。 |
+| **(g) 新建研究不自动打开** | 列表新增一行但不导航到该研究。 |
 
 以上均非本轮的一行修复项；未为修已知问题扩大范围。
 
