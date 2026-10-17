@@ -115,6 +115,7 @@ type ViewBody =
       highSuspicionRoundThreshold?: number;
       latePassPresentation?: LatePassPresentation | null;
       anomaly?: AnomalyPresentation | null;
+      recentDialogue?: readonly {role: "user" | "assistant"; text: string}[];
     }
   | {
       kind: "awaiting_confirm";
@@ -163,6 +164,7 @@ type ViewBody =
       overturnedExports?: boolean;
       currentAction?: string;
       anomaly?: AnomalyPresentation | null;
+      recentDialogue?: readonly {role: "user" | "assistant"; text: string}[];
     }
   | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]};
 

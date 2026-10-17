@@ -336,9 +336,15 @@ pub async fn export_artifact(
 
 #[tauri::command]
 pub fn reveal_export_in_folder(path: String, app: AppHandle) -> Result<(), String> {
+    if app.opener().reveal_item_in_dir(&path).is_ok() {
+        return Ok(());
+    }
+    let parent = std::path::Path::new(&path)
+        .parent()
+        .ok_or_else(|| "无法打开文件夹：路径无效".to_string())?;
     app.opener()
-        .reveal_item_in_dir(path)
-        .map_err(|error| error.to_string())
+        .open_path(parent.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|error| format!("无法打开文件夹：{}", error))
 }
 
 #[tauri::command]

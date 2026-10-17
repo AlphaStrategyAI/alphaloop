@@ -133,7 +133,16 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
     <div className="browse list-screen">
       <header className="list-header">
         <p>一条对话，一次研究。等你确认的会排在最上面。</p>
-        <button className="quiet-button" onClick={() => void api.createDraft()}>新建研究</button>
+        <button
+          className="quiet-button"
+          onClick={() => {
+            void api.createDraft().then((id) => {
+              window.location.hash = `#/research/${id}`;
+            });
+          }}
+        >
+          新建研究
+        </button>
       </header>
       {awaiting && (
         <article className="awaiting-primary" data-kind="awaiting-primary">
@@ -388,7 +397,7 @@ function RunningScreen({
           <input
             value={modification}
             onChange={(event) => onModificationChange(event.target.value)}
-            placeholder="说明要改的研究设定"
+            placeholder="把最长研究时间改成 6 小时"
             data-testid="paused-modification-input"
           />
           <button
@@ -484,6 +493,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
   const [exportFeedback, setExportFeedback] = useState<
     {status: "success"; path: string} | {status: "error"; message: string} | null
   >(null);
+  const [openFolderError, setOpenFolderError] = useState<string | null>(null);
 
   const runExport = async (kind: "strategy_pack" | "research_record") => {
     setExportFeedback(null);
@@ -580,7 +590,16 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             <button
               type="button"
               className="text-button"
-              onClick={() => void api.revealExportInFolder(exportFeedback.path)}
+              onClick={() => {
+                void api.revealExportInFolder(exportFeedback.path).catch(async () => {
+                  setOpenFolderError(`无法打开文件夹，路径已复制：${exportFeedback.path}`);
+                  try {
+                    await navigator.clipboard.writeText(exportFeedback.path);
+                  } catch {
+                    /* clipboard unavailable */
+                  }
+                });
+              }}
             >
               打开所在文件夹
             </button>
@@ -591,14 +610,26 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             导出失败：{exportFeedback.message}
           </p>
         )}
+        {openFolderError && (
+          <p className="export-feedback error" data-testid="open-folder-error" role="alert">
+            {openFolderError}
+          </p>
+        )}
         <label>
           改策略再跑
-          <input value={modification} onChange={(event) => setModification(event.target.value)} placeholder="说明要改的研究设定" />
+          <input value={modification} onChange={(event) => setModification(event.target.value)} placeholder="把最长研究时间改成 6 小时" />
           <button disabled={!modification.trim()} onClick={() => void (async () => {
             await api.sendDialogue(view.researchId, modification.trim());
             await api.confirmModification(view.researchId);
           })()}>确认修改并开新版</button>
         </label>
+        {view.recentDialogue && view.recentDialogue.length > 0 && (
+          <div className="modification-dialogue" data-testid="modification-dialogue">
+            {view.recentDialogue.map((turn, index) => (
+              <p className={`message ${turn.role}`} key={index}>{turn.text}</p>
+            ))}
+          </div>
+        )}
         {view.status === "ended" && (
           <label>
             延长有效研究小时
@@ -747,10 +778,27 @@ export function App({
     setView(next);
   }, [api, route]);
 
+  const clearMutationError = useCallback(() => setMutationError(null), []);
+
   const boundApi = useMemo(
-    () => bindDesktopApi(api, {refresh: refreshView, onError: setMutationError}),
-    [api, refreshView],
+    () =>
+      bindDesktopApi(api, {
+        refresh: refreshView,
+        onError: setMutationError,
+        onSuccess: clearMutationError,
+      }),
+    [api, refreshView, clearMutationError],
   );
+
+  useEffect(() => {
+    clearMutationError();
+  }, [route, clearMutationError]);
+
+  useEffect(() => {
+    if (!mutationError) return;
+    const timer = window.setTimeout(() => clearMutationError(), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [mutationError, clearMutationError]);
 
   useEffect(() => {
     const onHashChange = () => setRoute(readBrowserRoute());
@@ -818,7 +866,16 @@ export function App({
     <NightShell view={view}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
-          {mutationError}
+          <span>{mutationError}</span>
+          <button
+            type="button"
+            className="mutation-error-dismiss"
+            aria-label="关闭"
+            data-testid="mutation-error-dismiss"
+            onClick={clearMutationError}
+          >
+            ×
+          </button>
         </p>
       )}
       {sidecarState?.phase === "stopped" && (

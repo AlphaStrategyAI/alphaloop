@@ -3,6 +3,7 @@ import type {DesktopApi} from "./contracts";
 type BindDeps = {
   refresh: () => Promise<void>;
   onError: (message: string) => void;
+  onSuccess?: () => void;
 };
 
 async function runMutation<T>(
@@ -11,6 +12,7 @@ async function runMutation<T>(
 ): Promise<T> {
   try {
     const result = await action();
+    deps.onSuccess?.();
     await deps.refresh();
     return result;
   } catch (error) {

@@ -199,6 +199,23 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | `engine_errors` | `error_id` AUTOINCREMENT | OK (rows per event, rate-limited) |
 | Reverifications / rounds | Inside `state_json` only | N/A |
 
+## Master Bot hand-test batch (2026-10-17)
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| **A** reverify/strategy_pack Path crash | **Done** | `_structure_attempt` coerces `Path`; `do_POST` catch-all 500 JSON; `test_attempt_path_roundtrip.py` |
+| **B** symbol pool / dialogue / data dir | **Done** (prior commits `d7ad7e8`) | `EnginePaths.data` for DB/exports |
+| **C** mutation banner + engine errors | **Done** | clear on success/route/timeout; × dismiss; Rust body parse (prior) |
+| **D** modify-then-rerun | **Done** | `modification.py`; `MODIFICATION_UNCHANGED`; placeholder + `recentDialogue` on completed |
+| **E** open export folder | **Done** | catch + copy path message; Rust `open_path(parent)` fallback |
+| **F** data errors Chinese | **Done** (prior + gather codes) | |
+| **G** copy/UI polish | **Partly** | Chinese method labels in settings; coverage years 1dp; effective「尚未计入」when 0 |
+| **H** method library / confirm / extend | **Partly** | **延长** exists on **ended** completed screen (`extendResearch`); not on running. `window.confirm` still native |
+| **I** shell/CSS/nav | **Partly** | conversation scroll/padding; bubble contrast; create-draft opens research hash |
+| **J** packaging | **Done** (prior `6ad11dd`) | deb metadata + icons |
+
+**Real desktop still needed:** D-Bus folder reveal, maximize layout ~960×650, full GNOME walk.
+
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
 | Item | Implementation |
