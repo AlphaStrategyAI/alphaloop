@@ -217,7 +217,7 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 
 **Real desktop still needed:** installed `.deb` smoke, D-Bus folder reveal, GNOME maximize + rail engine line legibility, full Master Bot hand-test.
 
-**Heads (2026-10-17 batch):** `4ec8e63` item 3 · `745b8d4` H · `4ece418` G/I (+ `unlock_slot` clear fix in `745b8d4`).
+**Heads (2026-10-17 batch):** `4ec8e63` item 3 · `745b8d4` H · `4ece418` G/I · **`bdc9332` P0 NL pool (PyInstaller `symbol_pools` + confirm UX)**.
 
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
