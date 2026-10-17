@@ -20,6 +20,7 @@ class InvalidTransition(ValueError):
 
 
 def all_slots_locked(brief: ResearchBrief) -> bool:
+    """Draft is ready for confirm when all five settings have values (lock on confirm)."""
     slots = (
         brief.thesis,
         brief.universe,
@@ -27,7 +28,7 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
         brief.round1_methods,
         brief.coverage_floor,
     )
-    return all(slot.locked and slot.value is not None for slot in slots)
+    return all(slot.value is not None for slot in slots)
 
 
 def _open_version(research: Research, now: datetime, opened_by: str) -> Research:
@@ -88,7 +89,7 @@ def transition(
         return replace(research, updated_at=now)
     if status is ResearchStatus.DRAFT and event is ResearchEvent.CONFIRM_RUN:
         if not all_slots_locked(research.brief):
-            raise InvalidTransition("draft cannot confirm_run until all five slots are locked")
+            raise InvalidTransition("draft cannot confirm_run until all five settings are filled")
         return _open_version(research, now, "confirm_run")
     if status is ResearchStatus.RUNNING and event is ResearchEvent.AUTO_CONTINUE:
         return replace(research, updated_at=now)

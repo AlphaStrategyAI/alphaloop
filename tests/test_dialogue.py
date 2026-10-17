@@ -28,7 +28,7 @@ def test_send_dialogue_off_topic_persists_user_and_reply(tmp_path: Path) -> None
     assert loaded.dialogue[0].role is DialogueRole.USER
     assert loaded.dialogue[0].text == "你好"
     assert loaded.dialogue[1].role is DialogueRole.ASSISTANT
-    assert "五项研究设定" in loaded.dialogue[1].text
+    assert "原理想靠什么赚钱" in loaded.dialogue[1].text
 
     view = service.view_for("#/research/r-draft")
     assert view["kind"] == "draft"
@@ -52,7 +52,7 @@ def test_send_dialogue_on_topic_returns_next_question(tmp_path: Path) -> None:
     loaded = store.load("r-draft")
     assert loaded.brief.max_effective_hours.value == 12.0
     assert loaded.dialogue[-1].role is DialogueRole.ASSISTANT
-    assert "策略凭什么" in loaded.dialogue[-1].text
+    assert "研究哪类资产" in loaded.dialogue[-1].text
 
 
 def test_dialogue_round_trip_sqlite_reload(tmp_path: Path) -> None:

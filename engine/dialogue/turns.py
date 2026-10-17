@@ -26,11 +26,12 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
     text = message.strip()
     if not text:
         raise ValueError("message must not be empty")
-    intent = interpret(text, research)
+    prompt = next_question(research)
+    intent = interpret(text, research, prompt.slot)
     with_user = append_dialogue(research, DialogueRole.USER, text, now)
     updated = apply_intent(with_user, intent, now)
     if intent.kind is IntentKind.OFF_TOPIC:
-        reply = intent.response
+        reply = intent.response or prompt.message
     else:
         reply = next_question(updated).message
     return append_dialogue(updated, DialogueRole.ASSISTANT, reply, now)
