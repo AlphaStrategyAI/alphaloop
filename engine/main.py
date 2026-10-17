@@ -12,7 +12,7 @@ import time
 import uuid
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -341,7 +341,7 @@ class ResearchCommandService:
         return {
             "id": item.research_id,
             "title": item.title,
-            "status": item.status.value,
+            "status": item.list_status,
             "universeLabel": item.universe_label,
             "createdAt": item.created_at.isoformat(),
             "updatedAt": item.updated_at.isoformat(),
@@ -1197,7 +1197,7 @@ class EngineApiHandler(BaseHTTPRequestHandler):
 def start_api(
     service: ResearchCommandService,
     token: str,
-) -> tuple[HTTPServer, str]:
+) -> tuple[ThreadingHTTPServer, str]:
     bundle_root = Path(
         getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
     )
@@ -1211,7 +1211,8 @@ def start_api(
         (EngineApiHandler,),
         {"service": service, "auth_token": token, "request_schema": schema},
     )
-    server = HTTPServer(("127.0.0.1", 0), handler)
+    # ThreadingHTTPServer: confirm_run / fetch_view market probes must not wedge all /commands.
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     endpoint = f"http://127.0.0.1:{server.server_port}"
     threading.Thread(
         target=server.serve_forever,

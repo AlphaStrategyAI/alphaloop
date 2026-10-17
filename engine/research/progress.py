@@ -10,6 +10,7 @@ from engine.research.models import (
     Research,
     ResearchStatus,
 )
+from engine.research.state_machine import all_slots_locked
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,8 +19,16 @@ class ResearchListItem:
     title: str
     universe_label: str
     status: ResearchStatus
+    list_status: str
     created_at: datetime
     updated_at: datetime
+
+
+def list_row_status(research: Research) -> str:
+    """Desktop list pill: confirm-ready drafts use the same label as the confirm_run view."""
+    if research.status is ResearchStatus.DRAFT and all_slots_locked(research.brief):
+        return "confirm_run"
+    return research.status.value
 
 
 _MARKET = {Market.US: "美股", Market.CN: "A股"}
@@ -57,6 +66,7 @@ def list_items(
                     else "未锁定"
                 ),
                 status=item.status,
+                list_status=list_row_status(item),
                 created_at=item.created_at,
                 updated_at=item.updated_at,
             )

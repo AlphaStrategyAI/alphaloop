@@ -25,6 +25,13 @@ Folder `macos-<short-sha>/`:
 - `alphaloop-macos-<short-sha>.zip` — zipped `.app` from `bundle/macos/`
 - `alphaloop-macos-<short-sha>.dmg` — Tauri DMG when present, otherwise `hdiutil` fallback
 
+## Engine HTTP (market-data stalls)
+
+The loopback API uses `ThreadingHTTPServer` so a hung Yahoo/AkShare probe on
+`confirm_run` or confirm `fetch_view` does not block other `POST /commands`
+calls. Market `load_daily` calls run under a **25s** overall deadline
+(`ALPHALOOP_MARKET_DATA_TIMEOUT_SEC`); timeouts map to `DATA_SOURCE_UNAVAILABLE`.
+
 ## Local parity
 
 1. `bash scripts/build_sidecar.sh`

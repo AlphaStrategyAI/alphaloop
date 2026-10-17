@@ -8,11 +8,14 @@ from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
+from engine.research import market_data_timeouts as _market_data_timeouts
 from engine.research.data_availability import (
     classify_load_failure,
     raise_if_total_source_outage,
     symbols_with_any_bars,
+    transient_data_error,
 )
+from engine.research.market_data_timeouts import run_with_deadline
 from engine.research.user_errors import UserFacingError
 
 if TYPE_CHECKING:
@@ -67,7 +70,16 @@ def symbols_with_daily_data(
     if not symbols:
         return ()
     try:
-        data = (loader or _production_loader()).load_daily(symbols, start, end)
+        active = loader or _production_loader()
+
+        def _load() -> pd.DataFrame:
+            return active.load_daily(symbols, start, end)
+
+        data = run_with_deadline(
+            _market_data_timeouts.MARKET_DATA_LOAD_TIMEOUT_SEC, _load
+        )
+    except TimeoutError:
+        raise transient_data_error() from None
     except Exception as error:
         classified = classify_load_failure(error)
         if classified is not None:

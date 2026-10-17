@@ -4,6 +4,8 @@ import socket
 
 import pytest
 
+_REAL_SOCKET = socket.socket
+
 from engine.research.pool_data_shrink import set_pool_data_loader
 from tests.fixtures.pool_loader import AllSymbolsAvailableLoader
 
@@ -32,3 +34,9 @@ def _block_real_network(request: pytest.FixtureRequest, monkeypatch: pytest.Monk
         raise OSError("network blocked in offline tests (use @pytest.mark.network)")
 
     monkeypatch.setattr(socket, "socket", guarded_socket)
+
+
+@pytest.fixture
+def allow_loopback_sockets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let a test bind 127.0.0.1 for loopback HTTP without opening outbound network."""
+    monkeypatch.setattr(socket, "socket", _REAL_SOCKET)
