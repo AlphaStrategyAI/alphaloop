@@ -18,7 +18,7 @@ from engine.research.models import (
     Universe,
     new_research,
 )
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 from engine.strategy import StrategySpec
 from engine.verifiers import run_verifiers
@@ -64,7 +64,7 @@ def test_library_create_method_is_deposited_not_preset(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "m.db")
     service = ResearchCommandService(
         store,
-        RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json"),
+        EnginePaths.for_colocated_root(tmp_path),
     )
     service.handle(
         {

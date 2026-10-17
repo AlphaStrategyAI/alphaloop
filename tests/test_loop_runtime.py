@@ -26,7 +26,7 @@ from engine.research.models import (
     Version,
     new_research,
 )
-from engine.research.runtime import EngineLock, RuntimePaths, read_live_owner
+from engine.research.runtime import EngineLock, EnginePaths, read_live_owner
 from engine.research.specify import ProposedChange
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
@@ -600,9 +600,9 @@ def test_sqlite_round_trip_and_heartbeat(tmp_path: Path) -> None:
     research = running_research()
     store.create(research)
     assert store.load("r-loop") == research
-    paths = RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json")
-    with EngineLock.acquire(paths, "cli") as lock:
+    paths = EnginePaths.for_colocated_root(tmp_path)
+    with EngineLock.acquire(paths.runtime, "cli") as lock:
         store.heartbeat(lock.owner, NOW)
-        assert read_live_owner(paths) == lock.owner
+        assert read_live_owner(paths.runtime) == lock.owner
         assert store.read_heartbeat().owner == "cli"
-    assert read_live_owner(paths) is None
+    assert read_live_owner(paths.runtime) is None

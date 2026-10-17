@@ -6,7 +6,7 @@ import pytest
 from engine.main import ResearchCommandService
 from engine.research.models import ResearchStatus, new_research
 from engine.research.run_errors import apply_run_failure, max_consecutive_run_errors
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.state_machine import transition
 from engine.research.models import ResearchEvent
 from engine.research.store import SQLiteStore
@@ -50,7 +50,7 @@ def test_last_error_surfaces_in_running_view(tmp_path: Path) -> None:
     store.create(research)
     service = ResearchCommandService(
         store,
-        RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json"),
+        EnginePaths.for_colocated_root(tmp_path),
     )
     view = service.view_for("#/research/r-loop")
     assert view["status"] == "paused"

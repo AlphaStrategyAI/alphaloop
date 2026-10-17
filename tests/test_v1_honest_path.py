@@ -9,7 +9,7 @@ from engine.research.clock import TimeBudget
 from engine.research.gather import LocalMaterialAdapter, RoutingDataAdapter, YahooDataAdapter, AkShareDataAdapter
 from engine.research.loop import DefaultRoundBuilder, ResearchLoop
 from engine.research.models import ResearchStatus, Slot, Universe, AssetClass, Market, MethodRef, CoverageFloor, new_research
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.research.models import ResearchEvent
@@ -36,13 +36,13 @@ def test_v1_mean_reversion_reaches_completed_real_ports(tmp_path) -> None:
     )
     now = datetime.now(UTC)
     store = SQLiteStore(tmp_path / "accept.db")
-    paths = RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     builder = DefaultRoundBuilder(
         material_ports=(LocalMaterialAdapter(material_dir, lambda: now),),
         data_port=RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter()),
         start=_SCORECARD_WINDOW_START,
         end=_SCORECARD_WINDOW_END,
-        snapshot_root=paths.root / "snapshots",
+        snapshot_root=paths.data.snapshots_dir,
     )
     loop = ResearchLoop(
         store,

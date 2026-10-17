@@ -19,7 +19,7 @@ from engine.research.honest_stop import (
 )
 from engine.research.loop import ResearchLoop
 from engine.research.models import ResearchEvent, ResearchStatus
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.strategy import MarketPanel, MeanReversionStrategy
@@ -110,7 +110,7 @@ def test_late_pass_after_third_round_success(tmp_path: Path, monkeypatch: pytest
     assert late["cumulativeRoundsOnWindow"] == 3
     assert len(late["priorFailureRecords"]) == 2
 
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     view = service.view_for("#/research/r-loop")
     assert view["cumulativeRoundsOnWindow"] == 3
@@ -153,7 +153,7 @@ def test_round_one_pass_no_late_pass(tmp_path: Path, monkeypatch: pytest.MonkeyP
 def test_continue_iterate_requires_confirm_flags(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
     store = SQLiteStore(tmp_path / "cont.db")
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     store.create(running_research())
     completed = ResearchLoop(

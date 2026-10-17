@@ -7,14 +7,14 @@ from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop
 from engine.research.models import EvidenceKind, ResearchStatus
 from engine.research.models import assert_preconfirm_evidence
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 from tests.test_loop_runtime import NOW, EconomicBuilder, PassReviewer, running_research
 
 
 def test_real_loop_populates_why_change_and_approve_opens_v2(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "econ-evidence.db")
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     store.create(running_research())
 

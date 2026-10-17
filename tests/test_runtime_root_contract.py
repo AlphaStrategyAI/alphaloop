@@ -100,7 +100,7 @@ def test_rust_shared_fixture_table() -> None:
 
 
 def test_runtime_root_contract_doc_references_fixture() -> None:
-    doc = Path("docs/requirements/runtime-root.md").read_text(encoding="utf-8")
+    doc = Path("docs/requirements/paths-contract.md").read_text(encoding="utf-8")
     assert "ALPHALOOP_RUNTIME_ROOT" in doc
     assert "runtime-<uid>" in doc
     assert "runtime_root_cases.json" in doc

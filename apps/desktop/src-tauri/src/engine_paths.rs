@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-/// Contract: `docs/requirements/runtime-root.md` (must match `engine.research.runtime.resolve_runtime_root`).
+/// Contract: `docs/requirements/paths-contract.md` runtime section (must match `resolve_runtime_root`).
 pub fn resolve_runtime_root() -> Result<PathBuf, String> {
     resolve_runtime_root_with(&RuntimeRootContext::production())
 }

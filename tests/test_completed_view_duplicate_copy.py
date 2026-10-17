@@ -6,7 +6,7 @@ from engine.main import ResearchCommandService
 from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop
 from engine.research.models import ResearchStatus
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 from tests.test_export_pack import completed_research
 from tests.test_loop_runtime import NOW, FailedMethodsParamBuilder, PassReviewer, running_research
@@ -26,7 +26,7 @@ def test_exhausted_completed_view_shows_budget_copy_once(
 ) -> None:
     monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
     store = SQLiteStore(tmp_path / "dup.db")
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     store.create(running_research())
     completed = ResearchLoop(
@@ -47,7 +47,7 @@ def test_ended_status_completed_view_shows_budget_copy_once(tmp_path: Path) -> N
     from dataclasses import replace
 
     store = SQLiteStore(tmp_path / "ended.db")
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     base = replace(completed_research(), status=ResearchStatus.ENDED, research_id="r-ended")
     store.create(base)

@@ -7,7 +7,7 @@ from engine.main import ResearchCommandService
 from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop
 from engine.research.models import ResearchStatus
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 from tests.test_cumulative_trials import FailTwiceThenPassBuilder
 from tests.test_loop_runtime import NOW, PassReviewer, running_research
@@ -18,7 +18,7 @@ def test_continue_iterate_returns_without_inline_run_once(
 ) -> None:
     monkeypatch.setenv("ALPHALOOP_MAX_TRIALS", "1")
     store = SQLiteStore(tmp_path / "ci.db")
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     store.create(running_research())
     loop = ResearchLoop(

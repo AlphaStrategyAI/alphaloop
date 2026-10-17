@@ -17,7 +17,7 @@ from engine.research.progress import (
     notification_event,
     thesis_divergence_hint,
 )
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
@@ -74,7 +74,7 @@ def test_fetch_view_drains_every_pending_notification(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "research.db")
     service = ResearchCommandService(
         store,
-        RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json"),
+        EnginePaths.for_colocated_root(tmp_path),
     )
     first = replace(new_research("r-wait", NOW), status=ResearchStatus.RUNNING)
     second = replace(new_research("r-done", NOW), status=ResearchStatus.RUNNING)

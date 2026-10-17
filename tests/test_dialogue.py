@@ -3,7 +3,7 @@ from pathlib import Path
 
 from engine.main import ResearchCommandService
 from engine.research.models import DialogueRole, new_research
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
@@ -11,7 +11,7 @@ NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
 def _service(tmp_path: Path) -> ResearchCommandService:
     store = SQLiteStore(tmp_path / "d.db")
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     return ResearchCommandService(store, paths)
 
 
@@ -59,7 +59,7 @@ def test_dialogue_round_trip_sqlite_reload(tmp_path: Path) -> None:
     path = tmp_path / "persist.db"
     store = SQLiteStore(path)
     store.create(new_research("r-draft", NOW))
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     service.handle({"type": "send_dialogue", "research_id": "r-draft", "message": "你好"})
 

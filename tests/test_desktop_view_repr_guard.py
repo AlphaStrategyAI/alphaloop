@@ -10,7 +10,7 @@ from engine.main import ResearchCommandService
 from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop
 from engine.research.models import ResearchEvent, ResearchStatus, new_research
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from tests.test_export_pack import completed_research
@@ -46,7 +46,7 @@ def assert_no_repr_like(view: dict) -> None:
 @pytest.fixture
 def service(tmp_path: Path) -> ResearchCommandService:
     store = SQLiteStore(tmp_path / "repr.db")
-    return ResearchCommandService(store, RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json"))
+    return ResearchCommandService(store, EnginePaths.for_colocated_root(tmp_path))
 
 
 VIEW_CASES = (

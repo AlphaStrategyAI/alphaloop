@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **241 passed**, 1 skipped. Desktop `npm test` → vitest **62/62** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (**23** unit/integration tests on Linux VM).
+**Default CI:** `python3 -m pytest tests/ -q` → **255 passed**, 1 skipped. Desktop `npm test` → vitest **62/62** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (**23** unit/integration tests on Linux VM).
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -130,7 +130,9 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **Running header idle** | Omit `currentAction` when IDLE; no route flash | 通过 | `test_running_view_idle_action.py`, `route-loading.test.tsx` |
 | **Desktop typecheck gate** | `api-bind` + typed vitest fixtures; CI `npm run typecheck`/`build` | 通过 | `test_desktop_typecheck_ci.py`, `.github/workflows/desktop-typecheck.yml` |
 | **Stopped-engine polling** | Pause `fetchView` when sidecar `stopped`; `.catch` on polls; resume after 重启 | 通过 | `engine-polling.test.tsx`, `App.tsx` |
-| **Runtime root parity** | Rust matches `platformdirs` when `XDG_RUNTIME_DIR` unset (`/tmp/runtime-<uid>/alphaloop`) | 通过 | `docs/requirements/runtime-root.md`, `resolve_runtime_root`, `test_runtime_root_contract.py` |
+| **Runtime vs data roots** | Persistent DB/materials/exports under `user_data_dir`; runtime lock/owner in tmpfs-safe dir | 通过 | `docs/requirements/paths-contract.md`, `EnginePaths`, `test_data_path_migration.py` |
+| **Runtime root parity** | Injectable fixture table; `/run/user/<uid>` before temp fallback | 通过 | `runtime_root_cases.json`, `test_runtime_root_contract.py` |
+| **Deb bundle metadata** | `bundle.icon`, Finance category, descriptions | 通过 | `test_tauri_bundle_metadata.py`, `tauri.conf.json` |
 | **Handshake restart loop** | Startup/handshake failures retry with backoff; cap → stopped + owner clear | 通过 | `sidecar_restart.rs`, `drive_recovery_sync` tests |
 | **owner.json on stop/restart** | Clear stale desktop pid when cap exceeded + user restart | 通过 | `engine_paths::clear_owner_file_logged`, `commands.rs`, `test_engine_owner_clear_rust.py` |
 | **Sidecar supervision** | try_wait + stdin keepalive; no mutex deadlock on kill | 通过 | `sidecar.rs` integration tests (3), `shared_child_supervision.rs`, `sidecar-ui.test.tsx` |

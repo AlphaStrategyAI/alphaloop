@@ -10,27 +10,46 @@ from typing import Literal, Self
 import portalocker
 from platformdirs import user_runtime_path
 
+from engine.research.data_paths import DataPaths
+from engine.research.path_migration import migrate_legacy_runtime_data
+
 OwnerKind = Literal["desktop", "cli"]
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimePaths:
+    """Ephemeral runtime state (tmpfs-safe): lock + owner handshake only."""
+
     root: Path
     lock_file: Path
     owner_file: Path
-
-    @property
-    def database_file(self) -> Path:
-        return self.root / "research.db"
-
-    @property
-    def engine_log(self) -> Path:
-        return self.root / "engine.log"
 
     @classmethod
     def default(cls) -> Self:
         root = resolve_runtime_root(ensure_exists=True)
         return cls(root, root / "engine.lock", root / "owner.json")
+
+
+@dataclass(frozen=True, slots=True)
+class EnginePaths:
+    runtime: RuntimePaths
+    data: DataPaths
+
+    @classmethod
+    def default(cls) -> Self:
+        runtime = RuntimePaths.default()
+        data = DataPaths.default()
+        migrate_legacy_runtime_data(runtime.root, data.root)
+        return cls(runtime, data)
+
+    @classmethod
+    def for_colocated_root(cls, root: Path) -> Self:
+        """Tests and env overrides: keep runtime + data under one directory."""
+        root.mkdir(parents=True, exist_ok=True)
+        return cls(
+            RuntimePaths(root, root / "engine.lock", root / "owner.json"),
+            DataPaths(root),
+        )
 
 
 def resolve_runtime_root(*, ensure_exists: bool = False) -> Path:

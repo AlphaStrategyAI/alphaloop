@@ -6,26 +6,26 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from apps.cli.main import Launcher, build_parser, get_status, run
-from engine.research.runtime import EngineLock, RuntimePaths
+from engine.research.runtime import EngineLock, EnginePaths
 from engine.research.store import SQLiteStore
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
 
-def paths(root: Path) -> RuntimePaths:
-    return RuntimePaths(root, root / "engine.lock", root / "owner.json")
+def paths(root: Path) -> EnginePaths:
+    return EnginePaths.for_colocated_root(root)
 
 
 class HoldingLauncher(Launcher):
-    def __init__(self, paths: RuntimePaths) -> None:
+    def __init__(self, paths: EnginePaths) -> None:
         self.paths = paths
         self.calls = 0
         self.lock: EngineLock | None = None
 
     def start(self, owner: str) -> None:
         self.calls += 1
-        self.lock = EngineLock.acquire(self.paths, "cli")
-        SQLiteStore(self.paths.database_file).heartbeat(self.lock.owner, NOW)
+        self.lock = EngineLock.acquire(self.paths.runtime, "cli")
+        SQLiteStore(self.paths.data.database_file).heartbeat(self.lock.owner, NOW)
 
 
 def parser_commands(parser: argparse.ArgumentParser) -> set[str]:
@@ -70,7 +70,7 @@ def test_start_is_idempotent_and_status_redacts_runtime_secrets(tmp_path: Path) 
 
 def test_cli_start_does_not_replace_desktop_owner(tmp_path: Path) -> None:
     runtime = paths(tmp_path)
-    desktop = EngineLock.acquire(runtime, "desktop")
+    desktop = EngineLock.acquire(runtime.runtime, "desktop")
     launcher = HoldingLauncher(runtime)
     output = io.StringIO()
 
@@ -83,7 +83,7 @@ def test_cli_start_does_not_replace_desktop_owner(tmp_path: Path) -> None:
 def contend(root: str, queue: multiprocessing.Queue) -> None:
     runtime = paths(Path(root))
     try:
-        lock = EngineLock.acquire(runtime, "cli")
+        lock = EngineLock.acquire(runtime.runtime, "cli")
     except RuntimeError:
         queue.put(False)
     else:

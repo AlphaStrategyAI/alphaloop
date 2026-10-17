@@ -1,0 +1,14 @@
+[
+  {
+    "id": "data_override",
+    "env": {
+      "ALPHALOOP_DATA_ROOT": "/tmp/alphaloop-data-contract"
+    },
+    "expected_data_root": "/tmp/alphaloop-data-contract"
+  },
+  {
+    "id": "data_platform_default",
+    "env": {},
+    "expected_suffix": "ai.alphastrategy.alphaloop"
+  }
+]

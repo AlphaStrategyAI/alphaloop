@@ -97,6 +97,7 @@ from engine.research.runtime import (
     EngineLock,
     OwnerKind,
     OwnerRecord,
+    EnginePaths,
     RuntimePaths,
     publish_ready,
     read_live_owner,
@@ -169,9 +170,9 @@ class FailClosedLLM(LLMPort):
         )
 
 
-def build_loop(store: SQLiteStore, paths: RuntimePaths) -> ResearchLoop:
+def build_loop(store: SQLiteStore, paths: EnginePaths) -> ResearchLoop:
     client = httpx.Client()
-    material_root = paths.root / "materials"
+    material_root = paths.data.materials_dir
     material_root.mkdir(parents=True, exist_ok=True)
     material_ports = (
         PapersAdapter(client, lambda: datetime.now(UTC)),
@@ -202,7 +203,7 @@ def build_loop(store: SQLiteStore, paths: RuntimePaths) -> ResearchLoop:
         data_port=data_port,
         start=today - timedelta(days=365 * 12),
         end=today,
-        snapshot_root=paths.root / "snapshots",
+        snapshot_root=paths.data.snapshots_dir,
     )
     return ResearchLoop(
         store,
@@ -214,7 +215,7 @@ def build_loop(store: SQLiteStore, paths: RuntimePaths) -> ResearchLoop:
 
 
 class ResearchCommandService:
-    def __init__(self, store: SQLiteStore, paths: RuntimePaths) -> None:
+    def __init__(self, store: SQLiteStore, paths: EnginePaths) -> None:
         self.store = store
         self.paths = paths
         self._observed_status: dict[str, ResearchStatus] = {}
@@ -870,7 +871,7 @@ class ResearchCommandService:
                 now,
             )
         elif kind == "export_artifact":
-            export_root = self.paths.root / "exports"
+            export_root = self.paths.data.exports_dir
             export_root.mkdir(parents=True, exist_ok=True)
             eligibility = strategy_pack_eligibility(research)
             if request["kind"] == "research_record":
@@ -996,12 +997,12 @@ def start_api(
     return server, endpoint
 
 
-def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
+def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     try:
-        lock = EngineLock.acquire(paths, owner_kind)
+        lock = EngineLock.acquire(paths.runtime, owner_kind)
     except RuntimeError:
         deadline = time.monotonic() + 10.0
-        owner = read_live_owner(paths)
+        owner = read_live_owner(paths.runtime)
         while (
             owner is not None
             and (
@@ -1012,7 +1013,7 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
             and time.monotonic() < deadline
         ):
             time.sleep(0.05)
-            owner = read_live_owner(paths)
+            owner = read_live_owner(paths.runtime)
         if owner is None:
             return 1
         if owner.phase != "ready" or owner.endpoint is None or owner.auth_token is None:
@@ -1023,10 +1024,10 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
     stop = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
-    store = SQLiteStore(paths.database_file)
+    store = SQLiteStore(paths.data.database_file)
     seed_preset_methods(store)
     loop = build_loop(store, paths)
-    service = ResearchCommandService(SQLiteStore(paths.database_file), paths)
+    service = ResearchCommandService(SQLiteStore(paths.data.database_file), paths)
     token = secrets.token_urlsafe(32)
     server, endpoint = start_api(service, token)
     owner = publish_ready(lock, endpoint, token)
@@ -1067,7 +1068,7 @@ def serve(owner_kind: OwnerKind, paths: RuntimePaths) -> int:
 
 def main() -> int:
     args = build_parser().parse_args()
-    return serve(args.owner, RuntimePaths.default())
+    return serve(args.owner, EnginePaths.default())
 
 
 if __name__ == "__main__":

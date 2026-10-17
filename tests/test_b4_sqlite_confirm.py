@@ -11,7 +11,7 @@ from engine.main import ResearchCommandService
 from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop
 from engine.research.models import EvidenceKind, ResearchStatus
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from tests.test_loop_runtime import (
@@ -26,7 +26,7 @@ def test_b4_resolve_confirm_sqlite_lookup_minus_035(tmp_path: Path) -> None:
     """NOT Done #1: -0.35 only via economic confirm on SQLite store."""
     db = tmp_path / "b4.db"
     store = SQLiteStore(db)
-    paths = RuntimePaths(tmp_path, tmp_path / "lock", tmp_path / "owner.json")
+    paths = EnginePaths.for_colocated_root(tmp_path)
     service = ResearchCommandService(store, paths)
     store.create(running_research())
     waiting = ResearchLoop(

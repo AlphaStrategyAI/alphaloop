@@ -33,7 +33,7 @@ from engine.research.models import (
     Version,
     new_research,
 )
-from engine.research.runtime import RuntimePaths
+from engine.research.runtime import EnginePaths
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.strategy import MarketPanel, MeanReversionStrategy, StrategySpec
@@ -61,8 +61,8 @@ def _round_v2(attempt: Attempt) -> RoundV2:
     )
 
 
-def _paths(tmp_path: Path) -> RuntimePaths:
-    return RuntimePaths(tmp_path, tmp_path / "engine.lock", tmp_path / "owner.json")
+def _paths(tmp_path: Path) -> EnginePaths:
+    return EnginePaths.for_colocated_root(tmp_path)
 
 
 def _service(tmp_path: Path) -> ResearchCommandService:
