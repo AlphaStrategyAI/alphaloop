@@ -199,6 +199,16 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | `engine_errors` | `error_id` AUTOINCREMENT | OK (rows per event, rate-limited) |
 | Reverifications / rounds | Inside `state_json` only | N/A |
 
+## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
+
+| Item | Implementation |
+| --- | --- |
+| Pool | `engine/research/symbol_pools/us_equity_large_cap_v1.json` (40 tickers, `generated_date`) |
+| Override | `Universe.user_symbols_override` + confirm card `overrideNote` |
+| Confirm card | `symbolSelection` payload: count, list version, expandable tickers, data start/end/cutoff |
+| Dialogue | Slot-context `interpret()`; examples in `prompts.py`; minutes/半小时; no「锁定」 |
+| Window M | `DataWindowKey` = version + data source + dates; `data_window_round_counts` table |
+
 ## Additional P0 — chat draft empty `symbols` (2026-10-17)
 
 | # | Root cause (confirmed) | Fix | Tests |

@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from engine.research.default_universe import US_EQUITY_DEFAULT
 from engine.research.models import (
     AssetClass,
     CoverageFloor,
@@ -14,6 +13,7 @@ from engine.research.models import (
     Universe,
     new_research,
 )
+from engine.research.symbol_pool import pool_for_market
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError
 
@@ -30,16 +30,19 @@ def _locked_us_equity_no_symbols() -> Research:
         ),
         max_effective_hours=Slot(8.0, True),
         round1_methods=Slot((), True),
-        coverage_floor=Slot(CoverageFloor(8, 10, 5.0), True),
+        coverage_floor=Slot(CoverageFloor(25, 10, 5.0), True),
     )
     return replace(research, brief=brief)
 
 
-def test_default_universe_applied_when_symbols_empty() -> None:
+def test_default_pool_applied_when_symbols_empty() -> None:
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
     updated = ensure_runnable_universe(_locked_us_equity_no_symbols())
     symbols = updated.brief.universe.value.symbols
-    assert symbols == US_EQUITY_DEFAULT
-    assert len(symbols) >= 8
+    assert symbols == pool.symbols
+    assert updated.symbol_list_version == pool.version_id
+    assert len(symbols) >= 25
 
 
 def test_empty_symbols_without_default_pool_rejected() -> None:

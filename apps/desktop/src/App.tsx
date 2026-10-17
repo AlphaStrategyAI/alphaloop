@@ -237,7 +237,7 @@ function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {
       <section className="conversation">
         <h1>新研究</h1>
         <p className="message assistant system" data-testid="dialogue-system-intro">
-          我会逐项锁定原理、资产、时间、方法和覆盖底线。
+          我会逐项问清原理、资产、时间、方法和覆盖底线；齐全后进入确认开跑。
         </p>
         {view.dialogue.map((turn, index) => (
           <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
@@ -255,12 +255,40 @@ function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {
 
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
   const editSlot = (slot: BriefSlotName) => void api.unlockBrief(view.researchId, slot);
+  const [symbolsOpen, setSymbolsOpen] = useState(false);
+  const sel = view.symbolSelection;
   return (
     <article className="confirm-card" data-testid="confirm-run-card">
       <h1>确认开跑</h1>
       <p>认下这次研究做什么、跑多久、拿什么验证。确认前不会自己开始。</p>
       <p>研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。</p>
       <p>最长研究时间只计有效研究时间，暂停和等你确认的时间不算。</p>
+      {sel && (
+        <section className="symbol-selection" data-testid="symbol-selection">
+          <p className="eyebrow">标的与数据窗口（确认后锁定）</p>
+          <p>
+            {sel.count} 只 · {sel.listName} · 版本 {sel.listVersion}
+            {sel.generatedDate ? ` · ${sel.generatedDate}` : ""}
+            {sel.source === "user_override" || sel.overrideNote
+              ? ` · ${sel.overrideNote ?? "已覆盖默认标的池"}`
+              : " · 默认标的池"}
+          </p>
+          <p>数据区间 {sel.dataStart} 至 {sel.dataEnd}（截止 {sel.dataCutoff}） · 来源 {sel.dataSource}</p>
+          <button
+            type="button"
+            className="text-button"
+            data-testid="toggle-symbol-list"
+            onClick={() => setSymbolsOpen((open) => !open)}
+          >
+            {symbolsOpen ? "收起全部标的" : "展开全部标的"}
+          </button>
+          {symbolsOpen && (
+            <p className="symbol-ticker-list" data-testid="symbol-ticker-list">
+              {sel.symbols.join("、")}
+            </p>
+          )}
+        </section>
+      )}
       <Settings values={view.settings} onEditSlot={editSlot} />
       <div className="actions">
         <button className="cyan-button" onClick={() => void api.confirmRun(view.researchId)}>确认开跑</button>
@@ -290,6 +318,8 @@ function RunningScreen({
         第 {view.version} 版 · 有效研究 {view.effective}
         {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
         {" · "}{view.coverage}
+        {view.versionTrialLabel ? ` · ${view.versionTrialLabel}` : ""}
+        {view.windowCumulativeLabel ? ` · ${view.windowCumulativeLabel}` : ""}
       </header>
       {view.lastError && (
         <p className="run-error" data-testid="last-run-error">

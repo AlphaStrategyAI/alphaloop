@@ -23,7 +23,7 @@ import pandas as pd
 from engine.dialogue.slots import unlock_all_slots, unlock_slot
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
-from engine.research.default_universe import PROPOSAL_DATE, PROPOSAL_NOTE, default_universe_symbols
+from engine.research.confirm_view import symbol_selection_payload
 from engine.dialogue.turns import process_send_dialogue
 from engine.export import (
     build_research_record_pack,
@@ -271,25 +271,18 @@ class ResearchCommandService:
         )
 
     @staticmethod
-    def _settings(research: Research) -> dict[str, str]:
+    def _settings(research: Research) -> dict[str, Any]:
         brief = research.brief
         hours = brief.max_effective_hours.value
+        selection = symbol_selection_payload(research)
         symbols_line = ""
-        universe = brief.universe.value
-        if universe is not None:
-            if universe.symbols:
-                symbols_line = "、".join(universe.symbols)
-            else:
-                proposed = default_universe_symbols(
-                    universe.market,
-                    universe.asset_class,
-                    universe.underlying_asset_class,
-                )
-                if proposed:
-                    symbols_line = (
-                        f"（确认开跑时将使用默认标的，{PROPOSAL_DATE} 提案，{PROPOSAL_NOTE}）"
-                        + "、".join(proposed)
-                    )
+        if selection:
+            prefix = (
+                f"{selection['count']} 只 · {selection['listName']} {selection['listVersion']}"
+            )
+            if selection.get("overrideNote"):
+                prefix = f"{selection['overrideNote']} · {prefix}"
+            symbols_line = prefix
         return {
             "thesis": str(brief.thesis.value or ""),
             "universe": format_universe_display(brief.universe.value),
@@ -510,18 +503,18 @@ class ResearchCommandService:
         research = self.store.load(research_id)
         if research.status.value == "draft":
             kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
-            return self._host_payload(
-                {
-                    "kind": kind,
-                    "researchId": research_id,
-                    "dialogue": [
-                        {"role": turn.role.value, "text": turn.text}
-                        for turn in research.dialogue
-                    ],
-                    "settings": self._settings(research),
-                },
-                research,
-            )
+            body: dict[str, Any] = {
+                "kind": kind,
+                "researchId": research_id,
+                "dialogue": [
+                    {"role": turn.role.value, "text": turn.text}
+                    for turn in research.dialogue
+                ],
+                "settings": self._settings(research),
+            }
+            if kind == "confirm_run":
+                body["symbolSelection"] = symbol_selection_payload(research)
+            return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
             cutoff = (
@@ -561,7 +554,7 @@ class ResearchCommandService:
                 }
                 if research.last_run_error_code:
                     running_payload["lastError"]["code"] = research.last_run_error_code
-            running_payload.update(trial_tracking_for_view(research))
+            running_payload.update(trial_tracking_for_view(research, self.store))
             running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
             late = late_pass_presentation(research)
             if late is not None:
@@ -621,7 +614,7 @@ class ResearchCommandService:
                 "budgetExhausted": presentation.budget_exhausted,
                 "canContinueIterate": can_manual_continue_iterate(research),
                 "deferredChangeSummary": presentation.deferred_change_summary,
-                **trial_tracking_for_view(research),
+                **trial_tracking_for_view(research, self.store),
                 "highSuspicionRoundThreshold": high_suspicion_round_threshold(),
                 "latePassPresentation": late_pass_presentation(research),
                 "trialCounters": presentation.trial_counters,
@@ -720,8 +713,10 @@ class ResearchCommandService:
             else:
                 updated = unlock_all_slots(research, now)
         elif kind == "confirm_run":
+            expected_at = research.updated_at
             research = ensure_runnable_universe(research)
-            self.store.save(research, research.updated_at)
+            self.store.save(research, expected_at)
+            research = self.store.load(research.research_id)
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
             self._record_version_methods(updated)
         elif kind == "pause":

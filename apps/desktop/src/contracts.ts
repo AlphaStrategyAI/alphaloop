@@ -34,6 +34,20 @@ export type BriefSlotName =
   | "round1_methods"
   | "coverage_floor";
 
+export interface SymbolSelectionSummary {
+  count: number;
+  listName: string;
+  listVersion: string;
+  generatedDate?: string;
+  symbols: readonly string[];
+  source: "default_pool" | "user_override";
+  overrideNote?: string | null;
+  dataStart: string;
+  dataEnd: string;
+  dataCutoff: string;
+  dataSource: string;
+}
+
 export interface BriefSettings {
   thesis: string;
   universe: string;
@@ -71,7 +85,12 @@ type ViewBody =
       dialogue: readonly {role: "user" | "assistant"; text: string}[];
       settings: BriefSettings;
     }
-  | {kind: "confirm_run"; researchId: string; settings: BriefSettings}
+  | {
+      kind: "confirm_run";
+      researchId: string;
+      settings: BriefSettings;
+      symbolSelection?: SymbolSelectionSummary;
+    }
   | {
       kind: "running";
       researchId: string;
@@ -89,6 +108,10 @@ type ViewBody =
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;
       cumulativeRoundsOnWindow?: number;
+      windowCumulativeRoundsAllResearches?: number;
+      versionTrialLabel?: string;
+      researchCumulativeLabel?: string;
+      windowCumulativeLabel?: string;
       highSuspicionRoundThreshold?: number;
       latePassPresentation?: LatePassPresentation | null;
       anomaly?: AnomalyPresentation | null;

@@ -7,6 +7,7 @@
 | 2026-10-13 | 初稿。决定：收口野心，不砍铁律。 |
 | 2026-10-13 | 吸收工程 review：补 P0 可测 Done；P0 落在现有研究闭环契约上，不开第二条路径；写清策略包交接不是券商执行器；数据口验收写死为至少一条真实 DataPort / MaterialPort。 |
 | 2026-10-15 | 补充 P0 过渡：验证未通过时的诚实停止与手动「继续迭代」；非长期默认。 |
+| 2026-10-17 | P0 标的池：版本化清单文件 `(market, asset_class)` → 固定列表；确认卡展示池版本与数据截止；对话按当前槽位填值；数据窗口键 = 列表版本 + 起止日 + 数据源；SQLite 跨研究累计 M。 |
 
 **决定：** 收口野心，不砍铁律。V1 是一条诚实走通的路径，不是多策略挖掘平台。
 
@@ -115,7 +116,9 @@ P0 是 V1 的工程主体。P1–P3 是收口之后的顺序，不是 V1 的隐�
 
 ## 已知限制（P0）
 
-**实现层迭代预算（已落地）：** 验证方法集未全部通过时，若下一步是实现层 PARAM / `model_family` 调整（`change_requires_user_confirm()` 为 false），`ResearchLoop` 在**当前版本**内按轮次自动迭代，直到 `implementation_trial_budget` 用尽（默认 **5** 轮，环境变量 `ALPHALOOP_MAX_TRIALS`）才 `COMPLETED` 并只能导出 `research_record`。同一**数据窗口**（universe 标的 + 模拟起止日，见 `data_window_key`）上跨版本累计轮次 **M** 写入 B2 `history/rounds.json` 与视图，仅披露、不做统计校正。**Holdout、更强反假发现** 等留 **P2**；V1 只展示累计轮次与先前失败记录（B5）。经济/覆盖/B3 逻辑字段始终 `REQUEST_CONFIRM`。预算用尽后「继续迭代」需每次用户确认（高累计轮次二次确认），`ALPHALOOP_TRIAL_BUDGET_INCREMENT` 默认 **5** 追加预算；阈值不放宽。
+**实现层迭代预算（已落地）：** 验证方法集未全部通过时，若下一步是实现层 PARAM / `model_family` 调整（`change_requires_user_confirm()` 为 false），`ResearchLoop` 在**当前版本**内按轮次自动迭代，直到 `implementation_trial_budget` 用尽（默认 **5** 轮，环境变量 `ALPHALOOP_MAX_TRIALS`）才 `COMPLETED` 并只能导出 `research_record`。同一**数据窗口**（`symbol_list_version` + 模拟起止日 + `data_source_id`，见 `DataWindowKey.serialize()`）上跨研究、跨版本累计轮次 **M** 存于 SQLite `data_window_round_counts`，并写入 B2 `history/rounds.json` 与运行视图（本版本 X/N、本研究累计、本窗口所有研究累计），仅披露、不做统计校正。
+
+**标的池（P0，产品定稿）：** 默认池为仓库内版本化 JSON（如 `us_equity_large_cap_v1`，40 只美股大市值）；用户写明代码则覆盖默认池；无池且无代码时回到对话追问，禁止静默空跑。确认开跑卡展示池名、版本、标的数量、数据区间与截止日；确认后写入研究状态与导出出处。**Holdout、更强反假发现** 等留 **P2**；V1 只展示累计轮次与先前失败记录（B5）。经济/覆盖/B3 逻辑字段始终 `REQUEST_CONFIRM`。预算用尽后「继续迭代」需每次用户确认（高累计轮次二次确认），`ALPHALOOP_TRIAL_BUDGET_INCREMENT` 默认 **5** 追加预算；阈值不放宽。
 
 ## 6. 和现有文档怎么一起读
 
