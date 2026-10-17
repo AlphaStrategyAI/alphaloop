@@ -209,12 +209,15 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **D** modify-then-rerun | **Done** | `modification.py`; `MODIFICATION_UNCHANGED`; placeholder + `recentDialogue` on completed |
 | **E** open export folder | **Done** | catch + copy path message; Rust `open_path(parent)` fallback |
 | **F** data errors Chinese | **Done** (prior + gather codes) | |
-| **G** copy/UI polish | **Partly** | Chinese method labels in settings; coverage years 1dp; effective「尚未计入」when 0 |
-| **H** method library / confirm / extend | **Partly** | **延长** exists on **ended** completed screen (`extendResearch`); not on running. `window.confirm` still native |
-| **I** shell/CSS/nav | **Partly** | conversation scroll/padding; bubble contrast; create-draft opens research hash |
+| **G** copy/UI polish | **Done** (`4ece418`) | Method `definitionDisplay`; scorecard 预测力/大于/不小于; full revision; one「未通过门禁」line; 研究记录包 copy; completed per-round evidence; localized 变更/模型变更 |
+| **H** method library / confirm / extend | **Done** (`745b8d4`) | In-app confirm for delete + continue-iterate (+ high-M second step);「编辑为新定义」dialog with textarea |
+| **I** shell/CSS/nav | **Done** (`4ece418`) | `night-shell` 100% width / 100vh; focus max 960px; rail engine line + title tooltip; Tauri `maximized`; single-slot unlock E2E + vitest |
+| **Product #3** pool shrink | **Done** (`4ec8e63`) | `pool_data_shrink.py`; subset-only drop; stop if &lt; N; confirm `shrinkNote` + completed disclosure; `test_pool_data_shrink.py` |
 | **J** packaging | **Done** (prior `6ad11dd`) | deb metadata + icons |
 
-**Real desktop still needed:** D-Bus folder reveal, maximize layout ~960×650, full GNOME walk.
+**Real desktop still needed:** installed `.deb` smoke, D-Bus folder reveal, GNOME maximize + rail engine line legibility, full Master Bot hand-test.
+
+**Heads (2026-10-17 batch):** `4ec8e63` item 3 · `745b8d4` H · `4ece418` G/I (+ `unlock_slot` clear fix in `745b8d4`).
 
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
@@ -234,7 +237,8 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | 2 | `RoutingDataAdapter.load_daily(())` — `all(())` is True → CN/AkShare → empty frame | `EmptySymbolsError` (`DATA_SYMBOLS_EMPTY`) before routing | `test_gather_empty_symbols.py` |
 | 3 | Run loop surfaced raw `str(error)` (English assertion) | `classify_run_error` + `last_run_error_code` on research + `lastError.code` in running view | `test_run_errors.py`, E2E classified path |
 | 4 | Tauri `error_for_status()` dropped engine JSON body; modify while running opaque | `parse_engine_error_body`; `RUNNING_CANNOT_MODIFY`; UI hides modify when `status=running`; lifted paused modification state in `App` | `commands.rs` unit test, `App.test.tsx`, `api-bind.test.ts` |
-| 5 | `unlock_brief` cleared all five locks | Optional `slot` on `unlock_brief`; per-slot「改一改」on confirm card | `test_dialogue.py`, `test_engine_http_errors.py` |
+| 5 | `unlock_brief` cleared all five locks | Optional `slot`; `_set_slot` clears on explicit `None`; per-slot「改一改」| `test_dialogue.py`, `test_single_slot_unlock_confirm.py`, vitest |
+| 6 | Missing daily data expanded pool incorrectly | Pool-only auto-shrink at confirm; stop if &lt; `min_assets`; counts on confirm + conclusion | `test_pool_data_shrink.py` |
 
 **Default universe proposal (technical):** static US large-cap / broad ETF list (`SPY`, `QQQ`, `IWM`, `DIA`, `AAPL`, `MSFT`, `GOOGL`, `AMZN`, `NVDA`) in `engine/research/default_universe.py`. **Trade-offs:** static list is deterministic and offline-testable but drifts from index membership; live constituent fetch needs network, caching, and product rules for delistings. **Sign-off:** 产品小马 — list marked `pending product sign-off` until approved.
 
@@ -249,9 +253,7 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **(a) 对话关键词解析器** | `engine/dialogue/intent.py` `interpret`：thesis 需一条里带市场+资产；时间只认「N 小时」；锁定需「锁定」+槽位词同句；覆盖底线三项缺一不可。建议：按当前提问槽填值、答后自动锁定、系统提示示例、识别分钟/半小时。 |
 | **(b) 右侧研究设定只读** | 草稿/确认右侧 `Settings` 仅展示，不能在面板内直接编辑。 |
 | **(c) 对话底部被输入框遮挡** | `night.css` `.conversation` 无 padding-bottom/内滚动，绝对定位表单盖住最后一条气泡。 |
-| **(d) 方法库详情** | 原始 JSON；计分卡表头英文键；revision 截断；「编辑为新定义」无确认即新版本。 |
-| **(e) 原生 `window.confirm`** | Tauri/WebKit 英文按钮与 `JavaScript - tauri://localhost#/research` 标题。 |
-| **(f) 引擎状态与窗口尺寸** | 左下角引擎状态文案截断；最大化后内容区约 960×650。 |
+| **(d)–(f) 方法库 / confirm / 布局** | **已收口**（`745b8d4` / `4ece418`）；真机仍需确认最大化与 WebKit 对话框观感。 |
 | **(g) 新建研究不自动打开** | 列表新增一行但不导航到该研究。 |
 
 以上均非本轮的一行修复项；未为修已知问题扩大范围。
