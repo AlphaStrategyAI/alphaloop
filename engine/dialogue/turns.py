@@ -5,7 +5,7 @@ from datetime import datetime
 
 from engine.dialogue.intent import Intent, IntentKind, interpret
 from engine.dialogue.slots import apply_intent, next_question
-from engine.research.models import DialogueRole, DialogueTurn, Research
+from engine.research.models import DialogueRole, DialogueTurn, Research, ResearchStatus
 
 
 def append_dialogue(
@@ -26,6 +26,10 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
     text = message.strip()
     if not text:
         raise ValueError("message must not be empty")
+    if research.status is not ResearchStatus.DRAFT:
+        from engine.dialogue.modification import process_modification_dialogue
+
+        return process_modification_dialogue(research, text, now)
     prompt = next_question(research)
     intent = interpret(text, research, prompt.slot)
     with_user = append_dialogue(research, DialogueRole.USER, text, now)
