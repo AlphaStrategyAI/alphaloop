@@ -180,6 +180,10 @@ CREATE TABLE IF NOT EXISTS engine_errors (
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS data_window_round_counts (
+    window_key TEXT PRIMARY KEY,
+    cumulative_rounds INTEGER NOT NULL
+);
 """
 
 
@@ -596,6 +600,30 @@ class SQLiteStore:
         )
         self.insert_method_definition(row)
         return row.revision_hash
+
+    def window_round_count(self, window_key: str) -> int:
+        row = self.connection.execute(
+            "SELECT cumulative_rounds FROM data_window_round_counts WHERE window_key=?",
+            (window_key,),
+        ).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def increment_window_round_count(self, window_key: str) -> int:
+        with self.connection:
+            row = self.connection.execute(
+                "SELECT cumulative_rounds FROM data_window_round_counts WHERE window_key=?",
+                (window_key,),
+            ).fetchone()
+            next_count = (int(row[0]) if row is not None else 0) + 1
+            self.connection.execute(
+                """
+                INSERT INTO data_window_round_counts(window_key, cumulative_rounds)
+                VALUES(?, ?)
+                ON CONFLICT(window_key) DO UPDATE SET cumulative_rounds=excluded.cumulative_rounds
+                """,
+                (window_key, next_count),
+            )
+        return next_count
 
     def record_error(
         self,

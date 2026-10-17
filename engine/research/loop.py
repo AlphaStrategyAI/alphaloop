@@ -379,6 +379,11 @@ class ResearchLoop:
                 consecutive_review_failures=0,
                 updated_at=self.now(),
             )
+            from engine.research.data_window import data_window_key_from_research
+
+            window_key = data_window_key_from_research(running)
+            if window_key is not None:
+                self.store.increment_window_round_count(window_key.serialize())
             charged = self.budget.finish(running)
             accepted = outcome.successful_round.accepted_attempt
             floor = charged.brief.coverage_floor.value

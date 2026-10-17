@@ -58,8 +58,19 @@ def _round_history_with_trials(
     cumulative_index = {
         round_.round_id: index for index, (_, round_) in enumerate(on_window, start=1)
     }
+    from engine.research.data_window import data_window_key_from_research
+
+    pinned = data_window_key_from_research(research)
     return {
         "data_window_key": anchor.serialize() if anchor else None,
+        "symbol_list_version": research.symbol_list_version,
+        "data_source_id": research.data_source_id,
+        "data_window_start": (
+            research.data_window_start.isoformat() if research.data_window_start else None
+        ),
+        "data_window_end": (
+            research.data_window_end.isoformat() if research.data_window_end else None
+        ),
         "cumulative_rounds_on_window": cumulative_rounds_on_window(research),
         "rounds": [
         {
@@ -67,8 +78,8 @@ def _round_history_with_trials(
             "number": round_.number,
             "cumulative_round_on_window": cumulative_index.get(round_.round_id),
             "data_window_key": (
-                data_window_key_from_round(round_).serialize()
-                if data_window_key_from_round(round_) is not None
+                data_window_key_from_round(round_, research).serialize()
+                if data_window_key_from_round(round_, research) is not None
                 else None
             ),
             "logic_statement": {
@@ -500,8 +511,8 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
                     "round_id": round_.round_id,
                     "attempt_id": round_.accepted_attempt.attempt_id,
                     "data_window_key": (
-                        data_window_key_from_round(round_).serialize()
-                        if data_window_key_from_round(round_) is not None
+                        data_window_key_from_round(round_, research).serialize()
+                        if data_window_key_from_round(round_, research) is not None
                         else None
                     ),
                     "cumulative_rounds_on_window": cumulative_m,
