@@ -283,6 +283,9 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               : " · 默认标的池"}
           </p>
           <p>数据区间 {sel.dataStart} 至 {sel.dataEnd}（截止 {sel.dataCutoff}） · 来源 {sel.dataSource}</p>
+          {sel.shrinkNote && (
+            <p className="pool-shrink-note" data-testid="pool-shrink-note">{sel.shrinkNote}</p>
+          )}
           <button
             type="button"
             className="text-button"

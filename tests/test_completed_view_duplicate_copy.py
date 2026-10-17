@@ -54,5 +54,5 @@ def test_ended_status_completed_view_shows_budget_copy_once(tmp_path: Path) -> N
     view = service.view_for("#/research/r-ended")
     assert view["status"] == "ended"
     blob = _visible_copy_chunks(view)
-    assert "research_record" in blob
+    assert "研究记录包" in blob
     assert blob.count("不能导出 strategy_pack") <= 1

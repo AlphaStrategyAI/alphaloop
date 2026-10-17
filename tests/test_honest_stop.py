@@ -67,7 +67,7 @@ def test_completed_presentation_budget_exhausted_copy(tmp_path: Path, monkeypatc
     assert pres.trial_budget.budget == 1
     assert pres.hint_line == ""
     assert "预算已用尽" in pres.summary
-    assert "research_record" in pres.summary
+    assert "研究记录包" in pres.summary
 
 
 def test_auto_continues_within_budget_then_completes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

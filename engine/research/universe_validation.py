@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from engine.research.models import Research, Slot, Universe
 from engine.research.planned_data_window import (
     DEFAULT_DATA_SOURCE_ID,
     planned_data_window,
 )
+from engine.research.pool_data_shrink import shrink_pool_to_available_data
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT, pool_for_market
 from engine.research.user_errors import UserFacingError
 
@@ -74,6 +75,7 @@ def _pin_window(
 ) -> Research:
     start, end = planned_data_window(now)
     version = pool_version or universe.symbol_list_version
+    research = _shrink_universe_symbols(research, start, end)
     locked_brief = research.brief
     for name in ("thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor"):
         slot = getattr(locked_brief, name)
@@ -88,3 +90,34 @@ def _pin_window(
         data_source_id=DEFAULT_DATA_SOURCE_ID,
         updated_at=now,
     )
+
+
+def _shrink_universe_symbols(
+    research: Research,
+    start: date,
+    end: date,
+) -> Research:
+    universe = research.brief.universe.value
+    if universe is None or not universe.symbols:
+        return research
+    floor = research.brief.coverage_floor.value
+    min_assets = floor.min_assets if floor is not None else 0
+    result = shrink_pool_to_available_data(
+        universe.symbols,
+        start,
+        end,
+        min_assets=min_assets,
+    )
+    dropped = result.dropped_count
+    if result.symbols != universe.symbols:
+        updated_universe = Universe(
+            universe.market,
+            universe.asset_class,
+            universe.underlying_asset_class,
+            result.symbols,
+            symbol_list_version=universe.symbol_list_version,
+            user_symbols_override=universe.user_symbols_override,
+        )
+        brief = replace(research.brief, universe=Slot(updated_universe, True))
+        research = replace(research, brief=brief)
+    return replace(research, pool_data_dropped_count=dropped)

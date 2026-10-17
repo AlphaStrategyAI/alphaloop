@@ -491,6 +491,7 @@ class Research:
     last_run_error: str | None = None
     last_run_error_code: str | None = None
     consecutive_identical_run_errors: int = 0
+    pool_data_dropped_count: int = 0
 
 
 def new_research(research_id: str, now: datetime) -> Research:

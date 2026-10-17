@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 
 from engine.export import strategy_pack_eligibility
+from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.data_window import cumulative_rounds_on_window
 from engine.research.models import ChangeClass, Research, ResearchStatus
 from engine.research.specify import ProposedChange, classify_change
@@ -195,8 +196,18 @@ def running_budget_hint(research: Research) -> str:
     return base
 
 
+def _pool_shrink_prefix(research: Research) -> str:
+    universe = research.brief.universe.value
+    remaining = len(universe.symbols) if universe and universe.symbols else 0
+    dropped = research.pool_data_dropped_count
+    if dropped <= 0 and remaining <= 0:
+        return ""
+    return pool_shrink_disclosure(dropped, remaining) + " "
+
+
 def completed_presentation(research: Research) -> CompletedPresentation:
     eligibility = strategy_pack_eligibility(research)
+    shrink_prefix = _pool_shrink_prefix(research)
     methods_ok = methods_verification_passed(research)
     failed_ids = failed_verifier_ids(research)
     deferred = deferred_implementation_change(research)
@@ -214,8 +225,9 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         export_kind = "strategy_pack"
         headline = "研究已完成，可导出策略包"
         summary = (
-            "当前冻结验证已全部通过（含时点第四关）。"
-            "可导出 strategy_pack；alphaloop 不提供执行入口。"
+            shrink_prefix
+            + "当前冻结验证已全部通过（含时点第四关）。"
+            "可导出策略包；alphaloop 不提供执行入口。"
         )
         hint = ""
     elif methods_ok:
@@ -223,7 +235,8 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         gates = "、".join(failed_ids) if failed_ids else "、".join(eligibility.failed_checks)
         headline = "研究已完成，但未通过可实盘交接"
         summary = (
-            f"验证方法集已通过，但仍只能导出 research_record。"
+            shrink_prefix
+            + f"验证方法集已通过，但仍只能导出研究记录包。"
             f"未满足的门禁：{gates}。"
         )
         hint = ""
@@ -232,16 +245,18 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         gates = "、".join(failed_ids) if failed_ids else "、".join(eligibility.failed_checks)
         headline = "研究已结束，验证未通过"
         summary = (
-            f"不能导出 strategy_pack，只能导出 research_record。"
+            shrink_prefix
+            + f"不能导出策略包，只能导出研究记录包。"
             f"未通过的门禁包括：{gates}。"
         )
         m = cumulative_rounds_on_window(research)
         if exhausted:
             summary = (
-                f"验证未通过且实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
+                shrink_prefix
+                + f"验证未通过且实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
                 f"本数据窗口累计 {m} 轮；轮数越多，偶然通过的可能性越高。"
                 f"未通过门禁：{gates}。"
-                "只能导出 research_record。"
+                "只能导出研究记录包。"
                 "可点「继续迭代」追加预算后再跑（阈值不变）。"
             )
             hint = ""

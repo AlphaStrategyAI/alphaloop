@@ -46,6 +46,8 @@ export interface SymbolSelectionSummary {
   dataEnd: string;
   dataCutoff: string;
   dataSource: string;
+  droppedForMissingData?: number;
+  shrinkNote?: string | null;
 }
 
 export interface BriefSettings {
