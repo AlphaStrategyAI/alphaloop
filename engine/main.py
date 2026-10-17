@@ -21,13 +21,18 @@ import httpx
 import jsonschema
 import pandas as pd
 
-from engine.dialogue.slots import unlock_all_slots, unlock_slot
+from engine.dialogue.slots import first_open_slot, unlock_all_slots, unlock_slot
 from engine.dialogue.pool_errors import reopen_after_pool_failure
 from engine.research.universe_pool import materialize_default_pool, pool_resolvable
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.research.confirm_view import symbol_selection_payload
-from engine.research.method_body_display import format_method_body_display
+from engine.research.method_body_display import (
+    format_method_body_display,
+    method_purpose,
+    revision_display_label,
+    revision_token_from_body,
+)
 from engine.research.method_labels import format_methods_display
 from engine.dialogue.turns import process_send_dialogue
 from engine.export import (
@@ -289,7 +294,7 @@ class ResearchCommandService:
             version_label = selection.get("listVersionLabel") or pool_version_label(
                 str(selection.get("listVersion", ""))
             )
-            prefix = f"{selection['count']} 只 · {selection['listName']} {version_label}"
+            prefix = f"{selection['count']} 只 · {version_label}"
             if selection.get("overrideNote"):
                 prefix = f"{selection['overrideNote']} · {prefix}"
             symbols_line = prefix
@@ -496,7 +501,10 @@ class ResearchCommandService:
                     "id": item.method_id,
                     "name": item.name or item.method_id,
                     "revision": item.revision_hash,
-                    "description": item.description,
+                    "revisionLabel": revision_display_label(
+                        revision_token_from_body(item.body) or item.revision_hash[:8]
+                    ),
+                    "description": method_purpose(item.method_id),
                     "definitionDisplay": format_method_body_display(
                         item.method_id, item.body
                     ),
@@ -542,6 +550,12 @@ class ResearchCommandService:
                 self.store.save(materialized, research.updated_at)
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
+            display_research = research
+            if view_kind == "confirm_run" and research.data_window_end is None:
+                try:
+                    display_research = ensure_runnable_universe(research)
+                except UserFacingError:
+                    display_research = research
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
@@ -553,14 +567,18 @@ class ResearchCommandService:
                 "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
             }
             if view_kind == "confirm_run":
-                body["symbolSelection"] = symbol_selection_payload(research)
+                body["symbolSelection"] = symbol_selection_payload(display_research)
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
             cutoff = (
-                research.last_coverage.end.isoformat()
-                if research.last_coverage is not None
-                else None
+                research.data_window_end.isoformat()
+                if research.data_window_end is not None
+                else (
+                    research.last_coverage.end.isoformat()
+                    if research.last_coverage is not None
+                    else None
+                )
             )
             running_payload: dict[str, Any] = {
                 "kind": "running",
@@ -758,11 +776,29 @@ class ResearchCommandService:
         if kind == "send_dialogue":
             updated = process_send_dialogue(research, request["message"], now)
         elif kind == "unlock_brief":
+            from engine.dialogue.prompts import QUESTIONS, SlotName
+            from engine.dialogue.turns import append_dialogue
+            from engine.research.models import DialogueRole
+
             slot = request.get("slot")
             if slot:
                 updated = unlock_slot(research, str(slot), now)
+                updated = append_dialogue(
+                    updated,
+                    DialogueRole.ASSISTANT,
+                    QUESTIONS[SlotName(str(slot))],
+                    now,
+                )
             else:
                 updated = unlock_all_slots(research, now)
+                open_slot = first_open_slot(updated.brief)
+                if open_slot is not None:
+                    updated = append_dialogue(
+                        updated,
+                        DialogueRole.ASSISTANT,
+                        QUESTIONS[open_slot],
+                        now,
+                    )
         elif kind == "confirm_run":
             expected_at = research.updated_at
             try:

@@ -29,10 +29,10 @@ def test_disclosure_m_uses_store_window_count(tmp_path: Path) -> None:
     tracking = trial_tracking_for_view(store.load("r-loop"), store)
     assert tracking["researchRoundsOnWindow"] == 0
     assert tracking["cumulativeRoundsOnWindow"] == 3
-    assert tracking["windowCumulativeLabel"] == "本数据窗口累计 3 轮"
-    assert tracking["workbenchHeaderSummary"] == "本数据窗口累计 3 轮"
+    assert tracking["windowCumulativeLabel"] == "本窗口所有研究累计 3 轮"
+    assert tracking["workbenchHeaderSummary"] == "本窗口所有研究累计 3 轮"
 
     service = ResearchCommandService(store, EnginePaths.for_colocated_root(tmp_path))
     view = service.view_for("#/research/r-loop")
     assert view["cumulativeRoundsOnWindow"] == 3
-    assert view["workbenchHeaderSummary"] == "本数据窗口累计 3 轮"
+    assert view["workbenchHeaderSummary"] == "本窗口所有研究累计 3 轮"

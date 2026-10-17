@@ -94,3 +94,5 @@ def test_unlock_brief_single_slot(tmp_path: Path) -> None:
     loaded = service.store.load("r-draft")
     assert not loaded.brief.universe.locked
     assert loaded.brief.thesis.locked
+    assert loaded.dialogue[-1].role.value == "assistant"
+    assert "哪类资产" in loaded.dialogue[-1].text

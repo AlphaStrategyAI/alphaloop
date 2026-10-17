@@ -7,6 +7,11 @@ from datetime import date
 from typing import Any, TYPE_CHECKING
 
 from engine.research.display_names import param_label
+from engine.research.window_copy import (
+    all_researches_on_window_label,
+    research_on_window_label,
+    version_trial_label,
+)
 from engine.research.models import Research, RoundV2
 from engine.research.planned_data_window import DEFAULT_DATA_SOURCE_ID
 from engine.verifiers import method_set_excluding_pit
@@ -191,8 +196,8 @@ def trial_tracking_for_view(
         "cumulativeRoundsOnWindow": disclosure_m,
         "researchRoundsOnWindow": research_m,
         "windowCumulativeRoundsAllResearches": window_all,
-        "versionTrialLabel": f"本版本 {budget.used}/{budget.budget} 轮",
-        "researchCumulativeLabel": f"本研究在本窗口 {research_m} 轮",
-        "windowCumulativeLabel": f"本数据窗口累计 {disclosure_m} 轮",
-        "workbenchHeaderSummary": f"本数据窗口累计 {disclosure_m} 轮",
+        "versionTrialLabel": version_trial_label(budget.used, budget.budget),
+        "researchCumulativeLabel": research_on_window_label(research_m),
+        "windowCumulativeLabel": all_researches_on_window_label(disclosure_m),
+        "workbenchHeaderSummary": all_researches_on_window_label(disclosure_m),
     }

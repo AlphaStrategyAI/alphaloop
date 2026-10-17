@@ -9,6 +9,7 @@ from engine.export import strategy_pack_eligibility
 from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.data_window import disclosure_rounds_on_window
 from engine.research.display_names import format_param_change, gate_check_label
+from engine.research.window_copy import all_researches_on_window_label
 from engine.research.models import ChangeClass, Research, ResearchStatus
 from engine.research.specify import ProposedChange, classify_change
 from engine.verifiers import VerificationReport, method_set_excluding_pit
@@ -197,7 +198,7 @@ def running_budget_hint(research: Research, store: object | None = None) -> str:
         "系统仅在实现层调整参数，不改经济逻辑，阈值不变，自动迭代中。"
     )
     if m > view.used:
-        return f"{base} 本数据窗口累计 {m} 轮。"
+        return f"{base} {all_researches_on_window_label(m)}。"
     return base
 
 
@@ -264,7 +265,7 @@ def completed_presentation(
             summary = (
                 shrink_prefix
                 + f"验证未通过且实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
-                f"本数据窗口累计 {m} 轮；轮数越多，偶然通过的可能性越高。"
+                f"{all_researches_on_window_label(m)}；轮数越多，偶然通过的可能性越高。"
                 f"未通过门禁：{gates}。"
                 "只能导出研究记录包。"
                 "可点「继续迭代」追加预算后再跑（阈值不变）。"
