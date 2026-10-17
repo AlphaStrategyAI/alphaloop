@@ -37,7 +37,7 @@ const eligibility = {
 };
 
 const exhaustedSubtitle =
-  "验证未通过且实现层迭代预算已用尽（1/1 轮）。本数据窗口累计 1 轮；轮数越多，偶然通过的可能性越高。未通过门禁：scorecard.market。只能导出 research_record。可点「继续迭代」追加预算后再跑（阈值不变）。";
+  "验证未通过且实现层迭代预算已用尽（1/1 轮）。本数据窗口累计 1 轮；轮数越多，偶然通过的可能性越高。未通过门禁：市场计分卡 (scorecard.market)。只能导出研究记录包。可点「继续迭代」追加预算后再跑（阈值不变）。";
 
 describe("completed screen copy", () => {
   it.each([

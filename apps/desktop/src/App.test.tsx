@@ -158,16 +158,15 @@ describe("Night desktop contract", () => {
   });
 
   it("lets the awaiting primary card enter and delete like ordinary rows", () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<App api={api} initialView={views[0]} />);
     const card = screen.getAllByRole("article")[0];
     expect(card.querySelector('a[href="#/research/r-wait"]')).not.toBeNull();
     const enter = screen.getAllByRole("link", {name: "进入"})[0];
     expect(enter).toHaveAttribute("href", "#/research/r-wait");
     fireEvent.click(card.querySelectorAll("button")[0]);
-    expect(confirm).toHaveBeenCalled();
+    const dialog = screen.getByTestId("in-app-confirm");
+    fireEvent.click(dialog.querySelector(".cyan-button")!);
     expect(api.deleteResearch).toHaveBeenCalledWith("r-wait");
-    confirm.mockRestore();
   });
 
   it("titles coverage awaiting cards differently from economic ones", () => {
@@ -427,7 +426,6 @@ describe("Night desktop contract", () => {
 
   it("escalates continue iterate when cumulative rounds exceed threshold", () => {
     const continueIterate = vi.fn(async () => undefined);
-    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
     render(
       <App
         api={{...api, continueIterate}}
@@ -447,9 +445,9 @@ describe("Night desktop contract", () => {
       />,
     );
     fireEvent.click(screen.getByTestId("continue-iterate"));
-    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("in-app-confirm")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "取消"}));
     expect(continueIterate).not.toHaveBeenCalled();
-    confirm.mockRestore();
   });
 
   it("shows honest-stop hint and continue iterate when methods failed (P0 transitional)", () => {
@@ -481,14 +479,13 @@ describe("Night desktop contract", () => {
     );
     expect(screen.getByText(/预算已用尽/)).toBeInTheDocument();
     expect(screen.getByText(/未通过门禁：市场计分卡 \(scorecard\.market\)、时点一致性 \(pit\.consistency\)/)).toBeInTheDocument();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByTestId("continue-iterate"));
-    expect(confirm).toHaveBeenCalled();
+    const dialog = screen.getByTestId("in-app-confirm");
+    fireEvent.click(dialog.querySelector(".cyan-button")!);
     expect(continueIterate).toHaveBeenCalledWith("r-honest", {
       userConfirmed: true,
       highSuspicionAcknowledged: false,
     });
-    confirm.mockRestore();
     expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
   });
 

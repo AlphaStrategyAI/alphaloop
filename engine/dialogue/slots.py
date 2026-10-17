@@ -15,10 +15,18 @@ class DialoguePrompt:
     message: str
 
 
-def _set_slot(brief: ResearchBrief, name: str, value: object | None, lock: bool | None) -> ResearchBrief:
+_MISSING = object()
+
+
+def _set_slot(
+    brief: ResearchBrief,
+    name: str,
+    value: object | None = _MISSING,
+    lock: bool | None = None,
+) -> ResearchBrief:
     current = getattr(brief, name)
     next_slot = Slot(
-        current.value if value is None else value,
+        current.value if value is _MISSING else value,
         current.locked if lock is None else lock,
     )
     return replace(brief, **{name: next_slot})

@@ -1,6 +1,7 @@
 import {FormEvent, useCallback, useEffect, useMemo, useState} from "react";
 
 import {bindDesktopApi} from "./api-bind";
+import {InAppConfirmOverlay, type InAppConfirmRequest} from "./InAppConfirm";
 
 import type {
   AnomalyPresentation,
@@ -87,7 +88,22 @@ function Logo() {
   return <div className="logo" aria-label="alphaloop">α<span /></div>;
 }
 
-function NightShell({view, children}: {view: DesktopView; children: React.ReactNode}) {
+function engineStatusLabel(sidecar: SidecarUiState | null | undefined): string {
+  if (!sidecar) return "引擎：检测中";
+  if (sidecar.phase === "stopped") return "引擎：已停止";
+  if (sidecar.phase === "restarting") return "引擎：重启中";
+  return "引擎：运行中";
+}
+
+function NightShell({
+  view,
+  children,
+  sidecarState,
+}: {
+  view: DesktopView;
+  children: React.ReactNode;
+  sidecarState?: SidecarUiState | null;
+}) {
   const methods = view.kind === "methods";
   const hostKey: HostStatus = view.hostStatus ?? (
     view.kind === "awaiting_confirm" ? "awaiting_confirm" :
@@ -95,6 +111,8 @@ function NightShell({view, children}: {view: DesktopView; children: React.ReactN
     view.kind === "completed" ? "completed" : "idle"
   );
   const hostStatus = hostStatusLabels[hostKey];
+  const engineLine = engineStatusLabel(sidecarState);
+  const statusTitle = `研究状态：${hostStatus} · ${engineLine}`;
   return (
     <main className="night-shell" data-testid="night-shell" data-view={view.kind}>
       <aside className="rail" data-testid="rail">
@@ -105,7 +123,10 @@ function NightShell({view, children}: {view: DesktopView; children: React.ReactN
             <a className={methods ? "active" : ""} href="#/methods">方法库</a>
           </nav>
         </div>
-        <div className={`host-status ${hostKey}`}>● {hostStatus}</div>
+        <div className={`host-status ${hostKey}`} title={statusTitle} data-testid="host-status">
+          <span className="host-status-line">● {hostStatus}</span>
+          <span className="host-status-line host-status-engine">{engineLine}</span>
+        </div>
       </aside>
       <section className={`content ${view.kind}`}>
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
@@ -122,15 +143,24 @@ function StatusPill({status}: {status: ResearchStatus}) {
 const deleteWarning =
   "删除会永久移除对话、版本、迭代与验证记录及导出资格；已导出的本机文件不受影响。";
 
-function confirmDelete(api: DesktopApi, researchId: string) {
-  if (window.confirm(deleteWarning)) void api.deleteResearch(researchId);
-}
-
 function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
+  const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
   const awaiting = view.awaiting;
   const rows = view.rows;
+  const askDelete = (researchId: string) => {
+    setDeleteConfirm({
+      title: "确认删除研究",
+      body: deleteWarning,
+      confirmLabel: "删除",
+      onConfirm: () => {
+        void api.deleteResearch(researchId);
+        setDeleteConfirm(null);
+      },
+    });
+  };
   return (
     <div className="browse list-screen">
+      <InAppConfirmOverlay request={deleteConfirm} onClose={() => setDeleteConfirm(null)} />
       <header className="list-header">
         <p>一条对话，一次研究。等你确认的会排在最上面。</p>
         <button
@@ -157,7 +187,7 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
           </a>
           <div className="row-actions">
             <a href={`#/research/${awaiting.id}`}>进入</a>
-            <button onClick={() => confirmDelete(api, awaiting.id)}>删除</button>
+            <button onClick={() => askDelete(awaiting.id)}>删除</button>
             <StatusPill status="awaiting_confirm" />
           </div>
         </article>
@@ -175,7 +205,7 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
             </div>
             <div className="row-actions">
               <a href={`#/research/${row.id}`}>进入</a>
-              <button onClick={() => confirmDelete(api, row.id)}>删除</button>
+              <button onClick={() => askDelete(row.id)}>删除</button>
               <StatusPill status={row.status} />
             </div>
           </article>
@@ -360,14 +390,18 @@ function RunningScreen({
             <div className="round-logic">
               <p className="eyebrow">逻辑陈述</p>
               <p>{round.logicStatement.statement}</p>
-              {round.logicStatement.changedFromPrior && round.logicStatement.changeDescription && (
-                <p className="change-note">变更：{round.logicStatement.changeDescription}</p>
-              )}
             </div>
             <div className="round-impl">
               <p className="eyebrow">实现与参数</p>
-              {round.implementationDelta.modelChanges.length > 0 && (
-                <p>模型变更：{round.implementationDelta.modelChanges.join(", ")}</p>
+              {round.implementationDelta.modelChangesDisplay ? (
+                <p>{round.implementationDelta.modelChangesDisplay}</p>
+              ) : (
+                round.implementationDelta.modelChanges.length > 0 && (
+                  <p>模型变更：{round.implementationDelta.modelChanges.join("、")}</p>
+                )
+              )}
+              {round.logicStatement.changedFromPrior && round.logicStatement.changeDescription && (
+                <p className="change-note">{round.logicStatement.changeDescription}</p>
               )}
               {round.implementationDelta.paramChanges.length > 0 && (
                 <ul className="param-changes">
@@ -493,6 +527,7 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
 function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
   const [extensionHours, setExtensionHours] = useState("4");
   const [modification, setModification] = useState("");
+  const [iterateConfirm, setIterateConfirm] = useState<InAppConfirmRequest | null>(null);
   const [exportFeedback, setExportFeedback] = useState<
     {status: "success"; path: string} | {status: "error"; message: string} | null
   >(null);
@@ -518,8 +553,14 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
   ] as const;
   const eligible = checks.every(([, passed]) => passed);
   const headline = view.resultHeadline ?? (eligible ? "研究已完成" : "研究已结束，验证未通过");
+  const gatesInSubtitle = Boolean(view.subtitle?.includes("未通过门禁"));
+  const showFailedGateLine =
+    view.failedVerifierIds &&
+    view.failedVerifierIds.length > 0 &&
+    !gatesInSubtitle;
   return (
     <div className="focus completed-screen">
+      <InAppConfirmOverlay request={iterateConfirm} onClose={() => setIterateConfirm(null)} />
       <StatusPill status={view.status} />
       <p>{headline}</p>
       {view.subtitle && <p>{view.subtitle}</p>}
@@ -531,21 +572,32 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
           onClick={() => {
             const m = view.cumulativeRoundsOnWindow ?? 0;
             const threshold = view.highSuspicionRoundThreshold ?? 20;
-            const first = window.confirm(
-              `本数据窗口已累计 ${m} 轮。\n再加预算不放宽任何阈值，只增加偶然通过的可能性。\n确认继续迭代？`,
-            );
-            if (!first) return;
-            let highSuspicionAcknowledged = false;
-            if (m >= threshold) {
-              const second = window.confirm(
-                `高怀疑提示：已累计 ${m} 轮（阈值 ${threshold}）。偶然通过的可能性更高。\n确认仍要追加预算并继续？`,
-              );
-              if (!second) return;
-              highSuspicionAcknowledged = true;
-            }
-            void api.continueIterate(view.researchId, {
-              userConfirmed: true,
-              highSuspicionAcknowledged,
+            setIterateConfirm({
+              title: "继续迭代",
+              body: `本数据窗口已累计 ${m} 轮。再加预算不放宽任何阈值，只增加偶然通过的可能性。确认继续迭代？`,
+              confirmLabel: "继续迭代",
+              onConfirm: () => {
+                if (m >= threshold) {
+                  setIterateConfirm({
+                    title: "高怀疑提示",
+                    body: `已累计 ${m} 轮（阈值 ${threshold}）。偶然通过的可能性更高。确认仍要追加预算并继续？`,
+                    confirmLabel: "仍要继续",
+                    onConfirm: () => {
+                      void api.continueIterate(view.researchId, {
+                        userConfirmed: true,
+                        highSuspicionAcknowledged: true,
+                      });
+                      setIterateConfirm(null);
+                    },
+                  });
+                  return;
+                }
+                void api.continueIterate(view.researchId, {
+                  userConfirmed: true,
+                  highSuspicionAcknowledged: false,
+                });
+                setIterateConfirm(null);
+              },
             });
           }}
         >
@@ -578,11 +630,32 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       )}
       {view.overturnedExports && <p>此前导出的策略包所依据的验证已被推翻</p>}
       {view.anomaly && <AnomalyChecklist anomaly={view.anomaly} />}
+      {view.rounds && view.rounds.length > 0 && (
+        <section className="completed-rounds" data-testid="completed-round-evidence">
+          <p className="eyebrow">各轮证据摘要</p>
+          {view.rounds.map((round, index) => (
+            <article className="round-card" key={round.roundId} data-testid="completed-round-card">
+              <small>第 {(view.rounds?.length ?? 0) - index} 轮</small>
+              <p>{round.logicStatement.statement}</p>
+              {round.logicStatement.changeDescription && (
+                <p className="change-note">{round.logicStatement.changeDescription}</p>
+              )}
+              {round.implementationDelta.modelChangesDisplay && (
+                <p>{round.implementationDelta.modelChangesDisplay}</p>
+              )}
+              <p className="round-verdict">
+                {round.verificationPassed ? "验证通过" : "验证未通过"}
+                {round.pitPassed === false ? " · 时点未通过" : ""}
+              </p>
+            </article>
+          ))}
+        </section>
+      )}
       <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
       <article className="result-card">
         <h1>{view.title}</h1>
-        {view.failedVerifierIds && view.failedVerifierIds.length > 0 && (
-          <p>未通过门禁：{view.failedVerifierIds.join("、")}</p>
+        {showFailedGateLine && (
+          <p data-testid="failed-gates-line">未通过门禁：{view.failedVerifierIds!.join("、")}</p>
         )}
         <button disabled={!eligible || view.status === "ended"} onClick={() => void runExport("strategy_pack")}>导出策略包</button>
         <button className="text-button" onClick={() => void api.reverify(view.researchId, view.selectedRoundId, view.selectedMethodId)}>对某一步重新验证</button>
@@ -646,16 +719,22 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
 }
 
 function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}) {
+  const [reviseOpen, setReviseOpen] = useState(false);
+  const [reviseBody, setReviseBody] = useState(method.description);
+  const comparisonLabel = (dim: NonNullable<ValidationMethod["dimensions"]>[number]) =>
+    dim.comparisonLabel ??
+    ({gt: "大于", gte: "不小于", eq: "等于", lt: "小于", lte: "不大于"} as const)[dim.comparison];
   return (
     <section className="method-detail">
       <h1>{method.name}</h1>
       {method.category && <span className="method-category-badge">{method.category}</span>}
       <p>{method.description}</p>
+      <pre className="method-definition-display" data-testid="method-definition-display">
+        {method.definitionDisplay ?? method.description}
+      </pre>
       <p>
         当前冻结定义：
-        <span title={method.revision}>
-          {method.revision.length > 8 ? `${method.revision.slice(0, 8)}…` : method.revision}
-        </span>
+        <code className="revision-id" title={method.revision}>{method.revision}</code>
       </p>
       {method.usageCount != null && <p>被 {method.usageCount} 次研究用过</p>}
       {method.dimensions && method.dimensions.length > 0 && (
@@ -674,10 +753,10 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
             <tbody>
               {method.dimensions.map((dim) => (
                 <tr key={`${dim.kind}-${dim.name}`}>
-                  <td>{dim.kind}</td>
+                  <td>{dim.kindLabel ?? dim.kind}</td>
                   <td>{dim.name}</td>
                   <td>{dim.passThreshold}</td>
-                  <td>{dim.comparison}</td>
+                  <td>{comparisonLabel(dim)}</td>
                   <td>{dim.failureDisplay}</td>
                 </tr>
               ))}
@@ -685,8 +764,38 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
           </table>
         </div>
       )}
-      <button className="quiet-button" onClick={() => void api.reviseMethod(method.id, method.description)}>编辑为新定义</button>
+      <button className="quiet-button" type="button" onClick={() => setReviseOpen(true)}>编辑为新定义</button>
       <p>旧研究和已导出的策略包仍引用原定义。</p>
+      {reviseOpen && (
+        <div className="in-app-confirm-backdrop" data-testid="revise-method-dialog">
+          <div className="in-app-confirm-card revise-method-card" role="dialog" aria-modal="true">
+            <h2>编辑为新定义</h2>
+            <p>将基于下方正文生成新修订；旧研究仍引用原定义。</p>
+            <label>
+              新定义正文
+              <textarea
+                value={reviseBody}
+                onChange={(event) => setReviseBody(event.target.value)}
+                rows={6}
+              />
+            </label>
+            <div className="in-app-confirm-actions">
+              <button type="button" onClick={() => setReviseOpen(false)}>取消</button>
+              <button
+                type="button"
+                className="cyan-button"
+                disabled={!reviseBody.trim()}
+                onClick={() => {
+                  void api.reviseMethod(method.id, reviseBody.trim());
+                  setReviseOpen(false);
+                }}
+              >
+                确认生成新修订
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -713,9 +822,7 @@ function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
             key={method.id}
           >
             {method.name}
-            <small title={method.revision}>
-              {method.revision.length > 8 ? `${method.revision.slice(0, 8)}…` : method.revision}
-            </small>
+            <small className="revision-id" title={method.revision}>{method.revision}</small>
             {method.usageCount != null ? <small>被 {method.usageCount} 次研究用过</small> : null}
           </a>
         ))}
@@ -866,7 +973,7 @@ export function App({
   }, [restartSidecar, pollSidecar]);
 
   return (
-    <NightShell view={view}>
+    <NightShell view={view} sidecarState={sidecarState}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
           <span>{mutationError}</span>
