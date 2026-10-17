@@ -4,6 +4,7 @@ from typing import Any
 
 from engine.research.models import AssetClass, CoverageFloor, Market, Research, RoundV2, Universe
 from engine.research.progress import _ASSET, _MARKET
+from engine.research.round_copy import localize_logic_change, localize_model_changes
 from engine.verifiers import method_set_excluding_pit
 
 _MARKET_LABEL = _MARKET
@@ -74,18 +75,21 @@ def _round_to_desktop(round_: RoundV2, version_number: int, idx_from_end: int) -
     logic = round_.logic_statement
     impl = round_.implementation_delta
     counters = round_.trial_counters
+    localized_change = localize_logic_change(logic.change_description)
+    model_line = localize_model_changes(impl.model_changes)
     return {
         "roundId": round_.round_id,
         "number": round_.number,
         "logicStatement": {
             "statement": logic.statement,
             "changedFromPrior": logic.changed_from_prior,
-            "changeDescription": logic.change_description,
+            "changeDescription": localized_change or logic.change_description,
             "baselineVersion": logic.baseline_version or version_number,
         },
         "implementationDelta": {
             "researchMethodChanges": list(impl.research_method_changes),
             "modelChanges": list(impl.model_changes),
+            "modelChangesDisplay": model_line or None,
             "paramChanges": [list(item) for item in impl.param_changes],
         },
         "trialCounters": {

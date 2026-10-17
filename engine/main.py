@@ -25,6 +25,7 @@ from engine.dialogue.slots import unlock_all_slots, unlock_slot
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.research.confirm_view import symbol_selection_payload
+from engine.research.method_body_display import format_method_body_display
 from engine.research.method_labels import format_methods_display
 from engine.dialogue.turns import process_send_dialogue
 from engine.export import (
@@ -392,6 +393,27 @@ class ResearchCommandService:
         }
 
     @staticmethod
+    def _comparison_label(comparison: str) -> str:
+        return {
+            "gt": "大于",
+            "gte": "不小于",
+            "eq": "等于",
+            "lte": "不大于",
+            "lt": "小于",
+        }.get(comparison, comparison)
+
+    @staticmethod
+    def _dimension_kind_label(kind: str) -> str:
+        return {
+            "predictive_power": "预测力",
+            "stability": "稳定性",
+            "pit_consistency": "时点一致性",
+            "cost_sensitivity": "成本敏感度",
+            "crowding": "拥挤度",
+            "custom": "自定义",
+        }.get(kind, kind)
+
+    @staticmethod
     def _method_dimensions(method_id: str, body: str) -> list[dict[str, object]]:
         """Extract Scorecard dimensions from method body (B6)."""
         dimensions: list[dict[str, object]] = []
@@ -403,38 +425,46 @@ class ResearchCommandService:
             if "sharpe_oos_min_exclusive" in parsed:
                 dimensions.append({
                     "kind": "predictive_power",
+                    "kindLabel": "预测力",
                     "name": "夏普比率",
                     "description": "样本外夏普比率下限",
                     "passThreshold": parsed["sharpe_oos_min_exclusive"],
                     "comparison": "gt",
+                    "comparisonLabel": "大于",
                     "failureDisplay": "夏普不高于基准",
                 })
             if "default_max_drawdown_floor" in parsed:
                 dimensions.append({
                     "kind": "stability",
+                    "kindLabel": "稳定性",
                     "name": "最大回撤",
                     "description": "回撤上限",
                     "passThreshold": parsed["default_max_drawdown_floor"],
                     "comparison": "gte",
+                    "comparisonLabel": "不小于",
                     "failureDisplay": "回撤过大",
                 })
         elif method_id == "overfit.walk":
             if "oos_to_is_min" in parsed:
                 dimensions.append({
                     "kind": "stability",
+                    "kindLabel": "稳定性",
                     "name": "样本外/样本内比",
                     "description": "样本外表现与样本内的比值下限",
                     "passThreshold": parsed["oos_to_is_min"],
                     "comparison": "gte",
+                    "comparisonLabel": "不小于",
                     "failureDisplay": "样本外走样",
                 })
         elif method_id == "pit.consistency":
             dimensions.append({
                 "kind": "pit_consistency",
+                "kindLabel": "时点一致性",
                 "name": "时点一致性",
                 "description": "检查是否存在前视偏差",
                 "passThreshold": 1.0,
                 "comparison": "eq",
+                "comparisonLabel": "等于",
                 "failureDisplay": "存在前视偏差",
             })
         return dimensions
@@ -464,6 +494,9 @@ class ResearchCommandService:
                     "name": item.name or item.method_id,
                     "revision": item.revision_hash,
                     "description": item.description,
+                    "definitionDisplay": format_method_body_display(
+                        item.method_id, item.body
+                    ),
                     "source": item.source.value,
                     "depositedFromResearchId": item.deposited_from_research_id,
                     "supersedes": item.supersedes,

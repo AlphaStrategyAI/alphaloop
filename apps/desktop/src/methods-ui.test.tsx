@@ -26,6 +26,6 @@ describe("method library UI", () => {
     expect(active?.textContent).toContain("第二项");
     expect(links[0].classList.contains("active")).toBe(false);
     const revision = screen.getAllByTitle("b".repeat(64))[0];
-    expect(revision).toHaveTextContent(`${"b".repeat(8)}…`);
+    expect(revision).toHaveTextContent("b".repeat(64));
   });
 });

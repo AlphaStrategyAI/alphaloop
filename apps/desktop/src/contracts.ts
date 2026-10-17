@@ -73,6 +73,7 @@ export interface ValidationMethod {
   name: string;
   revision: string;
   description: string;
+  definitionDisplay?: string;
   usageCount?: number;
   source?: string;
   category?: string;
@@ -233,15 +234,18 @@ export interface LogicStatement {
 export interface ImplementationDelta {
   researchMethodChanges: readonly string[];
   modelChanges: readonly string[];
+  modelChangesDisplay?: string | null;
   paramChanges: readonly [string, string, string][];
 }
 
 export interface ScorecardDimension {
   kind: string;
+  kindLabel?: string;
   name: string;
   description: string;
   passThreshold: number;
   comparison: "gte" | "lte" | "gt" | "lt" | "eq";
+  comparisonLabel?: string;
   failureDisplay: string;
   unit?: string;
 }
