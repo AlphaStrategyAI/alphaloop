@@ -280,7 +280,11 @@ class ResearchLoop:
                 action if result.status is ResearchStatus.RUNNING else ResearchAction.IDLE
             )
             result = clear_run_errors(
-                replace(result, current_action=final_action),
+                replace(
+                    result,
+                    current_action=final_action,
+                    updated_at=self.now(),
+                ),
             )
             self.store.save(result, expected_updated_at)
             return result

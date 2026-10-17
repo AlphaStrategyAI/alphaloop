@@ -142,6 +142,8 @@ type ViewBody =
       kind: "completed";
       researchId: string;
       version?: number;
+      effective?: string;
+      remaining?: string;
       status: "completed" | "ended";
       title: string;
       universeLabel?: string;
@@ -173,6 +175,9 @@ type ViewBody =
         methodLabel: string;
         passed: boolean;
         createdAt: string;
+        overallConclusionUnchanged?: boolean;
+        stillFailingLabels?: readonly string[];
+        userMessage?: string;
       } | null;
       latePassPresentation?: LatePassPresentation | null;
       deferredChangeSummary?: string | null;

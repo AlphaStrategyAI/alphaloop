@@ -35,6 +35,7 @@ from engine.research.method_body_display import (
 )
 from engine.research.method_labels import format_methods_display
 from engine.dialogue.turns import process_send_dialogue
+from engine.export_paths import export_zip_filename
 from engine.export import (
     build_research_record_pack,
     build_strategy_pack,
@@ -657,6 +658,8 @@ class ResearchCommandService:
                 "kind": "completed",
                 "researchId": research_id,
                 "version": version_number,
+                "effective": format_effective_display(research),
+                "remaining": self._remaining(research),
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
                 "universeLabel": subtitle,
@@ -839,6 +842,9 @@ class ResearchCommandService:
                 previous = research.versions[-1].brief_snapshot.thesis.value or ""
             proposed = research.brief.thesis.value or ""
             updated = transition(research, ResearchEvent.MODIFY_CONFIRM, now)
+            from engine.dialogue.modification import finalize_modification_confirm_dialogue
+
+            updated = finalize_modification_confirm_dialogue(updated, now)
             updated = replace(
                 updated,
                 thesis_change_hint=thesis_divergence_hint(previous, proposed),
@@ -1009,7 +1015,9 @@ class ResearchCommandService:
             export_root.mkdir(parents=True, exist_ok=True)
             eligibility = strategy_pack_eligibility(research)
             if request["kind"] == "research_record":
-                destination = export_root / f"{research.research_id}-research-record.zip"
+                destination = export_root / export_zip_filename(
+                    research, "research_record", now=now
+                )
                 build_research_record_pack(research, destination)
                 export_kind = ExportKind.RESEARCH_RECORD
                 failed_checks = eligibility.failed_checks
@@ -1034,7 +1042,9 @@ class ResearchCommandService:
                     if "__benchmark__" in snapshot.columns
                     else None
                 )
-                destination = export_root / f"{research.research_id}-strategy-pack.zip"
+                destination = export_root / export_zip_filename(
+                    research, "strategy_pack", now=now
+                )
                 build_strategy_pack(
                     research,
                     MeanReversionStrategy(attempt.spec),

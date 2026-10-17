@@ -326,7 +326,18 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .revision-label { font-size: 12px; color: var(--mute); }
 .stacked-field { display: grid; gap: 8px; margin: 16px 0; }
 .stacked-field .field-label { font-size: 13px; color: var(--mute); }
-.modify-rerun-field input { width: 100%; }
+.modify-rerun-field input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+}
+.modify-rerun-field input::placeholder {
+  color: var(--mute);
+  opacity: 0.65;
+}
+.field-hint { font-size: 12px; color: var(--mute); margin: 4px 0 0; }
+.result-card .modify-rerun-field { max-width: 100%; }
 .method-advanced { margin: 12px 0; color: var(--mute); font-size: 12px; }
 .method-create { display: grid; gap: 8px; margin: 16px 0 24px; }
 .method-create input {

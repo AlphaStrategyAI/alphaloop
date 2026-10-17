@@ -158,13 +158,37 @@ def reverify_options_for(research: Research) -> dict[str, Any]:
 def last_reverification_summary(research: Research) -> dict[str, Any] | None:
     if not research.reverifications:
         return None
+    from engine.research.honest_stop import failed_verifier_ids, methods_verification_passed
+
     last = research.reverifications[-1]
+    overall_ok = methods_verification_passed(research)
+    still_failing = list(failed_verifier_ids(research))
+    unchanged = last.passed and not overall_ok
+    user_message = ""
+    if unchanged:
+        gates = "、".join(still_failing) if still_failing else "冻结验证方法集"
+        user_message = (
+            f"仅「{method_label(last.method_id)}」重验通过；整轮结论未变。"
+            f"仍未通过：{gates}。"
+        )
+    elif last.passed and overall_ok:
+        user_message = f"「{method_label(last.method_id)}」重验通过。"
+    elif not last.passed:
+        user_message = f"「{method_label(last.method_id)}」重验未通过。"
+    else:
+        user_message = (
+            f"最近重验：{method_label(last.method_id)}（"
+            f"{'通过' if last.passed else '未通过'}）"
+        )
     return {
         "roundId": last.round_id,
         "methodId": last.method_id,
         "methodLabel": method_label(last.method_id),
         "passed": last.passed,
         "createdAt": last.created_at.isoformat(),
+        "overallConclusionUnchanged": unchanged,
+        "stillFailingLabels": still_failing,
+        "userMessage": user_message,
     }
 
 

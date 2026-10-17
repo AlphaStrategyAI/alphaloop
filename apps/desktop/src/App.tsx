@@ -671,6 +671,8 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         <span className="workbench-summary">
           第 {view.version ?? 1} 版 ·{" "}
           {view.workbenchHeaderSummary || view.windowCumulativeLabel || ""}
+          {view.effective ? ` · 有效研究 ${view.effective}` : ""}
+          {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
         </span>
       </header>
       <p>{headline}</p>
@@ -808,7 +810,10 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
                 const nextRound = event.target.value;
                 setReverifyRoundId(nextRound);
                 const round = reverifyRounds.find((item) => item.roundId === nextRound);
-                if (round?.methods[0]) {
+                const stillThere = round?.methods.some(
+                  (item) => item.methodId === reverifyMethodId,
+                );
+                if (round && !stillThere && round.methods[0]) {
                   setReverifyMethodId(round.methods[0].methodId);
                 }
               }}
@@ -837,14 +842,18 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             type="button"
             className="text-button"
             disabled={reverifyBusy}
+            aria-busy={reverifyBusy}
+            data-testid="reverify-submit"
             onClick={() => void runReverify()}
           >
             {reverifyBusy ? "重新验证中…" : "执行重新验证"}
           </button>
           {view.lastReverification && (
             <p className="reverify-result" data-testid="reverify-result" role="status">
-              最近重验：{view.lastReverification.methodLabel}（
-              {view.lastReverification.passed ? "通过" : "未通过"}）
+              {view.lastReverification.userMessage ??
+                `最近重验：${view.lastReverification.methodLabel}（${
+                  view.lastReverification.passed ? "通过" : "未通过"
+                }）`}
             </p>
           )}
           {reverifyError && (
@@ -891,10 +900,21 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             placeholder="例如：把最长研究时间改成 6 小时"
             aria-label="改策略再跑"
           />
-          <button disabled={!modification.trim()} onClick={() => void (async () => {
-            await api.sendDialogue(view.researchId, modification.trim());
-            await api.confirmModification(view.researchId);
-          })()}>确认修改并开新版</button>
+          <button
+            disabled={!modification.trim()}
+            data-testid="confirm-modification-button"
+            onClick={() => void (async () => {
+              await api.sendDialogue(view.researchId, modification.trim());
+              await api.confirmModification(view.researchId);
+            })()}
+          >
+            确认修改并开新版
+          </button>
+          {!modification.trim() && (
+            <p className="field-hint" data-testid="modify-empty-hint">
+              请先在上面的输入框说明要改什么，再点「确认修改并开新版」。
+            </p>
+          )}
         </div>
         {view.recentDialogue && view.recentDialogue.length > 0 && (
           <div className="modification-dialogue" data-testid="modification-dialogue">
