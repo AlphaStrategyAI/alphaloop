@@ -287,6 +287,15 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **5** | Export stamp UTC vs Shanghai | **Fixed** | `export_paths` Asia/Shanghai; `test_export_zip_filename_uses_shanghai_wall_clock` |
 | **6** | Low-priority UI / first-click | **Not fixing** | Reverify flash ok; slot-edit offset / 2s methods load not reproduced in VM;「改一改」double-click likely WebKit focus (real mouse) |
 
+### Master Bot batch E (2026-10-17, after `e371a28`)
+
+| # | Topic | Status | Tests |
+| --- | --- | --- | --- |
+| **1** | Yahoo outage at confirm clears pool | **Fixed** | Empty/error frame → `DATA_SOURCE_UNAVAILABLE`（行情数据源暂时不可用…）；不 unlock universe；`test_confirm_transient_data.py`；`confirm-data-notice.test.tsx` |
+| **2** | E2E tests hit live Yahoo | **Fixed** | `tests/conftest.py` offline pool loader + socket guard；`309 passed` `-m not network` |
+
+**Genuine shrink (unchanged):** per-symbol missing bars still drop via `pool_data_shrink.py`; `POOL_DATA_SHRINK_TOO_FEW` still unlocks universe via `reopen_after_pool_failure` so user can adjust coverage/symbols.
+
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
 | Item | Implementation |

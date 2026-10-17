@@ -60,13 +60,6 @@ def _us_equity_brief(symbols: tuple[str, ...]) -> ResearchBrief:
     )
 
 
-@pytest.fixture(autouse=True)
-def _reset_loader() -> None:
-    set_pool_data_loader(None)
-    yield
-    set_pool_data_loader(None)
-
-
 def test_shrink_only_drops_missing_within_pool() -> None:
     symbols = ("A", "B", "C", "D", "E")
     set_pool_data_loader(_FakeLoader(frozenset({"B", "D"})))
