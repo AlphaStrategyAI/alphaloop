@@ -8,15 +8,25 @@ import json
 from pathlib import Path
 
 
+_ENGINE_NAMES = ("alphaloop-engine", "alphaloop-engine.exe")
+
+
+def _find_engine_executable(root: Path) -> Path:
+    for name in _ENGINE_NAMES:
+        candidate = root / name
+        if candidate.is_file():
+            return candidate
+    raise SystemExit(f"missing executable under {root} (tried {_ENGINE_NAMES})")
+
+
 def _check_tree(root: Path, label: str) -> None:
-    exe = root / "alphaloop-engine"
+    exe = _find_engine_executable(root)
     internal = root / "_internal"
-    if not exe.is_file():
-        raise SystemExit(f"{label}: missing executable {exe}")
     if not internal.is_dir():
         raise SystemExit(f"{label}: missing _internal/ under {root}")
     # Flattened bundles put hundreds of files directly under root.
-    top_level_files = [p for p in root.iterdir() if p.is_file() and p.name != "alphaloop-engine"]
+    allowed = set(_ENGINE_NAMES)
+    top_level_files = [p for p in root.iterdir() if p.is_file() and p.name not in allowed]
     if len(top_level_files) > 5:
         raise SystemExit(
             f"{label}: looks flattened ({len(top_level_files)} extra files at top level)"

@@ -113,6 +113,31 @@ fn production_runtime_dir_usable(path: &Path, uid: u32) -> bool {
     }
 }
 
+/// Non-Linux production builds do not probe `/run/user` or XDG tmpfs semantics; `linux_user_runtime_base_with`
+/// uses `dirs::runtime_dir()` instead. This probe exists so `RuntimeRootContext::production()` compiles on
+/// macOS/Windows and returns a sensible answer if callers reuse the hook.
+#[cfg(not(target_os = "linux"))]
+fn production_runtime_dir_usable(path: &Path, _uid: u32) -> bool {
+    let Ok(meta) = std::fs::symlink_metadata(path) else {
+        return false;
+    };
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return false;
+    }
+    let probe = path.join(".alphaloop-runtime-writable-probe");
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+    {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
