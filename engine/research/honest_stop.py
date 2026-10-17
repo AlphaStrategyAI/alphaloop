@@ -7,7 +7,8 @@ from dataclasses import dataclass
 
 from engine.export import strategy_pack_eligibility
 from engine.research.pool_data_shrink import pool_shrink_disclosure
-from engine.research.data_window import cumulative_rounds_on_window
+from engine.research.data_window import disclosure_rounds_on_window
+from engine.research.display_names import format_param_change, gate_check_label
 from engine.research.models import ChangeClass, Research, ResearchStatus
 from engine.research.specify import ProposedChange, classify_change
 from engine.verifiers import VerificationReport, method_set_excluding_pit
@@ -174,10 +175,14 @@ class CompletedPresentation:
 
 
 def _format_change(change: ProposedChange) -> str:
-    return f"{change.field}: {change.before!r} → {change.after!r}"
+    return format_param_change(
+        change.field,
+        str(change.before),
+        str(change.after),
+    )
 
 
-def running_budget_hint(research: Research) -> str:
+def running_budget_hint(research: Research, store: object | None = None) -> str:
     if research.status is not ResearchStatus.RUNNING:
         return ""
     if methods_verification_passed(research):
@@ -186,7 +191,7 @@ def running_budget_hint(research: Research) -> str:
         return ""
     view = trial_budget_view(research)
     gates = "、".join(failed_verifier_ids(research)) or "冻结验证"
-    m = cumulative_rounds_on_window(research)
+    m = disclosure_rounds_on_window(research, store)  # type: ignore[arg-type]
     base = (
         f"第 {view.used}/{view.budget} 轮验证未通过（未通过：{gates}）。"
         "系统仅在实现层调整参数，不改经济逻辑，阈值不变，自动迭代中。"
@@ -205,7 +210,10 @@ def _pool_shrink_prefix(research: Research) -> str:
     return pool_shrink_disclosure(dropped, remaining) + " "
 
 
-def completed_presentation(research: Research) -> CompletedPresentation:
+def completed_presentation(
+    research: Research,
+    store: object | None = None,
+) -> CompletedPresentation:
     eligibility = strategy_pack_eligibility(research)
     shrink_prefix = _pool_shrink_prefix(research)
     methods_ok = methods_verification_passed(research)
@@ -232,7 +240,8 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         hint = ""
     elif methods_ok:
         export_kind = "research_record_only"
-        gates = "、".join(failed_ids) if failed_ids else "、".join(eligibility.failed_checks)
+        gate_labels = tuple(gate_check_label(item) for item in eligibility.failed_checks)
+        gates = "、".join(failed_ids) if failed_ids else "、".join(gate_labels)
         headline = "研究已完成，但未通过可实盘交接"
         summary = (
             shrink_prefix
@@ -242,14 +251,15 @@ def completed_presentation(research: Research) -> CompletedPresentation:
         hint = ""
     else:
         export_kind = "research_record_only"
-        gates = "、".join(failed_ids) if failed_ids else "、".join(eligibility.failed_checks)
+        gate_labels = tuple(gate_check_label(item) for item in eligibility.failed_checks)
+        gates = "、".join(failed_ids) if failed_ids else "、".join(gate_labels)
         headline = "研究已结束，验证未通过"
         summary = (
             shrink_prefix
             + f"不能导出策略包，只能导出研究记录包。"
             f"未通过的门禁包括：{gates}。"
         )
-        m = cumulative_rounds_on_window(research)
+        m = disclosure_rounds_on_window(research, store)  # type: ignore[arg-type]
         if exhausted:
             summary = (
                 shrink_prefix
@@ -283,10 +293,11 @@ def validate_continue_iterate_confirm(
     *,
     user_confirmed: bool,
     high_suspicion_acknowledged: bool,
+    store: object | None = None,
 ) -> None:
     if not user_confirmed:
         raise ValueError("continue_iterate requires user_confirmed=true")
-    m = cumulative_rounds_on_window(research)
+    m = disclosure_rounds_on_window(research, store)  # type: ignore[arg-type]
     threshold = high_suspicion_round_threshold()
     if m >= threshold and not high_suspicion_acknowledged:
         raise ValueError(

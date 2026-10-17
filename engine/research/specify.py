@@ -135,13 +135,17 @@ def build_logic_statement(
     version_number: int,
     had_prior_round: bool,
 ) -> LogicStatement:
+    from engine.research.display_names import MODEL_FAMILY, param_label
+
+    family = MODEL_FAMILY.get(spec.model_family, spec.model_family)
     statement = (
-        f"{thesis}（{spec.model_family}，lookback={spec.lookback_days}，entry_z={spec.entry_z}）"
+        f"{thesis}（{family}，{param_label('lookback_days')}={spec.lookback_days}，"
+        f"{param_label('entry_z')}={spec.entry_z}）"
     )
     return LogicStatement(
         statement=statement,
         changed_from_prior=had_prior_round,
-        change_description="延续锁定 thesis 下的参数/模型迭代" if had_prior_round else None,
+        change_description="延续锁定论点下的参数/模型迭代" if had_prior_round else None,
         baseline_version=version_number,
     )
 
@@ -154,16 +158,21 @@ def build_implementation_delta(
     param_changes: list[tuple[str, str, str]] = []
     model_changes: list[str] = []
     research_changes: list[str] = []
+    from engine.research.display_names import MODEL_FAMILY, method_label
+
     if prior_spec is None:
         if attempt.change_class is ChangeClass.MODEL:
-            model_changes.append(f"初始 {spec.model_family} 规格")
+            family = MODEL_FAMILY.get(spec.model_family, spec.model_family)
+            model_changes.append(f"初始 {family} 规格")
         return ImplementationDelta(
             research_method_changes=tuple(research_changes),
             model_changes=tuple(model_changes),
             param_changes=tuple(param_changes),
         )
     if prior_spec.model_family != spec.model_family:
-        model_changes.append(f"{prior_spec.model_family} → {spec.model_family}")
+        before = MODEL_FAMILY.get(prior_spec.model_family, prior_spec.model_family)
+        after = MODEL_FAMILY.get(spec.model_family, spec.model_family)
+        model_changes.append(f"{before} → {after}")
     if prior_spec.lookback_days != spec.lookback_days:
         param_changes.append(
             ("lookback_days", str(prior_spec.lookback_days), str(spec.lookback_days))
@@ -181,7 +190,7 @@ def build_implementation_delta(
     method_set = method_set_excluding_pit(spec.method_set)
     if method_set:
         research_changes.append(
-            "验证方法集: " + ", ".join(item.method_id for item in method_set)
+            "验证方法集：" + "、".join(method_label(item.method_id) for item in method_set)
         )
     return ImplementationDelta(
         research_method_changes=tuple(research_changes),

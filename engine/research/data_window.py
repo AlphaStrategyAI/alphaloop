@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, TYPE_CHECKING
 
+from engine.research.display_names import param_label
 from engine.research.models import Research, RoundV2
 from engine.research.planned_data_window import DEFAULT_DATA_SOURCE_ID
 from engine.verifiers import method_set_excluding_pit
@@ -145,7 +146,10 @@ def late_pass_presentation(research: Research) -> dict[str, Any] | None:
                 "cumulativeRoundOnWindow": index,
                 "verificationPassed": _verification_passed_round(round_, research),
                 "failedGateIds": list(_failed_gate_ids(round_)),
-                "paramChanges": [list(item) for item in impl.param_changes],
+                "paramChanges": [
+                    [param_label(param), str(before), str(after)]
+                    for param, before, after in impl.param_changes
+                ],
                 "modelChanges": list(impl.model_changes),
             }
         )
@@ -158,6 +162,18 @@ def late_pass_presentation(research: Research) -> dict[str, Any] | None:
     }
 
 
+def disclosure_rounds_on_window(
+    research: Research,
+    store: SQLiteStore | None = None,
+) -> int:
+    """Canonical window M for user disclosure (B2/B5): global count when store has it."""
+    anchor = anchor_data_window_key(research)
+    research_m = cumulative_rounds_on_window(research)
+    if store is not None and anchor is not None:
+        return max(research_m, window_cumulative_all_researches(store, anchor))
+    return research_m
+
+
 def trial_tracking_for_view(
     research: Research,
     store: SQLiteStore | None = None,
@@ -167,15 +183,16 @@ def trial_tracking_for_view(
     window_all = research_m
     if store is not None and anchor is not None:
         window_all = window_cumulative_all_researches(store, anchor)
+    disclosure_m = disclosure_rounds_on_window(research, store)
     from engine.research.honest_stop import trial_budget_view
 
     budget = trial_budget_view(research)
-    version_number = research.current_version_number or 1
     return {
-        "dataWindowKey": anchor.serialize() if anchor else None,
-        "cumulativeRoundsOnWindow": research_m,
+        "cumulativeRoundsOnWindow": disclosure_m,
+        "researchRoundsOnWindow": research_m,
         "windowCumulativeRoundsAllResearches": window_all,
         "versionTrialLabel": f"本版本 {budget.used}/{budget.budget} 轮",
-        "researchCumulativeLabel": f"本研究累计 {research_m} 轮",
-        "windowCumulativeLabel": f"本窗口所有研究累计 {window_all} 轮",
+        "researchCumulativeLabel": f"本研究在本窗口 {research_m} 轮",
+        "windowCumulativeLabel": f"本数据窗口累计 {disclosure_m} 轮",
+        "workbenchHeaderSummary": f"本数据窗口累计 {disclosure_m} 轮",
     }

@@ -4,6 +4,7 @@ from typing import Any
 
 from engine.research.models import AssetClass, CoverageFloor, Market, Research, RoundV2, Universe
 from engine.research.progress import _ASSET, _MARKET
+from engine.research.display_names import method_label, param_label
 from engine.research.round_copy import localize_logic_change, localize_model_changes
 from engine.verifiers import method_set_excluding_pit
 
@@ -90,7 +91,10 @@ def _round_to_desktop(round_: RoundV2, version_number: int, idx_from_end: int) -
             "researchMethodChanges": list(impl.research_method_changes),
             "modelChanges": list(impl.model_changes),
             "modelChangesDisplay": model_line or None,
-            "paramChanges": [list(item) for item in impl.param_changes],
+            "paramChanges": [
+                [param_label(param), str(before), str(after)]
+                for param, before, after in impl.param_changes
+            ],
         },
         "trialCounters": {
             "candidatesEvaluated": counters.candidates_evaluated,
@@ -122,6 +126,46 @@ def selected_method_id(research: Research) -> str:
         if item.method_id != "scorecard.market":
             return item.method_id
     return ""
+
+
+def reverify_options_for(research: Research) -> dict[str, Any]:
+    if not research.versions:
+        return {"rounds": []}
+    version_number = research.current_version_number or 1
+    version = research.versions[version_number - 1]
+    rounds_out: list[dict[str, Any]] = []
+    for round_ in version.rounds:
+        verification = round_.accepted_attempt.verification
+        if verification is None:
+            continue
+        methods = [
+            {
+                "methodId": item.verifier_id,
+                "methodLabel": method_label(item.verifier_id),
+            }
+            for item in verification.results
+        ]
+        rounds_out.append(
+            {
+                "roundId": round_.round_id,
+                "roundLabel": f"第 {round_.number} 轮",
+                "methods": methods,
+            }
+        )
+    return {"rounds": rounds_out}
+
+
+def last_reverification_summary(research: Research) -> dict[str, Any] | None:
+    if not research.reverifications:
+        return None
+    last = research.reverifications[-1]
+    return {
+        "roundId": last.round_id,
+        "methodId": last.method_id,
+        "methodLabel": method_label(last.method_id),
+        "passed": last.passed,
+        "createdAt": last.created_at.isoformat(),
+    }
 
 
 def metrics_for_completed(research: Research) -> dict[str, Any] | None:

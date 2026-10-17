@@ -44,7 +44,7 @@ def _dialogue_to_confirm(service: ResearchCommandService, research_id: str) -> d
     sel = view.get("symbolSelection")
     assert sel is not None
     assert sel["count"] >= 25
-    assert sel["listVersion"] == "us_equity_large_cap_v1"
+    assert sel["listVersion"] == "美股大市值（版本 1）"
     assert sel["dataCutoff"]
     return view
 

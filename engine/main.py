@@ -49,11 +49,15 @@ from engine.research.desktop_view import (
     format_coverage_floor_display,
     format_coverage_vs_floor,
     format_universe_display,
+    last_reverification_summary,
     metrics_for_completed,
+    reverify_options_for,
     rounds_for_desktop,
     selected_method_id,
     universe_label_for,
 )
+from engine.research.display_names import export_blocker_messages, pool_version_label
+from engine.research.time_display import format_effective_display, format_remaining_display
 from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
 from engine.research.run_errors import apply_run_failure, max_consecutive_run_errors
 from engine.research.honest_stop import (
@@ -71,7 +75,7 @@ from engine.research.methods import (
     as_method_refs,
     create_method,
     deposit_confirmed_methods,
-    list_method_usage,
+    distinct_research_usage_count,
     record_method_usage,
     revise_method,
     seed_preset_methods,
@@ -282,9 +286,10 @@ class ResearchCommandService:
         selection = symbol_selection_payload(research)
         symbols_line = ""
         if selection:
-            prefix = (
-                f"{selection['count']} 只 · {selection['listName']} {selection['listVersion']}"
+            version_label = selection.get("listVersionLabel") or pool_version_label(
+                str(selection.get("listVersion", ""))
             )
+            prefix = f"{selection['count']} 只 · {selection['listName']} {version_label}"
             if selection.get("overrideNote"):
                 prefix = f"{selection['overrideNote']} · {prefix}"
             symbols_line = prefix
@@ -324,11 +329,7 @@ class ResearchCommandService:
 
     @staticmethod
     def _remaining(research: Research) -> str:
-        max_hours = research.brief.max_effective_hours.value
-        used = research.effective_seconds / 3600
-        if max_hours is None:
-            return ""
-        return f"{max(0.0, max_hours - used):.2f}h"
+        return format_remaining_display(research)
 
     @staticmethod
     def _sources(research: Research) -> str:
@@ -502,10 +503,9 @@ class ResearchCommandService:
                     "source": item.source.value,
                     "depositedFromResearchId": item.deposited_from_research_id,
                     "supersedes": item.supersedes,
-                    "usageCount": len({
-                        row.research_id
-                        for row in list_method_usage(self.store, item.method_id)
-                    }),
+                    "usageCount": distinct_research_usage_count(
+                        self.store, item.method_id
+                    ),
                     "category": self._method_category(item.method_id),
                     "dimensions": self._method_dimensions(item.method_id, item.body),
                 }
@@ -567,11 +567,7 @@ class ResearchCommandService:
                 "researchId": research_id,
                 "status": research.status.value,
                 "version": version,
-                "effective": (
-                    f"{research.effective_seconds / 3600:.2f}h"
-                    if research.effective_seconds > 0
-                    else "尚未计入"
-                ),
+                "effective": format_effective_display(research),
                 "remaining": self._remaining(research),
                 "coverage": self._coverage_vs_floor(research),
                 "rounds": rounds_for_desktop(research, version),
@@ -581,7 +577,7 @@ class ResearchCommandService:
             if cutoff is not None:
                 running_payload["dataCutoff"] = cutoff
             budget = trial_budget_view(research)
-            hint = running_budget_hint(research)
+            hint = running_budget_hint(research, self.store)
             running_payload["trialBudget"] = {
                 "used": budget.used,
                 "budget": budget.budget,
@@ -635,13 +631,14 @@ class ResearchCommandService:
         rounds = research.versions[-1].rounds if research.versions else ()
         selected_round = rounds[-1] if rounds else None
         eligibility = strategy_pack_eligibility(research)
-        presentation = completed_presentation(research)
+        presentation = completed_presentation(research, self.store)
         version_number = research.current_version_number or 1
         subtitle = universe_label_for(research)
         return self._host_payload(
             {
                 "kind": "completed",
                 "researchId": research_id,
+                "version": version_number,
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
                 "universeLabel": subtitle,
@@ -668,6 +665,12 @@ class ResearchCommandService:
                 "rounds": rounds_for_desktop(research, version_number),
                 "metrics": metrics_for_completed(research),
                 "failedExportChecks": list(eligibility.failed_checks),
+                "exportBlockerMessages": list(
+                    export_blocker_messages(eligibility.failed_checks)
+                ),
+                "symbolSelection": symbol_selection_payload(research),
+                "reverifyOptions": reverify_options_for(research),
+                "lastReverification": last_reverification_summary(research),
                 "eligibility": {
                     "allMethodsPassed": presentation.methods_verification_passed,
                     "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
@@ -812,6 +815,7 @@ class ResearchCommandService:
                 high_suspicion_acknowledged=bool(
                     request.get("high_suspicion_acknowledged")
                 ),
+                store=self.store,
             )
             assert_can_manual_continue(research)
             increment = trial_budget_increment()

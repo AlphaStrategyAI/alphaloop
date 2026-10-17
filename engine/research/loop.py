@@ -386,6 +386,14 @@ class ResearchLoop:
                 self.store.increment_window_round_count(window_key.serialize())
             charged = self.budget.finish(running)
             accepted = outcome.successful_round.accepted_attempt
+            from engine.research.methods import record_verification_execution
+
+            record_verification_execution(
+                self.store,
+                research.research_id,
+                version_number,
+                accepted.verification,
+            )
             floor = charged.brief.coverage_floor.value
             window_start, window_end = _coverage_window(
                 accepted.simulation,

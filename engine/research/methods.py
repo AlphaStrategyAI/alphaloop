@@ -85,10 +85,9 @@ PRESET_NAMES = {
 
 
 def format_verifier_display(verifier_id: str) -> str:
-    label = PRESET_NAMES.get(verifier_id)
-    if label:
-        return f"{label} ({verifier_id})"
-    return verifier_id
+    from engine.research.display_names import method_label
+
+    return method_label(verifier_id)
 
 
 def format_verifier_ids(verifier_ids: tuple[str, ...]) -> tuple[str, ...]:
@@ -182,6 +181,28 @@ def record_method_usage(
     method_set: tuple[MethodRef, ...],
 ) -> None:
     store.record_method_usage(research_id, version_number, method_set)
+
+
+def record_verification_execution(
+    store: SQLiteStore,
+    research_id: str,
+    version_number: int,
+    verification: object | None,
+) -> None:
+    """Count researches that executed each verifier (pass or fail)."""
+    if verification is None:
+        return
+    results = getattr(verification, "results", ())
+    refs = tuple(
+        MethodRef(item.verifier_id, item.revision)
+        for item in results
+    )
+    if refs:
+        record_method_usage(store, research_id, version_number, refs)
+
+
+def distinct_research_usage_count(store: SQLiteStore, method_id: str) -> int:
+    return len({row.research_id for row in list_method_usage(store, method_id)})
 
 
 def _insert_preset_if_missing(

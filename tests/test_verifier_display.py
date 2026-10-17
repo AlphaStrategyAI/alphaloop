@@ -10,8 +10,8 @@ def test_format_verifier_ids_dedupes_and_labels() -> None:
         ("scorecard.market", "pit.consistency", "scorecard.market")
     )
     assert formatted == (
-        "市场计分卡 (scorecard.market)",
-        "时点一致性 (pit.consistency)",
+        "市场计分卡",
+        "时点一致性",
     )
 
 
@@ -25,4 +25,4 @@ def test_failed_gate_ids_deduped_in_late_pass_helper() -> None:
     round_ = SimpleNamespace(
         accepted_attempt=SimpleNamespace(verification=verification),
     )
-    assert _failed_gate_ids(round_) == ("市场计分卡 (scorecard.market)",)
+    assert _failed_gate_ids(round_) == ("市场计分卡",)

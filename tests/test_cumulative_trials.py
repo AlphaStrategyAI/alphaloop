@@ -119,7 +119,7 @@ def test_late_pass_after_third_round_success(tmp_path: Path, monkeypatch: pytest
     assert len(prior) == 2
     assert any(record["paramChanges"] for record in prior)
     second = next(record for record in prior if record["roundNumber"] >= 2)
-    assert second["paramChanges"][0][0] == "lookback_days"
+    assert second["paramChanges"][0][0] == "回看天数"
 
     all_rounds = [round_ for version in current.versions for round_ in version.rounds]
     history = _round_history_with_trials(current, all_rounds)

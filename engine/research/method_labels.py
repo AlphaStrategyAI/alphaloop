@@ -1,14 +1,8 @@
+from engine.research.display_names import method_label
 from engine.research.models import MethodRef
-
-METHOD_LABELS: dict[str, str] = {
-    "overfit.walk": "走样检验",
-    "stability.oos": "样本外稳定",
-    "crowding.load": "拥挤度",
-    "cost.turnover": "换手成本",
-}
 
 
 def format_methods_display(methods: tuple[MethodRef, ...] | None) -> str:
     if not methods:
         return ""
-    return " · ".join(METHOD_LABELS.get(method.method_id, method.method_id) for method in methods)
+    return " · ".join(method_label(method.method_id) for method in methods)

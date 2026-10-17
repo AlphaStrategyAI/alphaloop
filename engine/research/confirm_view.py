@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from engine.research.models import Research
+from engine.research.display_names import data_source_label, pool_version_label
 from engine.research.planned_data_window import DEFAULT_DATA_SOURCE_ID, planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.symbol_pool import pool_for_market
@@ -67,7 +68,7 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
     return {
         "count": len(symbols),
         "listName": list_name,
-        "listVersion": list_version,
+        "listVersion": pool_version_label(list_version) if list_version else list_version,
         "generatedDate": generated,
         "symbols": list(symbols),
         "source": source,
@@ -75,7 +76,9 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
         "dataStart": start.isoformat(),
         "dataEnd": end.isoformat(),
         "dataCutoff": end.isoformat(),
-        "dataSource": research.data_source_id or DEFAULT_DATA_SOURCE_ID,
+        "dataSource": data_source_label(
+            research.data_source_id or DEFAULT_DATA_SOURCE_ID
+        ),
         "droppedForMissingData": 0,
         "shrinkNote": shrink_note,
         "isDefaultPool": source == "default_pool",

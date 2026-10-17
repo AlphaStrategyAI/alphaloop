@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from engine.research.display_names import param_label
+
 _FIELD_LABELS: dict[str, str] = {
     "revision": "修订标识",
     "sharpe_oos_min_exclusive": "样本外夏普下限（不含等于）",
@@ -40,6 +42,10 @@ def format_method_body_display(method_id: str, body: str) -> str:
         if key == "dimensions" and isinstance(value, list):
             lines.append(f"维度条目：{len(value)} 项")
             continue
-        label = _FIELD_LABELS.get(key, key)
-        lines.append(f"{label}：{value}")
+        label = _FIELD_LABELS.get(key, param_label(key))
+        if isinstance(value, float):
+            text = f"{value:g}"
+        else:
+            text = str(value)
+        lines.append(f"{label}：{text}")
     return "\n".join(lines) if lines else text

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from engine.main import ResearchCommandService
+from engine.research.display_names import contains_internal_leak
 from engine.research.clock import TimeBudget
 from engine.research.loop import ResearchLoop
 from engine.research.models import ResearchEvent, ResearchStatus, new_research
@@ -26,13 +27,30 @@ from tests.test_state_machine import locked_brief, with_status
 REPR_LIKE = re.compile(r"\w+\(\w+=")
 
 
-def _all_strings(value: object):
+_TECHNICAL_STRING_KEYS = frozenset(
+    {
+        "researchId",
+        "roundId",
+        "methodId",
+        "selectedRoundId",
+        "selectedMethodId",
+        "id",
+        "revision",
+        "conclusionRoundId",
+        "recordId",
+    }
+)
+
+
+def _all_strings(value: object, parent_key: str | None = None):
     if isinstance(value, dict):
-        for item in value.values():
-            yield from _all_strings(item)
+        for key, item in value.items():
+            if key in _TECHNICAL_STRING_KEYS:
+                continue
+            yield from _all_strings(item, key)
     elif isinstance(value, list):
         for item in value:
-            yield from _all_strings(item)
+            yield from _all_strings(item, parent_key)
     elif isinstance(value, str):
         yield value
 
@@ -41,6 +59,13 @@ def assert_no_repr_like(view: dict) -> None:
     for text in _all_strings(view):
         match = REPR_LIKE.search(text)
         assert match is None, f"repr-like fragment in view text: {text[:160]!r}"
+
+
+def assert_no_internal_id_leaks(view: dict) -> None:
+    for text in _all_strings(view):
+        if "revision" in text and len(text) > 40 and text.count(" ") < 2:
+            continue
+        assert not contains_internal_leak(text), f"internal id leak in view: {text[:160]!r}"
 
 
 @pytest.fixture
@@ -68,6 +93,7 @@ def test_view_paths_avoid_python_repr(
     if case == "research_list":
         view = service.view_for("#/research")
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     if case == "draft":
@@ -75,6 +101,7 @@ def test_view_paths_avoid_python_repr(
         view = service.view_for("#/research/r-draft")
         assert view["kind"] == "draft"
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     if case == "confirm_run":
@@ -84,6 +111,7 @@ def test_view_paths_avoid_python_repr(
         view = service.view_for("#/research/r-confirm")
         assert view["kind"] == "confirm_run"
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     if case == "running":
@@ -91,6 +119,7 @@ def test_view_paths_avoid_python_repr(
         view = service.view_for("#/research/r-loop")
         assert view["kind"] == "running"
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     if case == "paused":
@@ -99,6 +128,7 @@ def test_view_paths_avoid_python_repr(
         assert view["kind"] == "running"
         assert view["status"] == "paused"
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     if case == "awaiting_confirm":
@@ -114,6 +144,7 @@ def test_view_paths_avoid_python_repr(
         view = service.view_for("#/research/r-loop")
         assert view["kind"] == "awaiting_confirm"
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     if case == "completed":
@@ -122,6 +153,7 @@ def test_view_paths_avoid_python_repr(
         assert view["kind"] == "completed"
         assert view["status"] == "completed"
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     if case == "ended_exhausted":
@@ -138,6 +170,7 @@ def test_view_paths_avoid_python_repr(
         view = service.view_for("#/research/r-loop")
         assert view["kind"] == "completed"
         assert_no_repr_like(view)
+        assert_no_internal_id_leaks(view)
         return
 
     raise AssertionError(f"unknown case {case}")
