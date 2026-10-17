@@ -101,6 +101,8 @@ class Universe:
     asset_class: AssetClass
     underlying_asset_class: AssetClass
     symbols: tuple[str, ...]
+    symbol_list_version: str | None = None
+    user_symbols_override: bool = False
 
     def __post_init__(self) -> None:
         if self.asset_class is not AssetClass.FUND and self.underlying_asset_class is not self.asset_class:
@@ -482,6 +484,10 @@ class Research:
     thesis_change_hint: str | None = None
     implementation_trial_budget: int = 5
     dialogue: tuple[DialogueTurn, ...] = ()
+    symbol_list_version: str | None = None
+    data_window_start: date | None = None
+    data_window_end: date | None = None
+    data_source_id: str = "yahoo_daily"
     last_run_error: str | None = None
     last_run_error_code: str | None = None
     consecutive_identical_run_errors: int = 0

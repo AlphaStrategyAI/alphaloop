@@ -1,47 +1,90 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime
 
-from engine.research.default_universe import default_universe_symbols
 from engine.research.models import Research, Slot, Universe
+from engine.research.planned_data_window import (
+    DEFAULT_DATA_SOURCE_ID,
+    planned_data_window,
+)
+from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT, pool_for_market
 from engine.research.user_errors import UserFacingError
 
 
-def ensure_runnable_universe(research: Research) -> Research:
-    """Apply default symbols or reject confirm when universe has no tickers."""
+def resolve_universe_symbols(research: Research, now: datetime) -> Research:
+    """Apply versioned default pool or validate user symbols before confirm."""
     universe = research.brief.universe.value
-    if universe is None or not research.brief.universe.locked:
-        raise UserFacingError("UNIVERSE_NOT_LOCKED", "请先锁定市场与资产类别。")
+    if universe is None:
+        raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
     floor = research.brief.coverage_floor.value
-    if universe.symbols:
-        if floor and len(universe.symbols) < floor.min_assets:
+    min_assets = floor.min_assets if floor is not None else 0
+
+    if universe.symbols and universe.user_symbols_override:
+        if min_assets and len(universe.symbols) < min_assets:
             raise UserFacingError(
                 "UNIVERSE_TOO_FEW_SYMBOLS",
-                f"当前仅 {len(universe.symbols)} 个标的，低于最低覆盖要求的 {floor.min_assets} 个。",
+                f"当前仅 {len(universe.symbols)} 个标的，低于最低覆盖要求的 {min_assets} 个。",
             )
-        return research
-    if floor is None or floor.min_assets <= 0:
-        return research
-    proposed = default_universe_symbols(
+        return _pin_window(research, universe, now)
+
+    if universe.symbols and not universe.user_symbols_override:
+        return _pin_window(research, universe, now)
+
+    pool = pool_for_market(
         universe.market,
         universe.asset_class,
         universe.underlying_asset_class,
     )
-    if not proposed:
-        raise UserFacingError(
-            "UNIVERSE_SYMBOLS_EMPTY",
-            "未指定具体标的，且当前市场暂无默认标的池。请在对话中写明股票或 ETF 代码。",
-        )
-    if len(proposed) < floor.min_assets:
+    if pool is None or not pool.symbols:
+        raise UserFacingError("UNIVERSE_SYMBOLS_EMPTY", EMPTY_POOL_DIALOGUE_PROMPT)
+    if min_assets and len(pool.symbols) < min_assets:
         raise UserFacingError(
             "UNIVERSE_DEFAULT_TOO_SMALL",
-            "默认标的数量不足以满足最低覆盖要求，请手动补充标的。",
+            f"默认标的池仅 {len(pool.symbols)} 只，无法满足至少 {min_assets} 只的要求，请调低底线或指定更多标的。",
         )
     updated_universe = Universe(
         universe.market,
         universe.asset_class,
         universe.underlying_asset_class,
-        proposed,
+        pool.symbols,
+        symbol_list_version=pool.version_id,
+        user_symbols_override=False,
     )
     brief = replace(research.brief, universe=Slot(updated_universe, True))
-    return replace(research, brief=brief)
+    return _pin_window(
+        replace(research, brief=brief),
+        updated_universe,
+        now,
+        pool_version=pool.version_id,
+    )
+
+
+def ensure_runnable_universe(research: Research) -> Research:
+    """Confirm-time entry: resolve symbols and pin data window."""
+    return resolve_universe_symbols(research, datetime.now(UTC))
+
+
+def _pin_window(
+    research: Research,
+    universe: Universe,
+    now: datetime,
+    *,
+    pool_version: str | None = None,
+) -> Research:
+    start, end = planned_data_window(now)
+    version = pool_version or universe.symbol_list_version
+    locked_brief = research.brief
+    for name in ("thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor"):
+        slot = getattr(locked_brief, name)
+        if slot.value is not None:
+            locked_brief = replace(locked_brief, **{name: Slot(slot.value, True)})
+    return replace(
+        research,
+        brief=locked_brief,
+        symbol_list_version=version,
+        data_window_start=start,
+        data_window_end=end,
+        data_source_id=DEFAULT_DATA_SOURCE_ID,
+        updated_at=now,
+    )
