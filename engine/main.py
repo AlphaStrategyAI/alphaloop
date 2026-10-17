@@ -20,7 +20,10 @@ import httpx
 import jsonschema
 import pandas as pd
 
-from engine.dialogue.slots import unlock_all_slots
+from engine.dialogue.slots import unlock_all_slots, unlock_slot
+from engine.research.universe_validation import ensure_runnable_universe
+from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
+from engine.research.default_universe import PROPOSAL_DATE, PROPOSAL_NOTE, default_universe_symbols
 from engine.dialogue.turns import process_send_dialogue
 from engine.export import (
     build_research_record_pack,
@@ -103,7 +106,7 @@ from engine.research.runtime import (
     read_live_owner,
 )
 from engine.research.simulate import simulate_daily
-from engine.research.state_machine import all_slots_locked, transition
+from engine.research.state_machine import InvalidTransition, all_slots_locked, transition
 from engine.research.store import SQLiteStore
 from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
@@ -271,9 +274,26 @@ class ResearchCommandService:
     def _settings(research: Research) -> dict[str, str]:
         brief = research.brief
         hours = brief.max_effective_hours.value
+        symbols_line = ""
+        universe = brief.universe.value
+        if universe is not None:
+            if universe.symbols:
+                symbols_line = "、".join(universe.symbols)
+            else:
+                proposed = default_universe_symbols(
+                    universe.market,
+                    universe.asset_class,
+                    universe.underlying_asset_class,
+                )
+                if proposed:
+                    symbols_line = (
+                        f"（确认开跑时将使用默认标的，{PROPOSAL_DATE} 提案，{PROPOSAL_NOTE}）"
+                        + "、".join(proposed)
+                    )
         return {
             "thesis": str(brief.thesis.value or ""),
             "universe": format_universe_display(brief.universe.value),
+            "universe_symbols": symbols_line,
             "max_effective_hours": f"{hours:g} 小时" if hours is not None else "",
             "round1_methods": " · ".join(
                 method.method_id for method in (brief.round1_methods.value or ())
@@ -539,6 +559,8 @@ class ResearchCommandService:
                     "message": research.last_run_error,
                     "count": research.consecutive_identical_run_errors,
                 }
+                if research.last_run_error_code:
+                    running_payload["lastError"]["code"] = research.last_run_error_code
             running_payload.update(trial_tracking_for_view(research))
             running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
             late = late_pass_presentation(research)
@@ -692,8 +714,14 @@ class ResearchCommandService:
         if kind == "send_dialogue":
             updated = process_send_dialogue(research, request["message"], now)
         elif kind == "unlock_brief":
-            updated = unlock_all_slots(research, now)
+            slot = request.get("slot")
+            if slot:
+                updated = unlock_slot(research, str(slot), now)
+            else:
+                updated = unlock_all_slots(research, now)
         elif kind == "confirm_run":
+            research = ensure_runnable_universe(research)
+            self.store.save(research, research.updated_at)
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
             self._record_version_methods(updated)
         elif kind == "pause":
@@ -701,6 +729,11 @@ class ResearchCommandService:
         elif kind == "resume":
             updated = transition(research, ResearchEvent.RESUME, now)
         elif kind == "confirm_modification":
+            if research.status is ResearchStatus.RUNNING:
+                raise UserFacingError(
+                    "RUNNING_CANNOT_MODIFY",
+                    "研究仍在运行中，请先暂停再确认修改。",
+                )
             previous = ""
             if research.versions:
                 previous = research.versions[-1].brief_snapshot.thesis.value or ""
@@ -958,13 +991,17 @@ class EngineApiHandler(BaseHTTPRequestHandler):
             request = json.loads(self.rfile.read(length))
             jsonschema.validate(request, self.request_schema)
             self._send(200, self.service.handle(request))
+        except UserFacingError as error:
+            self._send(400, {"error": error.message, "code": error.code})
         except (
             ValueError,
             KeyError,
             json.JSONDecodeError,
             jsonschema.ValidationError,
         ) as error:
-            self._send(400, {"error": str(error)})
+            self._send(400, http_error_payload(error))
+        except InvalidTransition as error:
+            self._send(400, http_error_payload(error))
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -1046,9 +1083,9 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
                     loop.run_once(research_id)
                 except Exception as error:  # noqa: BLE001
                     now = datetime.now(UTC)
-                    message = str(error)
+                    code, message = classify_run_error(error)
                     before = store.load(research_id)
-                    after = apply_run_failure(before, message, now)
+                    after = apply_run_failure(before, message, now, code=code)
                     store.save(after, before.updated_at)
                     store.record_error(
                         research_id,

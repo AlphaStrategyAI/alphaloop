@@ -6,6 +6,7 @@ from datetime import datetime
 
 from engine.research.models import Research, ResearchEvent, ResearchStatus
 from engine.research.state_machine import transition
+from engine.research.user_errors import classify_run_error
 
 
 def max_consecutive_run_errors() -> int:
@@ -13,15 +14,26 @@ def max_consecutive_run_errors() -> int:
     return max(1, int(raw))
 
 
-def apply_run_failure(research: Research, message: str, now: datetime) -> Research:
+def apply_run_failure(
+    research: Research,
+    message: str,
+    now: datetime,
+    *,
+    code: str | None = None,
+) -> Research:
     """Count identical run failures; pause after threshold."""
     if research.status is not ResearchStatus.RUNNING:
         return research
-    same = research.last_run_error == message
+    if code is None:
+        error_code, display = classify_run_error(Exception(message))
+    else:
+        error_code, display = code, message
+    same = research.last_run_error == display
     count = (research.consecutive_identical_run_errors + 1) if same else 1
     updated = replace(
         research,
-        last_run_error=message,
+        last_run_error=display,
+        last_run_error_code=error_code,
         consecutive_identical_run_errors=count,
         updated_at=now,
     )
@@ -36,5 +48,6 @@ def clear_run_errors(research: Research) -> Research:
     return replace(
         research,
         last_run_error=None,
+        last_run_error_code=None,
         consecutive_identical_run_errors=0,
     )

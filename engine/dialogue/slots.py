@@ -73,3 +73,14 @@ def unlock_all_slots(research: Research, now: datetime) -> Research:
     for name in SlotName:
         brief = _set_slot(brief, name.value, None, False)
     return replace(research, brief=brief, updated_at=now)
+
+
+def unlock_slot(research: Research, slot: str, now: datetime) -> Research:
+    if research.status.value != "draft":
+        raise ValueError("unlock_brief is only valid while research is still in draft")
+    try:
+        name = SlotName(slot)
+    except ValueError:
+        raise ValueError(f"unknown brief slot: {slot}") from None
+    brief = _set_slot(research.brief, name.value, None, False)
+    return replace(research, brief=brief, updated_at=now)

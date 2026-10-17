@@ -483,6 +483,7 @@ class Research:
     implementation_trial_budget: int = 5
     dialogue: tuple[DialogueTurn, ...] = ()
     last_run_error: str | None = None
+    last_run_error_code: str | None = None
     consecutive_identical_run_errors: int = 0
 
 

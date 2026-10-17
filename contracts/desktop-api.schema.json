@@ -29,11 +29,29 @@
             "pause",
             "resume",
             "confirm_modification",
-            "delete_research",
-            "unlock_brief"
+            "delete_research"
           ]
         },
         "research_id": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id"],
+      "properties": {
+        "type": {"const": "unlock_brief"},
+        "research_id": {"type": "string", "minLength": 1},
+        "slot": {
+          "type": "string",
+          "enum": [
+            "thesis",
+            "universe",
+            "max_effective_hours",
+            "round1_methods",
+            "coverage_floor"
+          ]
+        }
       }
     },
     {
