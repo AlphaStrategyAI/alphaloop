@@ -174,6 +174,23 @@ describe("Night desktop contract", () => {
     expect(screen.getAllByTestId("research-row")).toHaveLength(5);
   });
 
+  it("shows 确认开跑 on the list when status is confirm_run", () => {
+    const listView: DesktopView = {
+      kind: "research_list",
+      rows: [
+        {
+          id: "r-confirm",
+          title: "美股低波动回归",
+          status: "confirm_run",
+          universeLabel: "美股 · 股票",
+        },
+      ],
+    };
+    render(<App api={api} initialView={listView} />);
+    expect(screen.getByText("确认开跑")).toBeInTheDocument();
+    expect(screen.queryByText("草稿")).not.toBeInTheDocument();
+  });
+
   it("lets the awaiting primary card enter and delete like ordinary rows", () => {
     render(<App api={api} initialView={views[0]} />);
     const card = screen.getAllByRole("article")[0];

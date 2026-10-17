@@ -9,6 +9,7 @@ import type {
   DesktopApi,
   DesktopView,
   HostStatus,
+  ResearchListDisplayStatus,
   ResearchStatus,
   SidecarUiState,
   ValidationMethod,
@@ -68,6 +69,11 @@ const statusLabels: Record<ResearchStatus, string> = {
   paused: "已暂停",
   completed: "已完成",
   ended: "已结束（未通过）",
+};
+
+const listStatusLabels: Record<ResearchListDisplayStatus, string> = {
+  ...statusLabels,
+  confirm_run: "确认开跑",
 };
 
 const hostStatusLabels: Record<HostStatus, string> = {
@@ -136,8 +142,8 @@ function NightShell({
   );
 }
 
-function StatusPill({status}: {status: ResearchStatus}) {
-  return <span className={`status-pill ${status}`}>{statusLabels[status]}</span>;
+function StatusPill({status}: {status: ResearchListDisplayStatus}) {
+  return <span className={`status-pill ${status}`}>{listStatusLabels[status]}</span>;
 }
 
 const deleteWarning =

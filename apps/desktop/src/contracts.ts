@@ -6,6 +6,9 @@ export type ResearchStatus =
   | "completed"
   | "ended";
 
+/** List-row display only: draft with all brief slots locked (confirm_run view). */
+export type ResearchListDisplayStatus = ResearchStatus | "confirm_run";
+
 export type HostStatus = "awaiting_confirm" | "running" | "completed" | "idle";
 
 export type SidecarPhase = "running" | "restarting" | "stopped";
@@ -65,7 +68,7 @@ export interface BriefSettings {
 export interface ResearchSummary {
   id: string;
   title: string;
-  status: ResearchStatus;
+  status: ResearchListDisplayStatus;
   universeLabel?: string;
   createdAt?: string;
   updatedAt?: string;
