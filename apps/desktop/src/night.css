@@ -18,7 +18,12 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--void); }
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+  background: var(--void);
+}
 button, input { font: inherit; }
 button, a { transition: transform 320ms ease-out, opacity 320ms ease-out, border-color 320ms ease-out; }
 button:active { transform: scale(.98); }
@@ -132,9 +137,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .conversation {
   position: relative;
   padding-top: 46px;
-  padding-bottom: 140px;
+  padding-bottom: 200px;
   max-height: min(72vh, 720px);
   overflow-y: auto;
+  scroll-padding-bottom: 120px;
 }
 .message { max-width: 640px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-control); padding: 14px 18px; margin-bottom: 10px; }
 .message.user { border-color: rgba(94, 234, 212, 0.35); }
@@ -151,9 +157,17 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 }
 .conversation input { width: 100%; color: var(--ink); background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-control); padding: 16px; }
 .settings { background: var(--glass); border: 1px solid var(--line); padding: 36px 24px; }
-.settings div { margin: 20px 0; }
-.settings dt, .eyebrow { color: var(--mute); font-size: 12px; }
-.settings dd { margin: 6px 0 0; }
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 28%) 1fr auto;
+  gap: 8px 16px;
+  align-items: start;
+  margin: 16px 0;
+}
+.settings-label, .eyebrow { color: var(--mute); font-size: 12px; margin: 0; }
+.settings-value { margin: 0; word-break: break-word; }
+.settings-action { justify-self: end; align-self: start; }
+.universe-symbols { display: block; margin-top: 6px; color: var(--mute); font-size: 12px; }
 .confirm-card, .awaiting-card {
   border: 1px solid var(--cyan);
   border-radius: var(--radius-card);
@@ -162,15 +176,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   box-shadow: 0 0 42px rgba(94, 234, 212, .18);
 }
 .confirm-card .settings { padding: 8px 0; background: transparent; border: 0; }
-.confirm-card .settings div {
-  display: grid;
-  grid-template-columns: minmax(96px, 38%) 1fr;
-  gap: 8px 16px;
-  align-items: start;
-  margin: 13px 0;
-}
-.confirm-card .settings dd { word-break: break-word; }
-.confirm-card .settings dt { white-space: nowrap; }
+.confirm-card .settings-row { margin: 13px 0; }
 .confirm-run-layout .confirm-card { max-width: 100%; }
 .symbol-ticker-list {
   display: flex;
@@ -316,7 +322,11 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   color: #fecaca;
   font-size: 13px;
 }
-.method-detail { padding: 52px 64px; background: var(--glass); min-height: 100%; }
+.method-detail { padding: 52px 64px; background: var(--glass); min-height: calc(100vh - 1px); }
+.revision-label { font-size: 12px; color: var(--mute); }
+.stacked-field { display: grid; gap: 8px; margin: 16px 0; }
+.stacked-field .field-label { font-size: 13px; color: var(--mute); }
+.modify-rerun-field input { width: 100%; }
 .method-advanced { margin: 12px 0; color: var(--mute); font-size: 12px; }
 .method-create { display: grid; gap: 8px; margin: 16px 0 24px; }
 .method-create input {

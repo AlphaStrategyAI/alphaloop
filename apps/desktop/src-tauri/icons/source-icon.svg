@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="220" fill="#07090C"/>
+  <path d="M320 640c120-200 264-200 384 0" fill="none" stroke="#5EEAD4" stroke-width="72" stroke-linecap="round"/>
+  <text x="512" y="430" text-anchor="middle" font-family="Georgia, serif" font-size="300" fill="#E8EEF5">α</text>
+</svg>

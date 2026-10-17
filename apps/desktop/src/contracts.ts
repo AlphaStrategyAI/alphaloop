@@ -73,6 +73,7 @@ export interface ValidationMethod {
   id: string;
   name: string;
   revision: string;
+  revisionLabel?: string;
   description: string;
   definitionDisplay?: string;
   usageCount?: number;

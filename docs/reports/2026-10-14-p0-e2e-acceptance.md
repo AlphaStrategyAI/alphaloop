@@ -219,6 +219,19 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 
 **Heads (2026-10-17 batch):** `4ec8e63` item 3 · `745b8d4` H · `4ece418` G/I · **`bdc9332` P0 NL pool (PyInstaller `symbol_pools` + confirm UX)** · **`ae72d0e` docs for P0 pool**.
 
+### Master Bot regression batch (2026-10-17, after `5d3a636`)
+
+| # | Topic | Status | Notes |
+| --- | --- | --- | --- |
+| 1 | Method library raw JSON / English PIT | **Fixed** | Root: `<p>{description}</p>` still emitted JSON body; `format_method_body_display` left `revision` tokens and `{violations}`. Now `method_purpose` + structured dimensions; list uses `revisionLabel`. |
+| 2 | Confirm card grid / duplicate pool | **Fixed** | `settings-row` 3-column grid; `universe_symbols` only `count · version_label`. |
+| 3 | 改一改 → question + input overlap | **Fixed** | `unlock_brief` appends `QUESTIONS[slot]`; dialogue scroll padding; vitest + `test_dialogue`. |
+| 4 | Completed modify label overlap | **Fixed** | `stacked-field` layout. |
+| 5 | Black square icon | **Fixed (provisional)** | `scripts/generate_app_icon.py` + `source-icon.svg`; `test_app_icons.py`. **Pending designer agent** for final brand. |
+| 6 | Black area below method library | **Fixed** | `html/body/#root` height + `method-detail` min-height. |
+| 7 | Window M copy + cutoff mismatch | **Fixed** | `window_copy.py` product strings; running `dataCutoff` = pinned `data_window_end` (not `last_coverage.end`). Card preview uses `ensure_runnable_universe` display-only. |
+| 8–9 | Usage 0 / extend hint | **No change** | As expected. |
+
 ### Master Bot hand-test batch 2 (2026-10-17, `.deb` @ `ae72d0e`)
 
 | # | Topic | Status | Evidence |

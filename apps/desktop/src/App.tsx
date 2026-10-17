@@ -234,24 +234,28 @@ function Settings({
     <aside className="settings">
       <p className="eyebrow">研究设定</p>
       {settingLabels.map(([key, label]) => (
-        <div data-testid="brief-slot" key={key}>
-          <dt>{label}</dt>
-          <dd>{values[key] || "未锁定"}</dd>
-          {key === "universe" && values.universe_symbols ? (
-            <dd className="universe-symbols" data-testid="universe-symbols">
-              {values.universe_symbols}
-            </dd>
-          ) : null}
+        <div className="settings-row" data-testid={`brief-slot-${key}`} key={key}>
+          <dt className="settings-label">{label}</dt>
+          <dd className="settings-value">
+            {values[key] || "未锁定"}
+            {key === "universe" && values.universe_symbols ? (
+              <span className="universe-symbols" data-testid="universe-symbols">
+                {values.universe_symbols}
+              </span>
+            ) : null}
+          </dd>
           {onEditSlot ? (
             <button
-              className="text-button slot-edit"
+              className="text-button slot-edit settings-action"
               type="button"
               data-testid={`edit-slot-${key}`}
               onClick={() => onEditSlot(key)}
             >
               改一改
             </button>
-          ) : null}
+          ) : (
+            <span className="settings-action" />
+          )}
         </div>
       ))}
     </aside>
@@ -283,6 +287,13 @@ function DialoguePanel({
       /* mutation error banner */
     }
   };
+  useEffect(() => {
+    const node = document.querySelector(".conversation");
+    if (node) {
+      node.scrollTop = node.scrollHeight;
+    }
+  }, [dialogue.length]);
+
   return (
     <section className="conversation">
       <h1>{title}</h1>
@@ -338,7 +349,18 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
 }
 
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
-  const editSlot = (slot: BriefSlotName) => void api.unlockBrief(view.researchId, slot);
+  const editSlot = (slot: BriefSlotName) => {
+    void api.unlockBrief(view.researchId, slot).then(() => {
+      requestAnimationFrame(() => {
+        const node = document.querySelector(".conversation");
+        if (node && "scrollTo" in node && typeof node.scrollTo === "function") {
+          node.scrollTo({top: node.scrollHeight, behavior: "smooth"});
+        } else if (node) {
+          node.scrollTop = node.scrollHeight;
+        }
+      });
+    });
+  };
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const sel = view.symbolSelection;
   return (
@@ -682,7 +704,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             const threshold = view.highSuspicionRoundThreshold ?? 20;
             setIterateConfirm({
               title: "继续迭代",
-              body: `本数据窗口已累计 ${m} 轮。再加预算不放宽任何阈值，只增加偶然通过的可能性。确认继续迭代？`,
+              body: `${view.windowCumulativeLabel ?? `本窗口所有研究累计 ${m} 轮`}。再加预算不放宽任何阈值，只增加偶然通过的可能性。确认继续迭代？`,
               confirmLabel: "继续迭代",
               onConfirm: () => {
                 if (m >= threshold) {
@@ -716,7 +738,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         <section className="late-pass-record" data-testid="late-pass-prior-failures">
           <p className="eyebrow">先前未通过轮次（验证记录）</p>
           <p>
-            本数据窗口累计 {view.latePassPresentation.cumulativeRoundsOnWindow} 轮；
+            {view.windowCumulativeLabel ?? `本窗口所有研究累计 ${view.latePassPresentation.cumulativeRoundsOnWindow} 轮`}；
             结论来自第 {view.latePassPresentation.conclusionRoundId}。
           </p>
           <ul>
@@ -861,14 +883,19 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             {openFolderError}
           </p>
         )}
-        <label>
-          改策略再跑
-          <input value={modification} onChange={(event) => setModification(event.target.value)} placeholder="把最长研究时间改成 6 小时" />
+        <div className="stacked-field modify-rerun-field">
+          <span className="field-label">改策略再跑</span>
+          <input
+            value={modification}
+            onChange={(event) => setModification(event.target.value)}
+            placeholder="例如：把最长研究时间改成 6 小时"
+            aria-label="改策略再跑"
+          />
           <button disabled={!modification.trim()} onClick={() => void (async () => {
             await api.sendDialogue(view.researchId, modification.trim());
             await api.confirmModification(view.researchId);
           })()}>确认修改并开新版</button>
-        </label>
+        </div>
         {view.recentDialogue && view.recentDialogue.length > 0 && (
           <div className="modification-dialogue" data-testid="modification-dialogue">
             {view.recentDialogue.map((turn, index) => (
@@ -888,9 +915,11 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
   );
 }
 
-function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}) {
+export function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}) {
   const [reviseOpen, setReviseOpen] = useState(false);
-  const [reviseBody, setReviseBody] = useState(method.description);
+  const [reviseBody, setReviseBody] = useState(
+    method.definitionDisplay ?? method.description,
+  );
   const comparisonLabel = (dim: NonNullable<ValidationMethod["dimensions"]>[number]) =>
     dim.comparisonLabel ??
     ({gt: "大于", gte: "不小于", eq: "等于", lt: "小于", lte: "不大于"} as const)[dim.comparison];
@@ -898,7 +927,9 @@ function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}
     <section className="method-detail">
       <h1>{method.name}</h1>
       {method.category && <span className="method-category-badge">{method.category}</span>}
-      <p>{method.description}</p>
+      {method.description && !method.description.trim().startsWith("{") ? (
+        <p>{method.description}</p>
+      ) : null}
       <div className="method-definition-display" data-testid="method-definition-display">
         {method.definitionDisplay ?? method.description}
       </div>
@@ -992,7 +1023,9 @@ function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView,
             key={method.id}
           >
             {method.name}
-            <small className="revision-id" title={method.revision}>{method.revision}</small>
+            <small className="revision-label">
+              {(method as {revisionLabel?: string}).revisionLabel ?? "内置修订"}
+            </small>
             {method.usageCount != null ? <small>被 {method.usageCount} 次研究用过</small> : null}
           </a>
         ))}

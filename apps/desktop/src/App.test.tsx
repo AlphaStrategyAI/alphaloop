@@ -235,7 +235,7 @@ describe("Night desktop contract", () => {
 
   it("shows exactly five read-only setting slots in draft", () => {
     render(<App api={api} initialView={views[1]} />);
-    expect(screen.getAllByTestId("brief-slot")).toHaveLength(5);
+    expect(screen.getAllByTestId(/^brief-slot-/)).toHaveLength(5);
     expect(screen.getByPlaceholderText("把方向说清楚，不用填表。")).toBeInTheDocument();
   });
 
@@ -315,7 +315,7 @@ describe("Night desktop contract", () => {
 
   it("shows readable Chinese settings on confirm-run (not Python repr)", () => {
     render(<ConfirmRunCard api={api} view={views[2] as Extract<DesktopView, {kind: "confirm_run"}>} />);
-    const slots = screen.getAllByTestId("brief-slot");
+    const slots = screen.getAllByTestId(/^brief-slot-/);
     const universe = slots.find((el) => el.textContent?.includes("资产类别"));
     const coverage = slots.find((el) => el.textContent?.includes("最低数据覆盖"));
     expect(universe?.textContent).toContain("美股 · 股票");
