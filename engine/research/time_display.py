@@ -7,8 +7,8 @@ from engine.research.models import Research
 
 def format_effective_display(research: Research) -> str:
     if research.effective_seconds <= 0:
-        return "尚未计入"
-    return f"{research.effective_seconds / 3600:.2f}h"
+        return "0.00 小时"
+    return f"{research.effective_seconds / 3600:.2f} 小时"
 
 
 def format_remaining_display(research: Research) -> str:

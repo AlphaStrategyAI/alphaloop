@@ -35,12 +35,12 @@ describe("single-slot 改一改 on confirm card", () => {
         dataCutoff: "2026-10-17",
         dataSource: "yahoo_daily",
         droppedForMissingData: 0,
-        shrinkNote: "因缺少行情数据，已从标的池剔除 0 只，剩余 30 只可用于本轮研究。",
+        shrinkNote: null,
       },
     };
     render(<ConfirmRunScreen api={api} view={view} />);
     expect(screen.getByTestId("symbol-selection-summary")).toHaveTextContent("美股大盘");
-    expect(screen.getByTestId("pool-shrink-note")).toBeInTheDocument();
+    expect(screen.queryByTestId("pool-shrink-note")).toBeNull();
     fireEvent.click(screen.getByTestId("edit-slot-max_effective_hours"));
     expect(unlockBrief).toHaveBeenCalledWith("r-slot", "max_effective_hours");
     expect(screen.getByTestId("confirm-run-card")).toBeInTheDocument();

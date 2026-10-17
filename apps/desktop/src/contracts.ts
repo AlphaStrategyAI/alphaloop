@@ -38,6 +38,7 @@ export interface SymbolSelectionSummary {
   count: number;
   listName: string;
   listVersion: string;
+  summaryLine?: string;
   generatedDate?: string;
   symbols: readonly string[];
   source: "default_pool" | "user_override";
@@ -55,6 +56,7 @@ export interface BriefSettings {
   thesis: string;
   universe: string;
   universe_symbols?: string;
+  universe_symbol_chips?: readonly string[];
   max_effective_hours: string;
   round1_methods: string;
   coverage_floor: string;

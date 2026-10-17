@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 import re
+from fractions import Fraction
 
 METHOD_IDS: dict[str, str] = {
     "scorecard.market": "市场计分卡",
@@ -84,6 +86,25 @@ def format_model_token(token: str) -> str:
 
 def pool_version_label(version_id: str) -> str:
     return POOL_VERSION.get(version_id, version_id)
+
+
+def format_display_number(value: float | int) -> str:
+    """User-facing threshold/scalar (fractions preferred, else compact percent/decimal)."""
+    if isinstance(value, bool):
+        return "是" if value else "否"
+    if isinstance(value, int):
+        return str(value)
+    if not isinstance(value, float):
+        return str(value)
+    for max_den in (3, 4, 6, 8, 12):
+        frac = Fraction(value).limit_denominator(max_den)
+        if frac.denominator != 1 and math.isclose(float(frac), value, rel_tol=0, abs_tol=1e-9):
+            return f"{frac.numerator}/{frac.denominator}"
+    if math.isclose(value, round(value)):
+        return str(int(round(value)))
+    if 0 < abs(value) < 1:
+        return f"{value * 100:.1f}%"
+    return f"{value:.4g}"
 
 
 def data_source_label(source_id: str) -> str:

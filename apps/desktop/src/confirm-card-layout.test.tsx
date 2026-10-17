@@ -18,7 +18,7 @@ describe("ConfirmRunCard settings grid", () => {
           settings: {
             thesis: "均值回归",
             universe: "美股 · 股票",
-            universe_symbols: "40 只 · 美股大市值（版本 1）",
+            universe_symbols: "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池",
             max_effective_hours: "4 小时",
             round1_methods: "走样检验",
             coverage_floor: "至少 25 个标的",
@@ -30,7 +30,9 @@ describe("ConfirmRunCard settings grid", () => {
     const edit = within(row).getByTestId("edit-slot-universe");
     expect(row.contains(edit)).toBe(true);
     const symbols = screen.getByTestId("universe-symbols");
-    expect(symbols.textContent).toBe("40 只 · 美股大市值（版本 1）");
+    expect(symbols.textContent).toBe(
+      "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池",
+    );
     expect((symbols.textContent?.match(/美股大市值/g) ?? []).length).toBe(1);
   });
 });

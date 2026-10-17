@@ -206,7 +206,7 @@ def _pool_shrink_prefix(research: Research) -> str:
     universe = research.brief.universe.value
     remaining = len(universe.symbols) if universe and universe.symbols else 0
     dropped = research.pool_data_dropped_count
-    if dropped <= 0 and remaining <= 0:
+    if dropped <= 0:
         return ""
     return pool_shrink_disclosure(dropped, remaining) + " "
 

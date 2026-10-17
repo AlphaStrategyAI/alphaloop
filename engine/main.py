@@ -62,7 +62,8 @@ from engine.research.desktop_view import (
     selected_method_id,
     universe_label_for,
 )
-from engine.research.display_names import export_blocker_messages, pool_version_label
+from engine.research.display_names import export_blocker_messages, format_display_number
+from engine.research.symbol_selection_display import format_symbol_selection_summary
 from engine.research.time_display import format_effective_display, format_remaining_display
 from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
 from engine.research.run_errors import apply_run_failure, max_consecutive_run_errors
@@ -290,19 +291,16 @@ class ResearchCommandService:
         brief = research.brief
         hours = brief.max_effective_hours.value
         selection = symbol_selection_payload(research)
-        symbols_line = ""
-        if selection:
-            version_label = selection.get("listVersionLabel") or pool_version_label(
-                str(selection.get("listVersion", ""))
-            )
-            prefix = f"{selection['count']} 只 · {version_label}"
-            if selection.get("overrideNote"):
-                prefix = f"{selection['overrideNote']} · {prefix}"
-            symbols_line = prefix
+        symbols_line = format_symbol_selection_summary(selection) if selection else ""
+        symbol_chips = list(selection["symbols"]) if selection else []
         return {
             "thesis": str(brief.thesis.value or ""),
-            "universe": format_universe_display(brief.universe.value),
+            "universe": format_universe_display(
+                brief.universe.value,
+                include_symbols=False,
+            ),
             "universe_symbols": symbols_line,
+            "universe_symbol_chips": symbol_chips,
             "max_effective_hours": f"{hours:g} 小时" if hours is not None else "",
             "round1_methods": format_methods_display(brief.round1_methods.value),
             "coverage_floor": format_coverage_floor_display(brief.coverage_floor.value),
@@ -465,6 +463,29 @@ class ResearchCommandService:
                     "comparisonLabel": "不小于",
                     "failureDisplay": "样本外走样",
                 })
+        elif method_id == "stability.oos":
+            if "same_sign_ratio_min" in parsed:
+                dimensions.append({
+                    "kind": "stability",
+                    "kindLabel": "稳定性",
+                    "name": "同号比例",
+                    "description": "样本外分段收益方向一致的比例下限",
+                    "passThreshold": parsed["same_sign_ratio_min"],
+                    "comparison": "gte",
+                    "comparisonLabel": "不小于",
+                    "failureDisplay": "样本外方向不稳定",
+                })
+            if "segments_min" in parsed:
+                dimensions.append({
+                    "kind": "stability",
+                    "kindLabel": "稳定性",
+                    "name": "分段数",
+                    "description": "样本外分段数量下限",
+                    "passThreshold": parsed["segments_min"],
+                    "comparison": "gte",
+                    "comparisonLabel": "不小于",
+                    "failureDisplay": "样本外分段不足",
+                })
         elif method_id == "pit.consistency":
             dimensions.append({
                 "kind": "pit_consistency",
@@ -476,6 +497,10 @@ class ResearchCommandService:
                 "comparisonLabel": "等于",
                 "failureDisplay": "存在前视偏差",
             })
+        for dim in dimensions:
+            threshold = dim.get("passThreshold")
+            if isinstance(threshold, (int, float)) and not isinstance(threshold, bool):
+                dim["passThreshold"] = format_display_number(threshold)
         return dimensions
 
     @staticmethod

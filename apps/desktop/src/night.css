@@ -168,6 +168,23 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .settings-value { margin: 0; word-break: break-word; }
 .settings-action { justify-self: end; align-self: start; }
 .universe-symbols { display: block; margin-top: 6px; color: var(--mute); font-size: 12px; }
+.universe-symbol-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  max-width: 100%;
+}
+.symbol-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--mute);
+  white-space: nowrap;
+}
 .confirm-card, .awaiting-card {
   border: 1px solid var(--cyan);
   border-radius: var(--radius-card);

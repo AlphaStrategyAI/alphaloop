@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from engine.research.display_names import param_label
+from engine.research.display_names import format_display_number, param_label
 
 _FIELD_LABELS: dict[str, str] = {
     "sharpe_oos_min_exclusive": "样本外夏普下限（不含等于）",
@@ -76,7 +76,7 @@ def _format_scalar(value: object) -> str:
     if isinstance(value, bool):
         return _format_bool(value)
     if isinstance(value, float):
-        return f"{value:g}"
+        return format_display_number(value)
     if isinstance(value, int):
         return str(value)
     text = str(value)
@@ -91,7 +91,11 @@ def _format_dimension(dim: dict[str, Any]) -> list[str]:
     if desc:
         lines.append(f"说明：{_format_scalar(desc)}")
     if "pass_threshold" in dim:
-        lines.append(f"通过阈值：{_format_scalar(dim['pass_threshold'])}")
+        raw = dim["pass_threshold"]
+        if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+            lines.append(f"通过阈值：{format_display_number(raw)}")
+        else:
+            lines.append(f"通过阈值：{_format_scalar(raw)}")
     comparison = dim.get("comparison")
     if comparison:
         cmp_map = {"eq": "等于", "gte": "不小于", "gt": "大于", "lte": "不大于", "lt": "小于"}

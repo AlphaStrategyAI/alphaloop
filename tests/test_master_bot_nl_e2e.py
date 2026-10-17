@@ -40,7 +40,8 @@ def _dialogue_to_confirm(service: ResearchCommandService, research_id: str) -> d
     sel = view["symbolSelection"]
     assert sel is not None
     assert sel["listName"] == "美股大市值"
-    assert sel["listVersion"] == "美股大市值（版本 1）"
+    assert sel["listVersion"] == "1"
+    assert sel["summaryLine"] == "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池"
     assert sel["count"] == 40
     assert len(sel["symbols"]) == 40
     assert sel["isDefaultPool"] is True

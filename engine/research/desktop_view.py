@@ -12,12 +12,16 @@ _MARKET_LABEL = _MARKET
 _ASSET_LABEL = _ASSET
 
 
-def format_universe_display(universe: Universe | None) -> str:
+def format_universe_display(
+    universe: Universe | None,
+    *,
+    include_symbols: bool = True,
+) -> str:
     if universe is None:
         return ""
     market = _MARKET_LABEL[universe.market]
     asset = _ASSET_LABEL[universe.asset_class]
-    if universe.symbols:
+    if include_symbols and universe.symbols:
         symbols = "、".join(universe.symbols)
         return f"{market} · {asset}（{symbols}）"
     return f"{market} · {asset}"

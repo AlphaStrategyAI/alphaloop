@@ -98,4 +98,6 @@ def shrink_pool_to_available_data(
 
 
 def pool_shrink_disclosure(dropped: int, remaining: int) -> str:
+    if dropped <= 0:
+        return ""
     return f"因缺少行情数据，已从标的池剔除 {dropped} 只，剩余 {remaining} 只可用于本轮研究。"

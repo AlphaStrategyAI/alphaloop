@@ -238,7 +238,13 @@ function Settings({
           <dt className="settings-label">{label}</dt>
           <dd className="settings-value">
             {values[key] || "未锁定"}
-            {key === "universe" && values.universe_symbols ? (
+            {key === "universe" && values.universe_symbol_chips && values.universe_symbol_chips.length > 0 ? (
+              <span className="universe-symbol-chips" data-testid="universe-symbol-chips">
+                {values.universe_symbol_chips.map((symbol) => (
+                  <span className="symbol-chip" key={symbol}>{symbol}</span>
+                ))}
+              </span>
+            ) : key === "universe" && values.universe_symbols ? (
               <span className="universe-symbols" data-testid="universe-symbols">
                 {values.universe_symbols}
               </span>
@@ -373,11 +379,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         <section className="symbol-selection" data-testid="symbol-selection">
           <p className="eyebrow">标的与数据窗口（确认后锁定）</p>
           <p data-testid="symbol-selection-summary">
-            {sel.count} 只 · {sel.listName} · 版本 {sel.listVersion}
-            {sel.generatedDate ? ` · ${sel.generatedDate}` : ""}
-            {sel.isDefaultPool || sel.source === "default_pool"
-              ? " · 默认标的池"
-              : ` · ${sel.overrideNote ?? "用户指定标的"}`}
+            {sel.summaryLine ??
+              `${sel.count} 只 · ${sel.listName} · 版本 ${sel.listVersion}${
+                sel.generatedDate ? ` · ${sel.generatedDate}` : ""
+              }${
+                sel.isDefaultPool || sel.source === "default_pool"
+                  ? " · 默认标的池"
+                  : ` · ${sel.overrideNote ?? "用户指定标的"}`
+              }`}
           </p>
           <p>数据区间 {sel.dataStart} 至 {sel.dataEnd}（截止 {sel.dataCutoff}） · 来源 {sel.dataSource}</p>
           {sel.shrinkNote && (
@@ -682,8 +691,8 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         <section className="materials-note completed-data-window" data-testid="completed-symbol-selection">
           <p className="eyebrow">标的与数据窗口</p>
           <p>
-            {view.symbolSelection.count} 只 · {view.symbolSelection.listName} · 版本{" "}
-            {view.symbolSelection.listVersion}
+            {view.symbolSelection.summaryLine ??
+              `${view.symbolSelection.count} 只 · ${view.symbolSelection.listName} · 版本 ${view.symbolSelection.listVersion}`}
           </p>
           <p>
             数据区间 {view.symbolSelection.dataStart} 至 {view.symbolSelection.dataEnd}

@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from engine.research.models import Research
-from engine.research.display_names import data_source_label, pool_version_label
+from engine.research.display_names import data_source_label
+from engine.research.symbol_selection_display import symbol_selection_summary_fields
 from engine.research.planned_data_window import DEFAULT_DATA_SOURCE_ID, planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.symbol_pool import pool_for_market
@@ -63,23 +64,29 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
     else:
         return None
 
-    shrink_note = pool_shrink_disclosure(0, len(symbols))
+    dropped = research.pool_data_dropped_count
+    shrink_note = pool_shrink_disclosure(dropped, len(symbols))
 
-    return {
-        "count": len(symbols),
-        "listName": list_name,
-        "listVersion": pool_version_label(list_version) if list_version else list_version,
-        "generatedDate": generated,
-        "symbols": list(symbols),
-        "source": source,
-        "overrideNote": "已覆盖默认标的池" if user_override else None,
-        "dataStart": start.isoformat(),
-        "dataEnd": end.isoformat(),
-        "dataCutoff": end.isoformat(),
-        "dataSource": data_source_label(
-            research.data_source_id or DEFAULT_DATA_SOURCE_ID
-        ),
-        "droppedForMissingData": 0,
-        "shrinkNote": shrink_note,
-        "isDefaultPool": source == "default_pool",
-    }
+    payload = symbol_selection_summary_fields(
+        count=len(symbols),
+        list_name=list_name,
+        version_id=list_version,
+        generated_date=generated,
+        source=source,
+        override_note="已覆盖默认标的池" if user_override else None,
+        user_override=user_override,
+    )
+    payload.update(
+        {
+            "symbols": list(symbols),
+            "dataStart": start.isoformat(),
+            "dataEnd": end.isoformat(),
+            "dataCutoff": end.isoformat(),
+            "dataSource": data_source_label(
+                research.data_source_id or DEFAULT_DATA_SOURCE_ID
+            ),
+            "droppedForMissingData": dropped,
+            "shrinkNote": shrink_note or None,
+        }
+    )
+    return payload

@@ -262,7 +262,19 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | **B8** | List `updatedAt` stale after run | **Fixed** | `55c5af5` — `loop.finish` sets `updated_at` (`test_list_updated_on_complete.py`) |
 | **B9** | Export path raw UUID filename | **Fixed** | `55c5af5` — `export_zip_filename` (`test_export_paths.py`); legacy paths still open |
 
-**Heads:** `62fc754` (batch A) · `55c5af5` (batch B) · workflow import fix on push.
+**Heads:** `62fc754` (batch A) · `55c5af5` (batch B) · CI fixes through `3b8e2c0`.
+
+### Master Bot addendum batch C (2026-10-17, with A/B on same head)
+
+| # | Topic | Status | Tests |
+| --- | --- | --- | --- |
+| **C1** | Pool name duplicated in confirm + completed row | **Fixed** | `test_symbol_selection_display.py` — `summaryLine` single formatter |
+| **C2** | Shrink line at 0 dropped | **Fixed** | `pool_shrink_disclosure(0, …)` → `""`; vitest `single-slot-confirm` |
+| **C3** | Effective `0.00h` vs remaining `3 小时` | **Fixed** | `test_time_display.py` — both `小时` |
+| **C4** | Draft settings symbol column / BRK-B break | **Fixed** | `universe_symbol_chips` + `draft-universe-chips.test.tsx` |
+| **C5** | Raw `0.666667` in stability detail | **Fixed** | `format_display_number` → `2/3`; `test_display_numbers.py` |
+| **C6** | Export UUID filename | **Fixed** (B9) | `test_export_paths.py` |
+| **C7** | First click after focus | **Not fixing** | No `mousedown`/`preventDefault` on buttons; 1s `fetchView` poll may refocus WebKit — likely host/xdotool; no reproducible in-app swallow |
 
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
