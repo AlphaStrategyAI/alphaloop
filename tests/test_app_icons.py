@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from PIL import Image
+pytest = __import__("pytest")
+Image = pytest.importorskip("PIL.Image")
 
 ICON_DIR = Path(__file__).resolve().parents[1] / "apps" / "desktop" / "src-tauri" / "icons"
 
