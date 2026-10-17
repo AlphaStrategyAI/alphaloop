@@ -16,7 +16,7 @@
 
 **`-0.35` floor:** Exercised only via **economic confirm** (`test_economic_max_drawdown_floor_minus_035_requires_confirm_and_version_history`). Does **not** count toward Done #1.
 
-**Default CI:** `python3 -m pytest tests/ -q` → **286 passed**, 1 skipped. Desktop `npm test` → vitest **65/65** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (Linux VM).
+**Default CI:** GitHub **`python-tests`** workflow (`pip install -e ".[dev]"` + `python -m pytest -q -m "not network"`). **Before 2026-10-17:** no workflow ran Python pytest (only `desktop-typecheck` + `desktop-tauri-rust`). Local clean venv: **295 passed**, 1 deselected. Desktop `npm test` → vitest **71/71** + `tsc --noEmit`; `npm run build` green. `apps/desktop/src-tauri`: **cargo check** + **cargo test** (Linux VM).
 
 **Data window key for M:** `market|sorted(symbols)|simulation.start|simulation.end` (`DataWindowKey.serialize()` in `engine/research/data_window.py`).
 
@@ -246,6 +246,23 @@ Command: `pytest tests/test_cumulative_trials.py -v`
 | 8 | Completed pool / data range; extend hint | **Done** | `symbolSelection` on completed; `extend-research-hint` (extend only on `status=ended`) |
 | 9 | Fixed rail scroll; black blocks; dedupe pit line | **Done** | `night-shell` sticky rail; `methods-layout` min-height; completed `round-verdict` |
 | 10 | Running modify by design (paused only) + hint | **Done** | `running-modify-hint`; spec: modify UI only when `paused` |
+
+### Master Bot hand-test batch 3 (2026-10-17, after `8fd6538`)
+
+| # | Topic | Status | SHA / tests |
+| --- | --- | --- | --- |
+| **A** | Pillow undeclared → `test_app_icons` import fail in clean env; no pytest in CI | **Fixed** | `62fc754` + `python-tests.yml`; `test_app_icons.py`, workflow |
+| **B1** | Reverify step passes; round cards / export unchanged | **By design** | `55c5af5` — plan **(b)** `passed_for(method_set)` frozen; UI `lastReverification.userMessage` (`test_reverification_feedback.py`) |
+| **B2** | Round selector resets method to scorecard | **Fixed** | `55c5af5` — `reverify-ui.test.tsx` |
+| **B3** | Reverify loading state | **Fixed** | `55c5af5` — `重新验证中…`, disabled + `aria-busy` (`reverify-submit`) |
+| **B4** | Stale「已记下修改…」after confirm | **Fixed** | `55c5af5` — `finalize_modification_confirm_dialogue` (`test_modification_confirm_dialogue.py`) |
+| **B5** | Narrow modify input / placeholder | **Fixed** | `55c5af5` — `night.css` full-width + placeholder styling |
+| **B6** | Empty confirm-modification no hint | **Fixed** | `55c5af5` — `modify-empty-hint` in `App.tsx` |
+| **B7** | Completed header missing effective / remaining | **Fixed** | `55c5af5` — `effective` / `remaining` on completed view (`App.tsx`) |
+| **B8** | List `updatedAt` stale after run | **Fixed** | `55c5af5` — `loop.finish` sets `updated_at` (`test_list_updated_on_complete.py`) |
+| **B9** | Export path raw UUID filename | **Fixed** | `55c5af5` — `export_zip_filename` (`test_export_paths.py`); legacy paths still open |
+
+**Heads:** `62fc754` (batch A) · `55c5af5` (batch B) · workflow import fix on push.
 
 ## Product sign-off — versioned symbol pool (2026-10-17, 产品小马)
 
