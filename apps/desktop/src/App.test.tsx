@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App, AwaitingConfirmCard, ConfirmRunCard, routeFor } from "./App";
@@ -187,17 +187,19 @@ describe("Night desktop contract", () => {
       ],
     };
     render(<App api={api} initialView={listView} />);
-    expect(screen.getByText("确认开跑")).toBeInTheDocument();
+    const pinned = screen.getByTestId("confirm-pinned-card");
+    expect(within(pinned).getByTestId("list-status-pill")).toHaveTextContent("确认开跑");
+    expect(screen.getByTestId("rail-status-label")).toHaveTextContent("确认开跑");
     expect(screen.queryByText("草稿")).not.toBeInTheDocument();
   });
 
   it("lets the awaiting primary card enter and delete like ordinary rows", () => {
     render(<App api={api} initialView={views[0]} />);
-    const card = screen.getAllByRole("article")[0];
+    const card = document.querySelector('[data-kind="awaiting-primary"]') as HTMLElement;
+    expect(card).toBeTruthy();
     expect(card.querySelector('a[href="#/research/r-wait"]')).not.toBeNull();
-    const enter = screen.getAllByRole("link", {name: "进入"})[0];
-    expect(enter).toHaveAttribute("href", "#/research/r-wait");
-    fireEvent.click(card.querySelectorAll("button")[0]);
+    expect(screen.getByRole("link", {name: "打开确认卡"})).toHaveAttribute("href", "#/research/r-wait");
+    fireEvent.click(within(card).getByRole("button", {name: "删除"}));
     const dialog = screen.getByTestId("in-app-confirm");
     fireEvent.click(dialog.querySelector(".cyan-button")!);
     expect(api.deleteResearch).toHaveBeenCalledWith("r-wait");
@@ -390,7 +392,7 @@ describe("Night desktop contract", () => {
       />,
     );
     expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+    expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
   });
 
   it("shows Scorecard dimensions in method detail (B6)", () => {
@@ -455,7 +457,7 @@ describe("Night desktop contract", () => {
       />,
     );
     expect(screen.getByText("此前导出的策略包所依据的验证已被推翻")).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: "导出策略包"})).toBeEnabled();
+    expect(screen.getByTestId("export-strategy-pack-primary")).toBeEnabled();
   });
 
   it("escalates continue iterate when cumulative rounds exceed threshold", () => {
@@ -520,7 +522,7 @@ describe("Night desktop contract", () => {
       userConfirmed: true,
       highSuspicionAcknowledged: false,
     });
-    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+    expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
   });
 
   it("shows four eligibility gates including PIT and disables export when PIT fails (B1)", () => {
@@ -539,12 +541,11 @@ describe("Night desktop contract", () => {
         }}
       />,
     );
-    const eligibilityDiv = document.querySelector(".eligibility");
-    expect(eligibilityDiv).toBeInTheDocument();
-    expect(eligibilityDiv?.children).toHaveLength(4);
-    expect(eligibilityDiv?.textContent).toContain("时点一致性已执行且通过");
-    expect(eligibilityDiv?.textContent).toContain("○ 时点一致性已执行且通过");
-    expect(screen.getByRole("button", {name: "导出策略包"})).toBeDisabled();
+    const eligibilityDiv = screen.getByTestId("completed-gate-pills");
+    expect(eligibilityDiv.children).toHaveLength(4);
+    expect(eligibilityDiv.textContent).toContain("时点一致性已执行且通过");
+    expect(eligibilityDiv.textContent).toContain("○ 时点一致性已执行且通过");
+    expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
   });
 
   it("renders round cards with two-column layout and trial counters (B2/B3)", () => {

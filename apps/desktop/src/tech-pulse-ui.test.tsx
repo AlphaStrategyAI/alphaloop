@@ -1,7 +1,6 @@
 import "@testing-library/jest-dom/vitest";
-import {cleanup, render, screen} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
-import {fireEvent, waitFor} from "@testing-library/react";
 
 import {App, AwaitingConfirmCard, ConfirmRunCard} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
@@ -48,6 +47,33 @@ describe("Tech Pulse UI", () => {
     render(<App api={api} initialView={{kind: "research_list", rows: []}} />);
     expect(screen.getByText("本机工坊")).toBeInTheDocument();
     expect(screen.getByText(/一条对话/)).toBeInTheDocument();
+    expect(screen.getByTestId("new-research-button")).toHaveTextContent("+");
+    expect(screen.getByTestId("new-research-button")).toHaveTextContent("新建研究");
+  });
+
+  it("shows sidebar status dot copy and list status pills", () => {
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "research_list",
+          awaiting: {
+            id: "r-w",
+            title: "等待拍板",
+            status: "awaiting_confirm",
+          },
+          rows: [
+            {id: "r1", title: "运行中研究", status: "running"},
+            {id: "r2", title: "草稿研究", status: "draft"},
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByTestId("rail-status-label")).toHaveTextContent("等确认");
+    const rows = screen.getAllByTestId("research-row");
+    expect(within(rows[0]).getByTestId("list-status-pill")).toHaveTextContent("运行中");
+    expect(within(rows[1]).getByTestId("list-status-pill")).toHaveTextContent("草稿");
+    expect(screen.getByRole("link", {name: "打开确认卡"})).toBeInTheDocument();
   });
 
   it("renders confirm card pulse chrome", () => {
@@ -56,10 +82,28 @@ describe("Tech Pulse UI", () => {
       researchId: "r-1",
       dialogue: [],
       settings,
+      symbolSelection: {
+        count: 1,
+        listName: "US-EQ",
+        listVersion: "v3",
+        symbols: ["600519.SH"],
+        source: "user_override",
+        dataStart: "2016-01-01",
+        dataEnd: "2025-12-31",
+        dataCutoff: "2025-12-31",
+        dataSource: "AkShare 日线（新浪优先）",
+      },
     };
-    render(<ConfirmRunCard api={api} view={view} />);
+    const unlockBrief = vi.fn(async () => undefined);
+    render(<ConfirmRunCard api={{...api, unlockBrief}} view={view} />);
     expect(screen.getByTestId("confirm-run-card")).toHaveClass("tech-pulse-card");
     expect(screen.getByRole("heading", {name: "确认开跑"})).toBeInTheDocument();
+    expect(screen.getByTestId("symbol-selection")).toHaveClass("confirm-data-panel");
+    expect(screen.getByText("将使用的数据")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "开跑"})).toBeInTheDocument();
+    expect(screen.getByTestId("confirm-return-draft")).toHaveTextContent("再修改");
+    fireEvent.click(screen.getByTestId("confirm-return-draft"));
+    expect(unlockBrief).toHaveBeenCalledWith("r-1");
   });
 
   it("renders running orbit and quota only with parseable effective string", () => {
@@ -69,12 +113,31 @@ describe("Tech Pulse UI", () => {
       status: "running",
       version: 2,
       effective: "3h12 / 12h",
+      currentAction: "历史模拟",
       coverage: "覆盖仍在底线之上",
       rounds: [],
     };
     render(<App api={api} initialView={running} initialRoute="#/research/r-1" />);
-    expect(screen.getByTestId("version-orbit")).toHaveTextContent("v2");
+    const orbit = screen.getByTestId("version-orbit");
+    expect(orbit).toHaveTextContent("v2");
+    expect(orbit).toHaveTextContent("历史模拟");
     expect(screen.getByTestId("effective-quota-progress")).toBeInTheDocument();
+  });
+
+  it("renders quota bar from effective and remaining when slash form absent", () => {
+    const running: DesktopView = {
+      kind: "running",
+      researchId: "r-1",
+      status: "running",
+      version: 1,
+      effective: "0.00 小时",
+      remaining: "12.00 小时",
+      coverage: "ok",
+      rounds: [],
+    };
+    render(<App api={api} initialView={running} initialRoute="#/research/r-1" />);
+    expect(screen.getByTestId("effective-quota-progress")).toBeInTheDocument();
+    expect(screen.getByText("有效研究额度")).toBeInTheDocument();
   });
 
   it("hides quota progress when effective has no total (no fake meter)", () => {
@@ -116,6 +179,28 @@ describe("Tech Pulse UI", () => {
     expect(screen.getByTestId("brief-thesis-value").querySelector(".cn-ticker-nowrap")).toHaveTextContent(
       "600519.SH",
     );
+  });
+
+  it("renders failed completed card with coral export primary", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-fail",
+      status: "completed",
+      title: "高频试错",
+      selectedRoundId: "r1",
+      selectedMethodId: "m1",
+      eligibility: {
+        allMethodsPassed: false,
+        noPendingConfirm: true,
+        reverifiesPassed: true,
+        pitExecutedAndPassed: false,
+      },
+    };
+    render(<App api={api} initialView={view} initialRoute="#/research/r-fail" />);
+    expect(screen.getByTestId("completed-failed-eyebrow")).toHaveTextContent("未通过门禁");
+    expect(screen.getByTestId("export-research-record-primary")).toBeEnabled();
+    expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
+    expect(screen.getByTestId("reverify-panel")).toBeInTheDocument();
   });
 
   it("renders completed export-ready chrome when eligible", () => {
@@ -165,7 +250,7 @@ describe("Tech Pulse UI", () => {
     });
 
     render(<App api={ritualApi} initialView={confirmView} initialRoute="#/research/r-ritual" />);
-    fireEvent.click(screen.getByRole("button", {name: "确认开跑"}));
+    fireEvent.click(screen.getByRole("button", {name: "开跑"}));
     await waitFor(() => expect(screen.getByTestId("running-screen")).toBeInTheDocument());
     await waitFor(() =>
       expect(document.querySelector('[data-run-start-ritual="active"]')).toBeTruthy(),

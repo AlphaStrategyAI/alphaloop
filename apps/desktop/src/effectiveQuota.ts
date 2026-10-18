@@ -19,7 +19,48 @@ function parseHoursMinutes(token: string): number | null {
   if (zh) {
     return Math.round(Number(zh[1]) * 60);
   }
+  const zhShort = /^(\d+(?:\.\d+)?)\s*小时?$/.exec(trimmed);
+  if (zhShort) {
+    return Math.round(Number(zhShort[1]) * 60);
+  }
   return null;
+}
+
+function formatMinutesLabel(totalMin: number): string {
+  const hours = Math.floor(totalMin / 60);
+  const minutes = totalMin % 60;
+  if (minutes === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h${minutes}`;
+}
+
+/** Parse slash form or separate effective + remaining strings from the running view. */
+export function parseEffectiveQuotaFromView(
+  effective?: string | null,
+  remaining?: string | null,
+): EffectiveQuota | null {
+  const slash = parseEffectiveQuota(effective);
+  if (slash) {
+    return slash;
+  }
+  if (!effective || !remaining) {
+    return null;
+  }
+  const usedMin = parseHoursMinutes(effective);
+  const remMin = parseHoursMinutes(remaining);
+  if (usedMin == null || remMin == null) {
+    return null;
+  }
+  const totalMin = usedMin + remMin;
+  if (totalMin <= 0) {
+    return null;
+  }
+  return {
+    usedLabel: effective.trim(),
+    totalLabel: formatMinutesLabel(totalMin),
+    ratio: Math.min(1, Math.max(0, usedMin / totalMin)),
+  };
 }
 
 export function parseEffectiveQuota(effective?: string | null): EffectiveQuota | null {
