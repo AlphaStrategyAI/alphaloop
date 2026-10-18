@@ -15,19 +15,23 @@ def _distinct_colors(path: Path) -> int:
     return len({px for px in img.getdata() if px[3] > 0})
 
 
-def _icns_chunk_count(data: bytes) -> int:
-    if len(data) < 8 or data[4:8] != b"icns":
-        return 0
+def _parse_icns_chunks(data: bytes) -> list[bytes]:
+    """Return chunk type fourccs for a standard ICNS (magic at offset 0)."""
+    if len(data) < 8 or data[:4] != b"icns":
+        return []
+    file_length = struct.unpack_from(">I", data, 4)[0]
+    if file_length != len(data):
+        return []
     offset = 8
-    count = 0
+    types: list[bytes] = []
     while offset + 8 <= len(data):
-        _type = data[offset : offset + 4]
+        chunk_type = data[offset : offset + 4]
         length = struct.unpack_from(">I", data, offset + 4)[0]
-        if length < 8:
+        if length < 8 or offset + length > len(data):
             break
-        count += 1
+        types.append(chunk_type)
         offset += length
-    return count
+    return types
 
 
 def _ico_image_count(path: Path) -> int:
@@ -71,9 +75,25 @@ def test_app_icons_exist_and_are_not_flat_placeholders() -> None:
 def test_icns_is_valid_multi_resolution() -> None:
     path = ICON_DIR / "icon.icns"
     data = path.read_bytes()
-    assert data[4:8] == b"icns"
+    assert data[:4] == b"icns", "ICNS magic must be at offset 0"
+    assert data[4:8] != b"icns", "length field must not look like inverted magic"
+    file_length = struct.unpack_from(">I", data, 4)[0]
+    assert file_length == len(data)
     assert len(data) > 8_000
-    assert _icns_chunk_count(data) >= 5
+    chunk_types = _parse_icns_chunks(data)
+    assert len(chunk_types) >= 5
+    assert b"icp4" in chunk_types
+    assert b"ic10" in chunk_types
+
+
+def test_icns_rejects_inverted_header_layout() -> None:
+    """Regression: length-before-magic header fooled older tests and broke macOS."""
+    path = ICON_DIR / "icon.icns"
+    data = path.read_bytes()
+    inverted = data[4:8] + data[:4] + data[8:]
+    assert inverted[:4] != b"icns"
+    assert inverted[4:8] == b"icns"
+    assert _parse_icns_chunks(inverted) == []
 
 
 def test_ico_has_multiple_embedded_sizes() -> None:

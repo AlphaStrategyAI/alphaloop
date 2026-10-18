@@ -90,7 +90,7 @@ def write_icns(path: Path, master: "Image.Image") -> None:
         chunk_bodies.append(payload)
     data = b"".join(chunk_bodies)
     file_length = 8 + len(data)
-    path.write_bytes(struct.pack(">I4s", file_length, b"icns") + data)
+    path.write_bytes(struct.pack(">4sI", b"icns", file_length) + data)
 
 
 def main() -> None:
