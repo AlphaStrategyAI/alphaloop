@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 
 from engine.research.models import Research, Slot, Universe
 from engine.research.planned_data_window import (
-    DEFAULT_DATA_SOURCE_ID,
+    data_source_id_for_market,
     planned_data_window,
 )
 from engine.research.pool_data_shrink import shrink_pool_to_available_data
@@ -89,7 +89,7 @@ def _pin_window(
         symbol_list_version=version,
         data_window_start=start,
         data_window_end=end,
-        data_source_id=DEFAULT_DATA_SOURCE_ID,
+        data_source_id=data_source_id_for_market(universe.market),
         updated_at=now,
     )
 

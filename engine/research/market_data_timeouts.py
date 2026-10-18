@@ -15,6 +15,11 @@ MARKET_DATA_LOAD_TIMEOUT_SEC = float(
 )
 
 
+def cn_market_data_max_workers() -> int:
+    raw = os.environ.get("ALPHALOOP_CN_MARKET_MAX_WORKERS", "8")
+    return max(1, min(16, int(raw)))
+
+
 def run_with_deadline(seconds: float, fn: Callable[[], T]) -> T:
     """Run blocking provider IO on a worker thread with an overall deadline."""
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="market-io")
