@@ -1,3 +1,4 @@
+import hashlib
 import struct
 from pathlib import Path
 
@@ -8,6 +9,12 @@ ICON_DIR = Path(__file__).resolve().parents[1] / "apps" / "desktop" / "src-tauri
 TAURI_CONF = (
     Path(__file__).resolve().parents[1] / "apps" / "desktop" / "src-tauri" / "tauri.conf.json"
 )
+
+# v2 master from 设计小迪 (larger α); guards against reverting to v1 small-α art.
+V2_ICON_1024_SHA256 = (
+    "47e661190f61172de163863bea9ae4d614c359247b6f6b16da1bbe713380a269"
+)
+MIN_ALPHA_MARK_WIDTH_RATIO = 0.55
 
 
 def _distinct_colors(path: Path) -> int:
@@ -32,6 +39,28 @@ def _parse_icns_chunks(data: bytes) -> list[bytes]:
         types.append(chunk_type)
         offset += length
     return types
+
+
+def _ink_cyan_bbox_width_ratio(path: Path) -> float:
+    """Horizontal span of ink/cyan foreground on the 1024 master (v2 α ≈ 65% width)."""
+    img = Image.open(path).convert("RGBA")
+    width, height = img.size
+    assert width == height == 1024
+    pixels = img.load()
+    xs: list[int] = []
+    for y in range(height):
+        for x in range(width):
+            r, g, b, a = pixels[x, y]
+            if a < 64:
+                continue
+            if r > 200 and g > 200 and b > 200:
+                xs.append(x)
+                continue
+            if g > 170 and b > 150 and r < 160:
+                xs.append(x)
+    if not xs:
+        return 0.0
+    return (max(xs) - min(xs) + 1) / width
 
 
 def _ico_image_count(path: Path) -> int:
@@ -70,6 +99,14 @@ def test_app_icons_exist_and_are_not_flat_placeholders() -> None:
             img = Image.open(path)
             assert img.size == (size, size)
             assert _distinct_colors(path) >= 8
+
+
+def test_icon_1024_is_v2_master_with_large_alpha() -> None:
+    path = ICON_DIR / "icon-1024.png"
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    assert digest == V2_ICON_1024_SHA256
+    ratio = _ink_cyan_bbox_width_ratio(path)
+    assert ratio >= MIN_ALPHA_MARK_WIDTH_RATIO, f"α mark too narrow ({ratio:.2%} of canvas)"
 
 
 def test_icns_is_valid_multi_resolution() -> None:

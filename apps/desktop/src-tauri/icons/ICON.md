@@ -1,8 +1,8 @@
 # alphaloop 应用图标 · 正式稿
 
 ## 交付物
-- `alphaloop-icon-1024.png` — **主图标**，1024×1024，圆角方标（Night 底板），给 `tauri icon` 用
-- `alphaloop-icon-1024-transparent.png` — 透明底变体（仅 α + cyan 节点 + 弧），可选
+- `icon-1024.png` — **主图标**（仓库内名），1024×1024，圆角方标（Night 底板），`generate_app_icon.py` / `tauri icon` 的输入
+- `alphaloop-icon-1024-transparent.png` — 透明底变体（仅 α + cyan 弧 + 确认节点），可选
 - `source-icon.svg` — 矢量源文件（可再编辑）
 
 ## 品牌色（与 Night UI 一致）
@@ -13,11 +13,17 @@
 | cyan | `#5EEAD4` | 确认节点 + 弧（唯一强调色） |
 | line | `#1E2530` | 1px 内描边 |
 
+## v2（放大 α，用户确认稿）
+- **α** 宽约 **65%** 画布、高约 **62%**（v1 约 21%）；留白上下≈左右≈**12%**
+- α 已转成**轮廓路径**（Noto Serif SemiBold），SVG **不依赖字体**
+- 品牌色不变（见上表）
+- **cyan 弧**保留；**确认节点**移到弧**右端**（避免像笑脸），不遮挡 α
+
 ## 构成
 1. **圆角方标** `rx ≈ 224`（约 22%），铺满 1024
-2. **α**：Noto Serif Medium，主图形，居中偏上
-3. **cyan 确认节点**：α 下方微偏右，带柔光 — 与产品 Logo / 确认态同一语义
-4. **cyan 弧**：节点下方一笔，呼应「确认 / 闭环」
+2. **α**：主图形，居中偏上（v2 为路径轮廓）
+3. **cyan 确认节点**：弧右端，带柔光 — 与产品 Logo / 确认态同一语义
+4. **cyan 弧**：α 下方一笔，呼应「确认 / 闭环」
 
 ## 留白 / 安全区
 - 图形内容落在约 **12% 内边距** 内（相对 1024 ≈ 120px）
@@ -31,7 +37,8 @@
 
 ## 使用
 ```bash
-# 在 apps/desktop 下，把主 PNG 交给 tauri：
-npx tauri icon path/to/alphaloop-icon-1024.png
+# 从仓库根目录：
+./scripts/regen-desktop-icons.sh
+# 可选（需 Node + apps/desktop 下 @tauri-apps/cli）：
+./scripts/regen-desktop-icons.sh --tauri
 ```
-建议同时把 `source-icon.svg` 覆盖到 `apps/desktop/src-tauri/icons/source-icon.svg` 作为源。
