@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
+import io
 import struct
-import zlib
 from pathlib import Path
 
 try:
@@ -20,6 +20,30 @@ SOURCE_SVG = ICON_DIR / "source-icon.svg"
 BG = (7, 9, 12)
 TEAL = (94, 234, 212)
 INK = (232, 238, 245)
+
+# PNG-in-ICNS type codes (macOS 10.7+), size in pixels.
+_ICNS_PNG_CHUNKS: tuple[tuple[bytes, int], ...] = (
+    (b"icp4", 16),
+    (b"icp5", 32),
+    (b"icp6", 64),
+    (b"ic07", 128),
+    (b"ic08", 256),
+    (b"ic09", 512),
+    (b"ic10", 1024),
+)
+
+_WINDOWS_SQUARE_LOGOS: dict[str, int] = {
+    "Square30x30Logo.png": 30,
+    "Square44x44Logo.png": 44,
+    "Square71x71Logo.png": 71,
+    "Square89x89Logo.png": 89,
+    "Square107x107Logo.png": 107,
+    "Square142x142Logo.png": 142,
+    "Square150x150Logo.png": 150,
+    "Square284x284Logo.png": 284,
+    "Square310x310Logo.png": 310,
+    "StoreLogo.png": 50,
+}
 
 
 def write_svg(path: Path) -> None:
@@ -54,32 +78,34 @@ def write_png(path: Path, size: int) -> None:
     render_master(size).save(path, format="PNG")
 
 
+def _png_bytes(size: int) -> bytes:
+    buf = io.BytesIO()
+    render_master(size).save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def write_ico(path: Path) -> None:
     sizes = [16, 32, 48, 64, 128, 256]
     images = [render_master(s) for s in sizes]
-    images[0].save(
+    # Pillow embeds multiple sizes only when the largest image is saved first.
+    images[-1].save(
         path,
         format="ICO",
         sizes=[(s, s) for s in sizes],
-        append_images=images[1:],
+        append_images=images[:-1],
     )
 
 
 def write_icns(path: Path) -> None:
-    """Minimal ICNS with one 128x128 PNG chunk (sufficient for Linux deb)."""
-    png = render_master(128)
-    import io
-
-    buf = io.BytesIO()
-    png.save(buf, format="PNG")
-    png_bytes = buf.getvalue()
-    chunk_type = b"ic08"
-    header = struct.pack(">II", 128, 128)
-    data = chunk_type + header + png_bytes
-    length = len(data)
-    file_length = 8 + length
-    out = struct.pack(">I4sI", file_length, b"icns", length) + data
-    path.write_bytes(out)
+    """Standard multi-resolution ICNS with embedded PNGs (Dock/Finder)."""
+    chunk_bodies: list[bytes] = []
+    for ostype, size in _ICNS_PNG_CHUNKS:
+        png = _png_bytes(size)
+        payload = ostype + struct.pack(">I", 8 + len(png)) + png
+        chunk_bodies.append(payload)
+    data = b"".join(chunk_bodies)
+    file_length = 8 + len(data)
+    path.write_bytes(struct.pack(">I4s", file_length, b"icns") + data)
 
 
 def main() -> None:
@@ -92,21 +118,11 @@ def main() -> None:
     write_png(ICON_DIR / "128x128.png", 128)
     write_png(ICON_DIR / "128x128@2x.png", 256)
     write_png(ICON_DIR / "icon.png", 512)
+    write_png(ICON_DIR / "icon-1024.png", 1024)
     write_ico(ICON_DIR / "icon.ico")
     write_icns(ICON_DIR / "icon.icns")
-    for name in (
-        "Square30x30Logo.png",
-        "Square44x44Logo.png",
-        "Square71x71Logo.png",
-        "Square89x89Logo.png",
-        "Square107x107Logo.png",
-        "Square142x142Logo.png",
-        "Square150x150Logo.png",
-        "Square284x284Logo.png",
-        "Square310x310Logo.png",
-        "StoreLogo.png",
-    ):
-        write_png(ICON_DIR / name, 256)
+    for name, size in _WINDOWS_SQUARE_LOGOS.items():
+        write_png(ICON_DIR / name, size)
 
 
 if __name__ == "__main__":
