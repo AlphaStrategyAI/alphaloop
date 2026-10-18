@@ -242,7 +242,10 @@ function Settings({
       {settingLabels.map(([key, label]) => (
         <div className="settings-row" data-testid={`brief-slot-${key}`} key={key}>
           <dt className="settings-label">{label}</dt>
-          <dd className="settings-value">
+          <dd
+            className={`settings-value${key === "thesis" ? " settings-value-prose" : ""}`}
+            data-testid={key === "thesis" ? "brief-thesis-value" : undefined}
+          >
             {values[key] || "未锁定"}
             {key === "universe" && values.universe_symbol_chips && values.universe_symbol_chips.length > 0 ? (
               <span className="universe-symbol-chips" data-testid="universe-symbol-chips">
@@ -631,6 +634,54 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
   );
 }
 
+function ExportFeedbackBlock({
+  exportFeedback,
+  openFolderError,
+  onExport,
+  onReveal,
+}: {
+  exportFeedback: {status: "success"; path: string} | {status: "error"; message: string} | null;
+  openFolderError: string | null;
+  onExport: () => void;
+  onReveal: (path: string) => void;
+}) {
+  return (
+    <div className="export-actions" data-testid="export-research-record-block">
+      <button
+        type="button"
+        className="cyan-button"
+        data-testid="export-research-record"
+        onClick={onExport}
+      >
+        导出研究记录包
+      </button>
+      {exportFeedback?.status === "success" && (
+        <p className="export-feedback success" data-testid="export-success" role="status">
+          已导出到 {exportFeedback.path}
+          <button
+            type="button"
+            className="text-button"
+            data-testid="reveal-export-folder"
+            onClick={() => onReveal(exportFeedback.path)}
+          >
+            打开所在文件夹
+          </button>
+        </p>
+      )}
+      {exportFeedback?.status === "error" && (
+        <p className="export-feedback error" data-testid="export-error" role="alert">
+          导出失败：{exportFeedback.message}
+        </p>
+      )}
+      {openFolderError && (
+        <p className="export-feedback error" data-testid="open-folder-error" role="alert">
+          {openFolderError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
   const [extensionHours, setExtensionHours] = useState("4");
   const [modification, setModification] = useState("");
@@ -651,6 +702,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
 
   const runExport = async (kind: "strategy_pack" | "research_record") => {
     setExportFeedback(null);
+    setOpenFolderError(null);
     try {
       const path = await api.exportArtifact(view.researchId, kind);
       setExportFeedback({status: "success", path});
@@ -661,6 +713,16 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       });
     }
   };
+  const revealExportFolder = (path: string) => {
+    void api.revealExportInFolder(path).catch(async () => {
+      setOpenFolderError(`无法打开文件夹，路径已复制：${path}`);
+      try {
+        await navigator.clipboard.writeText(path);
+      } catch {
+        /* clipboard unavailable */
+      }
+    });
+  };
   const checks = [
     ["当前验证方法全部通过", view.eligibility.allMethodsPassed],
     ["没有待确认", view.eligibility.noPendingConfirm],
@@ -668,6 +730,8 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     ["时点一致性已执行且通过", view.eligibility.pitExecutedAndPassed],
   ] as const;
   const eligible = checks.every(([, passed]) => passed);
+  const researchRecordExportPrimary =
+    view.exportKind === "research_record_only" || !eligible;
   const headline = view.resultHeadline ?? (eligible ? "研究已完成" : "研究已结束，验证未通过");
   const gatesInSubtitle = Boolean(view.subtitle?.includes("未通过门禁"));
   const showFailedGateLine =
@@ -708,6 +772,14 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       <p>{headline}</p>
       {view.subtitle && <p>{view.subtitle}</p>}
       {view.honestStopHint && <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>}
+      {researchRecordExportPrimary && (
+        <ExportFeedbackBlock
+          exportFeedback={exportFeedback}
+          openFolderError={openFolderError}
+          onExport={() => void runExport("research_record")}
+          onReveal={revealExportFolder}
+        />
+      )}
       {view.symbolSelection && (
         <section className="materials-note completed-data-window" data-testid="completed-symbol-selection">
           <p className="eyebrow">标的与数据窗口</p>
@@ -890,37 +962,13 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             <p className="reverify-error" data-testid="reverify-error" role="alert">{reverifyError}</p>
           )}
         </div>
-        <button className="text-button" onClick={() => void runExport("research_record")}>导出研究记录包</button>
-        {exportFeedback?.status === "success" && (
-          <p className="export-feedback success" data-testid="export-success" role="status">
-            已导出到 {exportFeedback.path}
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => {
-                void api.revealExportInFolder(exportFeedback.path).catch(async () => {
-                  setOpenFolderError(`无法打开文件夹，路径已复制：${exportFeedback.path}`);
-                  try {
-                    await navigator.clipboard.writeText(exportFeedback.path);
-                  } catch {
-                    /* clipboard unavailable */
-                  }
-                });
-              }}
-            >
-              打开所在文件夹
-            </button>
-          </p>
-        )}
-        {exportFeedback?.status === "error" && (
-          <p className="export-feedback error" data-testid="export-error" role="alert">
-            导出失败：{exportFeedback.message}
-          </p>
-        )}
-        {openFolderError && (
-          <p className="export-feedback error" data-testid="open-folder-error" role="alert">
-            {openFolderError}
-          </p>
+        {!researchRecordExportPrimary && (
+          <ExportFeedbackBlock
+            exportFeedback={exportFeedback}
+            openFolderError={openFolderError}
+            onExport={() => void runExport("research_record")}
+            onReveal={revealExportFolder}
+          />
         )}
         <div className="stacked-field modify-rerun-field">
           <span className="field-label">改策略再跑</span>

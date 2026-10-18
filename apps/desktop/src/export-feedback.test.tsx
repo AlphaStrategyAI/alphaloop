@@ -12,13 +12,14 @@ const completedView: DesktopView = {
   researchId: "r-export",
   status: "completed",
   title: "测试研究",
+  exportKind: "research_record_only",
   selectedRoundId: "r-export-v1-r1",
   selectedMethodId: "overfit.walk",
   eligibility: {
-    allMethodsPassed: true,
+    allMethodsPassed: false,
     noPendingConfirm: true,
     reverifiesPassed: true,
-    pitExecutedAndPassed: true,
+    pitExecutedAndPassed: false,
   },
 };
 
@@ -49,11 +50,24 @@ describe("export feedback", () => {
     const path = "/home/user/alphaloop/exports/r-export-research-record.zip";
     const exportArtifact = vi.fn(async () => path);
     render(<App api={makeApi(exportArtifact)} initialView={completedView} />);
-    fireEvent.click(screen.getByRole("button", {name: "导出研究记录包"}));
+    fireEvent.click(screen.getByTestId("export-research-record"));
     await waitFor(() => {
       expect(screen.getByTestId("export-success")).toHaveTextContent(`已导出到 ${path}`);
     });
     expect(exportArtifact).toHaveBeenCalledWith("r-export", "research_record");
+  });
+
+  it("offers open folder after successful export", async () => {
+    const path = "/home/user/alphaloop/exports/r-export-research-record.zip";
+    const revealExportInFolder = vi.fn(async () => undefined);
+    const api = {...makeApi(vi.fn(async () => path)), revealExportInFolder};
+    render(<App api={api} initialView={completedView} />);
+    fireEvent.click(screen.getByTestId("export-research-record"));
+    await waitFor(() => {
+      expect(screen.getByTestId("reveal-export-folder")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("reveal-export-folder"));
+    expect(revealExportInFolder).toHaveBeenCalledWith(path);
   });
 
   it("shows error when export fails", async () => {
@@ -61,7 +75,7 @@ describe("export feedback", () => {
       throw new Error("not eligible");
     });
     render(<App api={makeApi(exportArtifact)} initialView={completedView} />);
-    fireEvent.click(screen.getByRole("button", {name: "导出研究记录包"}));
+    fireEvent.click(screen.getByTestId("export-research-record"));
     await waitFor(() => {
       expect(screen.getByTestId("export-error")).toHaveTextContent("导出失败：not eligible");
     });
