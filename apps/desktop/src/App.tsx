@@ -20,6 +20,7 @@ import "./night.css";
 import "./tech-pulse.css";
 import {BrandMark} from "./BrandMark";
 import {parseEffectiveQuota} from "./effectiveQuota";
+import {useRunStartRitual} from "./useRunStartRitual";
 
 const CN_TICKER_IN_PROSE = /(\d{6}\.(?:SH|SZ|BJ))/g;
 
@@ -132,10 +133,12 @@ function NightShell({
   view,
   children,
   sidecarState,
+  runStartRitual,
 }: {
   view: DesktopView;
   children: React.ReactNode;
   sidecarState?: SidecarUiState | null;
+  runStartRitual?: boolean;
 }) {
   const methods = view.kind === "methods";
   const hostKey: HostStatus = view.hostStatus ?? (
@@ -168,7 +171,8 @@ function NightShell({
         </div>
       </aside>
       <section
-        className={`content ${view.kind} tech-pulse-content${failedTone ? " tech-pulse-failed-tone" : ""}`}
+        className={`content ${view.kind} tech-pulse-content${failedTone ? " tech-pulse-failed-tone" : ""}${runStartRitual ? " run-start-ritual" : ""}`}
+        data-run-start-ritual={runStartRitual ? "active" : undefined}
       >
         <div className="tech-pulse-atmosphere" aria-hidden />
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
@@ -486,15 +490,21 @@ function RunningScreen({
   view,
   modification,
   onModificationChange,
+  runStartRitual,
 }: {
   api: DesktopApi;
   view: Extract<DesktopView, {kind: "running"}>;
   modification: string;
   onModificationChange: (text: string) => void;
+  runStartRitual?: boolean;
 }) {
   const quota = parseEffectiveQuota(view.effective);
   return (
-    <div className="focus running-screen" data-testid="running-screen">
+    <div
+      className={`focus running-screen${runStartRitual ? " run-start-ritual-running" : ""}`}
+      data-testid="running-screen"
+      data-run-start-ritual={runStartRitual ? "active" : undefined}
+    >
       <div className="running-hero">
         <div className="version-orbit" data-testid="version-orbit" aria-hidden>
           <span>v{view.version}</span>
@@ -1232,7 +1242,8 @@ function Screen({
   initialView: view,
   pausedModificationByResearch,
   onPausedModificationChange,
-}: ScreenProps) {
+  runStartRitual,
+}: ScreenProps & {runStartRitual?: boolean}) {
   switch (view.kind) {
     case "research_list": return <ResearchList api={api} view={view} />;
     case "draft": return <DraftScreen api={api} view={view} />;
@@ -1244,6 +1255,7 @@ function Screen({
           view={view}
           modification={pausedModificationByResearch[view.researchId] ?? ""}
           onModificationChange={(text) => onPausedModificationChange(view.researchId, text)}
+          runStartRitual={runStartRitual}
         />
       );
     case "awaiting_confirm": return <div className="focus"><AwaitingConfirmCard api={api} view={view} /></div>;
@@ -1272,6 +1284,7 @@ export function App({
   }, []);
   const engineStopped = sidecarState?.phase === "stopped";
   const routePending = route !== syncedRoute;
+  const runStartRitual = useRunStartRitual(view);
 
   const refreshView = useCallback(async () => {
     const next = await api.fetchView(route);
@@ -1363,7 +1376,7 @@ export function App({
   }, [restartSidecar, pollSidecar]);
 
   return (
-    <NightShell view={view} sidecarState={sidecarState}>
+    <NightShell view={view} sidecarState={sidecarState} runStartRitual={runStartRitual}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
           <span>{mutationError}</span>
@@ -1396,6 +1409,7 @@ export function App({
           initialView={view}
           pausedModificationByResearch={pausedModificationByResearch}
           onPausedModificationChange={onPausedModificationChange}
+          runStartRitual={runStartRitual}
         />
       )}
     </NightShell>

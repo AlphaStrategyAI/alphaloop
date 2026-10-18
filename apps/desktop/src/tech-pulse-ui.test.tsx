@@ -1,10 +1,29 @@
 import "@testing-library/jest-dom/vitest";
 import {cleanup, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
+import {fireEvent, waitFor} from "@testing-library/react";
 
 import {App, AwaitingConfirmCard, ConfirmRunCard} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
 import {minimalDesktopApi} from "./test-fixtures";
+import {RUN_START_RITUAL_MS} from "./runStartRitual";
+
+function mockMatchMedia(matches: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    configurable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches,
+      media: "(prefers-reduced-motion: reduce)",
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+      onchange: null,
+    })),
+  });
+}
 
 afterEach(() => cleanup());
 
@@ -117,6 +136,46 @@ describe("Tech Pulse UI", () => {
     render(<App api={api} initialView={view} initialRoute="#/research/r-1" />);
     expect(screen.getByTestId("completed-screen")).toBeInTheDocument();
     expect(screen.getByTestId("export-ready-eyebrow")).toBeInTheDocument();
+  });
+
+  it("applies run-start ritual on confirm → running without fake progress UI", async () => {
+    mockMatchMedia(false);
+    const confirmView: DesktopView = {
+      kind: "confirm_run",
+      researchId: "r-ritual",
+      dialogue: [],
+      settings,
+    };
+    const runningView: DesktopView = {
+      kind: "running",
+      researchId: "r-ritual",
+      status: "running",
+      version: 1,
+      effective: "1h / 12h",
+      coverage: "ok",
+      rounds: [],
+    };
+
+    let current: DesktopView = confirmView;
+    const ritualApi = minimalDesktopApi({
+      fetchView: vi.fn(async () => current),
+      confirmRun: vi.fn(async () => {
+        current = runningView;
+      }),
+    });
+
+    render(<App api={ritualApi} initialView={confirmView} initialRoute="#/research/r-ritual" />);
+    fireEvent.click(screen.getByRole("button", {name: "确认开跑"}));
+    await waitFor(() => expect(screen.getByTestId("running-screen")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(document.querySelector('[data-run-start-ritual="active"]')).toBeTruthy(),
+    );
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/X\/N/i)).not.toBeInTheDocument();
+    await waitFor(
+      () => expect(document.querySelector('[data-run-start-ritual="active"]')).toBeFalsy(),
+      {timeout: RUN_START_RITUAL_MS + 300},
+    );
   });
 
   it("does not show placeholder round labels on the version orbit", () => {
