@@ -17,6 +17,9 @@ import type {
 import {formatResearchTimestamp} from "./format";
 import {readBrowserRoute, routeFromHash} from "./routing";
 import "./night.css";
+import "./tech-pulse.css";
+import {BrandMark} from "./BrandMark";
+import {parseEffectiveQuota} from "./effectiveQuota";
 
 const CN_TICKER_IN_PROSE = /(\d{6}\.(?:SH|SZ|BJ))/g;
 
@@ -118,10 +121,6 @@ export function routeFor(view: DesktopView): string {
   return `#/research/${view.researchId}`;
 }
 
-function Logo() {
-  return <div className="logo" aria-label="alphaloop">α<span /></div>;
-}
-
 function engineStatusLabel(sidecar: SidecarUiState | null | undefined): string {
   if (!sidecar) return "引擎：检测中";
   if (sidecar.phase === "stopped") return "引擎：已停止";
@@ -147,22 +146,31 @@ function NightShell({
   const hostStatus = hostStatusLabels[hostKey];
   const engineLine = engineStatusLabel(sidecarState);
   const statusTitle = `研究状态：${hostStatus} · ${engineLine}`;
+  const failedTone =
+    view.kind === "completed" &&
+    view.status === "ended";
   return (
-    <main className="night-shell" data-testid="night-shell" data-view={view.kind}>
+    <main className="night-shell tech-pulse-shell" data-testid="night-shell" data-view={view.kind}>
       <aside className="rail" data-testid="rail">
         <div className="rail-center">
-          <Logo />
+          <BrandMark />
           <nav aria-label="主导航">
             <a className={!methods ? "active" : ""} href="#/research">研究</a>
             <a className={methods ? "active" : ""} href="#/methods">方法库</a>
           </nav>
         </div>
         <div className={`host-status ${hostKey}`} title={statusTitle} data-testid="host-status">
-          <span className="host-status-line">● {hostStatus}</span>
+          <span className="host-status-line">
+            <span className="host-status-dot" aria-hidden />
+            {hostStatus}
+          </span>
           <span className="host-status-line host-status-engine">{engineLine}</span>
         </div>
       </aside>
-      <section className={`content ${view.kind}`}>
+      <section
+        className={`content ${view.kind} tech-pulse-content${failedTone ? " tech-pulse-failed-tone" : ""}`}
+      >
+        <div className="tech-pulse-atmosphere" aria-hidden />
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
         {children}
       </section>
@@ -196,7 +204,11 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
     <div className="browse list-screen">
       <InAppConfirmOverlay request={deleteConfirm} onClose={() => setDeleteConfirm(null)} />
       <header className="list-header">
-        <p>一条对话，一次研究。等你确认的会排在最上面。</p>
+        <div>
+          <p className="tech-pulse-eyebrow">研究</p>
+          <h1 className="list-title">本机工坊</h1>
+          <p className="list-tagline">一条对话，一次研究。等你确认的会排在最上面。</p>
+        </div>
         <button
           className="quiet-button"
           onClick={() => {
@@ -228,7 +240,12 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
       )}
       <div className="research-rows">
         {rows.map((row) => (
-          <article className="research-row" data-testid="research-row" key={row.id}>
+          <article
+            className="research-row"
+            data-testid="research-row"
+            data-highlight={row.status === "confirm_run" ? "confirm_run" : undefined}
+            key={row.id}
+          >
             <div>
               <h3>{row.title}</h3>
               <p>
@@ -411,7 +428,8 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const sel = view.symbolSelection;
   return (
-    <article className="confirm-card" data-testid="confirm-run-card">
+    <article className="confirm-card tech-pulse-card" data-testid="confirm-run-card">
+      <p className="tech-pulse-eyebrow">Confirm to run</p>
       <h1>确认开跑</h1>
       <p>认下这次研究做什么、跑多久、拿什么验证。确认前不会自己开始。</p>
       <p>研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。</p>
@@ -474,8 +492,40 @@ function RunningScreen({
   modification: string;
   onModificationChange: (text: string) => void;
 }) {
+  const quota = parseEffectiveQuota(view.effective);
   return (
-    <div className="focus running-screen">
+    <div className="focus running-screen" data-testid="running-screen">
+      <div className="running-hero">
+        <div className="version-orbit" data-testid="version-orbit" aria-hidden>
+          <span>v{view.version}</span>
+        </div>
+        <div>
+          <h1>运行中</h1>
+          <p className="running-sub">
+            第 {view.version} 版
+            {view.currentAction && view.currentAction !== "idle" ? ` · ${view.currentAction}` : ""}
+          </p>
+          {view.coverage && <p className="running-accent">{view.coverage}</p>}
+        </div>
+        {view.status === "running" ? (
+          <button className="quiet-button" type="button" onClick={() => void api.pauseResearch(view.researchId)}>
+            暂停
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
+      {quota && (
+        <div className="effective-quota" data-testid="effective-quota-progress">
+          <div className="effective-quota-labels">
+            <span>有效研究额度</span>
+            <span>{quota.usedLabel} / {quota.totalLabel}</span>
+          </div>
+          <div className="effective-quota-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(quota.ratio * 100)}>
+            <div className="effective-quota-fill" style={{width: `${quota.ratio * 100}%`}} />
+          </div>
+        </div>
+      )}
       {view.versionOpenedNotice && (
         <p className="version-opened-banner" data-testid="version-opened-banner" role="status">
           {view.versionOpenedNotice}
@@ -568,9 +618,7 @@ function RunningScreen({
           运行中不能改策略，请先暂停。
         </p>
       )}
-      {view.status === "running" ? (
-        <button className="quiet-button" onClick={() => void api.pauseResearch(view.researchId)}>暂停</button>
-      ) : (
+      {view.status === "running" ? null : (
         <>
           <button className="quiet-button" onClick={() => void api.resumeResearch(view.researchId)}>按当前版本继续</button>
           <input
@@ -605,8 +653,9 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
     void api.resolveConfirm(view.researchId, "approve_new_version", whoPays.trim() || undefined);
   };
   return (
-    <article className="awaiting-card" data-testid="awaiting-confirm-card">
-      <p className="eyebrow">等待确认 · 第 {view.version} 版 · 这段时间不计入额度</p>
+    <article className="awaiting-card tech-pulse-card" data-testid="awaiting-confirm-card">
+      <p className="tech-pulse-eyebrow">等待确认</p>
+      <p className="eyebrow">第 {view.version} 版 · 这段时间不计入额度</p>
       <h1>{isCoverage ? "数据覆盖要跌破底线" : "经济逻辑要改了"}</h1>
       <section><small>现在打算改什么</small><p>{view.proposed}</p></section>
       <section><small>为什么要改</small><p>{view.reason}</p></section>
@@ -790,7 +839,10 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
   };
 
   return (
-    <div className="focus completed-screen">
+    <div
+      className={`focus completed-screen${researchRecordExportPrimary ? " tech-pulse-failed-tone" : ""}`}
+      data-testid="completed-screen"
+    >
       <InAppConfirmOverlay request={iterateConfirm} onClose={() => setIterateConfirm(null)} />
       <header className="workbench-header" data-testid="completed-workbench-header">
         <StatusPill status={view.status} />
@@ -921,7 +973,12 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         </section>
       )}
       <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
-      <article className="result-card">
+      <article className="result-card tech-pulse-card">
+        {eligible && (
+          <p className="export-ready-eyebrow" data-testid="export-ready-eyebrow">
+            Export ready · 四关全绿
+          </p>
+        )}
         <h1>{view.title}</h1>
         {showFailedGateLine && (
           <p data-testid="failed-gates-line">未通过门禁：{view.failedVerifierIds!.join("、")}</p>
