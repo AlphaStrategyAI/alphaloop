@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -13,7 +14,7 @@ import yfinance as yf
 
 from engine.research import market_data_timeouts as _market_data_timeouts
 from engine.research.data_availability import transient_data_error
-from engine.research.market_data_timeouts import run_with_deadline
+from engine.research.market_data_timeouts import cn_market_data_max_workers, run_with_deadline
 
 
 
@@ -156,6 +157,104 @@ class YahooDataAdapter:
         return close.rename_axis("date").sort_index()  # type: ignore[no-any-return]
 
 
+def _sina_listing_code(symbol: str, provider_symbol: str) -> str:
+    if symbol.endswith(".SH"):
+        return f"sh{provider_symbol}"
+    if symbol.endswith(".SZ"):
+        return f"sz{provider_symbol}"
+    if symbol.endswith(".BJ"):
+        return f"bj{provider_symbol}"
+    return f"sh{provider_symbol}"
+
+
+def _cn_equity_close(provider_symbol: str, symbol: str, start: date, end: date) -> pd.Series:
+    """A-share daily close: Sina (akshare) first, Eastmoney akshare fallback."""
+    sina_code = _sina_listing_code(symbol, provider_symbol)
+    try:
+        raw = ak.stock_zh_a_daily(symbol=sina_code, adjust="qfq")
+        series = pd.Series(
+            raw["close"].to_numpy(),
+            index=pd.to_datetime(raw["date"]),
+            name=symbol,
+        )
+        return series.loc[start.isoformat() : end.isoformat()]
+    except Exception:
+        raw = ak.stock_zh_a_hist(
+            symbol=provider_symbol,
+            period="daily",
+            start_date=start.strftime("%Y%m%d"),
+            end_date=end.strftime("%Y%m%d"),
+            adjust="qfq",
+        )
+        series = pd.Series(
+            raw["收盘"].to_numpy(),
+            index=pd.to_datetime(raw["日期"]),
+            name=symbol,
+        )
+        return series.loc[start.isoformat() : end.isoformat()]
+
+
+def _cn_csi300_close(start: date, end: date) -> pd.Series:
+    symbol = "000300.SH"
+    try:
+        raw = ak.stock_zh_index_daily(symbol="sh000300")
+    except Exception:
+        raw = ak.stock_zh_index_daily_em(symbol="sh000300")
+    series = pd.Series(
+        raw["close"].to_numpy(),
+        index=pd.to_datetime(raw["date"]),
+        name=symbol,
+    )
+    return series.loc[start.isoformat() : end.isoformat()]
+
+
+def _slice_series_to_window(series: pd.Series, start: date, end: date) -> pd.Series:
+    if series.empty:
+        return series
+    return series.loc[start.isoformat() : end.isoformat()]
+
+
+def _fetch_cn_symbol_series(symbol: str, start: date, end: date) -> pd.Series:
+    if symbol == "CBA00101.CS":
+        raw = ak.bond_new_composite_index_cbond(indicator="财富", period="总值")
+        series = pd.Series(
+            raw["value"].to_numpy(),
+            index=pd.to_datetime(raw["date"]),
+            name=symbol,
+        )
+    elif symbol.startswith("CN_BOND:"):
+        provider_symbol = symbol.removeprefix("CN_BOND:")
+        raw = ak.bond_zh_hs_daily(symbol=provider_symbol)
+        series = pd.Series(
+            raw["close"].to_numpy(),
+            index=pd.to_datetime(raw["date"]),
+            name=symbol,
+        )
+    elif symbol.startswith("CN_FUND:"):
+        provider_symbol = symbol.removeprefix("CN_FUND:")
+        raw = ak.fund_etf_hist_em(
+            symbol=provider_symbol,
+            period="daily",
+            start_date=start.strftime("%Y%m%d"),
+            end_date=end.strftime("%Y%m%d"),
+            adjust="qfq",
+        )
+        series = pd.Series(
+            raw["收盘"].to_numpy(),
+            index=pd.to_datetime(raw["日期"]),
+            name=symbol,
+        )
+    elif symbol == "000300.SH":
+        series = _cn_csi300_close(start, end)
+        return series
+    elif symbol.endswith((".SH", ".SZ", ".BJ")):
+        provider_symbol = symbol.split(".")[0]
+        return _cn_equity_close(provider_symbol, symbol, start, end)
+    else:
+        raise ValueError(f"unsupported CN symbol {symbol}")
+    return _slice_series_to_window(series, start, end)
+
+
 class AkShareDataAdapter:
     def load_daily(
         self,
@@ -171,59 +270,27 @@ class AkShareDataAdapter:
         start: date,
         end: date,
     ) -> pd.DataFrame:
+        if not symbols:
+            return pd.DataFrame()
         columns: dict[str, pd.Series] = {}
-        for symbol in symbols:
-            if symbol == "CBA00101.CS":
-                raw = ak.bond_new_composite_index_cbond(indicator="财富", period="总值")
-                series = pd.Series(
-                    raw["value"].to_numpy(),
-                    index=pd.to_datetime(raw["date"]),
-                    name=symbol,
-                )
-            elif symbol.startswith("CN_BOND:"):
-                provider_symbol = symbol.removeprefix("CN_BOND:")
-                raw = ak.bond_zh_hs_daily(symbol=provider_symbol)
-                series = pd.Series(
-                    raw["close"].to_numpy(),
-                    index=pd.to_datetime(raw["date"]),
-                    name=symbol,
-                )
-            elif symbol.startswith("CN_FUND:"):
-                provider_symbol = symbol.removeprefix("CN_FUND:")
-                raw = ak.fund_etf_hist_em(
-                    symbol=provider_symbol,
-                    period="daily",
-                    start_date=start.strftime("%Y%m%d"),
-                    end_date=end.strftime("%Y%m%d"),
-                    adjust="qfq",
-                )
-                series = pd.Series(
-                    raw["收盘"].to_numpy(),
-                    index=pd.to_datetime(raw["日期"]),
-                    name=symbol,
-                )
-            elif symbol == "000300.SH":
-                raw = ak.stock_zh_index_daily_em(symbol="sh000300")
-                series = pd.Series(
-                    raw["close"].to_numpy(),
-                    index=pd.to_datetime(raw["date"]),
-                    name=symbol,
-                )
-            else:
-                provider_symbol = symbol.split(".")[0]
-                raw = ak.stock_zh_a_hist(
-                    symbol=provider_symbol,
-                    period="daily",
-                    start_date=start.strftime("%Y%m%d"),
-                    end_date=end.strftime("%Y%m%d"),
-                    adjust="qfq",
-                )
-                series = pd.Series(
-                    raw["收盘"].to_numpy(),
-                    index=pd.to_datetime(raw["日期"]),
-                    name=symbol,
-                )
-            columns[symbol] = series.loc[start.isoformat() : end.isoformat()]
+        workers = min(cn_market_data_max_workers(), len(symbols))
+
+        def store(symbol: str, series: pd.Series) -> None:
+            columns[symbol] = _slice_series_to_window(series, start, end)
+
+        if workers <= 1 or len(symbols) == 1:
+            for symbol in symbols:
+                store(symbol, _fetch_cn_symbol_series(symbol, start, end))
+            return pd.DataFrame(columns).sort_index()
+
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="cn-daily") as pool:
+            futures = {
+                pool.submit(_fetch_cn_symbol_series, symbol, start, end): symbol
+                for symbol in symbols
+            }
+            for future in as_completed(futures):
+                symbol = futures[future]
+                store(symbol, future.result())
         return pd.DataFrame(columns).sort_index()
 
 
@@ -245,7 +312,7 @@ class RoutingDataAdapter:
         is_cn = all(
             symbol == "CBA00101.CS"
             or symbol.startswith(("CN_BOND:", "CN_FUND:"))
-            or symbol.endswith((".SH", ".SZ"))
+            or symbol.endswith((".SH", ".SZ", ".BJ"))
             for symbol in symbols
         )
 

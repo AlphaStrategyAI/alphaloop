@@ -12,7 +12,7 @@ from engine.research.models import AssetClass, Market
 _POOLS_DIR = Path(__file__).resolve().parent / "symbol_pools"
 
 EMPTY_POOL_DIALOGUE_PROMPT = (
-    "要用哪组标的？默认：美股大市值 40 只，也可以说「SPY、QQQ」。"
+    "要用哪组标的？默认：美股大市值 40 只或 A股大市值 40 只，也可以说「600519.SH」或「SPY、QQQ」。"
 )
 
 

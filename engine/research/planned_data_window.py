@@ -16,3 +16,12 @@ def planned_data_window(
 
 
 DEFAULT_DATA_SOURCE_ID = "yahoo_daily"
+AKSHARE_SINA_DATA_SOURCE_ID = "akshare_sina_daily"
+
+
+def data_source_id_for_market(market: object) -> str:
+    from engine.research.models import Market
+
+    if market is Market.CN:
+        return AKSHARE_SINA_DATA_SOURCE_ID
+    return DEFAULT_DATA_SOURCE_ID

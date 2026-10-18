@@ -202,6 +202,38 @@ def running_budget_hint(research: Research, store: object | None = None) -> str:
     return base
 
 
+def _gates_label(research: Research, failed_ids: tuple[str, ...], eligibility) -> str:
+    gate_labels = tuple(gate_check_label(item) for item in eligibility.failed_checks)
+    return "、".join(failed_ids) if failed_ids else "、".join(gate_labels)
+
+
+def _completed_hint_line(
+    research: Research,
+    *,
+    methods_ok: bool,
+    eligibility,
+    failed_ids: tuple[str, ...],
+    exhausted: bool,
+    budget: TrialBudgetView,
+) -> str:
+    if methods_ok and eligibility.eligible:
+        return ""
+    gates = _gates_label(research, failed_ids, eligibility)
+    if exhausted:
+        return (
+            f"实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
+            "验证仍未通过；只能导出研究记录包。"
+        )
+    if not methods_ok:
+        if budget.used > 0:
+            return (
+                f"第 {budget.used}/{budget.budget} 轮验证未通过（未通过：{gates}）。"
+                "可导出研究记录包。"
+            )
+        return f"验证未通过（未通过：{gates}）。只能导出研究记录包。"
+    return f"冻结验证已通过，策略包门禁未满足：{gates}。"
+
+
 def _pool_shrink_prefix(research: Research) -> str:
     universe = research.brief.universe.value
     remaining = len(universe.symbols) if universe and universe.symbols else 0
@@ -238,22 +270,34 @@ def completed_presentation(
             + "当前冻结验证已全部通过（含时点第四关）。"
             "可导出策略包；alphaloop 不提供执行入口。"
         )
-        hint = ""
+        hint = _completed_hint_line(
+            research,
+            methods_ok=methods_ok,
+            eligibility=eligibility,
+            failed_ids=failed_ids,
+            exhausted=exhausted,
+            budget=budget,
+        )
     elif methods_ok:
         export_kind = "research_record_only"
-        gate_labels = tuple(gate_check_label(item) for item in eligibility.failed_checks)
-        gates = "、".join(failed_ids) if failed_ids else "、".join(gate_labels)
+        gates = _gates_label(research, failed_ids, eligibility)
         headline = "研究已完成，但未通过可实盘交接"
         summary = (
             shrink_prefix
             + f"验证方法集已通过，但仍只能导出研究记录包。"
             f"未满足的门禁：{gates}。"
         )
-        hint = ""
+        hint = _completed_hint_line(
+            research,
+            methods_ok=methods_ok,
+            eligibility=eligibility,
+            failed_ids=failed_ids,
+            exhausted=exhausted,
+            budget=budget,
+        )
     else:
         export_kind = "research_record_only"
-        gate_labels = tuple(gate_check_label(item) for item in eligibility.failed_checks)
-        gates = "、".join(failed_ids) if failed_ids else "、".join(gate_labels)
+        gates = _gates_label(research, failed_ids, eligibility)
         headline = "研究已结束，验证未通过"
         summary = (
             shrink_prefix
@@ -264,15 +308,19 @@ def completed_presentation(
         if exhausted:
             summary = (
                 shrink_prefix
-                + f"验证未通过且实现层迭代预算已用尽（{budget.used}/{budget.budget} 轮）。"
-                f"{all_researches_on_window_label(m)}；轮数越多，偶然通过的可能性越高。"
+                + f"{all_researches_on_window_label(m)}；轮数越多，偶然通过的可能性越高。"
                 f"未通过门禁：{gates}。"
                 "只能导出研究记录包。"
                 "可点「继续迭代」追加预算后再跑（阈值不变）。"
             )
-            hint = ""
-        else:
-            hint = ""
+        hint = _completed_hint_line(
+            research,
+            methods_ok=methods_ok,
+            eligibility=eligibility,
+            failed_ids=failed_ids,
+            exhausted=exhausted,
+            budget=budget,
+        )
     return CompletedPresentation(
         methods_verification_passed=methods_ok,
         strategy_pack_eligible=eligibility.eligible,

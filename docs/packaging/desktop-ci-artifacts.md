@@ -32,6 +32,13 @@ The loopback API uses `ThreadingHTTPServer` so a hung Yahoo/AkShare probe on
 calls. Market `load_daily` calls run under a **25s** overall deadline
 (`ALPHALOOP_MARKET_DATA_TIMEOUT_SEC`); timeouts map to `DATA_SOURCE_UNAVAILABLE`.
 
+## A-share / CN path (Master Bot retest)
+
+After pulling this branch: `bash scripts/build_sidecar.sh` (rebuilds PyInstaller onedir with
+`libmini_racer` for Sina akshare endpoints), then stage and `npm run tauri -- build`.
+Confirm path uses `cn_equity_large_cap_v1` when universe symbols are empty; dialogue accepts
+`600519.SH` tickers; daily data prefers Sina (`stock_zh_a_daily` / `stock_zh_index_daily`).
+
 ## Local parity
 
 1. `bash scripts/build_sidecar.sh`

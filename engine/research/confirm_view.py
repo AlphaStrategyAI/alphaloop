@@ -73,7 +73,7 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
         version_id=list_version,
         generated_date=generated,
         source=source,
-        override_note="已覆盖默认标的池" if user_override else None,
+        override_note="已覆盖默认的池" if user_override else None,
         user_override=user_override,
     )
     payload.update(

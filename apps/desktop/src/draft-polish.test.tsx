@@ -37,6 +37,19 @@ describe("draft polish", () => {
     expect(screen.getByText("回复").className).toContain("assistant");
   });
 
+  it("keeps thesis text in settings from breaking mid-word when possible", () => {
+    const view: DesktopView = {
+      kind: "draft",
+      researchId: "r-1",
+      dialogue: [],
+      settings: {...settings, thesis: "均值回归"},
+    };
+    render(<App api={api} initialView={view} />);
+    const thesis = screen.getByTestId("brief-thesis-value");
+    expect(thesis).toHaveClass("settings-value-prose");
+    expect(thesis).toHaveTextContent("均值回归");
+  });
+
   it("does not show stray trailing slot label in dialogue bubbles", () => {
     const view: DesktopView = {
       kind: "draft",

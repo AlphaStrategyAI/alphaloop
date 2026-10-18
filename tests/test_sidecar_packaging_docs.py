@@ -10,6 +10,7 @@ def test_build_and_smoke_scripts_exist() -> None:
     spec = (root / "packaging" / "alphaloop-engine.spec").read_text(encoding="utf-8")
     assert "collect_data_files(\"akshare\")" in spec
     assert "symbol_pools" in spec
+    assert "collect_py_mini_racer_binaries" in spec
     tauri = (root / "apps" / "desktop" / "src-tauri" / "tauri.conf.json").read_text(
         encoding="utf-8"
     )
