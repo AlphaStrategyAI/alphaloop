@@ -48,6 +48,8 @@ def _extract_tickers(text: str) -> tuple[str, ...]:
         token = token.strip().upper()
         if re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z])?", token):
             found.append(token)
+        elif re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", token):
+            found.append(token)
     return tuple(dict.fromkeys(found))
 
 

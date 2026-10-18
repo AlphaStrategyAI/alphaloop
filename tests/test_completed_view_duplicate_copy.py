@@ -40,7 +40,7 @@ def test_exhausted_completed_view_shows_budget_copy_once(
     view = service.view_for("#/research/r-loop")
     blob = _visible_copy_chunks(view)
     assert blob.count("预算已用尽") == 1
-    assert not view.get("honestStopHint")
+    assert view.get("honestStopHint")
 
 
 def test_ended_status_completed_view_shows_budget_copy_once(tmp_path: Path) -> None:

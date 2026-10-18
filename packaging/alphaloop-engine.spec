@@ -1,15 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
+sys.path.insert(0, ROOT)
+from packaging.pyinstaller_binaries import collect_py_mini_racer_binaries
+
 hidden = collect_submodules("engine")
 akshare_datas = collect_data_files("akshare")
 analysis = Analysis(
     [os.path.join(ROOT, "engine", "main.py")],
     pathex=[ROOT],
-    binaries=[],
+    binaries=collect_py_mini_racer_binaries(),
     datas=[
         (os.path.join(ROOT, "contracts"), "contracts"),
         (

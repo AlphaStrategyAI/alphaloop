@@ -17,6 +17,14 @@ def test_thesis_slot_accepts_combined_market_and_thesis() -> None:
     assert "均值回归" in thesis
 
 
+def test_extracts_cn_listed_tickers() -> None:
+    research = new_research("r-draft", NOW)
+    intent = interpret("A股 600519.SH、000858.SZ", research, SlotName.UNIVERSE)
+    universe = next(value for key, value in intent.updates if key == "universe")
+    assert "600519.SH" in universe.symbols
+    assert "000858.SZ" in universe.symbols
+
+
 def test_minutes_parsed_for_time_slot() -> None:
     research = new_research("r-draft", NOW)
     intent = interpret("30 分钟", research, SlotName.MAX_EFFECTIVE_HOURS)
