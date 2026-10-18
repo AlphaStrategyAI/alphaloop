@@ -28,6 +28,11 @@ def list_row_status(research: Research) -> str:
     """Desktop list pill: confirm-ready drafts use the same label as the confirm_run view."""
     if research.status is ResearchStatus.DRAFT and all_slots_locked(research.brief):
         return "confirm_run"
+    if research.status is ResearchStatus.COMPLETED:
+        from engine.export import strategy_pack_eligibility
+
+        if not strategy_pack_eligibility(research).eligible:
+            return ResearchStatus.ENDED.value
     return research.status.value
 
 

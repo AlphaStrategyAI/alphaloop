@@ -44,11 +44,15 @@ Bottom of rail: **one line** — status dot + short copy from real view state (`
 
 Engine line (“引擎：运行中”) is no longer shown in the rail; engine health stays in tooltips/title when a rail label is present.
 
+**Bare rail (v003):** `.host-status.rail-status` overrides the default glass chip (`.night-shell.tech-pulse-shell .host-status`) so the dot + label sit directly on the rail.
+
 ## Research list
 
 - Header: **+ 新建研究** (`data-testid="new-research-button"`).
 - Pinned cyan cards when `view.awaiting` or a `confirm_run` row exists; **打开确认卡** deep-links to the research.
 - Row pills: 草稿 / 运行中 / 等待确认 / 已暂停 / 已完成 / 未通过 (`listStatusDisplay.ts`); `ended` rows use `.research-row--failed`.
+- Gate-failed studies still `ResearchStatus.COMPLETED` in the store list as **`ended`** via `list_row_status()` (strategy pack not eligible) so the pill is red **未通过**, not green **已完成**.
+- `.row-actions` uses `flex-shrink: 0`, `nowrap`, and `min-width` so **进入 · 删除 · pill** stay horizontal; titles wrap/truncate instead.
 
 ## Confirm to run
 
@@ -59,12 +63,14 @@ Engine line (“引擎：运行中”) is no longer shown in the rail; engine he
 ## Running
 
 - Orbit: `v{version}` + current stage label when `currentAction` is not `idle`.
-- **有效研究额度** progress bar when `parseEffectiveQuotaFromView(effective, remaining)` can derive used/total (slash form or `N 小时` + `剩余`); hidden when unknown.
+- **有效研究额度** progress bar when `parseEffectiveQuotaFromView(effective, remaining)` can derive used/total (slash form or `N 小时` + `剩余`); hidden when unknown. Track height **10px** (visible fill, not a hairline).
+- Running atmosphere: layered blue radial disc upper-left (stronger than default wash); respects `prefers-reduced-motion` for animations only.
 
 ## Completed / failed
 
 - Single focus card (`completed-focus-card`): success eyebrow “Export ready · 四关全绿”; failed eyebrow `COMPLETED · 未通过门禁`.
-- Failed: primary **导出研究记录** (coral); **导出策略包（未解锁）** disabled. Reverify / 改策略再跑 in `<details>` (failed path).
+- Failed: primary **导出研究记录** (coral) only — no duplicate cyan **导出研究记录包**; export success/error feedback via `ExportOutcomeMessages`. **导出策略包（未解锁）** disabled. Reverify / 改策略再跑 in **collapsed** `<details>` by default (failed path).
+- Failed atmosphere: stronger red disc (same pattern as running).
 - Success: primary **导出策略包** when all four eligibility gates pass; more actions collapsed under **更多操作**.
 
 ## Regenerate web brand assets

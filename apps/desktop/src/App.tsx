@@ -584,7 +584,14 @@ function RunningScreen({
             <span>有效研究额度</span>
             <span>{quota.usedLabel} / {quota.totalLabel}</span>
           </div>
-          <div className="effective-quota-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(quota.ratio * 100)}>
+          <div
+            className="effective-quota-track"
+            data-testid="effective-quota-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(quota.ratio * 100)}
+          >
             <div className="effective-quota-fill" style={{width: `${quota.ratio * 100}%`}} />
           </div>
         </div>
@@ -775,6 +782,44 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
         </div>
       )}
     </article>
+  );
+}
+
+function ExportOutcomeMessages({
+  exportFeedback,
+  openFolderError,
+  onReveal,
+}: {
+  exportFeedback: {status: "success"; path: string} | {status: "error"; message: string} | null;
+  openFolderError: string | null;
+  onReveal: (path: string) => void;
+}) {
+  return (
+    <div className="export-outcome-messages" data-testid="export-outcome-messages">
+      {exportFeedback?.status === "success" && (
+        <p className="export-feedback success" data-testid="export-success" role="status">
+          已导出到 {exportFeedback.path}
+          <button
+            type="button"
+            className="text-button"
+            data-testid="reveal-export-folder"
+            onClick={() => onReveal(exportFeedback.path)}
+          >
+            打开所在文件夹
+          </button>
+        </p>
+      )}
+      {exportFeedback?.status === "error" && (
+        <p className="export-feedback error" data-testid="export-error" role="alert">
+          导出失败：{exportFeedback.message}
+        </p>
+      )}
+      {openFolderError && (
+        <p className="export-feedback error" data-testid="open-folder-error" role="alert">
+          {openFolderError}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -978,10 +1023,9 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
           )}
         </div>
         {!eligible && (
-          <ExportFeedbackBlock
+          <ExportOutcomeMessages
             exportFeedback={exportFeedback}
             openFolderError={openFolderError}
-            onExport={() => void runExport("research_record")}
             onReveal={revealExportFolder}
           />
         )}
@@ -993,7 +1037,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
           </ul>
         )}
         {!eligible && (
-          <details className="completed-tools-details" open>
+          <details className="completed-tools-details" data-testid="completed-tools-details">
             <summary>重新验证与改策略再跑</summary>
             <div className="reverify-panel" data-testid="reverify-panel">
               <p className="eyebrow">对某一步重新验证</p>

@@ -50,7 +50,7 @@ describe("export feedback", () => {
     const path = "/home/user/alphaloop/exports/r-export-research-record.zip";
     const exportArtifact = vi.fn(async () => path);
     render(<App api={makeApi(exportArtifact)} initialView={completedView} />);
-    fireEvent.click(screen.getByTestId("export-research-record"));
+    fireEvent.click(screen.getByTestId("export-research-record-primary"));
     await waitFor(() => {
       expect(screen.getByTestId("export-success")).toHaveTextContent(`已导出到 ${path}`);
     });
@@ -62,7 +62,7 @@ describe("export feedback", () => {
     const revealExportInFolder = vi.fn(async () => undefined);
     const api = {...makeApi(vi.fn(async () => path)), revealExportInFolder};
     render(<App api={api} initialView={completedView} />);
-    fireEvent.click(screen.getByTestId("export-research-record"));
+    fireEvent.click(screen.getByTestId("export-research-record-primary"));
     await waitFor(() => {
       expect(screen.getByTestId("reveal-export-folder")).toBeInTheDocument();
     });
@@ -75,7 +75,7 @@ describe("export feedback", () => {
       throw new Error("not eligible");
     });
     render(<App api={makeApi(exportArtifact)} initialView={completedView} />);
-    fireEvent.click(screen.getByTestId("export-research-record"));
+    fireEvent.click(screen.getByTestId("export-research-record-primary"));
     await waitFor(() => {
       expect(screen.getByTestId("export-error")).toHaveTextContent("导出失败：not eligible");
     });

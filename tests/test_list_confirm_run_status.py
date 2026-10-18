@@ -4,6 +4,7 @@ from pathlib import Path
 
 from engine.main import ResearchCommandService
 from engine.research.models import AssetClass, Market, ResearchStatus, Slot, Universe, new_research
+from engine.export import strategy_pack_eligibility
 from engine.research.progress import list_row_status
 from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
@@ -28,6 +29,12 @@ def test_list_row_status_confirm_ready_draft() -> None:
     brief = replace(brief, universe=Slot(universe, True))
     research = replace(new_research("r-list", NOW), brief=brief, status=ResearchStatus.DRAFT)
     assert list_row_status(research) == "confirm_run"
+
+
+def test_list_row_status_gate_failed_completed_lists_as_ended() -> None:
+    research = replace(new_research("r-fail", NOW), status=ResearchStatus.COMPLETED)
+    assert not strategy_pack_eligibility(research).eligible
+    assert list_row_status(research) == "ended"
 
 
 def test_fetch_view_list_uses_confirm_run_status(tmp_path: Path) -> None:

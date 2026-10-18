@@ -51,6 +51,21 @@ describe("Tech Pulse UI", () => {
     expect(screen.getByTestId("new-research-button")).toHaveTextContent("新建研究");
   });
 
+  it("renders bare rail status without glass chip styles", () => {
+    const view: DesktopView = {
+      kind: "running",
+      researchId: "r-1",
+      status: "running",
+      version: 1,
+      effective: "1h / 12h",
+      coverage: "ok",
+      rounds: [],
+    };
+    render(<App api={api} initialView={view} initialRoute="#/research/r-1" />);
+    const host = screen.getByTestId("host-status");
+    expect(host).toHaveClass("rail-status");
+  });
+
   it("shows sidebar status dot copy and list status pills", () => {
     render(
       <App
@@ -181,6 +196,29 @@ describe("Tech Pulse UI", () => {
     );
   });
 
+  it("keeps list row actions on one line and shows 未通过 for ended rows", () => {
+    const longTitle = "A股股票 600519.SH 低波动量价回归 ".repeat(3);
+    render(
+      <App
+        api={api}
+        initialView={{
+          kind: "research_list",
+          rows: [
+            {id: "r-fail", title: longTitle, status: "ended"},
+            {id: "r-ok", title: "行业动量", status: "completed"},
+          ],
+        }}
+      />,
+    );
+    const failedRow = screen.getAllByTestId("research-row")[0];
+    expect(failedRow).toHaveClass("research-row--failed");
+    expect(within(failedRow).getByTestId("list-status-pill")).toHaveTextContent("未通过");
+    const actions = within(failedRow).getByText("进入").parentElement;
+    expect(actions).toHaveClass("row-actions");
+    expect(within(actions as HTMLElement).getByText("删除")).toBeInTheDocument();
+    expect(within(actions as HTMLElement).getByText("未通过")).toBeInTheDocument();
+  });
+
   it("renders failed completed card with coral export primary", () => {
     const view: DesktopView = {
       kind: "completed",
@@ -200,7 +238,26 @@ describe("Tech Pulse UI", () => {
     expect(screen.getByTestId("completed-failed-eyebrow")).toHaveTextContent("未通过门禁");
     expect(screen.getByTestId("export-research-record-primary")).toBeEnabled();
     expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
-    expect(screen.getByTestId("reverify-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("export-research-record")).not.toBeInTheDocument();
+    const tools = screen.getByTestId("completed-tools-details");
+    expect((tools as HTMLDetailsElement).open).toBe(false);
+  });
+
+  it("renders thicker effective quota track", () => {
+    const running: DesktopView = {
+      kind: "running",
+      researchId: "r-1",
+      status: "running",
+      version: 1,
+      effective: "0.00 小时",
+      remaining: "12.00 小时",
+      coverage: "ok",
+      rounds: [],
+    };
+    render(<App api={api} initialView={running} initialRoute="#/research/r-1" />);
+    const progress = screen.getByTestId("effective-quota-progress");
+    expect(progress.querySelector(".effective-quota-track")).toBeTruthy();
+    expect(progress.querySelector(".effective-quota-fill")).toBeTruthy();
   });
 
   it("renders completed export-ready chrome when eligible", () => {
