@@ -168,6 +168,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .settings-label, .eyebrow { color: var(--mute); font-size: 12px; margin: 0; }
 .settings-value { margin: 0; word-break: keep-all; overflow-wrap: break-word; line-break: strict; }
 .settings-value-prose { min-width: 0; }
+.cn-ticker-nowrap { white-space: nowrap; }
 .export-actions { margin: 16px 0 20px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .export-actions .cyan-button { cursor: pointer; }
 .settings-action { justify-self: end; align-self: start; }

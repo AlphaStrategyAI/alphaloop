@@ -37,6 +37,19 @@ describe("draft polish", () => {
     expect(screen.getByText("回复").className).toContain("assistant");
   });
 
+  it("keeps A-share tickers in thesis from breaking at the dot", () => {
+    const view: DesktopView = {
+      kind: "draft",
+      researchId: "r-1",
+      dialogue: [],
+      settings: {...settings, thesis: "关注 600519.SH 与 000001.SZ"},
+    };
+    render(<App api={api} initialView={view} />);
+    const thesis = screen.getByTestId("brief-thesis-value");
+    expect(thesis.querySelector(".cn-ticker-nowrap")).toHaveTextContent("600519.SH");
+    expect(thesis.querySelectorAll(".cn-ticker-nowrap")).toHaveLength(2);
+  });
+
   it("keeps thesis text in settings from breaking mid-word when possible", () => {
     const view: DesktopView = {
       kind: "draft",

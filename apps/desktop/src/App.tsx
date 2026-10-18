@@ -18,6 +18,34 @@ import {formatResearchTimestamp} from "./format";
 import {readBrowserRoute, routeFromHash} from "./routing";
 import "./night.css";
 
+const CN_TICKER_IN_PROSE = /(\d{6}\.(?:SH|SZ|BJ))/g;
+
+function renderSettingsProse(text: string) {
+  const parts: Array<string | {token: string; key: string}> = [];
+  let last = 0;
+  for (const match of text.matchAll(CN_TICKER_IN_PROSE)) {
+    const index = match.index ?? 0;
+    if (index > last) {
+      parts.push(text.slice(last, index));
+    }
+    parts.push({token: match[1], key: `${index}-${match[1]}`});
+    last = index + match[1].length;
+  }
+  if (last < text.length) {
+    parts.push(text.slice(last));
+  }
+  if (parts.length === 0) {
+    return text;
+  }
+  return parts.map((part) =>
+    typeof part === "string" ? (
+      part
+    ) : (
+      <span className="cn-ticker-nowrap" key={part.key}>{part.token}</span>
+    ),
+  );
+}
+
 const anomalyIndicatorLabels: Record<string, string> = {
   sharpe_outlier: "夏普比率相对基线异常偏高",
   coverage_shrunk: "数据覆盖相比开始时已缩减",
@@ -246,7 +274,11 @@ function Settings({
             className={`settings-value${key === "thesis" ? " settings-value-prose" : ""}`}
             data-testid={key === "thesis" ? "brief-thesis-value" : undefined}
           >
-            {values[key] || "未锁定"}
+            {key === "thesis"
+              ? values.thesis
+                ? renderSettingsProse(values.thesis)
+                : "未锁定"
+              : values[key] || "未锁定"}
             {key === "universe" && values.universe_symbol_chips && values.universe_symbol_chips.length > 0 ? (
               <span className="universe-symbol-chips" data-testid="universe-symbol-chips">
                 {values.universe_symbol_chips.map((symbol) => (
