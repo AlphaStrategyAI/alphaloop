@@ -9,7 +9,7 @@
       "required": ["type", "route"],
       "properties": {
         "type": {"const": "fetch_view"},
-        "route": {"type": "string", "pattern": "^#/(research|methods)"}
+        "route": {"type": "string", "pattern": "^#/(research|methods|glossary)"}
       }
     },
     {
