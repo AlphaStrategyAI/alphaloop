@@ -12,6 +12,7 @@ import pandas as pd
 
 from engine.export import build_research_record_pack, build_strategy_pack
 from engine.main import ResearchCommandService
+from engine.research.a1_copy import MOMENTUM_UNSUPPORTED_NOTICE
 from engine.research.models import ResearchStatus, Slot, new_research
 from engine.research.runtime import EnginePaths
 from engine.research.specify import build_logic_statement
@@ -106,8 +107,19 @@ def test_confirm_and_completed_views_show_notice_only_for_non_mean_reversion(
     mom = service.view_for("#/research/r-mom")
     rev = service.view_for("#/research/r-rev")
     assert mom["kind"] == "confirm_run"
-    assert mom["meanReversionOnlyNotice"] == CARD
+    assert mom["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE
+    assert "策略族：均值回归" not in mom["meanReversionOnlyNotice"]
     assert "meanReversionOnlyNotice" not in rev or rev["meanReversionOnlyNotice"] in (None, "")
+    raw_before = service.store.connection.execute(
+        "SELECT state_json FROM researches WHERE research_id=?",
+        ("r-mom",),
+    ).fetchone()[0]
+    assert service.view_for("#/research/r-mom")["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE
+    raw_after = service.store.connection.execute(
+        "SELECT state_json FROM researches WHERE research_id=?",
+        ("r-mom",),
+    ).fetchone()[0]
+    assert raw_after == raw_before
 
 
 def test_logic_statement_names_the_executed_family() -> None:
@@ -151,9 +163,10 @@ def test_export_marks_family_and_warns_only_for_non_mean_reversion(tmp_path: Pat
         history = json.loads(archive.read("history/research.json"))
     assert spec["thesis_driven"] is False
     assert spec["strategy_family"] == "mean_reversion"
-    assert spec["mean_reversion_only_notice"] == CARD
+    assert spec["mean_reversion_only_notice"] == MOMENTUM_UNSUPPORTED_NOTICE
+    assert "策略族：均值回归" not in spec["mean_reversion_only_notice"]
     assert history["thesis_driven"] is False
-    assert history["mean_reversion_only_notice"] == CARD
+    assert history["mean_reversion_only_notice"] == MOMENTUM_UNSUPPORTED_NOTICE
 
     plain = replace(reference_strategy().spec, thesis_locked="美股股票的均值回归")
     plain_pack = build_strategy_pack(

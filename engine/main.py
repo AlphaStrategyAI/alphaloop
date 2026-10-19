@@ -11,7 +11,7 @@ import threading
 import time
 import uuid
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -55,12 +55,9 @@ from engine.export import (
 )
 from engine.research.clock import TimeBudget
 from engine.research.gather import (
-    AkShareDataAdapter,
     LocalMaterialAdapter,
     PapersAdapter,
-    RoutingDataAdapter,
     SecEdgarAdapter,
-    YahooDataAdapter,
     pit_evidence_annotations,
     pit_evidence_from_payloads,
 )
@@ -249,7 +246,6 @@ def build_loop(
         ),
         LocalMaterialAdapter(material_root, lambda: datetime.now(UTC)),
     )
-    data_port = RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter())
     reviewer_mode = os.environ.get("ALPHALOOP_REVIEWER", "deterministic")
     if reviewer_mode == "subagent":
         base_url = os.environ.get("ALPHALOOP_LLM_BASE_URL")
@@ -263,12 +259,11 @@ def build_loop(
         reviewer = SubagentReviewer(llm)
     else:
         reviewer = DeterministicReviewer()
-    today = datetime.now(UTC).date()
     builder = DefaultRoundBuilder(
         material_ports=material_ports,
-        data_port=data_port,
-        start=today - timedelta(days=365 * 12),
-        end=today,
+        data_port=None,
+        start=None,
+        end=None,
         snapshot_root=paths.data.snapshots_dir,
     )
     clock = budget or TimeBudget(time.monotonic)

@@ -1197,7 +1197,15 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
                 {reverifyBusy ? "重新验证中…" : "执行重新验证"}
               </button>
               {view.lastReverification && (
-                <p className="reverify-result" data-testid="reverify-result" role="status">
+                <p
+                  className={
+                    view.lastReverification.passed
+                      ? "reverify-result"
+                      : "reverify-result reverify-result--fail"
+                  }
+                  data-testid="reverify-result"
+                  role="status"
+                >
                   {view.lastReverification.userMessage ??
                     `最近重验：${view.lastReverification.methodLabel}（${
                       view.lastReverification.passed ? "通过" : "未通过"
