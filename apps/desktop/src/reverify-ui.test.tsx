@@ -70,4 +70,33 @@ describe("reverify controls", () => {
       "overfit.walk",
     );
   });
+
+  it("uses the existing fail token when reverify did not pass", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-1",
+      status: "completed",
+      title: "t",
+      selectedRoundId: "r1",
+      selectedMethodId: "overfit.walk",
+      eligibility: {
+        allMethodsPassed: false,
+        noPendingConfirm: true,
+        reverifiesPassed: false,
+        pitExecutedAndPassed: true,
+      },
+      lastReverification: {
+        roundId: "r1",
+        methodId: "overfit.walk",
+        methodLabel: "分段稳健性检验",
+        passed: false,
+        createdAt: "2026-10-19T00:00:00+00:00",
+        userMessage: "「分段稳健性检验」重验未通过。",
+      },
+    };
+    render(<App api={makeApi(view)} initialView={view} initialRoute="#/research/r-1" />);
+    const result = screen.getByTestId("reverify-result");
+    expect(result).toHaveTextContent("「分段稳健性检验」重验未通过。");
+    expect(result).toHaveClass("reverify-result--fail");
+  });
 });

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from engine.research.a1_copy import version_segment
+
+
 def pool_version_number(version_id: str) -> str:
     if not version_id:
         return ""
@@ -22,7 +25,9 @@ def format_symbol_selection_summary(payload: dict[str, Any]) -> str:
     list_name = payload["listName"]
     version_id = str(payload.get("versionId") or payload.get("listVersion") or "")
     version_num = pool_version_number(version_id)
-    parts = [f"{count} 只", list_name, f"版本 {version_num}"]
+    parts = [f"{count} 只", list_name]
+    if not payload.get("userOverride") and version_num:
+        parts.append(version_segment(version_num))
     generated = payload.get("generatedDate") or ""
     if generated:
         parts.append(str(generated))
@@ -52,6 +57,7 @@ def symbol_selection_summary_fields(
         "source": source,
         "overrideNote": override_note,
         "isDefaultPool": source == "default_pool",
+        "userOverride": user_override,
     }
     base["summaryLine"] = format_symbol_selection_summary(
         {**base, "versionId": version_id}

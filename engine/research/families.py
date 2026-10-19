@@ -22,7 +22,7 @@ _ZH_DISPLAY = {
     "mean_reversion": "均值回归",
     "fundamental_factor": "基本面因子",
     "all_weather": "全天候",
-    "legacy_mean_reversion": LEGACY_FAMILY_ID,
+    "legacy_mean_reversion": "均值回归（旧版）",
 }
 
 
