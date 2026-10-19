@@ -124,8 +124,12 @@ def test_legacy_library_rows_display_new_names_without_rewriting_stored_name(
     assert "走样" not in by_id["overfit.walk"]["description"]
     assert "走样" not in by_id["overfit.walk"]["definitionDisplay"]
     assert "走样" not in by_id["overfit.walk"]["revisionLabel"]
-    for dim in by_id["overfit.walk"]["dimensions"]:
-        assert "走样" not in str(dim.get("failureDisplay", ""))
+    failure_hints = [
+        str(dim.get("failureDisplay", "")) for dim in by_id["overfit.walk"]["dimensions"]
+    ]
+    assert failure_hints == ["分段表现未保持"]
+    for hint in failure_hints:
+        assert "走样" not in hint
     assert by_id["crowding.load"]["category"] == "集中度"
     kind_labels = [
         dim["kindLabel"]
@@ -134,6 +138,18 @@ def test_legacy_library_rows_display_new_names_without_rewriting_stored_name(
         if dim.get("kind") == "crowding"
     ]
     assert kind_labels == [] or set(kind_labels) == {"集中度"}
+
+
+def test_record_page_gate_list_uses_method_label_not_dimension_failure_hint() -> None:
+    """Completed and research-record gate lists name the method, not failureDisplay.
+
+    ``分段表现未保持`` is computed for the method library dimension table.
+    It is not stored on a research and is not what the completed page renders.
+    """
+    from engine.research.methods import format_verifier_ids
+
+    assert format_verifier_ids(("overfit.walk",)) == ("分段稳健性检验",)
+    assert "分段表现未保持" not in format_verifier_ids(("overfit.walk",))
 
 
 def test_glossary_is_single_source_for_doc_and_required_terms() -> None:

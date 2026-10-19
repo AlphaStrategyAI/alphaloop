@@ -120,19 +120,32 @@ function engineStatusLabel(sidecar: SidecarUiState | null | undefined): string {
   return "引擎：运行中";
 }
 
+function railSection(route: string): "research" | "methods" | "glossary" {
+  if (route.startsWith("#/glossary")) return "glossary";
+  if (route.startsWith("#/methods")) return "methods";
+  return "research";
+}
+
+function routeFailureMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return "无法加载这个页面";
+}
+
 function NightShell({
   view,
+  route,
   children,
   sidecarState,
   runStartRitual,
 }: {
   view: DesktopView;
+  route: string;
   children: React.ReactNode;
   sidecarState?: SidecarUiState | null;
   runStartRitual?: boolean;
 }) {
-  const section =
-    view.kind === "methods" ? "methods" : view.kind === "glossary" ? "glossary" : "research";
+  const section = railSection(route);
   const hostKey: HostStatus = view.hostStatus ?? (
     view.kind === "awaiting_confirm" ? "awaiting_confirm" :
     view.kind === "running" ? "running" :
@@ -1506,6 +1519,9 @@ export function App({
   const [route, setRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [view, setView] = useState(initialView);
   const [syncedRoute, setSyncedRoute] = useState(() => initialRoute ?? readBrowserRoute());
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [failedRoute, setFailedRoute] = useState<string | null>(null);
+  const [routeRetry, setRouteRetry] = useState(0);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [sidecarState, setSidecarState] = useState<SidecarUiState | null>(null);
   const [pausedModificationByResearch, setPausedModificationByResearch] = useState<
@@ -1515,7 +1531,8 @@ export function App({
     setPausedModificationByResearch((prev) => ({...prev, [researchId]: text}));
   }, []);
   const engineStopped = sidecarState?.phase === "stopped";
-  const routePending = route !== syncedRoute;
+  const routeFailed = failedRoute === route && routeError !== null;
+  const routePending = route !== syncedRoute && !routeFailed;
   const runStartRitual = useRunStartRitual(view);
 
   const refreshView = useCallback(async () => {
@@ -1581,9 +1598,13 @@ export function App({
           if (!active) return;
           setView(next);
           setSyncedRoute(route);
+          setRouteError(null);
+          setFailedRoute((current) => (current === route ? null : current));
         })
-        .catch(() => {
-          /* engine unreachable; avoid unhandled rejection while polling */
+        .catch((error: unknown) => {
+          if (!active) return;
+          setRouteError(routeFailureMessage(error));
+          setFailedRoute(route);
         });
     };
     refresh();
@@ -1592,7 +1613,7 @@ export function App({
       active = false;
       window.clearInterval(timer);
     };
-  }, [api, route, engineStopped]);
+  }, [api, route, engineStopped, routeRetry]);
 
   const handleRestartSidecar = useCallback(async () => {
     if (!restartSidecar) return;
@@ -1608,7 +1629,7 @@ export function App({
   }, [restartSidecar, pollSidecar]);
 
   return (
-    <NightShell view={view} sidecarState={sidecarState} runStartRitual={runStartRitual}>
+    <NightShell view={view} route={route} sidecarState={sidecarState} runStartRitual={runStartRitual}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
           <span>{mutationError}</span>
@@ -1635,6 +1656,21 @@ export function App({
       )}
       {routePending ? (
         <p className="route-loading" data-testid="route-loading">加载中…</p>
+      ) : routeFailed ? (
+        <div className="route-error" data-testid="route-error" role="alert">
+          <p>{routeError}</p>
+          <button
+            type="button"
+            className="quiet-button"
+            data-testid="route-retry"
+            onClick={() => {
+              setFailedRoute(null);
+              setRouteRetry((count) => count + 1);
+            }}
+          >
+            重试
+          </button>
+        </div>
       ) : (
         <Screen
           api={boundApi}
