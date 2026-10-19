@@ -52,6 +52,17 @@ def host_status(
     return "idle"
 
 
+def host_status_while_fetching(
+    status: Literal["awaiting_confirm", "running", "completed", "idle"],
+    *,
+    fetching: bool,
+) -> Literal["awaiting_confirm", "running", "completed", "idle"]:
+    """A live quote load is running work, including while another study waits."""
+    if fetching:
+        return "running"
+    return status
+
+
 def list_items(
     researches: tuple[Research, ...],
     status_filter: ResearchStatus | None,

@@ -11,8 +11,13 @@ from engine.research.models import (
     Universe,
     new_research,
 )
+from engine.research.market_data_progress import (
+    clear_market_data_progress,
+    set_market_data_progress,
+)
 from engine.research.progress import (
     host_status,
+    host_status_while_fetching,
     list_items,
     notification_event,
     thesis_divergence_hint,
@@ -32,6 +37,25 @@ def test_host_status_priority_is_awaiting_then_running_then_completed_then_idle(
     assert host_status((idle, done)) == "completed"
     assert host_status((idle, done, running)) == "running"
     assert host_status((idle, done, running, awaiting)) == "awaiting_confirm"
+
+
+def test_live_quote_fetch_is_running_even_when_another_study_is_waiting(tmp_path: Path) -> None:
+    assert host_status_while_fetching("awaiting_confirm", fetching=True) == "running"
+    assert host_status_while_fetching("completed", fetching=True) == "running"
+    assert host_status_while_fetching("awaiting_confirm", fetching=False) == "awaiting_confirm"
+    store = SQLiteStore(tmp_path / "host.db")
+    store.create(replace(new_research("r-wait", NOW), status=ResearchStatus.AWAITING_CONFIRM))
+    store.create(new_research("r-us", NOW))
+    service = ResearchCommandService(store, EnginePaths.for_colocated_root(tmp_path))
+    set_market_data_progress(12, 503, "yahoo")
+    try:
+        progress = service.handle({"type": "market_data_progress"})
+        view = service.view_for("#/research/r-us")
+    finally:
+        clear_market_data_progress()
+    assert progress["hostStatus"] == "running"
+    assert progress["marketDataProgress"] == {"done": 12, "total": 503, "source": "yahoo"}
+    assert view["hostStatus"] == "running"
 
 
 def test_list_items_include_universe_timestamps_and_status_filter() -> None:

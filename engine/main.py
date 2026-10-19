@@ -123,6 +123,7 @@ from engine.research.models import (
 from engine.research.progress import (
     ResearchListItem,
     host_status,
+    host_status_while_fetching,
     list_items,
     notification_event,
     thesis_divergence_hint,
@@ -373,9 +374,10 @@ class ResearchCommandService:
         from engine.research.market_data_progress import market_data_progress_payload
 
         progress = market_data_progress_payload()
-        status = host_status(self.store.list_research())
-        if progress is not None and status in {"completed", "idle"}:
-            status = "running"
+        status = host_status_while_fetching(
+            host_status(self.store.list_research()),
+            fetching=progress is not None,
+        )
         return {"marketDataProgress": progress, "hostStatus": status}
 
     def _host_payload(
@@ -383,14 +385,15 @@ class ResearchCommandService:
         payload: dict[str, Any],
         research: Research | None = None,
     ) -> dict[str, Any]:
-        payload["hostStatus"] = host_status(self.store.list_research())
         from engine.research.market_data_progress import market_data_progress_payload
 
         progress = market_data_progress_payload()
+        payload["hostStatus"] = host_status_while_fetching(
+            host_status(self.store.list_research()),
+            fetching=progress is not None,
+        )
         if progress is not None:
             payload["marketDataProgress"] = progress
-            if payload.get("hostStatus") in {"completed", "idle"}:
-                payload["hostStatus"] = "running"
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
         return self._attach_notify(payload)
