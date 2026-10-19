@@ -171,6 +171,8 @@ type ViewBody =
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;
       cumulativeRoundsOnWindow?: number;
+      researchRoundsOnWindow?: number;
+      researchCumulativeLabel?: string;
       windowCumulativeLabel?: string;
       workbenchHeaderSummary?: string;
       highSuspicionRoundThreshold?: number;

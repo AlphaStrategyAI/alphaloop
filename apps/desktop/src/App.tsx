@@ -1054,8 +1054,11 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         )}
         <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
           第 {view.version ?? 1} 版
+          {view.researchCumulativeLabel ? ` · ${view.researchCumulativeLabel}` : ""}
           {view.workbenchHeaderSummary ? ` · ${view.workbenchHeaderSummary}` : ""}
-          {view.windowCumulativeLabel ? ` · ${view.windowCumulativeLabel}` : ""}
+          {view.windowCumulativeLabel && view.windowCumulativeLabel !== view.workbenchHeaderSummary
+            ? ` · ${view.windowCumulativeLabel}`
+            : ""}
           {view.effective ? ` · 有效研究 ${view.effective}` : ""}
           {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
         </p>
