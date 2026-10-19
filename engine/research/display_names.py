@@ -9,9 +9,9 @@ from fractions import Fraction
 METHOD_IDS: dict[str, str] = {
     "scorecard.market": "市场计分卡",
     "pit.consistency": "时点一致性",
-    "overfit.walk": "走样检验",
+    "overfit.walk": "分段稳健性检验",
     "stability.oos": "样本外稳定",
-    "crowding.load": "拥挤度",
+    "crowding.load": "集中度",
     "cost.turnover": "换手成本",
 }
 

@@ -109,6 +109,7 @@ const statusLabels: Record<ResearchStatus, string> = {
 export function routeFor(view: DesktopView): string {
   if (view.kind === "research_list") return "#/research";
   if (view.kind === "methods") return `#/methods${view.selected ? `/${view.selected}` : ""}`;
+  if (view.kind === "glossary") return "#/glossary";
   return `#/research/${view.researchId}`;
 }
 
@@ -130,7 +131,8 @@ function NightShell({
   sidecarState?: SidecarUiState | null;
   runStartRitual?: boolean;
 }) {
-  const methods = view.kind === "methods";
+  const section =
+    view.kind === "methods" ? "methods" : view.kind === "glossary" ? "glossary" : "research";
   const hostKey: HostStatus = view.hostStatus ?? (
     view.kind === "awaiting_confirm" ? "awaiting_confirm" :
     view.kind === "running" ? "running" :
@@ -158,8 +160,9 @@ function NightShell({
         <div className="rail-center">
           <BrandMark />
           <nav aria-label="主导航">
-            <a className={!methods ? "active" : ""} href="#/research">研究</a>
-            <a className={methods ? "active" : ""} href="#/methods">方法库</a>
+            <a className={section === "research" ? "active" : ""} href="#/research">研究</a>
+            <a className={section === "methods" ? "active" : ""} href="#/methods">方法库</a>
+            <a className={section === "glossary" ? "active" : ""} href="#/glossary">术语</a>
           </nav>
         </div>
         {railLabel ? (
@@ -1475,7 +1478,22 @@ function Screen({
     case "awaiting_confirm": return <div className="focus"><AwaitingConfirmCard api={api} view={view} /></div>;
     case "completed": return <CompletedScreen api={api} view={view} />;
     case "methods": return <MethodsScreen api={api} view={view} />;
+    case "glossary": return <GlossaryScreen view={view} />;
   }
+}
+
+function GlossaryScreen({view}: {view: Extract<DesktopView, {kind: "glossary"}>}) {
+  return (
+    <div className="glossary-page" data-testid="glossary-page">
+      <p className="confirm-lead">{view.intro}</p>
+      {view.entries.map((entry) => (
+        <details key={entry.id} className="tech-pulse-card glossary-entry" open>
+          <summary>{entry.term}</summary>
+          <p>{entry.body}</p>
+        </details>
+      ))}
+    </div>
+  );
 }
 
 export function App({

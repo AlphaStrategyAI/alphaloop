@@ -8,6 +8,8 @@
 
 它**不是**实现方案。这里不写组件树、不写 CSS、不写路由库。看到「这块代码怎么写」的问题，答案不在这份文档里。
 
+当前展示名（分段稳健性检验、集中度、试验次数与累计 M 等）以 [术语表](../GLOSSARY.md) 为准。桌面在「研究 / 方法库」之外有「术语」入口；导航两项的规格重画不在这里展开。
+
 Figma 文件里：`Screens` 是七屏从左到右；`Handoff` 是 token 与约束一览。Token 只用集合 Night / Dark。纸色集合已废弃。
 
 - Figma：https://www.figma.com/design/JXelV0rnUUv5U5w9ur7jtk

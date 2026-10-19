@@ -66,7 +66,13 @@ from engine.research.desktop_view import (
     selected_method_id,
     universe_label_for,
 )
-from engine.research.display_names import export_blocker_messages, format_display_number
+from engine.research.display_names import (
+    METHOD_IDS,
+    export_blocker_messages,
+    format_display_number,
+    method_label,
+)
+from engine.research.glossary import glossary_entries, glossary_intro
 from engine.research.symbol_selection_display import format_symbol_selection_summary
 from engine.research.time_display import format_effective_display, format_remaining_display
 from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
@@ -436,7 +442,7 @@ class ResearchCommandService:
             "stability": "稳定性",
             "pit_consistency": "时点一致性",
             "cost_sensitivity": "成本敏感度",
-            "crowding": "拥挤度",
+            "crowding": "集中度",
             "custom": "自定义",
         }.get(kind, kind)
 
@@ -481,7 +487,7 @@ class ResearchCommandService:
                     "passThreshold": parsed["oos_to_is_min"],
                     "comparison": "gte",
                     "comparisonLabel": "不小于",
-                    "failureDisplay": "样本外走样",
+                    "failureDisplay": "分段表现未保持",
                 })
         elif method_id == "stability.oos":
             if "same_sign_ratio_min" in parsed:
@@ -535,17 +541,32 @@ class ResearchCommandService:
         if method_id.startswith("stability."):
             return "稳定性"
         if method_id.startswith("crowding."):
-            return "拥挤度"
+            return "集中度"
         if method_id.startswith("cost."):
             return "成本"
         return None
 
     def view_for(self, route: str) -> dict[str, Any]:
+        if route == "#/glossary" or route.startswith("#/glossary?"):
+            return self._host_payload(
+                {
+                    "kind": "glossary",
+                    "intro": glossary_intro(),
+                    "entries": [
+                        {"id": entry.term_id, "term": entry.term, "body": entry.body}
+                        for entry in glossary_entries()
+                    ],
+                }
+            )
         if route.startswith("#/methods"):
             methods = [
                 {
                     "id": item.method_id,
-                    "name": item.name or item.method_id,
+                    "name": (
+                        method_label(item.method_id)
+                        if item.method_id in METHOD_IDS
+                        else (item.name or item.method_id)
+                    ),
                     "revision": item.revision_hash,
                     "revisionLabel": revision_display_label(
                         revision_token_from_body(item.body) or item.revision_hash[:8]
