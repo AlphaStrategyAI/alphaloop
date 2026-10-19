@@ -6,6 +6,7 @@ use tauri::AppHandle;
 
 use crate::commands::EngineConnection;
 use crate::engine_paths;
+use crate::secrets::SecretVault;
 use crate::sidecar::EngineSupervisor;
 use crate::sidecar_runtime::SidecarRuntime;
 use crate::start_desktop_sidecar;
@@ -34,6 +35,7 @@ pub fn schedule_sidecar_recovery(
     supervisor: Arc<EngineSupervisor>,
     connection: EngineConnection,
     runtime: Arc<SidecarRuntime>,
+    vault: Arc<SecretVault>,
     detail: String,
 ) {
     match after_sidecar_failure(runtime.as_ref(), &detail) {
@@ -47,15 +49,20 @@ pub fn schedule_sidecar_recovery(
                     supervisor.clone(),
                     connection.clone(),
                     runtime.clone(),
+                    vault.clone(),
                 ) {
                     Ok(()) => {}
                     Err(error) => {
-                        eprintln!("alphaloop sidecar restart failed: {error}");
+                        eprintln!(
+                            "alphaloop sidecar restart failed: {}",
+                            vault.redact(&error)
+                        );
                         schedule_sidecar_recovery(
                             app,
                             supervisor,
                             connection,
                             runtime,
+                            vault,
                             error,
                         );
                     }

@@ -44,6 +44,7 @@ from engine.research.market_data_timeouts import (
 )
 from engine.research.planned_data_window import is_cn_listed_symbol
 from engine.research.price_cache import get_cached_close, put_cached_close
+from engine.research.secret_redaction import redact_text
 
 CROSSREF_MAILTO = "research@example.invalid"
 _PUBLISHED_HEADER = re.compile(r"published:\s*(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE)
@@ -715,7 +716,7 @@ def gather_materials(query: str, ports: tuple[MaterialPort, ...]) -> GatherBatch
         try:
             collected.extend(port.fetch(query))
         except Exception as exc:  # noqa: BLE001 — material fetch must not abort research
-            failures.append(f"{type(port).__name__}: {type(exc).__name__}: {exc}")
+            failures.append(redact_text(f"{type(port).__name__}: {type(exc).__name__}: {exc}"))
             continue
         extra = getattr(port, "fetch_errors", ())
         failures.extend(str(item) for item in extra)

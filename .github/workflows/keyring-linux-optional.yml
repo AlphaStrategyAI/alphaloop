@@ -1,0 +1,36 @@
+# Optional Secret Service roundtrip. Not one of the ten required checks.
+# continue-on-error keeps a missing keyring from turning the required CI red.
+name: keyring-linux-optional
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main, "cursor/**"]
+
+jobs:
+  gnome-keyring:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: apps/desktop/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Secret Service
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnome-keyring dbus-x11 libwebkit2gtk-4.1-dev build-essential pkg-config libssl-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Stub engine bundle
+        run: |
+          mkdir -p resources/engine/alphaloop-engine/_internal
+          printf '#!/bin/sh\nexit 0\n' > resources/engine/alphaloop-engine/alphaloop-engine
+          chmod +x resources/engine/alphaloop-engine/alphaloop-engine
+      - name: Roundtrip against gnome-keyring
+        env:
+          ALPHALOOP_REQUIRE_KEYRING: "1"
+        run: |
+          eval "$(dbus-launch --sh-syntax)"
+          echo "alphaloop-ci" | gnome-keyring-daemon --unlock --daemonize --components=secrets
+          cargo test --lib keyring_secret_service_roundtrip -- --ignored

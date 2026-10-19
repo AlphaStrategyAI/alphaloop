@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, State};
 
 use crate::engine_paths;
+use crate::secrets::SecretVault;
 use crate::sidecar::EngineSupervisor;
 use crate::sidecar_runtime::SidecarRuntime;
 use crate::start_desktop_sidecar;
@@ -18,9 +19,21 @@ struct Connection {
     auth_token: String,
 }
 
-#[derive(Clone, Default)]
+type Redactor = Arc<dyn Fn(&str) -> String + Send + Sync>;
+
+#[derive(Clone)]
 pub struct EngineConnection {
     connection: Arc<Mutex<Option<Connection>>>,
+    redactor: Redactor,
+}
+
+impl Default for EngineConnection {
+    fn default() -> Self {
+        Self {
+            connection: Arc::new(Mutex::new(None)),
+            redactor: Arc::new(|text| text.to_string()),
+        }
+    }
 }
 
 impl EngineConnection {
@@ -34,6 +47,13 @@ impl EngineConnection {
             auth_token,
         });
         Ok(())
+    }
+
+    pub fn with_redactor(redactor: Redactor) -> Self {
+        Self {
+            connection: Arc::new(Mutex::new(None)),
+            redactor,
+        }
     }
 
     pub fn clear(&self) {
@@ -57,10 +77,11 @@ impl EngineConnection {
             .map_err(|_| "engine connection lock poisoned")?
             .clone()
             .ok_or("engine is not ready")?;
+        let redact = self.redactor.clone();
         let response = Client::builder()
             .timeout(Duration::from_secs(command_timeout_secs_from_env()))
             .build()
-            .map_err(|error| error.to_string())?
+            .map_err(|error| redact(&error.to_string()))?
             .post(format!("{}/commands", connection.endpoint))
             .bearer_auth(connection.auth_token)
             .json(&request)
@@ -68,21 +89,22 @@ impl EngineConnection {
             .await
             .map_err(|error| {
                 if error.is_timeout() {
-                    "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）"
-                        .to_string()
+                    redact(
+                        "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）",
+                    )
                 } else {
-                    error.to_string()
+                    redact(&error.to_string())
                 }
             })?;
         let status = response.status();
         let body = response
             .text()
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| redact(&error.to_string()))?;
         if !status.is_success() {
-            return Err(parse_engine_error_body(&body));
+            return Err(redact(&parse_engine_error_body(&body)));
         }
-        serde_json::from_str(&body).map_err(|error| error.to_string())
+        serde_json::from_str(&body).map_err(|error| redact(&error.to_string()))
     }
 }
 
@@ -471,6 +493,7 @@ pub fn restart_engine_sidecar(
     runtime: State<'_, Arc<SidecarRuntime>>,
     supervisor: State<'_, Arc<EngineSupervisor>>,
     connection: State<'_, EngineConnection>,
+    vault: State<'_, Arc<SecretVault>>,
 ) -> Result<(), String> {
     runtime.prepare_user_restart();
     supervisor.quit()?;
@@ -481,7 +504,87 @@ pub fn restart_engine_sidecar(
         supervisor.inner().clone(),
         connection.inner().clone(),
         runtime.inner().clone(),
+        (*vault).clone(),
     )
+}
+
+pub async fn push_installed_secrets(connection: &EngineConnection, vault: &SecretVault) {
+    let secrets = vault.export_map();
+    let result = connection
+        .post(json!({"type": "install_secrets", "secrets": secrets}))
+        .await;
+    if let Err(error) = result {
+        eprintln!("{}", vault.redact(&error));
+    }
+}
+
+#[tauri::command]
+pub async fn secret_store_status(vault: State<'_, Arc<SecretVault>>) -> Result<Value, String> {
+    Ok(serde_json::to_value(vault.status()).map_err(|error| vault.redact(&error.to_string()))?)
+}
+
+#[tauri::command]
+pub fn secret_choose_fallback(choice: String, vault: State<'_, Arc<SecretVault>>) -> Result<(), String> {
+    vault.choose_fallback(&choice)
+}
+
+#[tauri::command]
+pub async fn secret_set(
+    id: String,
+    value: String,
+    passphrase: Option<String>,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+    vault: State<'_, Arc<SecretVault>>,
+) -> Result<(), String> {
+    let _ = app;
+    vault.set(&id, &value, passphrase.as_deref())?;
+    push_installed_secrets(&connection, &vault).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn secret_delete(
+    id: String,
+    connection: State<'_, EngineConnection>,
+    vault: State<'_, Arc<SecretVault>>,
+) -> Result<(), String> {
+    vault.delete(&id)?;
+    push_installed_secrets(&connection, &vault).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn secret_is_set(id: String, vault: State<'_, Arc<SecretVault>>) -> Result<bool, String> {
+    vault.is_set(&id)
+}
+
+#[tauri::command]
+pub async fn secret_unlock(
+    passphrase: String,
+    connection: State<'_, EngineConnection>,
+    vault: State<'_, Arc<SecretVault>>,
+) -> Result<(), String> {
+    vault.unlock(&passphrase)?;
+    push_installed_secrets(&connection, &vault).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn secret_failure_preview(
+    id: String,
+    connection: State<'_, EngineConnection>,
+    vault: State<'_, Arc<SecretVault>>,
+) -> Result<String, String> {
+    let payload = connection
+        .post(json!({"type": "secret_failure_preview", "secret_id": id}))
+        .await
+        .map_err(|error| vault.redact(&error))?;
+    let message = payload
+        .get("message")
+        .and_then(|value| value.as_str())
+        .unwrap_or("失败说明不可用。");
+    Ok(vault.redact(message))
 }
 
 #[cfg(test)]

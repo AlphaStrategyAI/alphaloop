@@ -113,6 +113,7 @@ type ViewBody =
       symbolSelection?: SymbolSelectionSummary;
       confirmDataNotice?: string | null;
       meanReversionOnlyNotice?: string | null;
+      constructionNotice?: string | null;
     }
   | {
       kind: "running";
@@ -166,6 +167,7 @@ type ViewBody =
       title: string;
       universeLabel?: string;
       meanReversionOnlyNotice?: string | null;
+      cnExecutionNotice?: string | null;
       subtitle?: string;
       resultHeadline?: string;
       honestStopHint?: string | null;

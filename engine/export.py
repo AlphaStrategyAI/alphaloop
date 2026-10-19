@@ -277,6 +277,95 @@ def _metrics(strategy, benchmark):
     }
 
 
+def _one_way_cost(spec):
+    market = spec["universe"]["market"]
+    asset = spec["universe"]["asset_class"]
+    if market == "US" and asset == "fund":
+        return 1.0 / 10000.0
+    if market == "US" and asset == "equity":
+        return 5.0 / 10000.0
+    if market == "CN" and asset == "equity":
+        return 20.0 / 10000.0
+    if market == "CN" and asset == "fund":
+        return 5.0 / 10000.0
+    return 0.0
+
+
+def _clip_redistribute(raw, cap):
+    weights = [max(value, 0.0) for value in raw]
+    total = sum(weights)
+    if total <= 0.0:
+        return weights
+    if total > 1.0:
+        weights = [value / total for value in weights]
+    for _ in range(len(weights) + 1):
+        over = [value > cap + 1e-15 for value in weights]
+        if not any(over):
+            break
+        excess = sum(weights[index] - cap for index, flagged in enumerate(over) if flagged)
+        for index, flagged in enumerate(over):
+            if flagged:
+                weights[index] = cap
+        room = [0.0 if over[index] else max(cap - weights[index], 0.0) for index in range(len(weights))]
+        room_sum = sum(room)
+        if room_sum <= 1e-15:
+            break
+        weights = [weights[index] + room[index] * (excess / room_sum) for index in range(len(weights))]
+    total = sum(weights)
+    if total > 1.0 + 1e-15:
+        weights = [value / total for value in weights]
+    return weights
+
+
+def _allocate_row(signal, score, symbols, cap):
+    if not cap:
+        gross = sum(abs(signal[symbol]) for symbol in symbols) or 1.0
+        return {symbol: signal[symbol] / gross for symbol in symbols}
+    active = [symbol for symbol in symbols if signal[symbol] > 0.0]
+    if not active:
+        return {symbol: 0.0 for symbol in symbols}
+    magnitudes = [abs(signal[symbol]) for symbol in active]
+    equal = max(magnitudes) - min(magnitudes) <= 1e-12
+    if not equal:
+        raw = [abs(signal[symbol]) if signal[symbol] > 0.0 else 0.0 for symbol in symbols]
+        clipped = _clip_redistribute(raw, cap)
+        return {symbol: clipped[index] for index, symbol in enumerate(symbols)}
+    chosen = list(active)
+    if (1.0 / len(chosen)) > cap:
+        order = sorted(
+            symbols,
+            key=lambda symbol: (
+                0 if score[symbol] == score[symbol] else 1,
+                -(score[symbol] if score[symbol] == score[symbol] else 0.0),
+                symbols.index(symbol),
+            ),
+        )
+        for symbol in order:
+            if symbol in chosen or score[symbol] != score[symbol]:
+                continue
+            chosen.append(symbol)
+            if (1.0 / len(chosen)) <= cap:
+                break
+    weight = 1.0 / len(chosen)
+    if weight > cap:
+        weight = cap
+    return {symbol: weight if symbol in chosen else 0.0 for symbol in symbols}
+
+
+def _scheduled_returns(signals, zscores, asset_returns, symbols, cap, rate):
+    strategy_returns = []
+    previous = {symbol: 0.0 for symbol in symbols}
+    for index in range(len(signals)):
+        lagged_signal = signals[index - 1] if index else {symbol: 0.0 for symbol in symbols}
+        lagged_score = zscores[index - 1] if index else {symbol: 0.0 for symbol in symbols}
+        weights = _allocate_row(lagged_signal, lagged_score, symbols, cap)
+        gross = sum(weights[symbol] * (asset_returns[symbol][index] or 0.0) for symbol in symbols)
+        turnover = sum(abs(weights[symbol] - previous[symbol]) for symbol in symbols)
+        strategy_returns.append(gross - turnover * rate)
+        previous = weights
+    return strategy_returns
+
+
 def backtest(root: Path) -> dict:
     spec = json.loads((root / "spec.json").read_text(encoding="utf-8"))
     with (root / "data" / "prices.csv").open(newline="", encoding="utf-8") as handle:
@@ -289,6 +378,7 @@ def backtest(root: Path) -> dict:
     values = {symbol: [float(row[symbol]) for row in rows] for symbol in symbols}
     asset_returns = {symbol: _returns(series) for symbol, series in values.items()}
     signals = []
+    zscores = []
     for index in range(len(rows)):
         scores = {}
         for symbol in symbols:
@@ -300,12 +390,15 @@ def backtest(root: Path) -> dict:
         all_zero = all(s == 0.0 for s in scores.values())
         if all_zero:
             signals.append({symbol: 0.0 for symbol in symbols})
+            zscores.append({symbol: 0.0 for symbol in symbols})
             continue
         dispersion = statistics.stdev(scores.values()) if len(scores) > 1 else 0.0
         center = statistics.mean(scores.values())
         row = {}
+        zrow = {}
         for symbol, score in scores.items():
             zscore = 0.0 if dispersion == 0.0 else (score - center) / dispersion
+            zrow[symbol] = zscore
             row[symbol] = (
                 1.0
                 if zscore >= entry_z
@@ -314,19 +407,28 @@ def backtest(root: Path) -> dict:
                 else 0.0
             )
         signals.append(row)
-    strategy_returns = []
-    for index in range(len(rows)):
-        prior = signals[index - 1] if index > 0 else {symbol: 0.0 for symbol in symbols}
-        gross = sum(abs(value) for value in prior.values()) or 1.0
-        ret = asset_returns[symbols[0]][index]
-        if ret is None:
-            ret = 0.0
-        strategy_returns.append(
-            sum(
-                prior[symbol] / gross * (asset_returns[symbol][index] or 0.0)
-                for symbol in symbols
-            )
+        zscores.append(zrow)
+    cap = spec.get("name_weight_cap")
+    if spec.get("cost_model") == "schedule_v1":
+        strategy_returns = _scheduled_returns(
+            signals,
+            zscores,
+            asset_returns,
+            symbols,
+            float(cap) if cap else None,
+            _one_way_cost(spec),
         )
+    else:
+        strategy_returns = []
+        for index in range(len(rows)):
+            prior = signals[index - 1] if index > 0 else {symbol: 0.0 for symbol in symbols}
+            gross = sum(abs(value) for value in prior.values()) or 1.0
+            strategy_returns.append(
+                sum(
+                    prior[symbol] / gross * (asset_returns[symbol][index] or 0.0)
+                    for symbol in symbols
+                )
+            )
     benchmark_returns = [
         0.0 if r is None else r
         for r in _returns([float(row["benchmark"]) for row in benchmark_rows])
@@ -521,6 +623,12 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
                 **export_thesis_markers(_record_thesis(research)),
             },
         )
+        if research.last_run_error:
+            recorded = json.loads((root / "history" / "research.json").read_text(encoding="utf-8"))
+            recorded["last_run_error"] = research.last_run_error
+            if research.last_run_error_code:
+                recorded["last_run_error_code"] = research.last_run_error_code
+            _json(root / "history" / "research.json", recorded)
         all_rounds = [round_ for version in research.versions for round_ in version.rounds]
         from engine.research.data_window import (
             cumulative_rounds_on_window,

@@ -35,6 +35,8 @@ from engine.research.universe_pool import (
 )
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
+from engine.portfolio import SCHEDULE_COST_MODEL
+from engine.research.a2_copy import cn_execution_notice_for, construction_notice_for
 from engine.research.thesis_scope import mean_reversion_only_notice
 from engine.research.method_body_display import (
     format_method_body_display,
@@ -696,6 +698,9 @@ class ResearchCommandService:
                 )
                 if notice:
                     body["meanReversionOnlyNotice"] = notice
+                construction = construction_notice_for(research)
+                if construction:
+                    body["constructionNotice"] = construction
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -805,6 +810,7 @@ class ResearchCommandService:
                 "meanReversionOnlyNotice": mean_reversion_only_notice(
                     str(research.brief.thesis.value or "")
                 ),
+                "cnExecutionNotice": cn_execution_notice_for(research),
                 "universeLabel": subtitle,
                 "subtitle": presentation.summary,
                 "resultHeadline": presentation.headline,
@@ -890,6 +896,7 @@ class ResearchCommandService:
                 raise
             self.store.save(research, expected_at)
             research = self.store.load(research.research_id)
+            research = replace(research, construction_schedule=SCHEDULE_COST_MODEL)
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
             self._record_version_methods(updated)
             return self._save(research, updated)
@@ -905,6 +912,27 @@ class ResearchCommandService:
             research_id = str(uuid.uuid4())
             self.store.create(new_research(research_id, now))
             return {"research_id": research_id}
+        if kind == "install_secrets":
+            from engine.research.secret_memory import install_secrets
+
+            secrets = request.get("secrets") or {}
+            if not isinstance(secrets, dict):
+                raise ValueError("secrets must be an object")
+            installed = install_secrets({str(key): str(value) for key, value in secrets.items()})
+            return {"ok": True, "ids": list(installed)}
+        if kind == "secret_failure_preview":
+            from engine.research.secret_memory import DESKTOP_REQUIRED_MESSAGE, peek_secret
+            from engine.research.secret_redaction import redact_text
+
+            secret_id = str(request["secret_id"])
+            value = peek_secret(secret_id)
+            if not value:
+                return {"message": DESKTOP_REQUIRED_MESSAGE}
+            raw = (
+                "error sending request for url "
+                f"https://user:{value}@example.invalid/v1/{value}?api_key={value}"
+            )
+            return {"message": redact_text(raw)}
         if kind == "create_method":
             source = MethodSource(request.get("source", MethodSource.DEPOSITED.value))
             definition = create_method(
@@ -1277,6 +1305,14 @@ class EngineApiHandler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             request = json.loads(self.rfile.read(length))
+            if isinstance(request, dict) and request.get("type") == "install_secrets":
+                from engine.research.secret_redaction import register_secret
+
+                secrets = request.get("secrets")
+                if isinstance(secrets, dict):
+                    for value in secrets.values():
+                        if isinstance(value, str):
+                            register_secret(value)
             jsonschema.validate(request, self.request_schema)
             self._send(200, self.service.handle(request))
         except UserFacingError as error:
@@ -1359,6 +1395,11 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     stop = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
+    from engine.research.secret_memory import configure_process_owner
+    from engine.research.secret_redaction import install_redacting_log_filter
+
+    configure_process_owner(owner_kind)
+    install_redacting_log_filter()
     store = SQLiteStore(paths.data.database_file)
     seed_preset_methods(store)
     budget = TimeBudget(time.monotonic)

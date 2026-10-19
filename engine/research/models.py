@@ -498,6 +498,8 @@ class Research:
     coverage_min_years_scratch: int | None = None
     coverage_max_missing_pct_scratch: float | None = None
     pending_non_mr_thesis: str | None = None
+    required_secret_ids: tuple[str, ...] = ()
+    construction_schedule: str = "legacy_zero"
 
 
 def new_research(research_id: str, now: datetime) -> Research:

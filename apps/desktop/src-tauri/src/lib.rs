@@ -1,5 +1,6 @@
 mod commands;
 mod engine_paths;
+mod secrets;
 mod sidecar;
 mod sidecar_policy;
 mod sidecar_restart;
@@ -21,6 +22,7 @@ use serde::Deserialize;
 use tauri::{Manager, RunEvent, WindowEvent};
 
 use commands::EngineConnection;
+use secrets::SecretVault;
 use sidecar::SharedChild;
 use sidecar_runtime::SidecarRuntime;
 
@@ -39,6 +41,7 @@ pub fn start_desktop_sidecar(
     supervisor: Arc<EngineSupervisor>,
     connection: EngineConnection,
     runtime: Arc<SidecarRuntime>,
+    vault: Arc<SecretVault>,
 ) -> Result<(), String> {
     let resource_dir = app.path().resource_dir().map_err(|error| error.to_string())?;
     let executable = resource_dir
@@ -57,9 +60,10 @@ pub fn start_desktop_sidecar(
         .spawn()
         .map_err(|error| error.to_string())?;
     let stderr = child.stderr.take().ok_or("engine stderr was not piped")?;
+    let stderr_vault = vault.clone();
     thread::spawn(move || {
         for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-            eprintln!("alphaloop-engine stderr: {line}");
+            eprintln!("alphaloop-engine stderr: {}", stderr_vault.redact(&line));
         }
     });
     let stdout = child.stdout.take().ok_or("engine stdout was not piped")?;
@@ -92,7 +96,17 @@ pub fn start_desktop_sidecar(
         let supervisor = supervisor.clone();
         let connection = connection.clone();
         let runtime = runtime.clone();
-        move || schedule_sidecar_restart(app_handle, supervisor, connection, runtime, "process exited")
+        let vault = vault.clone();
+        move || {
+            schedule_sidecar_restart(
+                app_handle,
+                supervisor,
+                connection,
+                runtime,
+                vault.clone(),
+                "process exited",
+            )
+        }
     };
     match handshake.status.as_str() {
         "ready" => supervisor.adopt_owned(Box::new(SharedChild::spawn(child, on_exit)), owner)?,
@@ -115,6 +129,7 @@ pub fn start_desktop_sidecar(
         }
     });
     runtime.mark_running();
+    tauri::async_runtime::block_on(commands::push_installed_secrets(&connection, &vault));
     Ok(())
 }
 
@@ -123,6 +138,7 @@ fn schedule_sidecar_restart(
     supervisor: Arc<EngineSupervisor>,
     connection: EngineConnection,
     runtime: Arc<SidecarRuntime>,
+    vault: Arc<SecretVault>,
     detail: &'static str,
 ) {
     sidecar_restart::schedule_sidecar_recovery(
@@ -130,17 +146,23 @@ fn schedule_sidecar_restart(
         supervisor,
         connection,
         runtime,
+        vault,
         detail.to_string(),
     );
 }
 
 pub fn run() {
     let supervisor = Arc::new(EngineSupervisor::default());
-    let connection = EngineConnection::default();
+    let vault = Arc::new(SecretVault::open_default());
+    let connection = EngineConnection::with_redactor({
+        let vault = vault.clone();
+        Arc::new(move |text| vault.redact(text))
+    });
     let runtime = Arc::new(SidecarRuntime::default());
     let setup_supervisor = supervisor.clone();
     let setup_connection = connection.clone();
     let setup_runtime = runtime.clone();
+    let setup_vault = vault.clone();
     let window_supervisor = supervisor.clone();
     let exit_supervisor = supervisor.clone();
     let app = tauri::Builder::default()
@@ -149,6 +171,7 @@ pub fn run() {
         .manage(supervisor.clone())
         .manage(connection)
         .manage(runtime.clone())
+        .manage(vault.clone())
         .invoke_handler(tauri::generate_handler![
             commands::fetch_view,
             commands::market_data_progress,
@@ -170,24 +193,34 @@ pub fn run() {
             commands::create_method,
             commands::engine_sidecar_state,
             commands::restart_engine_sidecar,
+            commands::secret_store_status,
+            commands::secret_choose_fallback,
+            commands::secret_set,
+            commands::secret_delete,
+            commands::secret_is_set,
+            commands::secret_unlock,
+            commands::secret_failure_preview,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
             let sidecar = setup_supervisor.clone();
             let engine_connection = setup_connection.clone();
             let sidecar_runtime = setup_runtime.clone();
+            let sidecar_vault = setup_vault.clone();
             if let Err(error) = start_desktop_sidecar(
                 handle.clone(),
                 sidecar.clone(),
                 engine_connection.clone(),
                 sidecar_runtime.clone(),
+                sidecar_vault.clone(),
             ) {
-                eprintln!("alphaloop sidecar startup failed: {error}");
+                eprintln!("alphaloop sidecar startup failed: {}", sidecar_vault.redact(&error));
                 sidecar_restart::schedule_sidecar_recovery(
                     handle,
                     sidecar,
                     engine_connection,
                     sidecar_runtime,
+                    sidecar_vault,
                     error,
                 );
             }

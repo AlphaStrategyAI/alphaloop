@@ -24,6 +24,7 @@ import {parseEffectiveQuotaFromView} from "./effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "./completedFailedTone";
 import {listRowStatusLabel} from "./listStatusDisplay";
 import {railStatusLabel} from "./railStatus";
+import {SecretVaultButton} from "./SecretVault";
 import {useRunStartRitual} from "./useRunStartRitual";
 
 const CN_TICKER_IN_PROSE = /(\d{6}\.(?:SH|SZ|BJ))/g;
@@ -180,6 +181,7 @@ function NightShell({
             <a className={section === "research" ? "active" : ""} href="#/research">研究</a>
             <a className={section === "methods" ? "active" : ""} href="#/methods">方法库</a>
             <a className={section === "glossary" ? "active" : ""} href="#/glossary">术语</a>
+            <SecretVaultButton />
           </nav>
         </div>
         {railLabel ? (
@@ -534,6 +536,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       {view.meanReversionOnlyNotice && (
         <p className="confirm-lead" data-testid="mean-reversion-only-notice">
           {view.meanReversionOnlyNotice}
+        </p>
+      )}
+      {view.constructionNotice && (
+        <p className="confirm-lead" data-testid="construction-notice">
+          {view.constructionNotice}
         </p>
       )}
       {view.confirmDataNotice && (
@@ -1068,6 +1075,11 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         {view.meanReversionOnlyNotice && (
           <p className="confirm-lead" data-testid="mean-reversion-only-notice">
             {view.meanReversionOnlyNotice}
+          </p>
+        )}
+        {view.cnExecutionNotice && (
+          <p className="confirm-lead" data-testid="cn-execution-notice">
+            {view.cnExecutionNotice}
           </p>
         )}
         {view.subtitle && <p className="completed-focus-subtitle">{view.subtitle}</p>}
