@@ -135,12 +135,8 @@ def build_logic_statement(
     version_number: int,
     had_prior_round: bool,
 ) -> LogicStatement:
-    from engine.research.display_names import MODEL_FAMILY, param_label
-
-    family = MODEL_FAMILY.get(spec.model_family, spec.model_family)
     statement = (
-        f"{thesis}（{family}，{param_label('lookback_days')}={spec.lookback_days}，"
-        f"{param_label('entry_z')}={spec.entry_z}）"
+        f"论点：{thesis}；实际执行：截面均值回归，回看 {spec.lookback_days} 天"
     )
     return LogicStatement(
         statement=statement,

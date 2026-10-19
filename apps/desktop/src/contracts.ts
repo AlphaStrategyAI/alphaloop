@@ -109,6 +109,7 @@ type ViewBody =
       chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
       confirmDataNotice?: string | null;
+      meanReversionOnlyNotice?: string | null;
     }
   | {
       kind: "running";
@@ -161,6 +162,7 @@ type ViewBody =
       status: "completed" | "ended";
       title: string;
       universeLabel?: string;
+      meanReversionOnlyNotice?: string | null;
       subtitle?: string;
       resultHeadline?: string;
       honestStopHint?: string | null;

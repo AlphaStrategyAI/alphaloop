@@ -17,6 +17,7 @@ from engine.research.models import (
     ResearchStatus,
     RoundV2,
 )
+from engine.research.thesis_scope import export_thesis_markers
 from engine.strategy import AlphaStrategy, MarketPanel, MeanReversionStrategy
 from engine.verifiers import (
     PitVerifierResult,
@@ -399,6 +400,7 @@ def build_strategy_pack(
         )
         spec["method_set"] = [asdict(item) for item in strategy.spec.method_set]
         spec["benchmark_id"] = attempt.simulation.benchmark_id
+        spec.update(export_thesis_markers(strategy.spec.thesis_locked))
         _json(root / "spec.json", spec)
         (root / "strategy.py").write_text(STRATEGY_MODULE, encoding="utf-8")
         (root / "run_backtest.py").write_text(RUNNER, encoding="utf-8")
@@ -439,6 +441,7 @@ def build_strategy_pack(
                     for round_ in version.rounds
                 ],
                 "effective_seconds": research.effective_seconds,
+                **export_thesis_markers(strategy.spec.thesis_locked),
             },
         )
         all_rounds = [
@@ -486,6 +489,18 @@ def build_strategy_pack(
     return destination
 
 
+def _record_thesis(research: Research) -> str:
+    brief = research.brief.thesis.value
+    if isinstance(brief, str) and brief:
+        return brief
+    for version in reversed(research.versions):
+        for round_ in reversed(version.rounds):
+            spec = round_.accepted_attempt.spec
+            if spec is not None and spec.thesis_locked:
+                return spec.thesis_locked
+    return ""
+
+
 def build_research_record_pack(research: Research, destination: Path) -> Path:
     eligibility = strategy_pack_eligibility(research)
     with TemporaryDirectory(prefix="alphaloop-record-") as temporary:
@@ -503,6 +518,7 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
                 ],
                 "effective_seconds": research.effective_seconds,
                 "export_eligible": research.export_eligible,
+                **export_thesis_markers(_record_thesis(research)),
             },
         )
         all_rounds = [round_ for version in research.versions for round_ in version.rounds]

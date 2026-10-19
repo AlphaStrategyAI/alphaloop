@@ -31,6 +31,7 @@ from engine.research.universe_pool import materialize_default_pool, pool_resolva
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.research.confirm_view import symbol_selection_payload
+from engine.research.thesis_scope import mean_reversion_only_notice
 from engine.research.method_body_display import (
     format_method_body_display,
     method_purpose,
@@ -664,6 +665,11 @@ class ResearchCommandService:
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(display_research)
+                notice = mean_reversion_only_notice(
+                    str(research.brief.thesis.value or "")
+                )
+                if notice:
+                    body["meanReversionOnlyNotice"] = notice
                 if confirm_data_notice:
                     body["confirmDataNotice"] = confirm_data_notice
             return self._host_payload(body, research)
@@ -772,6 +778,9 @@ class ResearchCommandService:
                 "remaining": self._remaining(research),
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
+                "meanReversionOnlyNotice": mean_reversion_only_notice(
+                    str(research.brief.thesis.value or "")
+                ),
                 "universeLabel": subtitle,
                 "subtitle": presentation.summary,
                 "resultHeadline": presentation.headline,
