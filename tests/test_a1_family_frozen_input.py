@@ -173,6 +173,8 @@ def test_family_ids_are_a_closed_list_and_display_names_are_not_stored() -> None
     )
     assert family_display_name("mean_reversion", "zh") == "均值回归"
     assert family_display_name("mean_reversion", "en") == "mean_reversion"
+    assert family_display_name("legacy_mean_reversion", "zh") == "均值回归（旧版）"
+    assert family_display_name("legacy_mean_reversion", "en") == "legacy_mean_reversion"
     with pytest.raises(ValueError):
         replace(_spec(), strategy_family="momentum")
 
