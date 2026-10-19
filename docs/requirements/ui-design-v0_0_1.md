@@ -125,7 +125,7 @@ Logo 组件：[40:2](https://www.figma.com/design/JXelV0rnUUv5U5w9ur7jtk?node-id
 
 只标代码和设计稿不一致的地方。最终措辞留给后续 PR L，本段不改屏的布局。
 
-**03 确认开跑。** 设计稿上的「128 只 · US-EQ-LIQUID-v3 · 本机 parquet」不是 V1。代码和界面文案是美股大市值 40 只、A 股大市值 40 只（`us_equity_large_cap_v1` / `cn_equity_large_cap_v1`），日线走 Yahoo / AkShare，仓库里没有 parquet 池。128 只和本地 CSV/parquet 导入是 P1。当前门禁展示名是「分段稳健性检验 / 集中度」（[#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129)）。设计稿若仍写「走样 / 拥挤度」，那是旧稿，不是当前界面。动量类论点会在确认卡上看到「仅均值回归」说明（[#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133)）。
+**03 确认开跑。** 设计稿上的「128 只 · US-EQ-LIQUID-v3 · 本机 parquet」不是 V1。代码和界面文案是美股大市值 40 只、A 股大市值 40 只（`us_equity_large_cap_v1` / `cn_equity_large_cap_v1`），日线走 Yahoo / AkShare，仓库里没有 parquet 池。M2 做本地 CSV 导入。Parquet 放到 M2 之后。当前门禁展示名是「分段稳健性检验 / 集中度」（[#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129)）。设计稿若仍写「走样 / 拥挤度」，那是旧稿，不是当前界面。动量类论点会在确认卡上看到「仅均值回归」说明（[#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133)）。
 
 **05 等待确认。** 设计稿上的「赚谁的钱」、确认前 EvidenceRef、逻辑 / 实现分栏，在自动研究路径上通常看不到：生产路径的下一步是回看天数这类参数，不要求用户确认。覆盖跌破用户认下的底线时会停。经济确认卡在测试夹具里，以及用户手动改设定后再确认的路径上；自动轮次当前标为「仅测试 / 手动路径可见」。不在这一版改生产逻辑去强迫弹出这张卡。
 
