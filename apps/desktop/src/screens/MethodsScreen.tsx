@@ -1,0 +1,137 @@
+import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
+
+import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import {formatResearchTimestamp} from "../format";
+import {LocalizedRunError} from "../i18n/LocalizedRunError";
+import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import type {MessageParams} from "../i18n/translate";
+import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
+import {parseEffectiveQuotaFromView} from "../effectiveQuota";
+import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
+import {listRowStatusKey} from "../listStatusDisplay";
+import {railStatusKey} from "../railStatus";
+import {BrandMark} from "../BrandMark";
+import type {Translate} from "./shared";
+import {AnomalyChecklist, renderSettingsProse} from "./shared";
+
+export function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}) {
+  const {t} = useI18n();
+  const [reviseOpen, setReviseOpen] = useState(false);
+  const [reviseBody, setReviseBody] = useState(
+    method.definitionDisplay ?? method.description,
+  );
+  const comparisonLabel = (dim: NonNullable<ValidationMethod["dimensions"]>[number]) =>
+    dim.comparisonLabel ??
+    ({gt: t("ui.methods.gt"), gte: t("ui.methods.gte"), eq: t("ui.methods.eq"), lt: t("ui.methods.lt"), lte: t("ui.methods.lte")} as const)[dim.comparison];
+  return (
+    <section className="method-detail">
+      <h1>{method.name}</h1>
+      {method.category && <span className="method-category-badge">{method.category}</span>}
+      {method.description && !method.description.trim().startsWith("{") ? (
+        <p>{method.description}</p>
+      ) : null}
+      <div className="method-definition-display" data-testid="method-definition-display">
+        {method.definitionDisplay ?? method.description}
+      </div>
+      <details className="method-advanced">
+        <summary>{t("ui.methods.advanced")}</summary>
+        <code className="revision-id" title={method.revision}>{method.revision}</code>
+      </details>
+      {method.usageCount != null && <p>{t("ui.methods.used", {count: method.usageCount})}</p>}
+      {method.dimensions && method.dimensions.length > 0 && (
+        <div className="scorecard-dimensions" data-testid="scorecard-dimensions">
+          <p className="eyebrow">{t("ui.methods.dimensions")}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>{t("ui.methods.colKind")}</th>
+                <th>{t("ui.methods.colName")}</th>
+                <th>{t("ui.methods.colThreshold")}</th>
+                <th>{t("ui.methods.colCompare")}</th>
+                <th>{t("ui.methods.colFailure")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {method.dimensions.map((dim) => (
+                <tr key={`${dim.kind}-${dim.name}`}>
+                  <td>{dim.kindLabel ?? dim.kind}</td>
+                  <td>{dim.name}</td>
+                  <td>{dim.passThreshold}</td>
+                  <td>{comparisonLabel(dim)}</td>
+                  <td>{dim.failureDisplay}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <button className="quiet-button" type="button" onClick={() => setReviseOpen(true)}>{t("ui.methods.edit")}</button>
+      <p>{t("ui.methods.stillOld")}</p>
+      {reviseOpen && (
+        <div className="in-app-confirm-backdrop" data-testid="revise-method-dialog">
+          <div className="in-app-confirm-card revise-method-card" role="dialog" aria-modal="true">
+            <h2>{t("ui.methods.edit")}</h2>
+            <p>{t("ui.methods.editLead")}</p>
+            <label>
+              {t("ui.methods.bodyLabel")}
+              <textarea
+                value={reviseBody}
+                onChange={(event) => setReviseBody(event.target.value)}
+                rows={6}
+              />
+            </label>
+            <div className="in-app-confirm-actions">
+              <button type="button" onClick={() => setReviseOpen(false)}>{t("ui.methods.cancel")}</button>
+              <button
+                type="button"
+                className="cyan-button"
+                disabled={!reviseBody.trim()}
+                onClick={() => {
+                  void api.reviseMethod(method.id, reviseBody.trim());
+                  setReviseOpen(false);
+                }}
+              >
+                {t("ui.methods.createRevision")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "methods"}>}) {
+  const {t} = useI18n();
+  const selected = view.methods.find((item) => item.id === view.selected) ?? view.methods[0];
+  const [name, setName] = useState("");
+  const [definition, setDefinition] = useState("");
+  return (
+    <div className="methods-layout">
+      <aside className="method-list">
+        <p>{t("ui.methods.listLead")}</p>
+        <div className="method-create">
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("ui.methods.namePlaceholder")} />
+          <input value={definition} onChange={(event) => setDefinition(event.target.value)} placeholder={t("ui.methods.definitionPlaceholder")} />
+          <button className="quiet-button" onClick={() => {
+            if (name.trim() && definition.trim()) void api.createMethod(name.trim(), definition.trim());
+          }}>{t("ui.methods.create")}</button>
+        </div>
+        {view.methods.map((method) => (
+          <a
+            className={method.id === selected?.id ? "active" : undefined}
+            href={`#/methods/${encodeURIComponent(method.id)}`}
+            key={method.id}
+          >
+            {method.name}
+            <small className="revision-label">
+              {(method as {revisionLabel?: string}).revisionLabel ?? t("ui.methods.builtin")}
+            </small>
+            {method.usageCount != null ? <small>{t("ui.methods.used", {count: method.usageCount})}</small> : null}
+          </a>
+        ))}
+      </aside>
+      {selected && <MethodDetail api={api} method={selected} />}
+    </div>
+  );
+}

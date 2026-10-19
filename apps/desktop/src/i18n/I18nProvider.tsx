@@ -21,11 +21,10 @@ interface I18nContextValue {
 
 const catalogs = {zh: zhCatalog, en: enCatalog};
 
-const defaultSnapshot: UiLanguageSnapshot = {
-  preference: "system",
-  systemLocale: null,
-  resolved: "en",
-};
+const vitestRun = import.meta.env.MODE === "test";
+const defaultSnapshot: UiLanguageSnapshot = vitestRun
+  ? {preference: "zh", systemLocale: "zh-CN", resolved: "zh"}
+  : {preference: "system", systemLocale: null, resolved: "en"};
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 

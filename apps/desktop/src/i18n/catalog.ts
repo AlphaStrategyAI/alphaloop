@@ -1,5 +1,6 @@
 import lockedGlossary from "./locked-glossary.json";
 import {PLACEHOLDER_MARKER} from "./conventions";
+import {buildUiMessages} from "./uiMessages";
 
 type GlossaryKey = keyof typeof lockedGlossary;
 
@@ -17,8 +18,12 @@ function messages(lang: "zh" | "en") {
     zh ? zhText : final ? `${enText}` : `${PLACEHOLDER_MARKER} ${enText}`;
   return {
     nav: {
+      research: copy("研究", "Research"),
+      methods: copy("方法库", "Methods"),
+      glossary: copy("术语", "Glossary"),
       settings: copy("设置", "Settings"),
     },
+    ui: buildUiMessages(copy),
     settings: {
       kicker: copy("SETTINGS", "SETTINGS", true),
       routeLabel: copy("#/settings", "#/settings", true),

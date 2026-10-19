@@ -1,29 +1,24 @@
 import type {DesktopView} from "./contracts";
+import type {MessageKey} from "./i18n/I18nProvider";
 
-/** Short sidebar status copy (设计小迪 Tech Pulse). */
-export function railStatusLabel(view: DesktopView): string | null {
+export type RailStatusKey = MessageKey;
+
+/** Short sidebar status key (设计小迪 Tech Pulse). */
+export function railStatusKey(view: DesktopView): RailStatusKey | null {
   switch (view.kind) {
     case "confirm_run":
-      return "确认开跑";
+      return "ui.status.confirmRun";
     case "awaiting_confirm":
-      return "等确认";
+      return "ui.status.awaitingShort";
     case "running":
-      return view.status === "paused" ? "已暂停" : "运行中";
+      return view.status === "paused" ? "ui.status.paused" : "ui.status.running";
     case "completed":
-      return "已完成";
+      return "ui.status.completed";
     case "research_list": {
-      if (view.awaiting) {
-        return "等确认";
-      }
-      if (view.rows.some((row) => row.status === "confirm_run")) {
-        return "确认开跑";
-      }
-      if (view.rows.some((row) => row.status === "running")) {
-        return "运行中";
-      }
-      if (view.rows.some((row) => row.status === "awaiting_confirm")) {
-        return "等确认";
-      }
+      if (view.awaiting) return "ui.status.awaitingShort";
+      if (view.rows.some((row) => row.status === "confirm_run")) return "ui.status.confirmRun";
+      if (view.rows.some((row) => row.status === "running")) return "ui.status.running";
+      if (view.rows.some((row) => row.status === "awaiting_confirm")) return "ui.status.awaitingShort";
       return null;
     }
     default:

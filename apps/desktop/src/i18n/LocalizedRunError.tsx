@@ -17,7 +17,7 @@ export function LocalizedRunError({
   if (!error.code) {
     return (
       <p className="run-error" data-testid="last-run-error">
-        运行错误（{error.count} 次）：{error.message}
+        {t("ui.errors.runCount", {count: error.count, message: error.message})}
       </p>
     );
   }

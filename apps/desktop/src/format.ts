@@ -1,15 +1,12 @@
-/** Fixed timezone for deterministic vitest. */
+import {formatUiDateTime} from "./i18n/formatUiDateTime";
+
+/**
+ * Interface timestamps are YYYY-MM-DD HH:mm in every language.
+ * The zone stays Asia/Shanghai: the settings spec fixes the shape, not the zone.
+ */
 export function formatResearchTimestamp(
   iso: string,
   timeZone: string = "Asia/Shanghai",
 ): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(iso));
+  return formatUiDateTime(iso, timeZone);
 }

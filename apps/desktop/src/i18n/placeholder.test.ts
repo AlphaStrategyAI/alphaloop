@@ -5,6 +5,10 @@ import {enCatalog, isFinalMessageKey, zhCatalog} from "./catalog";
 import {PLACEHOLDER_MARKER} from "./conventions";
 import {containsPlaceholderMarker} from "./placeholder";
 
+export function placeholderEnglishCount(): number {
+  return leaves(enCatalog).filter(([, text]) => containsPlaceholderMarker(text)).length;
+}
+
 function leaves(value: unknown, prefix = ""): Array<[string, string]> {
   if (typeof value === "string") return [[prefix, value]];
   if (value && typeof value === "object") {
@@ -16,6 +20,10 @@ function leaves(value: unknown, prefix = ""): Array<[string, string]> {
 }
 
 describe("placeholder marker", () => {
+  it("counts placeholder English for the M2 exit tally", () => {
+    expect(placeholderEnglishCount()).toBeGreaterThan(0);
+  });
+
   it("recognizes the searchable marker and ignores final copy", () => {
     expect(containsPlaceholderMarker(`${PLACEHOLDER_MARKER} Hello`)).toBe(true);
     expect(containsPlaceholderMarker("Strategy family")).toBe(false);
