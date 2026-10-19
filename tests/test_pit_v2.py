@@ -363,7 +363,7 @@ def test_zero_materials_and_fetch_failure_do_not_abort(tmp_path: Path) -> None:
         end=date(2018, 1, 1),
         snapshot_root=paths.data.snapshots_dir,
     )
-    degraded = failing.build(research, 1)
+    degraded = failing.build(replace(research, research_id="pit-fail"), 1)
     degraded_pit = next(
         item for item in degraded.attempt.verification.results if item.verifier_id == "pit.consistency"
     )

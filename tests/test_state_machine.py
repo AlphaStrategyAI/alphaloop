@@ -100,8 +100,12 @@ def test_product_state_table(
     assert transition(research, event, NOW).status is expected
 
 
-def test_confirm_kind_has_only_economic_and_coverage() -> None:
-    assert set(ConfirmKind) == {ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE}
+def test_confirm_kind_has_economic_coverage_and_data_lineage() -> None:
+    assert set(ConfirmKind) == {
+        ConfirmKind.ECONOMIC,
+        ConfirmKind.COVERAGE,
+        ConfirmKind.DATA_LINEAGE,
+    }
 
 
 def test_awaiting_modify_confirm_opens_a_version_from_user_patch() -> None:
@@ -131,7 +135,10 @@ def test_review_blocked_is_not_a_confirm_kind() -> None:
     assert "review_blocked" not in {kind.value for kind in ConfirmKind}
 
 
-@pytest.mark.parametrize("kind", (ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE))
+@pytest.mark.parametrize(
+    "kind",
+    (ConfirmKind.ECONOMIC, ConfirmKind.COVERAGE, ConfirmKind.DATA_LINEAGE),
+)
 def test_running_can_wait_without_opening_a_version(kind: ConfirmKind) -> None:
     research = with_status(ResearchStatus.RUNNING)
     request = ConfirmRequest(
