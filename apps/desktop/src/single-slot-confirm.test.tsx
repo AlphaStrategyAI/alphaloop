@@ -11,7 +11,7 @@ const settings = {
   thesis: "低波动",
   universe: "美股 · 股票",
   max_effective_hours: "8 小时",
-  round1_methods: "走样检验",
+  round1_methods: "分段稳健性检验",
   coverage_floor: "至少 25 个标的",
 };
 

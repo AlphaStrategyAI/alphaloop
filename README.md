@@ -13,9 +13,9 @@
 
 - 不下单，不接券商，不跑模拟盘。
 - 没有 128 只池，没有 `US-EQ-LIQUID`，没有本机 parquet。本地 CSV/parquet 导入和更大的池是 P1，不在这一版。
-- 论点文字不会把策略换成动量或其他族。对话里明确说「V1 只做均值回归」的提示，待 [#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133) 合并后生效。
-- 门禁展示名在当前 main 仍是「走样检验」「拥挤度」。改成「分段稳健性检验」「集中度」，以及左栏「术语」页，待 [#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129) 合并后生效。
-- 联网时，默认设定下回撤等门禁通常仍可能不通过。当前 main 上，抓到的资料没有发布日，时点一致性会失败；不再恒败待 [#132](https://github.com/AlphaStrategyAI/alphaloop/pull/132) 合并后生效。导出的窗口累计与完成页「本研究累计」对齐，待 [#131](https://github.com/AlphaStrategyAI/alphaloop/pull/131) 合并后生效。
+- 论点文字不会把策略换成动量或其他族。对话、确认卡和完成页会说明 V1 只做均值回归（[#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133)）。
+- 门禁展示名是「分段稳健性检验」「集中度」。旧词「走样检验」「拥挤度」只在对话里当别名。左栏有「术语」页（[#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129)）。
+- 联网时，默认设定下回撤等门禁通常仍可能不通过。无发布日的资料不作为证据，时点一致性不再因此恒败（[#132](https://github.com/AlphaStrategyAI/alphaloop/pull/132)，pit-v2）。完成页「本研究累计」与导出 `rounds.json` 用同一把研究窗口键（[#131](https://github.com/AlphaStrategyAI/alphaloop/pull/131)）。
 
 ## 快速开始
 
@@ -55,16 +55,15 @@ npm test
 - [产品设计 v0.0.1](./docs/requirements/product-design-v0_0_1.md)
 - [界面设计 v0.0.1](./docs/requirements/ui-design-v0_0_1.md)（03 / 05 / 06 与代码不一致处已标注，不重画）
 - [V1 交付收口](./docs/requirements/v1-cut-line.md)
+- [术语表](./docs/GLOSSARY.md) — 展示名（分段稳健性检验、集中度、试验次数与累计 M、基准与成本口径）
 - [Tech Pulse 界面说明](./apps/desktop/docs/tech-pulse-ui.md)
-
-术语表 `docs/GLOSSARY.md` 待 #129 合并后入库。在那之前，不要把设计稿上的旧门禁名当成已经改完。
 
 ## 已知限制
 
 - 默认实现层预算是 5 轮（`ALPHALOOP_MAX_TRIALS`）。设计稿若画 6/6 轮或 M=8，与代码不符。
 - 股票基准是价格指数，策略收益按复权总回报计算，两者不是同一口径。
 - 成本门禁在验证器里按换手近似，回测收益序列本身不含逐日费用。
-- 窗口键含确认日。同一想法隔天重开是新窗口；是否改成数据截止日尚未决定。
+- 窗口键含确认日。同一想法隔天重开是新窗口；是否改成数据截止日尚未决定。完成页会把「数据窗口截止」和「回测截止（最后交易日）」分开写。
 
 ## License
 

@@ -9,9 +9,9 @@ from fractions import Fraction
 METHOD_IDS: dict[str, str] = {
     "scorecard.market": "市场计分卡",
     "pit.consistency": "时点一致性",
-    "overfit.walk": "走样检验",
+    "overfit.walk": "分段稳健性检验",
     "stability.oos": "样本外稳定",
-    "crowding.load": "拥挤度",
+    "crowding.load": "集中度",
     "cost.turnover": "换手成本",
 }
 
@@ -65,8 +65,20 @@ def gate_blocker_message(check_id: str) -> str:
     return f"{gate_check_label(check_id)}，暂不能导出策略包"
 
 
-def export_blocker_messages(failed_checks: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(gate_blocker_message(item) for item in failed_checks)
+def export_blocker_messages(
+    failed_checks: tuple[str, ...],
+    *,
+    pit_executed: bool | None = None,
+) -> tuple[str, ...]:
+    messages: list[str] = []
+    for item in failed_checks:
+        if item == "pit_executed_and_passed" and pit_executed is True:
+            messages.append("时点一致性未通过，暂不能导出策略包")
+        elif item == "pit_executed_and_passed" and pit_executed is False:
+            messages.append("时点一致性未执行，暂不能导出策略包")
+        else:
+            messages.append(gate_blocker_message(item))
+    return tuple(messages)
 
 
 def param_label(name: str) -> str:

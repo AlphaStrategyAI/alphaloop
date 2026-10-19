@@ -495,6 +495,7 @@ class Research:
     coverage_min_assets_scratch: int | None = None
     coverage_min_years_scratch: int | None = None
     coverage_max_missing_pct_scratch: float | None = None
+    pending_non_mr_thesis: str | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:

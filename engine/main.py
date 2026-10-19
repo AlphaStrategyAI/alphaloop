@@ -31,6 +31,7 @@ from engine.research.universe_pool import materialize_default_pool, pool_resolva
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.research.confirm_view import symbol_selection_payload
+from engine.research.thesis_scope import mean_reversion_only_notice
 from engine.research.method_body_display import (
     format_method_body_display,
     method_purpose,
@@ -54,6 +55,8 @@ from engine.research.gather import (
     RoutingDataAdapter,
     SecEdgarAdapter,
     YahooDataAdapter,
+    pit_evidence_annotations,
+    pit_evidence_from_payloads,
 )
 from engine.research.desktop_view import (
     format_coverage_floor_display,
@@ -61,12 +64,19 @@ from engine.research.desktop_view import (
     format_universe_display,
     last_reverification_summary,
     metrics_for_completed,
+    pit_detail_for,
     reverify_options_for,
     rounds_for_desktop,
     selected_method_id,
     universe_label_for,
 )
-from engine.research.display_names import export_blocker_messages, format_display_number
+from engine.research.display_names import (
+    METHOD_IDS,
+    export_blocker_messages,
+    format_display_number,
+    method_label,
+)
+from engine.research.glossary import glossary_entries, glossary_intro
 from engine.research.symbol_selection_display import format_symbol_selection_summary
 from engine.research.time_display import format_effective_display, format_remaining_display
 from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
@@ -131,7 +141,7 @@ from engine.research.store import SQLiteStore
 from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
 from engine.strategy import MarketPanel, MeanReversionStrategy
-from engine.verifiers import method_set_excluding_pit, run_verifiers
+from engine.verifiers import method_set_excluding_pit, recorded_pit_revision, run_verifiers
 
 PROTOCOL_VERSION = 1
 
@@ -143,6 +153,29 @@ _ACTION_LABELS = {
     ResearchAction.ITERATE: "迭代",
     ResearchAction.IDLE: "idle",
 }
+
+
+def _accepted_attempt(research: Research):
+    if not research.versions or not research.versions[-1].rounds:
+        return None
+    return research.versions[-1].rounds[-1].accepted_attempt
+
+
+def _backtest_cutoff(research: Research) -> str | None:
+    attempt = _accepted_attempt(research)
+    simulation = getattr(attempt, "simulation", None) if attempt is not None else None
+    end = getattr(simulation, "end", None)
+    if end is not None and hasattr(end, "isoformat"):
+        return str(end.isoformat())
+    return None
+
+
+def _pit_was_executed(research: Research) -> bool | None:
+    attempt = _accepted_attempt(research)
+    verification = getattr(attempt, "verification", None) if attempt is not None else None
+    if verification is None:
+        return False
+    return any(item.verifier_id == "pit.consistency" for item in verification.results)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -436,7 +469,7 @@ class ResearchCommandService:
             "stability": "稳定性",
             "pit_consistency": "时点一致性",
             "cost_sensitivity": "成本敏感度",
-            "crowding": "拥挤度",
+            "crowding": "集中度",
             "custom": "自定义",
         }.get(kind, kind)
 
@@ -481,7 +514,7 @@ class ResearchCommandService:
                     "passThreshold": parsed["oos_to_is_min"],
                     "comparison": "gte",
                     "comparisonLabel": "不小于",
-                    "failureDisplay": "样本外走样",
+                    "failureDisplay": "分段表现未保持",
                 })
         elif method_id == "stability.oos":
             if "same_sign_ratio_min" in parsed:
@@ -535,17 +568,32 @@ class ResearchCommandService:
         if method_id.startswith("stability."):
             return "稳定性"
         if method_id.startswith("crowding."):
-            return "拥挤度"
+            return "集中度"
         if method_id.startswith("cost."):
             return "成本"
         return None
 
     def view_for(self, route: str) -> dict[str, Any]:
+        if route == "#/glossary" or route.startswith("#/glossary?"):
+            return self._host_payload(
+                {
+                    "kind": "glossary",
+                    "intro": glossary_intro(),
+                    "entries": [
+                        {"id": entry.term_id, "term": entry.term, "body": entry.body}
+                        for entry in glossary_entries()
+                    ],
+                }
+            )
         if route.startswith("#/methods"):
             methods = [
                 {
                     "id": item.method_id,
-                    "name": item.name or item.method_id,
+                    "name": (
+                        method_label(item.method_id)
+                        if item.method_id in METHOD_IDS
+                        else (item.name or item.method_id)
+                    ),
                     "revision": item.revision_hash,
                     "revisionLabel": revision_display_label(
                         revision_token_from_body(item.body) or item.revision_hash[:8]
@@ -617,6 +665,11 @@ class ResearchCommandService:
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(display_research)
+                notice = mean_reversion_only_notice(
+                    str(research.brief.thesis.value or "")
+                )
+                if notice:
+                    body["meanReversionOnlyNotice"] = notice
                 if confirm_data_notice:
                     body["confirmDataNotice"] = confirm_data_notice
             return self._host_payload(body, research)
@@ -725,6 +778,9 @@ class ResearchCommandService:
                 "remaining": self._remaining(research),
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
+                "meanReversionOnlyNotice": mean_reversion_only_notice(
+                    str(research.brief.thesis.value or "")
+                ),
                 "universeLabel": subtitle,
                 "subtitle": presentation.summary,
                 "resultHeadline": presentation.headline,
@@ -750,11 +806,16 @@ class ResearchCommandService:
                 "metrics": metrics_for_completed(research),
                 "failedExportChecks": list(eligibility.failed_checks),
                 "exportBlockerMessages": list(
-                    export_blocker_messages(eligibility.failed_checks)
+                    export_blocker_messages(
+                        eligibility.failed_checks,
+                        pit_executed=_pit_was_executed(research),
+                    )
                 ),
                 "symbolSelection": symbol_selection_payload(research),
+                "backtestCutoff": _backtest_cutoff(research),
                 "reverifyOptions": reverify_options_for(research),
                 "lastReverification": last_reverification_summary(research),
+                "pitDetail": pit_detail_for(research),
                 "eligibility": {
                     "allMethodsPassed": presentation.methods_verification_passed,
                     "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
@@ -1037,17 +1098,23 @@ class ResearchCommandService:
                 frozen.index.min().date(),
                 frozen.index.max().date(),
             )
-            missing_as_of: tuple[str, ...] = ()
-            if accepted.evidence_paths:
-                missing_as_of = tuple(
-                    json.loads(path.read_text(encoding="utf-8"))["material_id"]
-                    for path in accepted.evidence_paths
-                )
+            pit_revision = recorded_pit_revision(accepted.verification)
+            evidence_payloads = tuple(
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in accepted.evidence_paths
+            )
+            evidence_as_of, missing_as_of, undated_excluded = pit_evidence_from_payloads(
+                evidence_payloads,
+                revision=pit_revision,
+            )
             rerun = run_verifiers(
                 rerun_simulation,
                 accepted.spec,
-                evidence_as_of=(),
+                evidence_as_of=evidence_as_of,
                 missing_as_of_material_ids=missing_as_of,
+                undated_excluded=undated_excluded,
+                evidence_annotations=pit_evidence_annotations(evidence_payloads),
+                pit_revision=pit_revision,
             )
             matching_method = [
                 result

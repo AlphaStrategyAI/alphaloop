@@ -50,7 +50,9 @@ Engine line (“引擎：运行中”) is no longer shown in the rail; engine he
 
 Confirm-to-run shows the checked-in pools: 40 US names and 40 CN names. It does not show 128 names, `US-EQ-LIQUID-v3`, or a local parquet file. Those stay P1. Screen notes for 03 / 05 / 06 are in `docs/requirements/ui-design-v0_0_1.md`. This skin is not redrawn here.
 
-The glossary nav item (`#/glossary`) is specified there and takes effect after PR #129 merges. This branch's shell still has two nav links: 研究 and 方法库.
+## Glossary
+
+The rail has three links: 研究, 方法库, and 术语. `#/glossary` reuses `.tech-pulse-card` and a `<details>` fold. Copy comes from the engine glossary (`docs/GLOSSARY.md`), not from a second set of labels in the desktop. The highlight follows the current hash before the view finishes loading. A failed `fetch_view` shows the error and a retry.
 
 ## Research list
 

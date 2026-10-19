@@ -54,7 +54,7 @@
 | 一条真实研究闭环 | 不是把关键词规则的草稿对话当作唯一的大脑。运行中和已完成的工作台，被可检查的结论、指标、证据、试验次数填满，这些内容来自这条闭环。 |
 | 确认流按设计走完 | 「谁的钱」必须问、可以不答；「为什么」只引用确认前的 EvidenceRef；逻辑 / 实现分栏按产品设计呈现。 |
 | 完成态导出含全部门槛 | 已完成研究的可实盘导出资格包含全部交接门槛，含时点第四关。任一关不成立，不导出可实盘策略包，并写明缺的是哪一条。 |
-| 一条诚实的端到端 | V1 只有截面均值回归这一族。论点文字不改变策略代码；对话里的明确提示待 [#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133) 合并后生效。去掉假装研究已经发生的占位文案和空标题。 |
+| 一条诚实的端到端 | V1 只有截面均值回归这一族。论点文字不改变策略代码。对话、确认卡和完成页会说明这一点（[#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133)）。去掉假装研究已经发生的占位文案和空标题。 |
 | 策略包能被别人拿走执行 | V1 交接的是自足策略包，加上冻结的数据与验证。下游自己实现 `ExecutionPort`。包里可以带 `ExecutionPort` / `NotImplementedBroker` 占位，这符合不下单的铁律。alphaloop 不交付可直连券商的执行器。 |
 | Night 七屏仍是交互表面 | 研究列表、草稿、确认开跑、运行中、等待确认、已完成、验证方法库。不为 V1 新做一套信息架构。 |
 
@@ -78,7 +78,7 @@
 
 离线单测仍须全绿，时点一致性里「晚于截止判失败」和「被当作证据却没有日期判失败」的断言不放宽。在此之上，第 3、4 条按下面三段验收：
 
-1. **联网一次，只看 PIT 是否还在恒败。** 待 [#132](https://github.com/AlphaStrategyAI/alphaloop/pull/132) 合并后，默认论点跑完时，`strategy_pack_eligibility.failed_checks` 不再因为时点一致性恒败而一定包含 `pit_executed_and_passed`。本文件所依据的 main 上，资料没有发布日，这一关仍然会失败。
+1. **联网一次，只看 PIT 是否还在恒败。** [#132](https://github.com/AlphaStrategyAI/alphaloop/pull/132) 已合入：无发布日的资料不作为证据（pit-v2），默认论点跑完时，`strategy_pack_eligibility.failed_checks` 不再因为时点一致性恒败而一定包含 `pit_executed_and_passed`。范围只查资料发布日是否不晚于回测截止，不覆盖标的池时点、复权或财务修订。
 2. **离线诚实合成数据**可以走到四关全绿、导出策略包、通过 `contracts/strategy-pack.schema.json`，且 `live_handoff_eligible: true`。
 3. **联网整链全绿不作为门槛。** 默认设定下，回撤下限等门禁通常仍可能不通过。不得为了变绿放宽阈值或挑选窗口。
 
@@ -133,7 +133,7 @@ P0 是 V1 的工程主体。P1–P3 是收口之后的顺序，不是 V1 的隐�
 
 **策略族：** V1 引擎只有均值回归。第二个策略族在 P2。
 
-**门禁展示名与术语导航：** 当前代码仍显示「走样检验」「拥挤度」。改名、术语表和左栏第三项「术语」待 [#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129) 合并后生效。这不新增一套信息架构，Night 七屏仍是交互表面。
+**门禁展示名与术语导航：** 展示名是「分段稳健性检验」「集中度」（[#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129)）。对话里的旧词「走样检验」「拥挤度」仍可解析。左栏第三项是「术语」，文案来自 `docs/GLOSSARY.md`。这不新增一套信息架构，Night 七屏仍是交互表面。完成页「本研究在本窗口累计」与 `rounds.json` 用研究钉住的窗口键（[#131](https://github.com/AlphaStrategyAI/alphaloop/pull/131)），不是回测最后一根 bar。
 
 ## 6. 和现有文档怎么一起读
 
