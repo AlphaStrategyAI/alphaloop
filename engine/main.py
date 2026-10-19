@@ -36,6 +36,8 @@ from engine.i18n.locale import (
     reset_request_locale,
 )
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
+from engine.portfolio import SCHEDULE_COST_MODEL
+from engine.research.a2_copy import cn_execution_notice_for, construction_notice_for
 from engine.research.confirm_view import symbol_selection_payload
 from engine.research.thesis_scope import mean_reversion_only_notice
 from engine.research.method_body_display import (
@@ -670,6 +672,9 @@ class ResearchCommandService:
                 )
                 if notice:
                     body["meanReversionOnlyNotice"] = notice
+                construction = construction_notice_for(research)
+                if construction:
+                    body["constructionNotice"] = construction
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -785,6 +790,7 @@ class ResearchCommandService:
                 "meanReversionOnlyNotice": mean_reversion_only_notice(
                     str(research.brief.thesis.value or "")
                 ),
+                "cnExecutionNotice": cn_execution_notice_for(research),
                 "universeLabel": subtitle,
                 "subtitle": presentation.summary,
                 "resultHeadline": presentation.headline,
@@ -869,6 +875,7 @@ class ResearchCommandService:
                 raise
             self.store.save(research, expected_at)
             research = self.store.load(research.research_id)
+            research = replace(research, construction_schedule=SCHEDULE_COST_MODEL)
             updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
             self._record_version_methods(updated)
             return self._save(research, updated)

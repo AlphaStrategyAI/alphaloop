@@ -540,6 +540,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           {view.meanReversionOnlyNotice}
         </p>
       )}
+      {view.constructionNotice && (
+        <p className="confirm-lead" data-testid="construction-notice">
+          {view.constructionNotice}
+        </p>
+      )}
       {view.confirmDataNotice && (
         <p className="confirm-data-notice" data-testid="confirm-data-notice" role="alert">
           {view.confirmDataNotice}
@@ -1059,6 +1064,11 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         {view.meanReversionOnlyNotice && (
           <p className="confirm-lead" data-testid="mean-reversion-only-notice">
             {view.meanReversionOnlyNotice}
+          </p>
+        )}
+        {view.cnExecutionNotice && (
+          <p className="confirm-lead" data-testid="cn-execution-notice">
+            {view.cnExecutionNotice}
           </p>
         )}
         {view.subtitle && <p className="completed-focus-subtitle">{view.subtitle}</p>}
