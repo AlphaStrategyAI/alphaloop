@@ -3,11 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, get_args, get_origin
+from types import TracebackType
+from typing import Any, Self, get_args, get_origin
 
 import cattrs
 
@@ -101,8 +103,18 @@ CONVERTER.register_structure_hook_func(
 
 
 def _structure_verifier_result(item: dict[str, Any], _: type) -> VerifierResult:
-    target = PitVerifierResult if item.get("verifier_id") == "pit.consistency" else VerifierResult
-    return CONVERTER.structure(item, target)
+    if item.get("verifier_id") != "pit.consistency":
+        return CONVERTER.structure(item, VerifierResult)
+    payload = dict(item)
+    payload.setdefault("evidence_timestamps", [])
+    payload.setdefault("backtest_cutoff", "")
+    payload.setdefault("violations", [])
+    payload.setdefault("evidence_used", 0)
+    payload.setdefault("undated_excluded", [])
+    payload.setdefault("scope", "")
+    payload.setdefault("note", "")
+    payload.setdefault("violation_details", [])
+    return CONVERTER.structure(payload, PitVerifierResult)
 
 
 def _structure_verification_report(data: Any, _: type) -> VerificationReport | None:
@@ -218,10 +230,94 @@ class ConcurrentWrite(RuntimeError):
     """The stored research changed after it was loaded."""
 
 
+class _BufferedCursor:
+    """Rows copied while the connection lock is held, so callers can read them after release."""
+
+    def __init__(self, cursor: sqlite3.Cursor) -> None:
+        self._rows = list(cursor.fetchall())
+        self._index = 0
+        self.rowcount = cursor.rowcount
+        self.lastrowid = cursor.lastrowid
+
+    def fetchone(self) -> Any:
+        if self._index >= len(self._rows):
+            return None
+        row = self._rows[self._index]
+        self._index += 1
+        return row
+
+    def fetchall(self) -> list[Any]:
+        rows = self._rows[self._index :]
+        self._index = len(self._rows)
+        return rows
+
+
+class _SerializedConnection:
+    """Serialize use of one sqlite3 connection across ThreadingHTTPServer workers.
+
+    A bare ``execute`` copies its rows before releasing the lock. ``with connection``
+    holds the lock only for that transaction, so a market-data probe must stay outside it.
+    """
+
+    def __init__(self, raw: sqlite3.Connection) -> None:
+        self._raw = raw
+        self._lock = threading.RLock()
+        self._frames = 0
+
+    def __enter__(self) -> Self:
+        self._lock.acquire()
+        self._frames += 1
+        try:
+            self._raw.__enter__()
+        except BaseException:
+            self._frames -= 1
+            self._lock.release()
+            raise
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None:
+        try:
+            return self._raw.__exit__(exc_type, exc, tb)
+        finally:
+            self._frames -= 1
+            self._lock.release()
+
+    def execute(self, sql: str, parameters: Any = ()) -> Any:
+        if self._frames:
+            return self._raw.execute(sql, parameters)
+        with self._lock:
+            return _BufferedCursor(self._raw.execute(sql, parameters))
+
+    def executemany(self, sql: str, seq_of_parameters: Any) -> Any:
+        if self._frames:
+            return self._raw.executemany(sql, seq_of_parameters)
+        with self._lock:
+            return self._raw.executemany(sql, seq_of_parameters)
+
+    def executescript(self, sql_script: str) -> Any:
+        if self._frames:
+            return self._raw.executescript(sql_script)
+        with self._lock:
+            return self._raw.executescript(sql_script)
+
+    def commit(self) -> None:
+        with self._lock:
+            self._raw.commit()
+
+    def rollback(self) -> None:
+        with self._lock:
+            self._raw.rollback()
+
+
 class SQLiteStore:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.connection = sqlite3.connect(path, check_same_thread=False)
+        self.connection = _SerializedConnection(sqlite3.connect(path, check_same_thread=False))
         self.connection.executescript(SCHEMA)
         self._migrate_method_schema()
         self._migrate_review_attempts_schema()
@@ -298,7 +394,10 @@ class SQLiteStore:
 
     @staticmethod
     def _decode(payload: str) -> Research:
-        return CONVERTER.structure(json.loads(payload), Research)
+        data = json.loads(payload)
+        if isinstance(data, dict):
+            data.setdefault("pending_non_mr_thesis", None)
+        return CONVERTER.structure(data, Research)
 
     def create(self, research: Research) -> None:
         with self.connection:

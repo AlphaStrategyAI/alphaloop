@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+import calendar
+import re
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import Protocol
@@ -15,7 +17,70 @@ import yfinance as yf
 from engine.research import market_data_timeouts as _market_data_timeouts
 from engine.research.data_availability import transient_data_error
 from engine.research.market_data_timeouts import cn_market_data_max_workers, run_with_deadline
+from engine.research.planned_data_window import is_cn_listed_symbol
 
+CROSSREF_MAILTO = "research@example.invalid"
+_PUBLISHED_HEADER = re.compile(r"published:\s*(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE)
+
+
+def parse_crossref_issued(issued: object) -> tuple[date, str] | None:
+    """Parse Crossref ``issued.date-parts``. ``created`` is not a fallback.
+
+    Returns ``(date, precision)`` where precision is ``year``, ``year_month``,
+    or ``day``. Year only → 31 Dec. Year and month → month end.
+    Missing or unparseable → None.
+    """
+    if not isinstance(issued, dict):
+        return None
+    parts = issued.get("date-parts")
+    if not isinstance(parts, list) or not parts or not isinstance(parts[0], list):
+        return None
+    numbers: list[int] = []
+    for raw in parts[0][:3]:
+        if raw is None:
+            break
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            return None
+        numbers.append(raw)
+    if not numbers:
+        return None
+    year = numbers[0]
+    if year < 1 or year > 9999:
+        return None
+    if len(numbers) == 1:
+        return date(year, 12, 31), "year"
+    month = numbers[1]
+    if not 1 <= month <= 12:
+        return None
+    if len(numbers) == 2:
+        return date(year, month, calendar.monthrange(year, month)[1]), "year_month"
+    try:
+        return date(year, month, numbers[2]), "day"
+    except ValueError:
+        return None
+
+
+def published_at_from_crossref_issued(issued: object) -> date | None:
+    parsed = parse_crossref_issued(issued)
+    return None if parsed is None else parsed[0]
+
+
+def published_at_from_markdown(text: str) -> date | None:
+    """Read ``published: YYYY-MM-DD`` from YAML front matter only. Never file mtime."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        match = _PUBLISHED_HEADER.match(line.strip())
+        if match is None:
+            continue
+        try:
+            return date.fromisoformat(match.group(1))
+        except ValueError:
+            return None
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +91,8 @@ class Material:
     url: str
     text: str
     fetched_at: datetime
+    published_at: date | None = None
+    published_precision: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,25 +121,44 @@ class DataPort(Protocol):
 class PapersAdapter:
     client: httpx.Client
     now: Callable[[], datetime]
+    mailto: str = CROSSREF_MAILTO
+    fetch_errors: list[str] = field(default_factory=list)
 
     def fetch(self, query: str) -> tuple[Material, ...]:
-        response = self.client.get(
-            "https://api.crossref.org/works",
-            params={"query": query, "rows": 5, "select": "DOI,title,URL,abstract"},
-            timeout=20.0,
-        )
-        response.raise_for_status()
+        try:
+            response = self.client.get(
+                "https://api.crossref.org/works",
+                params={
+                    "query": query,
+                    "rows": 5,
+                    "select": "DOI,title,URL,abstract,issued",
+                    "mailto": self.mailto,
+                },
+                timeout=20.0,
+            )
+            response.raise_for_status()
+            items = response.json()["message"]["items"]
+        except Exception as exc:  # noqa: BLE001 — material fetch must not abort research
+            self.fetch_errors.append(f"crossref: {type(exc).__name__}: {exc}")
+            return ()
         result = []
-        for item in response.json()["message"]["items"]:
+        for item in items:
+            doi = item.get("DOI")
+            if not isinstance(doi, str) or not doi:
+                self.fetch_errors.append("crossref: missing DOI")
+                continue
             title = " ".join(item.get("title", ["Untitled"]))
+            parsed = parse_crossref_issued(item.get("issued"))
             result.append(
                 Material(
-                    material_id=f"doi:{item['DOI']}",
+                    material_id=f"doi:{doi}",
                     source="papers",
                     title=title,
-                    url=item.get("URL", f"https://doi.org/{item['DOI']}"),
+                    url=item.get("URL", f"https://doi.org/{doi}"),
                     text=item.get("abstract", title),
                     fetched_at=self.now(),
+                    published_at=None if parsed is None else parsed[0],
+                    published_precision=None if parsed is None else parsed[1],
                 )
             )
         return tuple(result)
@@ -83,16 +169,22 @@ class SecEdgarAdapter:
     client: httpx.Client
     now: Callable[[], datetime]
     user_agent: str
+    fetch_errors: list[str] = field(default_factory=list)
 
     def fetch(self, query: str) -> tuple[Material, ...]:
-        response = self.client.get(
-            "https://www.sec.gov/files/company_tickers.json",
-            headers={"User-Agent": self.user_agent},
-            timeout=20.0,
-        )
-        response.raise_for_status()
+        try:
+            response = self.client.get(
+                "https://www.sec.gov/files/company_tickers.json",
+                headers={"User-Agent": self.user_agent},
+                timeout=20.0,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:  # noqa: BLE001 — material fetch must not abort research
+            self.fetch_errors.append(f"sec-edgar: {type(exc).__name__}: {exc}")
+            return ()
         matches = []
-        for item in response.json().values():
+        for item in payload.values():
             haystack = f"{item['ticker']} {item['title']}".lower()
             if query.lower() in haystack:
                 cik = str(item["cik_str"]).zfill(10)
@@ -104,6 +196,7 @@ class SecEdgarAdapter:
                         url=f"https://data.sec.gov/submissions/CIK{cik}.json",
                         text=f"EDGAR issuer record for {item['title']}",
                         fetched_at=self.now(),
+                        published_at=None,
                     )
                 )
         return tuple(matches[:5])
@@ -120,6 +213,7 @@ class LocalMaterialAdapter:
         for path in sorted(self.root.glob("*.md")):
             text = path.read_text(encoding="utf-8")
             if not words or any(word in text.lower() for word in words):
+                published = published_at_from_markdown(text)
                 result.append(
                     Material(
                         material_id=f"local:{path.name}",
@@ -128,6 +222,8 @@ class LocalMaterialAdapter:
                         url=path.resolve().as_uri(),
                         text=text,
                         fetched_at=self.now(),
+                        published_at=published,
+                        published_precision="day" if published is not None else None,
                     )
                 )
         return tuple(result)
@@ -309,12 +405,7 @@ class RoutingDataAdapter:
             from engine.research.data_errors import EmptySymbolsError
 
             raise EmptySymbolsError()
-        is_cn = all(
-            symbol == "CBA00101.CS"
-            or symbol.startswith(("CN_BOND:", "CN_FUND:"))
-            or symbol.endswith((".SH", ".SZ", ".BJ"))
-            for symbol in symbols
-        )
+        is_cn = all(is_cn_listed_symbol(symbol) for symbol in symbols)
 
         def _load() -> pd.DataFrame:
             return (
@@ -331,12 +422,80 @@ class RoutingDataAdapter:
             raise transient_data_error() from None
 
 
-def gather(query: str, ports: tuple[MaterialPort, ...]) -> tuple[Material, ...]:
-    materials = tuple(item for port in ports for item in port.fetch(query))
+@dataclass(frozen=True, slots=True)
+class GatherBatch:
+    materials: tuple[Material, ...]
+    failures: tuple[str, ...]
+
+
+def gather_materials(query: str, ports: tuple[MaterialPort, ...]) -> GatherBatch:
+    """Fetch every port. A failed port is recorded and does not abort the others."""
+    collected: list[Material] = []
+    failures: list[str] = []
+    for port in ports:
+        try:
+            collected.extend(port.fetch(query))
+        except Exception as exc:  # noqa: BLE001 — material fetch must not abort research
+            failures.append(f"{type(port).__name__}: {type(exc).__name__}: {exc}")
+            continue
+        extra = getattr(port, "fetch_errors", ())
+        failures.extend(str(item) for item in extra)
     seen: set[str] = set()
-    unique = []
-    for item in materials:
+    unique: list[Material] = []
+    for item in collected:
         if item.material_id not in seen:
             seen.add(item.material_id)
             unique.append(item)
-    return tuple(unique)
+    return GatherBatch(tuple(unique), tuple(failures))
+
+
+def gather(query: str, ports: tuple[MaterialPort, ...]) -> tuple[Material, ...]:
+    return gather_materials(query, ports).materials
+
+
+def pit_evidence_from_payloads(
+    payloads: tuple[object, ...],
+    *,
+    revision: str,
+) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...], tuple[str, ...]]:
+    """Return ``(evidence_as_of, missing_as_of, undated_excluded)``.
+
+    pit-v1 keeps the legacy rule: every saved material is missing ``as_of``.
+    pit-v2 cites only a real ``published_at`` and lists the rest as not used.
+    """
+    from engine.verifiers import PIT_REVISION_V2
+
+    rows: list[Mapping[str, object]] = []
+    for item in payloads:
+        if not isinstance(item, dict):
+            raise TypeError("evidence file must be a JSON object")
+        rows.append(item)
+    if revision != PIT_REVISION_V2:
+        missing = tuple(str(item["material_id"]) for item in rows)
+        return (), missing, ()
+    dated: list[tuple[str, str]] = []
+    undated: list[str] = []
+    for item in rows:
+        material_id = str(item["material_id"])
+        published = item.get("published_at")
+        if isinstance(published, str) and published:
+            dated.append((material_id, published))
+        else:
+            undated.append(material_id)
+    return tuple(dated), (), tuple(undated)
+
+
+def pit_evidence_annotations(payloads: tuple[object, ...]) -> tuple[tuple[str, str, str], ...]:
+    """``(material_id, title, published_precision)`` for pit-v2 display. pit-v1 ignores this."""
+    annotations: list[tuple[str, str, str]] = []
+    for item in payloads:
+        if not isinstance(item, dict):
+            continue
+        annotations.append(
+            (
+                str(item.get("material_id") or ""),
+                str(item.get("title") or ""),
+                str(item.get("published_precision") or ""),
+            )
+        )
+    return tuple(annotations)

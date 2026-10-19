@@ -6,7 +6,7 @@ from engine.research.models import AssetClass, CoverageFloor, Market, Research, 
 from engine.research.progress import _ASSET, _MARKET
 from engine.research.display_names import method_label, param_label
 from engine.research.round_copy import localize_logic_change, localize_model_changes
-from engine.verifiers import method_set_excluding_pit
+from engine.verifiers import PitVerifierResult, method_set_excluding_pit
 
 _MARKET_LABEL = _MARKET
 _ASSET_LABEL = _ASSET
@@ -194,6 +194,55 @@ def last_reverification_summary(research: Research) -> dict[str, Any] | None:
         "stillFailingLabels": still_failing,
         "userMessage": user_message,
     }
+
+
+def _first_pit_violation(item: PitVerifierResult) -> dict[str, Any] | None:
+    if item.violation_details:
+        first = item.violation_details[0]
+        return {
+            "materialId": first.material_id,
+            "title": first.title,
+            "publishedAt": first.published_at,
+            "precision": first.precision,
+            "reason": first.reason,
+        }
+    if item.violations:
+        return {
+            "materialId": "",
+            "title": "",
+            "publishedAt": "",
+            "precision": "",
+            "reason": "legacy",
+            "text": item.violations[0],
+        }
+    return None
+
+
+def pit_detail_for(research: Research) -> dict[str, Any] | None:
+    if not research.versions or not research.versions[-1].rounds:
+        return None
+    verification = research.versions[-1].rounds[-1].accepted_attempt.verification
+    if verification is None:
+        return {"executed": False, "passed": False}
+    for item in verification.results:
+        if item.verifier_id != "pit.consistency":
+            continue
+        if not isinstance(item, PitVerifierResult):
+            return {"executed": True, "passed": bool(item.passed), "revision": item.revision}
+        first = _first_pit_violation(item)
+        return {
+            "executed": True,
+            "passed": item.passed,
+            "revision": item.revision,
+            "evidenceUsed": item.evidence_used,
+            "undatedExcluded": list(item.undated_excluded),
+            "scope": item.scope,
+            "note": item.note,
+            "backtestCutoff": item.backtest_cutoff,
+            "violationCount": len(item.violation_details) or len(item.violations),
+            "firstViolation": first,
+        }
+    return {"executed": False, "passed": False}
 
 
 def metrics_for_completed(research: Research) -> dict[str, Any] | None:

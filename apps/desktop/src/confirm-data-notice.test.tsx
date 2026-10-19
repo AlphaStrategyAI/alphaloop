@@ -21,7 +21,7 @@ describe("confirm data notice", () => {
             thesis: "测试",
             universe: "美股 · 股票",
             max_effective_hours: "3 小时",
-            round1_methods: "走样检验",
+            round1_methods: "分段稳健性检验",
             coverage_floor: "至少 25 个标的",
           },
         }}

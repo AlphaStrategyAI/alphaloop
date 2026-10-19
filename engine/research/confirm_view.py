@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from engine.research.models import Research
-from engine.research.display_names import data_source_label
+from engine.research.display_names import data_source_label_for_symbols
 from engine.research.symbol_selection_display import symbol_selection_summary_fields
-from engine.research.planned_data_window import DEFAULT_DATA_SOURCE_ID, planned_data_window
+from engine.research.planned_data_window import planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.symbol_pool import pool_for_market
 from engine.research.universe_pool import materialize_default_pool
@@ -82,9 +82,7 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
             "dataStart": start.isoformat(),
             "dataEnd": end.isoformat(),
             "dataCutoff": end.isoformat(),
-            "dataSource": data_source_label(
-                research.data_source_id or DEFAULT_DATA_SOURCE_ID
-            ),
+            "dataSource": data_source_label_for_symbols(tuple(symbols), universe.market),
             "droppedForMissingData": dropped,
             "shrinkNote": shrink_note or None,
         }
