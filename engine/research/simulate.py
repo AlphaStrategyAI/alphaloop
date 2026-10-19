@@ -11,7 +11,7 @@ from engine.metrics import (
     calculate_metrics,
 )
 from engine.research.gather import DataPort
-from engine.strategy import AlphaStrategy, MarketPanel, run_daily_backtest
+from engine.strategy import AlphaStrategy, MarketPanel, daily_book
 
 
 def simulate_daily(
@@ -38,7 +38,9 @@ def simulate_daily(
         datetime.now(UTC),
         benchmark_prices[benchmark.benchmark_id],
     )
-    strategy_returns = run_daily_backtest(strategy, panel)
+    book = daily_book(strategy, panel)
+    strategy_returns = book.net
+    weights = book.weights
     benchmark_returns = benchmark_prices[benchmark.benchmark_id].pct_change(fill_method=None).fillna(0.0)
 
     def sharpe(values: pd.Series) -> float:
@@ -55,9 +57,6 @@ def simulate_daily(
         in_sample_sharpes.append(sharpe(train))
         out_sample_sharpes.append(sharpe(test))
         segment_returns.append(float((1.0 + test).prod() - 1.0))  # type: ignore[operator, arg-type]
-    raw_signals = strategy.generate_signals(panel).shift(1).fillna(0.0)
-    gross = raw_signals.abs().sum(axis=1).replace(0.0, 1.0)
-    weights = raw_signals.div(gross, axis=0)
     concentration = weights.abs().max(axis=1)
     crowded = strategy_returns[concentration >= concentration.quantile(0.8)]
     diagnostics = SimulationDiagnostics(

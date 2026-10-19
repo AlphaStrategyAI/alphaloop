@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from engine.portfolio import LEGACY_COST_MODEL
 from engine.research.families import LEGACY_FAMILY_METHOD, LEGACY_STRATEGY_FAMILY
 from engine.research.gather import DataProfile, Material
 from engine.research.models import (
@@ -144,6 +145,8 @@ def specify(
         family_method=prior.family_method if prior else LEGACY_FAMILY_METHOD,
         family_params=prior.family_params if prior else (),
         primary_factor=prior.primary_factor if prior else None,
+        cost_model=prior.cost_model if prior else LEGACY_COST_MODEL,
+        name_weight_cap=prior.name_weight_cap if prior else None,
     )
 
 
