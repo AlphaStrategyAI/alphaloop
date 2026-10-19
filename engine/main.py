@@ -54,6 +54,7 @@ from engine.research.gather import (
     RoutingDataAdapter,
     SecEdgarAdapter,
     YahooDataAdapter,
+    pit_evidence_from_payloads,
 )
 from engine.research.desktop_view import (
     format_coverage_floor_display,
@@ -61,6 +62,7 @@ from engine.research.desktop_view import (
     format_universe_display,
     last_reverification_summary,
     metrics_for_completed,
+    pit_detail_for,
     reverify_options_for,
     rounds_for_desktop,
     selected_method_id,
@@ -131,7 +133,7 @@ from engine.research.store import SQLiteStore
 from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
 from engine.strategy import MarketPanel, MeanReversionStrategy
-from engine.verifiers import method_set_excluding_pit, run_verifiers
+from engine.verifiers import method_set_excluding_pit, recorded_pit_revision, run_verifiers
 
 PROTOCOL_VERSION = 1
 
@@ -755,6 +757,7 @@ class ResearchCommandService:
                 "symbolSelection": symbol_selection_payload(research),
                 "reverifyOptions": reverify_options_for(research),
                 "lastReverification": last_reverification_summary(research),
+                "pitDetail": pit_detail_for(research),
                 "eligibility": {
                     "allMethodsPassed": presentation.methods_verification_passed,
                     "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
@@ -1037,17 +1040,22 @@ class ResearchCommandService:
                 frozen.index.min().date(),
                 frozen.index.max().date(),
             )
-            missing_as_of: tuple[str, ...] = ()
-            if accepted.evidence_paths:
-                missing_as_of = tuple(
-                    json.loads(path.read_text(encoding="utf-8"))["material_id"]
-                    for path in accepted.evidence_paths
-                )
+            pit_revision = recorded_pit_revision(accepted.verification)
+            evidence_payloads = tuple(
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in accepted.evidence_paths
+            )
+            evidence_as_of, missing_as_of, undated_excluded = pit_evidence_from_payloads(
+                evidence_payloads,
+                revision=pit_revision,
+            )
             rerun = run_verifiers(
                 rerun_simulation,
                 accepted.spec,
-                evidence_as_of=(),
+                evidence_as_of=evidence_as_of,
                 missing_as_of_material_ids=missing_as_of,
+                undated_excluded=undated_excluded,
+                pit_revision=pit_revision,
             )
             matching_method = [
                 result

@@ -178,6 +178,13 @@ type ViewBody =
           methods: readonly {methodId: string; methodLabel: string}[];
         }[];
       };
+      pitDetail?: {
+        revision: string;
+        evidenceUsed: number;
+        undatedExcluded: readonly string[];
+        scope: string;
+        note: string;
+      } | null;
       lastReverification?: {
         roundId: string;
         methodId: string;

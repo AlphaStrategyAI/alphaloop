@@ -991,6 +991,16 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             </span>
           ))}
         </div>
+        {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note) && (
+          <p className="materials-note" data-testid="pit-detail">
+            {view.pitDetail.note ? `${view.pitDetail.note}。` : ""}
+            已采信 {view.pitDetail.evidenceUsed} 份有发布日的资料
+            {view.pitDetail.undatedExcluded.length > 0
+              ? `，已浏览未采信 ${view.pitDetail.undatedExcluded.length} 份无日期资料`
+              : ""}
+            。{view.pitDetail.scope}
+          </p>
+        )}
         <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
           第 {view.version ?? 1} 版
           {view.workbenchHeaderSummary ? ` · ${view.workbenchHeaderSummary}` : ""}

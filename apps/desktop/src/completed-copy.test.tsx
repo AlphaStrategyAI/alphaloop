@@ -60,4 +60,29 @@ describe("completed screen copy", () => {
     const text = container.textContent ?? "";
     expect(text.match(/预算已用尽/g)?.length).toBe(1);
   });
+
+  it("shows pit scope, cited count, and the no-external-evidence note", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-pit",
+      status: "completed",
+      title: "测试",
+      selectedRoundId: "r-1",
+      selectedMethodId: "m-1",
+      eligibility: {...eligibility, pitExecutedAndPassed: true},
+      pitDetail: {
+        revision: "pit-v2",
+        evidenceUsed: 0,
+        undatedExcluded: ["local:note.md"],
+        scope: "只查资料发布日 ≤ 回测截止日，不覆盖标的池/复权/财务修订",
+        note: "未引用外部资料",
+      },
+    };
+    render(<App api={makeApi(view)} initialView={view} />);
+    const detail = document.querySelector("[data-testid='pit-detail']");
+    expect(detail?.textContent).toContain("未引用外部资料");
+    expect(detail?.textContent).toContain("已采信 0 份");
+    expect(detail?.textContent).toContain("已浏览未采信 1 份");
+    expect(detail?.textContent).toContain("不覆盖标的池/复权/财务修订");
+  });
 });

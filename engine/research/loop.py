@@ -9,8 +9,23 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from engine.research.clock import TimeBudget
+from engine.research.confirm_evidence import (
+    confirm_created_at_after_evidence,
+    evidence_refs_from_failed_attempt,
+)
 from engine.research.coverage import decide_coverage, within_floor
-from engine.research.gather import DataPort, MaterialPort, gather
+from engine.research.gather import (
+    DataPort,
+    GatherBatch,
+    MaterialPort,
+    gather_materials,
+    pit_evidence_from_payloads,
+)
+from engine.research.honest_stop import (
+    can_auto_continue_impl_iteration,
+    change_requires_user_confirm,
+    default_implementation_next_change,
+)
 from engine.research.models import (
     Attempt,
     ChangeClass,
@@ -25,23 +40,19 @@ from engine.research.models import (
     ReviewReport,
     RoundDraft,
 )
-from engine.research.simulate import simulate_daily
-from engine.research.confirm_evidence import (
-    confirm_created_at_after_evidence,
-    evidence_refs_from_failed_attempt,
-)
-from engine.research.honest_stop import (
-    can_auto_continue_impl_iteration,
-    change_requires_user_confirm,
-    default_implementation_next_change,
-)
 from engine.research.run_errors import clear_run_errors
+from engine.research.simulate import simulate_daily
 from engine.research.specify import ModelProposal, ProposedChange, classify_change, specify
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.review.subagent import MAX_CONSECUTIVE_REVIEW_FAILURES
 from engine.strategy import MeanReversionStrategy, StrategySpec
-from engine.verifiers import method_set_excluding_pit, run_verifiers
+from engine.verifiers import (
+    PIT_REVISION_V2,
+    method_set_excluding_pit,
+    recorded_pit_revision,
+    run_verifiers,
+)
 
 if TYPE_CHECKING:
     from engine.review.subagent import ReviewerPort, ReviewGateOutcome
@@ -112,25 +123,34 @@ class DefaultRoundBuilder:
         if self.on_action is not None:
             self.on_action(action)
 
-    def build(self, research: Research, attempt_number: int) -> RoundDraft:
-        thesis = research.brief.thesis.value
-        if thesis is None or research.current_version_number is None:
-            raise ValueError("running research requires a locked thesis and version")
-        self._emit(ResearchAction.GATHER)
-        materials = gather(thesis, self.material_ports)
-        if not materials:
-            raise RuntimeError("no public or local evidence was gathered")
+    def _write_evidence(self, batch: GatherBatch) -> tuple[Path, ...]:
+        if not batch.materials and not batch.failures:
+            return ()
         evidence_root = self.snapshot_root.parent / "materials"
         evidence_root.mkdir(parents=True, exist_ok=True)
-        evidence_paths = []
-        for material in materials:
+        paths: list[Path] = []
+        for material in batch.materials:
             digest = hashlib.sha256(material.material_id.encode("utf-8")).hexdigest()
             path = evidence_root / f"{digest}.json"
             path.write_text(
                 json.dumps(asdict(material), sort_keys=True, default=str),
                 encoding="utf-8",
             )
-            evidence_paths.append(path)
+            paths.append(path)
+        if batch.failures:
+            (evidence_root / "gather-failures.json").write_text(
+                json.dumps({"failures": list(batch.failures)}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        return tuple(paths)
+
+    def build(self, research: Research, attempt_number: int) -> RoundDraft:
+        thesis = research.brief.thesis.value
+        if thesis is None or research.current_version_number is None:
+            raise ValueError("running research requires a locked thesis and version")
+        self._emit(ResearchAction.GATHER)
+        batch = gather_materials(thesis, self.material_ports)
+        evidence_paths = self._write_evidence(batch)
         version = research.versions[research.current_version_number - 1]
         prior = version.rounds[-1].accepted_attempt.spec if version.rounds else None
         lookback = prior.lookback_days + 5 if prior else 20 + 5 * (attempt_number - 1)
@@ -163,12 +183,17 @@ class DefaultRoundBuilder:
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
-        missing_as_of = tuple(item.material_id for item in materials)
+        evidence_as_of, missing_as_of, undated = pit_evidence_from_payloads(
+            tuple(json.loads(path.read_text(encoding="utf-8")) for path in evidence_paths),
+            revision=PIT_REVISION_V2,
+        )
         verification = run_verifiers(
             simulation,
             spec,
-            evidence_as_of=(),
+            evidence_as_of=evidence_as_of,
             missing_as_of_material_ids=missing_as_of,
+            undated_excluded=undated,
+            pit_revision=PIT_REVISION_V2,
         )
         return RoundDraft(
             version_number=version.number,
@@ -209,12 +234,15 @@ class DefaultRoundBuilder:
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
-        missing_as_of: tuple[str, ...] = ()
-        if prior.attempt.evidence_paths:
-            missing_as_of = tuple(
-                json.loads(path.read_text(encoding="utf-8"))["material_id"]
-                for path in prior.attempt.evidence_paths
-            )
+        pit_revision = recorded_pit_revision(prior.attempt.verification)
+        payloads = tuple(
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in prior.attempt.evidence_paths
+        )
+        evidence_as_of, missing_as_of, undated = pit_evidence_from_payloads(
+            payloads,
+            revision=pit_revision,
+        )
         return replace(
             prior,
             attempt=Attempt(
@@ -226,8 +254,10 @@ class DefaultRoundBuilder:
                 verification=run_verifiers(
                     simulation,
                     spec,
-                    evidence_as_of=(),
+                    evidence_as_of=evidence_as_of,
                     missing_as_of_material_ids=missing_as_of,
+                    undated_excluded=undated,
+                    pit_revision=pit_revision,
                 ),
                 data_snapshot_path=snapshot,
                 evidence_paths=prior.attempt.evidence_paths,
