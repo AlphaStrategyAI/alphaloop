@@ -139,8 +139,13 @@ class DefaultRoundBuilder:
             )
             paths.append(path)
         if batch.failures:
+            from engine.research.secret_redaction import redact_text
+
             (evidence_root / "gather-failures.json").write_text(
-                json.dumps({"failures": list(batch.failures)}, ensure_ascii=False),
+                json.dumps(
+                    {"failures": [redact_text(item) for item in batch.failures]},
+                    ensure_ascii=False,
+                ),
                 encoding="utf-8",
             )
         return tuple(paths)
@@ -284,6 +289,25 @@ class ResearchLoop:
 
     def run_once(self, research_id: str) -> Research:
         research = self.store.load(research_id)
+        if research.status is ResearchStatus.RUNNING:
+            from engine.research.secret_memory import (
+                DESKTOP_REQUIRED_CODE,
+                DESKTOP_REQUIRED_MESSAGE,
+                secret_gate,
+            )
+
+            decision = secret_gate(research.required_secret_ids)
+            if decision == "wait":
+                return research
+            if decision == "pause":
+                paused = transition(research, ResearchEvent.PAUSE, self.now())
+                paused = replace(
+                    paused,
+                    last_run_error=DESKTOP_REQUIRED_MESSAGE,
+                    last_run_error_code=DESKTOP_REQUIRED_CODE,
+                )
+                self.store.save(paused, research.updated_at)
+                return paused
         expected_updated_at = research.updated_at
         action = research.current_action
         if research.status is not ResearchStatus.RUNNING:
