@@ -147,6 +147,7 @@ def test_papers_adapter_uses_issued_not_created_or_fetched_at() -> None:
     assert params.get("mailto") == CROSSREF_MAILTO
     by_id = {item.material_id: item for item in materials}
     assert by_id["doi:10.1000/year"].published_at == date(2019, 12, 31)
+    assert by_id["doi:10.1000/year"].published_precision == "year"
     assert by_id["doi:10.1000/year"].published_at != fetched_at.date()
     assert by_id["doi:10.1000/none"].published_at is None
     assert by_id["doi:10.1000/none"].fetched_at == fetched_at
@@ -209,12 +210,26 @@ def test_pit_v2_reports_scope_and_keeps_strict_failures() -> None:
     late = run_verifiers(
         report,
         base,
-        evidence_as_of=(("doi:10.1000/late", "2027-01-01"),),
+        evidence_as_of=(("doi:10.37155/3041-0827-0207-3", "2026-12-31"),),
+        evidence_annotations=(("doi:10.37155/3041-0827-0207-3", "年份论文", "year"),),
         pit_revision=PIT_REVISION_V2,
     )
     late_pit = next(item for item in late.results if item.verifier_id == "pit.consistency")
     assert late_pit.passed is False
-    assert any("doi:10.1000/late" in item for item in late_pit.violations)
+    assert any("doi:10.37155/3041-0827-0207-3" in item for item in late_pit.violations)
+    assert late_pit.violation_details[0].title == "年份论文"
+    assert late_pit.violation_details[0].precision == "year"
+    assert late_pit.violation_details[0].published_at == "2026-12-31"
+    assert late_pit.backtest_cutoff == report.end.isoformat()
+    v1_late = run_verifiers(
+        report,
+        base,
+        evidence_as_of=(("doi:10.37155/3041-0827-0207-3", "2026-12-31"),),
+        evidence_annotations=(("doi:10.37155/3041-0827-0207-3", "年份论文", "year"),),
+    )
+    v1_pit = next(item for item in v1_late.results if item.verifier_id == "pit.consistency")
+    assert v1_pit.revision == "pit-v1"
+    assert v1_pit.violation_details == ()
 
     missing = run_verifiers(
         report,
@@ -509,6 +524,7 @@ def test_old_state_json_roundtrip_keeps_numbers(tmp_path: Path) -> None:
             if value.get("verifier_id") == "pit.consistency":
                 for key in ("evidence_used", "undated_excluded", "scope", "note"):
                     value.pop(key, None)
+                value.pop("violation_details", None)
             return {key: strip(item) for key, item in value.items()}
         if isinstance(value, list):
             return [strip(item) for item in value]

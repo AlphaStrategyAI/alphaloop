@@ -9,6 +9,7 @@ import type {
   DesktopApi,
   DesktopView,
   HostStatus,
+  PitDetail,
   ResearchListDisplayStatus,
   ResearchStatus,
   SidecarUiState,
@@ -885,6 +886,33 @@ function ExportFeedbackBlock({
   );
 }
 
+function pitGateLabel(detail: PitDetail | null | undefined, passed: boolean): string {
+  if (passed) return "时点一致性已执行且通过";
+  if (!detail || detail.executed === false) return "时点一致性未执行";
+  return "时点一致性未通过";
+}
+
+function pitFailureCopy(detail: PitDetail | null | undefined): string | null {
+  if (!detail || detail.passed) return null;
+  if (detail.executed === false) {
+    return "时点一致性未执行，暂不能导出策略包。";
+  }
+  const count = detail.violationCount ?? 0;
+  const first = detail.firstViolation;
+  if (!first) {
+    return "时点一致性未通过，暂不能导出策略包。";
+  }
+  const doi = first.materialId.startsWith("doi:") ? first.materialId.slice(4) : "";
+  const title = first.title || first.text || first.materialId || "未命名资料";
+  const yearNote = first.precision === "year" ? "（仅知年份，按年末计）" : "";
+  const when = first.publishedAt
+    ? `发布日 ${first.publishedAt}${yearNote}`
+    : "没有发布日";
+  const cutoff = detail.backtestCutoff ? `回测截止日 ${detail.backtestCutoff}` : "没有回测截止日";
+  const doiPart = doi ? `（DOI ${doi}）` : "";
+  return `时点一致性未通过，暂不能导出策略包。共 ${count} 条违规。第一条：${title}${doiPart}，${when}，${cutoff}。`;
+}
+
 function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
   const [extensionHours, setExtensionHours] = useState("4");
   const [modification, setModification] = useState("");
@@ -926,12 +954,14 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       }
     });
   };
+  const pitLabel = pitGateLabel(view.pitDetail, view.eligibility.pitExecutedAndPassed);
   const checks = [
     ["当前验证方法全部通过", view.eligibility.allMethodsPassed],
     ["没有待确认", view.eligibility.noPendingConfirm],
     ["重验仍然成立", view.eligibility.reverifiesPassed],
-    ["时点一致性已执行且通过", view.eligibility.pitExecutedAndPassed],
+    [pitLabel, view.eligibility.pitExecutedAndPassed],
   ] as const;
+  const pitFailure = pitFailureCopy(view.pitDetail);
   const eligible = checks.every(([, passed]) => passed);
   const researchRecordExportPrimary = completedShowsFailedTone(view);
   const headline = view.resultHeadline ?? (eligible ? "研究已完成" : "研究已结束，验证未通过");
@@ -991,14 +1021,19 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
             </span>
           ))}
         </div>
-        {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note) && (
+        {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note || pitFailure) && (
           <p className="materials-note" data-testid="pit-detail">
+            {pitFailure ? <span data-testid="pit-failure-reason">{pitFailure}</span> : null}
             {view.pitDetail.note ? `${view.pitDetail.note}。` : ""}
-            已采信 {view.pitDetail.evidenceUsed} 份有发布日的资料
-            {view.pitDetail.undatedExcluded.length > 0
-              ? `，已浏览未采信 ${view.pitDetail.undatedExcluded.length} 份无日期资料`
-              : ""}
-            。{view.pitDetail.scope}
+            {view.pitDetail.executed ? (
+              <>
+                已采信 {view.pitDetail.evidenceUsed ?? 0} 份有发布日的资料
+                {(view.pitDetail.undatedExcluded?.length ?? 0) > 0
+                  ? `，已浏览未采信 ${view.pitDetail.undatedExcluded?.length} 份无日期资料`
+                  : ""}
+                。{view.pitDetail.scope}
+              </>
+            ) : null}
           </p>
         )}
         <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
@@ -1157,7 +1192,11 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
           </p>
           <p>
             数据区间 {view.symbolSelection.dataStart} 至 {view.symbolSelection.dataEnd}
-            （截止 {view.symbolSelection.dataCutoff}） · 来源{" "}
+            （数据窗口截止 {view.symbolSelection.dataCutoff}
+            {view.backtestCutoff
+              ? ` · 回测截止（最后交易日）${view.backtestCutoff}`
+              : ""}
+            ） · 来源{" "}
             {view.symbolSelection.dataSource}
           </p>
         </section>

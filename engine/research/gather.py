@@ -22,11 +22,12 @@ CROSSREF_MAILTO = "research@example.invalid"
 _PUBLISHED_HEADER = re.compile(r"published:\s*(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE)
 
 
-def published_at_from_crossref_issued(issued: object) -> date | None:
+def parse_crossref_issued(issued: object) -> tuple[date, str] | None:
     """Parse Crossref ``issued.date-parts``. ``created`` is not a fallback.
 
-    Year only → 31 Dec of that year. Year and month → last day of that month.
-    Missing or unparseable → None (undated, not evidence).
+    Returns ``(date, precision)`` where precision is ``year``, ``year_month``,
+    or ``day``. Year only → 31 Dec. Year and month → month end.
+    Missing or unparseable → None.
     """
     if not isinstance(issued, dict):
         return None
@@ -46,16 +47,21 @@ def published_at_from_crossref_issued(issued: object) -> date | None:
     if year < 1 or year > 9999:
         return None
     if len(numbers) == 1:
-        return date(year, 12, 31)
+        return date(year, 12, 31), "year"
     month = numbers[1]
     if not 1 <= month <= 12:
         return None
     if len(numbers) == 2:
-        return date(year, month, calendar.monthrange(year, month)[1])
+        return date(year, month, calendar.monthrange(year, month)[1]), "year_month"
     try:
-        return date(year, month, numbers[2])
+        return date(year, month, numbers[2]), "day"
     except ValueError:
         return None
+
+
+def published_at_from_crossref_issued(issued: object) -> date | None:
+    parsed = parse_crossref_issued(issued)
+    return None if parsed is None else parsed[0]
 
 
 def published_at_from_markdown(text: str) -> date | None:
@@ -85,6 +91,7 @@ class Material:
     text: str
     fetched_at: datetime
     published_at: date | None = None
+    published_precision: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +147,7 @@ class PapersAdapter:
                 self.fetch_errors.append("crossref: missing DOI")
                 continue
             title = " ".join(item.get("title", ["Untitled"]))
+            parsed = parse_crossref_issued(item.get("issued"))
             result.append(
                 Material(
                     material_id=f"doi:{doi}",
@@ -148,7 +156,8 @@ class PapersAdapter:
                     url=item.get("URL", f"https://doi.org/{doi}"),
                     text=item.get("abstract", title),
                     fetched_at=self.now(),
-                    published_at=published_at_from_crossref_issued(item.get("issued")),
+                    published_at=None if parsed is None else parsed[0],
+                    published_precision=None if parsed is None else parsed[1],
                 )
             )
         return tuple(result)
@@ -203,6 +212,7 @@ class LocalMaterialAdapter:
         for path in sorted(self.root.glob("*.md")):
             text = path.read_text(encoding="utf-8")
             if not words or any(word in text.lower() for word in words):
+                published = published_at_from_markdown(text)
                 result.append(
                     Material(
                         material_id=f"local:{path.name}",
@@ -211,7 +221,8 @@ class LocalMaterialAdapter:
                         url=path.resolve().as_uri(),
                         text=text,
                         fetched_at=self.now(),
-                        published_at=published_at_from_markdown(text),
+                        published_at=published,
+                        published_precision="day" if published is not None else None,
                     )
                 )
         return tuple(result)
@@ -476,3 +487,19 @@ def pit_evidence_from_payloads(
         else:
             undated.append(material_id)
     return tuple(dated), (), tuple(undated)
+
+
+def pit_evidence_annotations(payloads: tuple[object, ...]) -> tuple[tuple[str, str, str], ...]:
+    """``(material_id, title, published_precision)`` for pit-v2 display. pit-v1 ignores this."""
+    annotations: list[tuple[str, str, str]] = []
+    for item in payloads:
+        if not isinstance(item, dict):
+            continue
+        annotations.append(
+            (
+                str(item.get("material_id") or ""),
+                str(item.get("title") or ""),
+                str(item.get("published_precision") or ""),
+            )
+        )
+    return tuple(annotations)

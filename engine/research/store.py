@@ -111,6 +111,7 @@ def _structure_verifier_result(item: dict[str, Any], _: type) -> VerifierResult:
     payload.setdefault("undated_excluded", [])
     payload.setdefault("scope", "")
     payload.setdefault("note", "")
+    payload.setdefault("violation_details", [])
     return CONVERTER.structure(payload, PitVerifierResult)
 
 

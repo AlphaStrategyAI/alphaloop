@@ -19,6 +19,7 @@ from engine.research.gather import (
     GatherBatch,
     MaterialPort,
     gather_materials,
+    pit_evidence_annotations,
     pit_evidence_from_payloads,
 )
 from engine.research.honest_stop import (
@@ -183,8 +184,11 @@ class DefaultRoundBuilder:
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
+        evidence_payloads = tuple(
+            json.loads(path.read_text(encoding="utf-8")) for path in evidence_paths
+        )
         evidence_as_of, missing_as_of, undated = pit_evidence_from_payloads(
-            tuple(json.loads(path.read_text(encoding="utf-8")) for path in evidence_paths),
+            evidence_payloads,
             revision=PIT_REVISION_V2,
         )
         verification = run_verifiers(
@@ -193,6 +197,7 @@ class DefaultRoundBuilder:
             evidence_as_of=evidence_as_of,
             missing_as_of_material_ids=missing_as_of,
             undated_excluded=undated,
+            evidence_annotations=pit_evidence_annotations(evidence_payloads),
             pit_revision=PIT_REVISION_V2,
         )
         return RoundDraft(
@@ -257,6 +262,7 @@ class DefaultRoundBuilder:
                     evidence_as_of=evidence_as_of,
                     missing_as_of_material_ids=missing_as_of,
                     undated_excluded=undated,
+                    evidence_annotations=pit_evidence_annotations(payloads),
                     pit_revision=pit_revision,
                 ),
                 data_snapshot_path=snapshot,
