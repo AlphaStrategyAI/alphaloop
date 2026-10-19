@@ -1,5 +1,6 @@
 mod commands;
 mod engine_paths;
+mod ui_language;
 mod sidecar;
 mod sidecar_policy;
 mod sidecar_restart;
@@ -169,6 +170,10 @@ pub fn run() {
             commands::create_method,
             commands::engine_sidecar_state,
             commands::restart_engine_sidecar,
+            commands::get_ui_language,
+            commands::set_ui_language,
+            commands::read_system_locale,
+            commands::set_engine_locale,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

@@ -1,0 +1,31 @@
+{
+  "systemTags": [
+    {"id": "zh-CN", "tag": "zh-CN", "language": "zh"},
+    {"id": "zh-Hans", "tag": "zh-Hans", "language": "zh"},
+    {"id": "zh-Hant", "tag": "zh-Hant", "language": "zh"},
+    {"id": "zh_TW_utf8", "tag": "zh_TW.UTF-8", "language": "zh"},
+    {"id": "zh", "tag": "zh", "language": "zh"},
+    {"id": "ZH_cn", "tag": "ZH-cn", "language": "zh"},
+    {"id": "en-US", "tag": "en-US", "language": "en"},
+    {"id": "en_US_utf8", "tag": "en_US.UTF-8", "language": "en"},
+    {"id": "fr", "tag": "fr_FR", "language": "en"},
+    {"id": "ja", "tag": "ja-JP", "language": "en"},
+    {"id": "c", "tag": "C", "language": "en"},
+    {"id": "posix", "tag": "POSIX", "language": "en"},
+    {"id": "empty", "tag": "", "language": "en"},
+    {"id": "blank", "tag": "   ", "language": "en"},
+    {"id": "missing", "tag": null, "language": "en"}
+  ],
+  "resolution": [
+    {"id": "manual-zh-overrides-en-system", "preference": "zh", "system": "en-US", "resolved": "zh"},
+    {"id": "manual-en-overrides-zh-system", "preference": "en", "system": "zh-CN", "resolved": "en"},
+    {"id": "follow-zh", "preference": "system", "system": "zh-CN", "resolved": "zh"},
+    {"id": "follow-hant", "preference": "system", "system": "zh-Hant", "resolved": "zh"},
+    {"id": "follow-en", "preference": "system", "system": "de-DE", "resolved": "en"},
+    {"id": "follow-missing", "preference": "system", "system": null, "resolved": "en"},
+    {"id": "first-launch-null-preference-zh", "preference": null, "system": "zh-TW", "resolved": "zh"},
+    {"id": "first-launch-null-preference-missing", "preference": null, "system": null, "resolved": "en"},
+    {"id": "unknown-preference-follows-system", "preference": "fr", "system": "zh-CN", "resolved": "zh"},
+    {"id": "unknown-preference-missing-system", "preference": "nope", "system": null, "resolved": "en"}
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "strategyFamily": {
+    "zh": "策略族",
+    "en": "Strategy family"
+  },
+  "lowVolatility": {
+    "zh": "低波",
+    "en": "Low volatility"
+  },
+  "stockBondRebalance": {
+    "zh": "股债再平衡",
+    "en": "Stock-bond rebalance"
+  },
+  "meanReversion": {
+    "zh": "均值回归",
+    "en": "Mean reversion"
+  },
+  "fundamentalFactor": {
+    "zh": "基本面因子",
+    "en": "Fundamental factor"
+  },
+  "allWeather": {
+    "zh": "全天候",
+    "en": "All weather"
+  },
+  "fourGates": {
+    "zh": "四道门禁",
+    "en": "the four gates"
+  },
+  "dataCoverage": {
+    "zh": "数据覆盖",
+    "en": "Data coverage"
+  },
+  "verification": {
+    "zh": "验证",
+    "en": "Verification"
+  },
+  "noPendingConfirmations": {
+    "zh": "待确认清空",
+    "en": "No pending confirmations"
+  },
+  "pointInTimeConsistency": {
+    "zh": "时点一致性",
+    "en": "Point-in-time consistency"
+  },
+  "unlicensed": {
+    "zh": "未经许可",
+    "en": "Unlicensed"
+  },
+  "notSelected": {
+    "zh": "待选择",
+    "en": "Not selected"
+  },
+  "notYetSupported": {
+    "zh": "尚未对接",
+    "en": "Not yet supported"
+  },
+  "survivorshipBias": {
+    "zh": "幸存者偏差",
+    "en": "Survivorship bias"
+  },
+  "pointInTime": {
+    "zh": "时点数据",
+    "en": "Point-in-time (PIT)"
+  },
+  "dataLineage": {
+    "zh": "数据血缘",
+    "en": "Data lineage"
+  },
+  "dataFingerprint": {
+    "zh": "数据指纹",
+    "en": "Data fingerprint"
+  },
+  "trialCount": {
+    "zh": "试验轮数",
+    "en": "Trial count"
+  },
+  "confirmationCard": {
+    "zh": "确认卡",
+    "en": "Confirmation card"
+  },
+  "strategyPack": {
+    "zh": "策略包",
+    "en": "Strategy pack"
+  },
+  "researchRecord": {
+    "zh": "研究记录",
+    "en": "Research record"
+  },
+  "chinaAShares": {
+    "zh": "A 股",
+    "en": "China A-shares"
+  },
+  "readyToRun": {
+    "zh": "可开跑 / 开跑就绪",
+    "en": "Ready to run"
+  },
+  "run": {
+    "zh": "开跑",
+    "en": "Run"
+  },
+  "acknowledgment": {
+    "zh": "知情确认",
+    "en": "Acknowledgment"
+  },
+  "universe": {
+    "zh": "股票池",
+    "en": "Universe"
+  },
+  "dataBasis": {
+    "zh": "口径",
+    "en": "Data basis"
+  },
+  "mayFailPit": {
+    "zh": "PIT 可能不通过",
+    "en": "May fail the point-in-time check"
+  },
+  "technicalDetails": {
+    "zh": "技术详情",
+    "en": "Technical details"
+  },
+  "languageNotRecorded": {
+    "zh": "生成语言未记录",
+    "en": "Language not recorded"
+  },
+  "subperiodRobustness": {
+    "zh": "分段稳健性检验",
+    "en": "Subperiod robustness check"
+  },
+  "concentration": {
+    "zh": "集中度",
+    "en": "Concentration"
+  },
+  "outOfSampleStability": {
+    "zh": "样本外稳定",
+    "en": "Out-of-sample stability"
+  }
+}

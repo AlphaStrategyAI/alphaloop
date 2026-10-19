@@ -13,6 +13,7 @@ Desktop (Rust) and engine (Python) must agree where **ephemeral runtime state** 
 | `exports/` | **Data** | `<data_root>/exports/` |
 | `snapshots/` | **Data** | `<data_root>/snapshots/` (CSV data snapshots) |
 | `engine.log` | **Data** | `<data_root>/engine.log` |
+| `settings.json` | **Data** | `<data_root>/settings.json` | App preferences. I0 owns `uiLanguage` (`system`, `zh`, or `en`). Not the research library and not the keychain. Writers must keep keys they do not own. Missing file or unknown `uiLanguage` reads as `system`. |
 | Export zip `history/*.json` | **Data** (inside export artifact) | Generated at export time; not a separate on-disk tree |
 
 Rust (`engine_paths`) touches **runtime only** (`owner.json`). The packaged engine resolves **data** paths on startup; the desktop does not pass a data directory over IPC.

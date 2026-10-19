@@ -1,0 +1,22 @@
+{
+  "DATA_SYMBOLS_EMPTY": {
+    "params": [],
+    "legacyZh": "未选择任何标的，无法加载行情。请在确认开跑前锁定具体代码。"
+  },
+  "DATA_EMPTY_PRICES": {
+    "params": [],
+    "legacyZh": "数据源未返回行情，请检查标的和网络。"
+  },
+  "RUNNING_CANNOT_MODIFY": {
+    "params": [],
+    "legacyZh": "研究仍在运行中，请先暂停再确认修改。"
+  },
+  "internal_error": {
+    "params": [],
+    "legacyZh": "服务器内部错误，请稍后重试。"
+  },
+  "contact_email_missing": {
+    "params": ["sources"],
+    "legacyZh": "未配置联系邮箱，本次不查询 Crossref / SEC 全文。"
+  }
+}

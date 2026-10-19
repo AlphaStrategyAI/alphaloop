@@ -29,6 +29,12 @@ from engine.dialogue.pool_errors import (
 from engine.research.data_availability import TRANSIENT_DATA_CODE
 from engine.research.universe_pool import materialize_default_pool, pool_resolvable
 from engine.research.universe_validation import ensure_runnable_universe
+from engine.i18n.errors import build_error_envelope
+from engine.i18n.locale import (
+    normalize_request_locale,
+    push_request_locale,
+    reset_request_locale,
+)
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.research.confirm_view import symbol_selection_payload
 from engine.research.thesis_scope import mean_reversion_only_notice
@@ -288,6 +294,7 @@ class ResearchCommandService:
         self._observed_status: dict[str, ResearchStatus] = {}
         self._research_locks_guard = threading.Lock()
         self._research_locks: dict[str, threading.Lock] = {}
+        self.last_request_locale: str | None = None
         seed_preset_methods(store)
 
     def _lock_for_research(self, research_id: str) -> threading.Lock:
@@ -870,6 +877,15 @@ class ResearchCommandService:
             return self._save(research, updated)
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
+        locale = normalize_request_locale(request.get("locale"))
+        self.last_request_locale = locale
+        token = push_request_locale(locale)
+        try:
+            return self._dispatch(request)
+        finally:
+            reset_request_locale(token)
+
+    def _dispatch(self, request: dict[str, Any]) -> dict[str, Any]:
         kind = request["type"]
         now = datetime.now(UTC)
         if kind == "fetch_view":
@@ -1264,13 +1280,13 @@ class EngineApiHandler(BaseHTTPRequestHandler):
         except InvalidTransition as error:
             self._send(400, http_error_payload(error))
         except Exception as error:  # noqa: BLE001
-            logging.exception("engine command failed")
+            logging.exception("engine command failed: %s", type(error).__name__)
             self._send(
                 500,
-                {
-                    "error": "服务器内部错误，请稍后重试。",
-                    "code": "internal_error",
-                },
+                build_error_envelope(
+                    code="internal_error",
+                    message="服务器内部错误，请稍后重试。",
+                ),
             )
 
     def log_message(self, format: str, *args: object) -> None:
