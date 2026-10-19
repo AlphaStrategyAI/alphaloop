@@ -51,7 +51,7 @@ def default_implementation_next_change(accepted) -> ProposedChange:
 def change_requires_user_confirm(change: ProposedChange) -> bool:
     """Economic / coverage / B3 logic edits must never auto-continue on budget."""
     klass = classify_change(change)
-    if klass in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE}:
+    if klass in {ChangeClass.ECONOMIC, ChangeClass.COVERAGE, ChangeClass.DATA_LINEAGE}:
         return True
     if klass is ChangeClass.MODEL and change.field in {"signal_definition", "feature_set"}:
         return True

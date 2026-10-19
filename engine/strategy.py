@@ -9,6 +9,11 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 import numpy as np
 import pandas as pd
 
+from engine.research.families import (
+    LEGACY_FAMILY_METHOD,
+    LEGACY_STRATEGY_FAMILY,
+    require_family_id,
+)
 from engine.research.models import MethodRef, Universe
 
 if TYPE_CHECKING:
@@ -43,12 +48,17 @@ class StrategySpec:
     entry_z: float
     side: Side = "long_only"
     max_drawdown_floor: float = -0.25
+    strategy_family: str = LEGACY_STRATEGY_FAMILY
+    family_method: str = LEGACY_FAMILY_METHOD
+    family_params: tuple[tuple[str, str], ...] = ()
+    primary_factor: str | None = None
 
     def __post_init__(self) -> None:
         if self.frequency != "1d":
             raise ValueError("v1 supports daily bars only")
         if not -1.0 < self.max_drawdown_floor < 0.0:
             raise ValueError("max_drawdown_floor must be between -1 and 0")
+        require_family_id(self.strategy_family)
 
 
 @runtime_checkable

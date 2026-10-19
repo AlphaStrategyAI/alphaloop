@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import re
 
+from engine.research.a1_copy import MOMENTUM_UNSUPPORTED_NOTICE
+
 MEAN_REVERSION_ONLY_NOTICE = (
     "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？"
 )
 CONFIRM_CARD_NOTICE = "策略族：均值回归（V1 唯一）· 论点文字仅作记录，不改变策略"
 
 _NON_MEAN_REVERSION = re.compile(r"动量|趋势|突破|多因子|低波|套利|轮动|价值|成长")
+_MOMENTUM_TREND = re.compile(r"动量|趋势|突破")
 _MEAN_REVERSION = re.compile(r"均值|回归|反转")
 _ACK = re.compile(
     r"(?:好的?|可以|确认|继续|是|要|按均值回归继续|就按均值回归继续)[。！!？?]*"
@@ -28,9 +31,12 @@ def is_mean_reversion_ack(text: str) -> bool:
 
 
 def mean_reversion_only_notice(thesis: str | None) -> str | None:
-    if thesis and thesis_is_non_mean_reversion(thesis):
-        return CONFIRM_CARD_NOTICE
-    return None
+    """Display line only. Does not decide whether the thesis may run."""
+    if not thesis or not thesis_is_non_mean_reversion(thesis):
+        return None
+    if _MOMENTUM_TREND.search(thesis):
+        return MOMENTUM_UNSUPPORTED_NOTICE
+    return CONFIRM_CARD_NOTICE
 
 
 def export_thesis_markers(thesis: str | None) -> dict[str, object]:

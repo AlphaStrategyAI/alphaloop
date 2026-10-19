@@ -37,11 +37,15 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
 
 def _open_version(research: Research, now: datetime, opened_by: str) -> Research:
     brief = research.brief
+    research_fields: dict[str, object] = {}
     if opened_by != "modified_settings_confirm":
         changes = research.pending_confirm.patch if research.pending_confirm else ()
         for field_name, value in changes:
             if field_name == "coverage_floor" and isinstance(value, dict):
                 value = CoverageFloor(**value)
+            if field_name == "data_source_id" and isinstance(value, str):
+                research_fields["data_source_id"] = value
+                continue
             if hasattr(brief, field_name):
                 brief = replace(brief, **{field_name: Slot(value, True)})  # type: ignore[arg-type]
     else:
@@ -66,6 +70,7 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
         export_eligible=False,
         reverifications=(),
         updated_at=now,
+        **research_fields,  # type: ignore[arg-type]
     )
 
 
@@ -123,7 +128,7 @@ def transition(
             raise InvalidTransition("CONFIRM_APPROVE requires pending_confirm")
         # B4 iron rule: ECONOMIC confirms require evidence validation
         # COVERAGE confirms are automated (data availability) and don't require evidence
-        if research.pending_confirm.kind is ConfirmKind.ECONOMIC:
+        if research.pending_confirm.kind in {ConfirmKind.ECONOMIC, ConfirmKind.DATA_LINEAGE}:
             if store is None:
                 raise InvalidTransition(
                     "CONFIRM_APPROVE requires store for evidence validation (B4 iron rule)"
@@ -133,7 +138,12 @@ def transition(
                 store,
                 research.research_id,
             )
-        return _open_version(research, now, "economic_confirm")
+        opened_by = (
+            "data_lineage_confirm"
+            if research.pending_confirm.kind is ConfirmKind.DATA_LINEAGE
+            else "economic_confirm"
+        )
+        return _open_version(research, now, opened_by)
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_REJECT:
         return replace(
             research,
