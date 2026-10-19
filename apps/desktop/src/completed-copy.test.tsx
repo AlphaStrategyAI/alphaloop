@@ -60,4 +60,30 @@ describe("completed screen copy", () => {
     const text = container.textContent ?? "";
     expect(text.match(/预算已用尽/g)?.length).toBe(1);
   });
+
+  it("shows this research's window cumulative next to the all-research total", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-1",
+      status: "completed",
+      title: "测试",
+      selectedRoundId: "r-1",
+      selectedMethodId: "m-1",
+      eligibility: {
+        allMethodsPassed: true,
+        noPendingConfirm: true,
+        reverifiesPassed: true,
+        pitExecutedAndPassed: true,
+      },
+      researchCumulativeLabel: "本研究在本窗口累计 5 轮",
+      workbenchHeaderSummary: "本窗口所有研究累计 5 轮",
+      windowCumulativeLabel: "本窗口所有研究累计 5 轮",
+    };
+    const {container} = render(<App api={makeApi(view)} initialView={view} />);
+    const header = container.querySelector("[data-testid=completed-workbench-header]");
+    expect(header?.textContent).toContain("本研究在本窗口累计 5 轮");
+    expect(header?.textContent).toContain("本窗口所有研究累计 5 轮");
+    expect(header?.textContent).not.toContain("本研究在本窗口累计 0 轮");
+    expect(header?.textContent?.match(/本窗口所有研究累计 5 轮/g)?.length).toBe(1);
+  });
 });
