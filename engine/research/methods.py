@@ -205,38 +205,60 @@ def distinct_research_usage_count(store: SQLiteStore, method_id: str) -> int:
     return len({row.research_id for row in list_method_usage(store, method_id)})
 
 
+def _as_meta(meta: object) -> dict[str, object]:
+    if not isinstance(meta, dict):
+        raise TypeError(f"preset meta must be a dict, got {type(meta).__name__}")
+    copied: dict[str, object] = {}
+    for key, value in meta.items():
+        copied[str(key)] = value
+    return copied
+
+
+def _builtin_preset_catalog() -> tuple[tuple[str, dict[str, object]], ...]:
+    catalog: list[tuple[str, dict[str, object]]] = []
+    for method_id, meta in VERIFIER_REVISIONS.items():
+        catalog.append((method_id, _as_meta(meta)))
+    for method_id, pit_meta in PIT_VERIFIER_REVISION.items():
+        catalog.append((method_id, _as_meta(pit_meta)))
+    return tuple(catalog)
+
+
+def iter_preset_definitions() -> tuple[tuple[str, dict[str, object]], ...]:
+    """Preset rows keyed by (method id, revision). New revisions are additive."""
+    return _builtin_preset_catalog()
+
+
 def _insert_preset_if_missing(
     store: SQLiteStore,
     method_id: str,
     meta: dict[str, object],
     created_at: datetime,
 ) -> None:
-    if store.latest_method_definition(method_id) is not None:
+    revision = str(meta["revision"])
+    if store.get_method_definition(method_id, revision) is not None:
         return
-    body = json.dumps(dict(meta), sort_keys=True)
+    stored = dict(meta)
+    supersedes_raw = stored.pop("supersedes", None)
+    body = json.dumps(stored, sort_keys=True)
+    supersedes = str(supersedes_raw) if supersedes_raw else None
     store.insert_method_definition(
         MethodDefinition(
             method_id=method_id,
-            revision_hash=str(meta["revision"]),
+            revision_hash=revision,
             name=PRESET_NAMES[method_id],
             description=body,
             body=body,
             source=MethodSource.PRESET,
             deposited_from_research_id=None,
             created_at=created_at,
-            supersedes=None,
+            supersedes=supersedes,
         )
     )
 
 
 def seed_preset_methods(store: SQLiteStore, now: datetime | None = None) -> None:
     created_at = now or datetime(2026, 1, 1, tzinfo=UTC)
-    if not store.list_method_definitions():
-        for method_id, meta in VERIFIER_REVISIONS.items():
-            _insert_preset_if_missing(store, method_id, dict(meta), created_at)
-    for method_id, meta in VERIFIER_REVISIONS.items():
-        _insert_preset_if_missing(store, method_id, dict(meta), created_at)
-    for method_id, meta in PIT_VERIFIER_REVISION.items():
+    for method_id, meta in iter_preset_definitions():
         _insert_preset_if_missing(store, method_id, dict(meta), created_at)
 
 
