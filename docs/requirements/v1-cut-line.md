@@ -72,7 +72,7 @@
 | --- | --- |
 | 1 | 锁定五项研究设定，跑通至少一轮真实 `ResearchLoop`（不是 `FakeBuilder`），研究到达已完成（`COMPLETED`）。 |
 | 2 | 运行中 / 已完成工作台上的字段全部来自这一轮闭环。没有空标题，没有假指标。 |
-| 3 | 四条可实盘资格全部通过，含时点第四关，才能导出 `strategy_pack`。缺任何一关，只能导出 `research_record`，并写明缺的是哪一关。 |
+| 3 | 四条可实盘资格全部通过，含时点第四关，才能导出 `strategy_pack`。缺任何一关，只能导出 `research_record`，并写明缺的是哪一关。M2 起为五条，含 coverage_satisfied。 |
 | 4 | 导出的 zip 能通过 `contracts/strategy-pack.schema.json` 校验，且 `live_handoff_eligible: true`。 |
 | 5 | 这条诚实路径钉一个确定性 reviewer（固定 Pass/Fail 策略），接在现有 review 关上。外部大模型的抖动不能卡住 V1 唯一的这条路径。 |
 
