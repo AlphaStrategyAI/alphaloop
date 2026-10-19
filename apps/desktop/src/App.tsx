@@ -1,4 +1,4 @@
-import {FormEvent, useCallback, useEffect, useMemo, useState} from "react";
+import {FormEvent, useCallback, useEffect, useMemo, useRef, useState} from "react";
 
 import {bindDesktopApi} from "./api-bind";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "./InAppConfirm";
@@ -471,9 +471,25 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     });
   };
   const [symbolsOpen, setSymbolsOpen] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const startingRef = useRef(false);
   const sel = view.symbolSelection;
   const returnToDraft = () => {
     void api.unlockBrief(view.researchId);
+  };
+  const startRun = () => {
+    if (startingRef.current) return;
+    startingRef.current = true;
+    setStarting(true);
+    void api
+      .confirmRun(view.researchId)
+      .catch(() => {
+        /* bindDesktopApi already recorded the message */
+      })
+      .finally(() => {
+        startingRef.current = false;
+        setStarting(false);
+      });
   };
   return (
     <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
@@ -537,9 +553,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         <button
           className="cyan-button"
           data-testid="confirm-run-start"
-          onClick={() => void api.confirmRun(view.researchId)}
+          disabled={starting}
+          aria-busy={starting}
+          onClick={startRun}
         >
-          开跑
+          {starting ? "开跑中…" : "开跑"}
         </button>
         <button type="button" className="quiet-button" data-testid="confirm-return-draft" onClick={returnToDraft}>
           再修改
@@ -1488,6 +1506,12 @@ export function App({
   const [route, setRoute] = useState(() => initialRoute ?? readBrowserRoute());
   const [view, setView] = useState(initialView);
   const [syncedRoute, setSyncedRoute] = useState(() => initialRoute ?? readBrowserRoute());
+  const routeGeneration = useRef(0);
+  const seenRoute = useRef(route);
+  if (seenRoute.current !== route) {
+    seenRoute.current = route;
+    routeGeneration.current += 1;
+  }
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [sidecarState, setSidecarState] = useState<SidecarUiState | null>(null);
   const [pausedModificationByResearch, setPausedModificationByResearch] = useState<
@@ -1501,8 +1525,12 @@ export function App({
   const runStartRitual = useRunStartRitual(view);
 
   const refreshView = useCallback(async () => {
-    const next = await api.fetchView(route);
+    const generation = routeGeneration.current;
+    const requestedRoute = route;
+    const next = await api.fetchView(requestedRoute);
+    if (generation !== routeGeneration.current) return;
     setView(next);
+    setSyncedRoute(requestedRoute);
   }, [api, route]);
 
   const clearMutationError = useCallback(() => setMutationError(null), []);
@@ -1556,13 +1584,15 @@ export function App({
   useEffect(() => {
     if (engineStopped) return;
     let active = true;
+    const generation = routeGeneration.current;
+    const requestedRoute = route;
     const refresh = () => {
       void api
-        .fetchView(route)
+        .fetchView(requestedRoute)
         .then((next) => {
-          if (!active) return;
+          if (!active || generation !== routeGeneration.current) return;
           setView(next);
-          setSyncedRoute(route);
+          setSyncedRoute(requestedRoute);
         })
         .catch(() => {
           /* engine unreachable; avoid unhandled rejection while polling */
