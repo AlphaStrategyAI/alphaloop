@@ -17,6 +17,7 @@ from engine.research.models import (
     RoundDraft,
     RoundV2,
 )
+from engine.research.secret_redaction import redact_text
 from engine.research.specify import (
     build_implementation_delta,
     build_logic_statement,
@@ -122,7 +123,7 @@ class SubagentReviewer:
         ) as error:
             return ReviewReport(
                 passed=False,
-                findings=(ReviewFinding("review_protocol", str(error)),),
+                findings=(ReviewFinding("review_protocol", redact_text(str(error))),),
                 required_changes="retry with a valid independent review result",
             )
 

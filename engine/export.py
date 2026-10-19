@@ -623,6 +623,12 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
                 **export_thesis_markers(_record_thesis(research)),
             },
         )
+        if research.last_run_error:
+            recorded = json.loads((root / "history" / "research.json").read_text(encoding="utf-8"))
+            recorded["last_run_error"] = research.last_run_error
+            if research.last_run_error_code:
+                recorded["last_run_error_code"] = research.last_run_error_code
+            _json(root / "history" / "research.json", recorded)
         all_rounds = [round_ for version in research.versions for round_ in version.rounds]
         from engine.research.data_window import (
             cumulative_rounds_on_window,
