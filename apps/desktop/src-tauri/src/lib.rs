@@ -151,6 +151,7 @@ pub fn run() {
         .manage(runtime.clone())
         .invoke_handler(tauri::generate_handler![
             commands::fetch_view,
+            commands::market_data_progress,
             commands::create_draft,
             commands::confirm_run,
             commands::unlock_brief,

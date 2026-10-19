@@ -368,6 +368,16 @@ class ResearchCommandService:
             "coverage_floor": format_coverage_floor_display(brief.coverage_floor.value),
         }
 
+    def _market_data_status(self) -> dict[str, Any]:
+        """Progress without the research lock, so a confirm probe cannot hide it."""
+        from engine.research.market_data_progress import market_data_progress_payload
+
+        progress = market_data_progress_payload()
+        status = host_status(self.store.list_research())
+        if progress is not None and status in {"completed", "idle"}:
+            status = "running"
+        return {"marketDataProgress": progress, "hostStatus": status}
+
     def _host_payload(
         self,
         payload: dict[str, Any],
@@ -379,6 +389,8 @@ class ResearchCommandService:
         progress = market_data_progress_payload()
         if progress is not None:
             payload["marketDataProgress"] = progress
+            if payload.get("hostStatus") in {"completed", "idle"}:
+                payload["hostStatus"] = "running"
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
         return self._attach_notify(payload)
@@ -884,6 +896,8 @@ class ResearchCommandService:
         now = datetime.now(UTC)
         if kind == "fetch_view":
             return self.view_for(request["route"])
+        if kind == "market_data_progress":
+            return self._market_data_status()
         if kind == "create_draft":
             research_id = str(uuid.uuid4())
             self.store.create(new_research(research_id, now))

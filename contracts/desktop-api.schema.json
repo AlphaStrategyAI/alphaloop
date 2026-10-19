@@ -21,6 +21,12 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["type"],
+      "properties": {"type": {"const": "market_data_progress"}}
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["type", "research_id"],
       "properties": {
         "type": {

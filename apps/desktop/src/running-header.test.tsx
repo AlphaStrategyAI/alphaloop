@@ -39,6 +39,22 @@ const runningView: DesktopView = {
 };
 
 describe("running header", () => {
+  it("shows market-data progress from the side channel while fetchView is stuck", async () => {
+    const fetchView = vi.fn(() => new Promise<DesktopView>(() => undefined));
+    const pollMarketDataProgress = vi.fn(async () => ({
+      marketDataProgress: {done: 12, total: 503, source: "yahoo" as const},
+      hostStatus: "running" as const,
+    }));
+    render(
+      <App
+        api={{...api, fetchView, pollMarketDataProgress}}
+        initialView={runningView}
+        initialRoute="#/research/r-1"
+      />,
+    );
+    expect(await screen.findByTestId("market-data-progress")).toHaveTextContent("正在取行情 12/503");
+  });
+
   it("hides idle currentAction label in the running header", () => {
     render(<App api={api} initialView={runningView} initialRoute="#/research/r-1" />);
     const panel = screen.getByTestId("running-screen");

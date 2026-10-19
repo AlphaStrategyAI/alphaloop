@@ -173,6 +173,15 @@ pub async fn fetch_view(
 }
 
 #[tauri::command]
+pub async fn market_data_progress(
+    connection: State<'_, EngineConnection>,
+) -> Result<Value, String> {
+    connection
+        .post(json!({"type": "market_data_progress"}))
+        .await
+}
+
+#[tauri::command]
 pub async fn create_draft(connection: State<'_, EngineConnection>) -> Result<String, String> {
     let result = connection.post(json!({"type": "create_draft"})).await?;
     result["research_id"]

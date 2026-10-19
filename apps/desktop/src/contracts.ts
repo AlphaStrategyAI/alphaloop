@@ -231,8 +231,15 @@ export type DesktopView = ViewBody & {
   marketDataProgress?: {done: number; total: number; source?: string} | null;
 };
 
+export type MarketDataProgress = {done: number; total: number; source?: string};
+
 export interface DesktopApi {
   fetchView(route: string): Promise<DesktopView>;
+  /** Independent of fetchView so a blocking confirm_run cannot hide fetch progress. */
+  pollMarketDataProgress?(): Promise<{
+    marketDataProgress: MarketDataProgress | null;
+    hostStatus?: HostStatus;
+  }>;
   createDraft(): Promise<string>;
   confirmRun(researchId: string): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
