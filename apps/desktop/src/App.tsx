@@ -16,6 +16,7 @@ import type {
   ValidationMethod,
 } from "./contracts";
 import {formatResearchTimestamp} from "./format";
+import {DialogueTurnBody, EngineFailureText} from "./i18n/engineFailure";
 import {LocalizedRunError} from "./i18n/LocalizedRunError";
 import {useI18n} from "./i18n/I18nProvider";
 import {readBrowserRoute, routeFromHash} from "./routing";
@@ -437,9 +438,7 @@ function DialoguePanel({
         我会逐项问清原理、资产、时间、方法和覆盖底线；齐全后进入确认开跑。
       </p>
       {dialogue.map((turn, index) => (
-        <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
-          {turn.text}
-        </p>
+        <DialogueTurnBody turn={turn} key={index} />
       ))}
       {chatEnabled && (
         <form onSubmit={submit}>
@@ -870,7 +869,7 @@ function ExportOutcomeMessages({
       )}
       {exportFeedback?.status === "error" && (
         <p className="export-feedback error" data-testid="export-error" role="alert">
-          导出失败：{exportFeedback.message}
+          导出失败：<EngineFailureText raw={exportFeedback.message} />
         </p>
       )}
       {openFolderError && (
@@ -918,7 +917,7 @@ function ExportFeedbackBlock({
       )}
       {exportFeedback?.status === "error" && (
         <p className="export-feedback error" data-testid="export-error" role="alert">
-          导出失败：{exportFeedback.message}
+          导出失败：<EngineFailureText raw={exportFeedback.message} />
         </p>
       )}
       {openFolderError && (
@@ -1206,7 +1205,9 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
                 </p>
               )}
               {reverifyError && (
-                <p className="reverify-error" data-testid="reverify-error" role="alert">{reverifyError}</p>
+                <p className="reverify-error" data-testid="reverify-error" role="alert">
+                  <EngineFailureText raw={reverifyError} />
+                </p>
               )}
             </div>
             <div className="stacked-field modify-rerun-field">
@@ -1734,7 +1735,7 @@ export function App({
     <NightShell view={view} route={route} sidecarState={sidecarState} runStartRitual={runStartRitual}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
-          <span>{mutationError}</span>
+          <EngineFailureText raw={mutationError} />
           <button
             type="button"
             className="mutation-error-dismiss"
@@ -1762,7 +1763,7 @@ export function App({
         <p className="route-loading" data-testid="route-loading">加载中…</p>
       ) : routeFailed ? (
         <div className="route-error" data-testid="route-error" role="alert">
-          <p>{routeError}</p>
+          <p><EngineFailureText raw={routeError} /></p>
           <button
             type="button"
             className="quiet-button"

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+from typing import Any
 
 from engine.dialogue.intent import Intent, IntentKind, interpret
 from engine.dialogue.prompts import SlotName
 from engine.dialogue.slots import apply_intent, next_question
 from engine.research.coverage_parse import parse_coverage_parts
+from engine.i18n.errors import redact_technical_detail
 from engine.research.models import CoverageFloor, DialogueRole, DialogueTurn, Research, ResearchStatus
 from engine.research.thesis_scope import (
     MEAN_REVERSION_ONLY_NOTICE,
@@ -20,13 +22,38 @@ def append_dialogue(
     role: DialogueRole,
     text: str,
     now: datetime,
+    *,
+    error_code: str | None = None,
+    error_params: dict[str, Any] | None = None,
+    error_detail: str | None = None,
 ) -> Research:
-    turn = DialogueTurn(role=role, text=text)
+    turn = DialogueTurn(
+        role=role,
+        text=text,
+        error_code=error_code,
+        error_params=dict(error_params) if error_params else None,
+        error_detail=error_detail,
+    )
     return replace(
         research,
         dialogue=research.dialogue + (turn,),
         updated_at=now,
     )
+
+
+def dialogue_turn_view(turn: DialogueTurn) -> dict[str, Any]:
+    """View payload. A coded error is localized by the desktop, so the legacy sentence stays out of `text`."""
+    if not turn.error_code:
+        return {"role": turn.role.value, "text": turn.text}
+    payload: dict[str, Any] = {
+        "role": turn.role.value,
+        "text": "",
+        "errorCode": turn.error_code,
+        "errorParams": dict(turn.error_params or {}),
+    }
+    if turn.error_detail:
+        payload["errorDetail"] = redact_technical_detail(turn.error_detail)
+    return payload
 
 
 def _apply_coverage_scratch(

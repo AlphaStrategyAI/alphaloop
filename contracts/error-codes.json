@@ -7,6 +7,10 @@
     "params": [],
     "legacyZh": "数据源未返回行情，请检查标的和网络。"
   },
+  "DATA_SOURCE_UNAVAILABLE": {
+    "params": [],
+    "legacyZh": "行情数据源暂时不可用，请稍后重试"
+  },
   "RUNNING_CANNOT_MODIFY": {
     "params": [],
     "legacyZh": "研究仍在运行中，请先暂停再确认修改。"

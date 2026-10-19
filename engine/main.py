@@ -29,7 +29,7 @@ from engine.dialogue.pool_errors import (
 from engine.research.data_availability import TRANSIENT_DATA_CODE
 from engine.research.universe_pool import materialize_default_pool, pool_resolvable
 from engine.research.universe_validation import ensure_runnable_universe
-from engine.i18n.errors import build_error_envelope
+from engine.i18n.errors import build_error_envelope, redact_technical_detail
 from engine.i18n.locale import (
     normalize_request_locale,
     push_request_locale,
@@ -45,7 +45,7 @@ from engine.research.method_body_display import (
     revision_token_from_body,
 )
 from engine.research.method_labels import format_methods_display
-from engine.dialogue.turns import process_send_dialogue
+from engine.dialogue.turns import dialogue_turn_view, process_send_dialogue
 from engine.export_paths import export_zip_filename
 from engine.export import (
     build_research_record_pack,
@@ -664,10 +664,7 @@ class ResearchCommandService:
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
-                "dialogue": [
-                    {"role": turn.role.value, "text": turn.text}
-                    for turn in research.dialogue
-                ],
+                "dialogue": [dialogue_turn_view(turn) for turn in research.dialogue],
                 "settings": self._settings(research),
                 "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
             }
@@ -735,6 +732,12 @@ class ResearchCommandService:
                 }
                 if research.last_run_error_code:
                     running_payload["lastError"]["code"] = research.last_run_error_code
+                if research.last_run_error_params:
+                    running_payload["lastError"]["params"] = dict(research.last_run_error_params)
+                if research.last_run_error_detail:
+                    running_payload["lastError"]["detail"] = redact_technical_detail(
+                        research.last_run_error_detail
+                    )
             running_payload.update(trial_tracking_for_view(research, self.store))
             running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
             late = late_pass_presentation(research)
@@ -832,8 +835,7 @@ class ResearchCommandService:
                 "currentAction": _ACTION_LABELS[research.current_action],
                 "anomaly": self._compute_anomaly(research),
                 "recentDialogue": [
-                    {"role": turn.role.value, "text": turn.text}
-                    for turn in research.dialogue[-8:]
+                    dialogue_turn_view(turn) for turn in research.dialogue[-8:]
                 ],
             },
             research,
@@ -1269,7 +1271,7 @@ class EngineApiHandler(BaseHTTPRequestHandler):
             jsonschema.validate(request, self.request_schema)
             self._send(200, self.service.handle(request))
         except UserFacingError as error:
-            self._send(400, {"error": error.message, "code": error.code})
+            self._send(400, http_error_payload(error))
         except (
             ValueError,
             KeyError,
@@ -1372,8 +1374,21 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
                 except Exception as error:  # noqa: BLE001
                     now = datetime.now(UTC)
                     code, message = classify_run_error(error)
+                    detail = error.detail if isinstance(error, UserFacingError) else None
+                    if detail is None:
+                        technical = str(error)
+                        if technical and technical != message:
+                            detail = technical
+                    params = error.params if isinstance(error, UserFacingError) else None
                     before = store.load(research_id)
-                    after = apply_run_failure(before, message, now, code=code)
+                    after = apply_run_failure(
+                        before,
+                        message,
+                        now,
+                        code=code,
+                        params=params,
+                        detail=detail,
+                    )
                     store.save(after, before.updated_at)
                     store.record_error(
                         research_id,

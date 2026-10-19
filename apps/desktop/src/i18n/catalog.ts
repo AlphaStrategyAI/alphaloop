@@ -120,6 +120,10 @@ function messages(lang: "zh" | "en") {
           "数据源未返回行情，请检查标的和网络。",
           "The data source returned no prices. Check the symbols and the network.",
         ),
+        DATA_SOURCE_UNAVAILABLE: copy(
+          "行情数据源暂时不可用，请稍后重试",
+          "Market data is temporarily unavailable. Try again in a moment.",
+        ),
         RUNNING_CANNOT_MODIFY: copy(
           "研究仍在运行中，请先暂停再确认修改。",
           "The research is still running. Pause it before confirming a change.",

@@ -20,6 +20,8 @@ def apply_run_failure(
     now: datetime,
     *,
     code: str | None = None,
+    params: dict[str, object] | None = None,
+    detail: str | None = None,
 ) -> Research:
     """Count identical run failures; pause after threshold."""
     if research.status is not ResearchStatus.RUNNING:
@@ -34,6 +36,8 @@ def apply_run_failure(
         research,
         last_run_error=display,
         last_run_error_code=error_code,
+        last_run_error_params=dict(params) if params else None,
+        last_run_error_detail=detail,
         consecutive_identical_run_errors=count,
         updated_at=now,
     )
@@ -49,5 +53,7 @@ def clear_run_errors(research: Research) -> Research:
         research,
         last_run_error=None,
         last_run_error_code=None,
+        last_run_error_params=None,
+        last_run_error_detail=None,
         consecutive_identical_run_errors=0,
     )

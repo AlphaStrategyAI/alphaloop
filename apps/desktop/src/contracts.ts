@@ -93,18 +93,26 @@ export interface ValidationMethod {
   dimensions?: readonly ScorecardDimension[];
 }
 
+export type DialogueTurnView = {
+  role: "user" | "assistant";
+  text: string;
+  errorCode?: string;
+  errorParams?: Record<string, string | number>;
+  errorDetail?: string | null;
+};
+
 type ViewBody =
   | {kind: "research_list"; awaiting?: ResearchSummary; rows: readonly ResearchSummary[]}
   | {
       kind: "draft";
       researchId: string;
-      dialogue: readonly {role: "user" | "assistant"; text: string}[];
+      dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
     }
   | {
       kind: "confirm_run";
       researchId: string;
-      dialogue: readonly {role: "user" | "assistant"; text: string}[];
+      dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
       chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
@@ -126,7 +134,13 @@ type ViewBody =
       honestStopHint?: string | null;
       effectiveTimeHint?: string | null;
       versionOpenedNotice?: string | null;
-      lastError?: {message: string; count: number; code?: string};
+      lastError?: {
+        message: string;
+        count: number;
+        code?: string;
+        params?: Record<string, string | number>;
+        detail?: string | null;
+      };
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;
       cumulativeRoundsOnWindow?: number;
@@ -138,7 +152,7 @@ type ViewBody =
       highSuspicionRoundThreshold?: number;
       latePassPresentation?: LatePassPresentation | null;
       anomaly?: AnomalyPresentation | null;
-      recentDialogue?: readonly {role: "user" | "assistant"; text: string}[];
+      recentDialogue?: readonly DialogueTurnView[];
     }
   | {
       kind: "awaiting_confirm";
@@ -217,7 +231,7 @@ type ViewBody =
       overturnedExports?: boolean;
       currentAction?: string;
       anomaly?: AnomalyPresentation | null;
-      recentDialogue?: readonly {role: "user" | "assistant"; text: string}[];
+      recentDialogue?: readonly DialogueTurnView[];
     }
   | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]}
   | {kind: "glossary"; intro: string; entries: readonly GlossaryEntry[]};
