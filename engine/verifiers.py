@@ -69,6 +69,14 @@ PIT_VERIFIER_REVISION = MappingProxyType(
 UNKNOWN_METHOD_RULE = "unknown method revision cannot inherit a previous pass"
 
 
+def unknown_revision_rule(method_id: str, revision: str) -> str:
+    """Known method, unknown revision: fail closed instead of running another revision."""
+    return (
+        f"unknown method revision {revision} for {method_id}; "
+        "refusing to fall back to another revision"
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class VerifierResult:
     verifier_id: str
@@ -203,12 +211,37 @@ def _cost(report: SimulationReport, spec: StrategySpec) -> VerifierResult:
     )
 
 
-_SELECTABLE: dict[str, Callable[[SimulationReport, StrategySpec], VerifierResult]] = {
-    "overfit.walk": _walk,
-    "stability.oos": _stability,
-    "crowding.load": _crowding,
-    "cost.turnover": _cost,
+_Verifier = Callable[[SimulationReport, StrategySpec], VerifierResult]
+
+_SELECTABLE_BY_REVISION: dict[tuple[str, str], _Verifier] = {
+    ("scorecard.market", "scorecard-v1"): _scorecard,
+    ("overfit.walk", "walk-v1"): _walk,
+    ("stability.oos", "stability-v1"): _stability,
+    ("crowding.load", "crowding-v1"): _crowding,
+    ("cost.turnover", "cost-v1"): _cost,
 }
+_KNOWN_SELECTABLE_IDS = {method_id for method_id, _revision in _SELECTABLE_BY_REVISION}
+_PIT_REVISION_V1 = "pit-v1"
+
+
+def _dispatch_selectable(
+    method_id: str,
+    revision: str,
+    report: SimulationReport,
+    spec: StrategySpec,
+) -> VerifierResult:
+    builder = _SELECTABLE_BY_REVISION.get((method_id, revision))
+    if builder is not None:
+        return builder(report, spec)
+    if method_id in _KNOWN_SELECTABLE_IDS:
+        return VerifierResult(
+            method_id,
+            revision,
+            False,
+            {},
+            unknown_revision_rule(method_id, revision),
+        )
+    return VerifierResult(method_id, revision, False, {}, UNKNOWN_METHOD_RULE)
 
 
 def _append_pit_result(
@@ -218,8 +251,21 @@ def _append_pit_result(
     *,
     evidence_as_of: tuple[tuple[str, str], ...],
     missing_as_of_material_ids: tuple[str, ...],
+    revision: str | None = None,
 ) -> None:
-    revision = str(PIT_VERIFIER_REVISION["pit.consistency"]["revision"])
+    resolved = revision or str(PIT_VERIFIER_REVISION["pit.consistency"]["revision"])
+    if resolved != _PIT_REVISION_V1:
+        results.append(
+            VerifierResult(
+                "pit.consistency",
+                resolved,
+                False,
+                {},
+                unknown_revision_rule("pit.consistency", resolved),
+            )
+        )
+        return
+    revision = resolved
     if report.end is None:
         results.append(
             PitVerifierResult(
@@ -260,29 +306,22 @@ def run_verifiers(
     *,
     evidence_as_of: tuple[tuple[str, str], ...] = (),
     missing_as_of_material_ids: tuple[str, ...] = (),
+    pit_revision: str | None = None,
 ) -> VerificationReport:
-    results: list[VerifierResult] = [_scorecard(report, spec)]
+    scorecard = _SELECTABLE_BY_REVISION[("scorecard.market", "scorecard-v1")]
+    results: list[VerifierResult] = [scorecard(report, spec)]
     for item in spec.method_set:
         if item.method_id in {"scorecard.market", "pit.consistency"}:
             continue
-        builder = _SELECTABLE.get(item.method_id)
-        if builder is None:
-            results.append(
-                VerifierResult(
-                    item.method_id,
-                    item.revision_hash,
-                    False,
-                    {},
-                    UNKNOWN_METHOD_RULE,
-                )
-            )
-            continue
-        results.append(builder(report, spec))
+        results.append(
+            _dispatch_selectable(item.method_id, item.revision_hash, report, spec)
+        )
     _append_pit_result(
         results,
         spec,
         report,
         evidence_as_of=evidence_as_of,
         missing_as_of_material_ids=missing_as_of_material_ids,
+        revision=pit_revision,
     )
     return VerificationReport(tuple(results))

@@ -505,6 +505,14 @@ class SQLiteStore:
                 latest[item.method_id] = item
         return tuple(latest[method_id] for method_id in sorted(latest))
 
+    def get_method_definition(
+        self, method_id: str, revision_hash: str
+    ) -> MethodDefinition | None:
+        for item in self._all_method_revision_rows():
+            if item.method_id == method_id and item.revision_hash == revision_hash:
+                return item
+        return None
+
     def latest_method_definition(self, method_id: str) -> MethodDefinition | None:
         rows = [item for item in self._all_method_revision_rows() if item.method_id == method_id]
         if not rows:
