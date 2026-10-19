@@ -101,8 +101,18 @@ CONVERTER.register_structure_hook_func(
 
 
 def _structure_verifier_result(item: dict[str, Any], _: type) -> VerifierResult:
-    target = PitVerifierResult if item.get("verifier_id") == "pit.consistency" else VerifierResult
-    return CONVERTER.structure(item, target)
+    if item.get("verifier_id") != "pit.consistency":
+        return CONVERTER.structure(item, VerifierResult)
+    payload = dict(item)
+    payload.setdefault("evidence_timestamps", [])
+    payload.setdefault("backtest_cutoff", "")
+    payload.setdefault("violations", [])
+    payload.setdefault("evidence_used", 0)
+    payload.setdefault("undated_excluded", [])
+    payload.setdefault("scope", "")
+    payload.setdefault("note", "")
+    payload.setdefault("violation_details", [])
+    return CONVERTER.structure(payload, PitVerifierResult)
 
 
 def _structure_verification_report(data: Any, _: type) -> VerificationReport | None:

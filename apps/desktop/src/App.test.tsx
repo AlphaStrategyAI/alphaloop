@@ -537,14 +537,16 @@ describe("Night desktop contract", () => {
           selectedRoundId: "round-1",
           selectedMethodId: "overfit.walk",
           eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: false},
+          pitDetail: {executed: true, passed: false, violationCount: 1, backtestCutoff: "2026-10-16"},
           currentAction: "idle",
         }}
       />,
     );
     const eligibilityDiv = screen.getByTestId("completed-gate-pills");
     expect(eligibilityDiv.children).toHaveLength(4);
-    expect(eligibilityDiv.textContent).toContain("时点一致性已执行且通过");
-    expect(eligibilityDiv.textContent).toContain("○ 时点一致性已执行且通过");
+    expect(eligibilityDiv.textContent).toContain("时点一致性未通过");
+    expect(eligibilityDiv.textContent).toContain("○ 时点一致性未通过");
+    expect(eligibilityDiv.textContent).not.toContain("未通过或未执行");
     expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
   });
 

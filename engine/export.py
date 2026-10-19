@@ -32,6 +32,30 @@ class ExportEligibility:
     failed_checks: tuple[str, ...]
 
 
+def _pit_verification_payload(pit_result: VerifierResult | None) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "executed": pit_result is not None,
+        "passed": pit_result is not None and pit_result.passed,
+        "violations": list(pit_result.violations) if isinstance(pit_result, PitVerifierResult) else [],
+    }
+    if isinstance(pit_result, PitVerifierResult):
+        payload["evidence_used"] = pit_result.evidence_used
+        payload["undated_excluded"] = list(pit_result.undated_excluded)
+        payload["scope"] = pit_result.scope
+        if pit_result.note:
+            payload["note"] = pit_result.note
+    return payload
+
+
+def _material_sources(paths: tuple[Path, ...]) -> dict[str, object]:
+    rows = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+    return {
+        "sources": rows,
+        "used": [row for row in rows if row.get("published_at")],
+        "browsed_not_used": [row for row in rows if not row.get("published_at")],
+    }
+
+
 def _find_pit_result(attempt: Attempt) -> VerifierResult | None:
     """Find PIT verifier result in attempt's verification report."""
     if attempt.verification is None:
@@ -389,11 +413,9 @@ def build_strategy_pack(
         _json(root / "reports" / "verification.json", asdict(attempt.verification))
         _json(root / "reports" / "review.json", asdict(attempt.review))
         _json(root / "methods" / "definitions.json", dict(VERIFIER_REVISIONS))
-        sources = [
-            json.loads(path.read_text(encoding="utf-8"))
-            for path in attempt.evidence_paths
-        ]
-        _json(root / "materials" / "sources.json", {"sources": sources})
+        sources_payload = _material_sources(attempt.evidence_paths)
+        sources = sources_payload["sources"]
+        _json(root / "materials" / "sources.json", sources_payload)
         _json(
             root / "data" / "provenance.json",
             {
@@ -437,11 +459,7 @@ def build_strategy_pack(
         schema_target.parent.mkdir(parents=True)
         schema_target.write_bytes(schema_source.read_bytes())
         pit_result = _find_pit_result(attempt)
-        pit_verification = {
-            "executed": pit_result is not None,
-            "passed": pit_result is not None and pit_result.passed,
-            "violations": list(pit_result.violations) if isinstance(pit_result, PitVerifierResult) else [],
-        }
+        pit_verification = _pit_verification_payload(pit_result)
         payloads = sorted(path for path in root.rglob("*") if path.is_file())
         _json(
             root / "manifest.json",
@@ -529,9 +547,22 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
             root / "history" / "reverifications.json",
             [asdict(item) for item in research.reverifications],
         )
+        latest_attempt = (
+            research.versions[-1].rounds[-1].accepted_attempt
+            if research.versions and research.versions[-1].rounds
+            else None
+        )
+        pit_payload = _pit_verification_payload(
+            _find_pit_result(latest_attempt) if latest_attempt is not None else None
+        )
+        _json(root / "history" / "pit_verification.json", pit_payload)
+        why_not_live: dict[str, object] = {"failed_checks": list(eligibility.failed_checks)}
+        scope = pit_payload.get("scope")
+        if isinstance(scope, str) and scope:
+            why_not_live["pit_scope"] = scope
         _json(
             root / "why_not_live.json",
-            {"failed_checks": list(eligibility.failed_checks)},
+            why_not_live,
         )
         write_glossary(root)
         bundle_root = Path(

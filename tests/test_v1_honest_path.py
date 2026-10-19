@@ -1,4 +1,8 @@
-"""§2.3 network acceptance: real MaterialPort + DataPort → COMPLETED (PIT may fail)."""
+"""§2.3 network acceptance: real MaterialPort + DataPort → COMPLETED.
+
+Undated local notes are browsed, not cited. PIT passes with evidence_used=0.
+Other gates are reported as they come back; this test does not require them green.
+"""
 
 import os
 from datetime import UTC, date, datetime
@@ -91,14 +95,18 @@ def test_v1_mean_reversion_reaches_completed_real_ports(tmp_path) -> None:
         if item.verifier_id == "pit.consistency"
     )
     assert pit.verifier_id == "pit.consistency"
-    assert pit.passed is False
+    assert pit.revision == "pit-v2"
+    assert pit.passed is True
+    assert pit.evidence_used == 0
+    assert pit.note == "未引用外部资料"
+    assert any(str(item).startswith("local:") for item in pit.undated_excluded)
+    assert pit.scope == "只查资料发布日 ≤ 回测截止日，不覆盖标的池/复权/财务修订"
 
     from engine.export import build_research_record_pack, strategy_pack_eligibility
     from engine.research.desktop_view import rounds_for_desktop
 
     eligibility = strategy_pack_eligibility(current)
-    assert eligibility.eligible is False
-    assert "pit_executed_and_passed" in eligibility.failed_checks
+    assert "pit_executed_and_passed" not in eligibility.failed_checks
     method_set = tuple(m for m in attempt.spec.method_set if m.method_id != "pit.consistency")
     methods_passed = attempt.verification.passed_for(method_set)
     if not methods_passed:
@@ -111,7 +119,7 @@ def test_v1_mean_reversion_reaches_completed_real_ports(tmp_path) -> None:
 
     desktop_rounds = rounds_for_desktop(current, current.current_version_number or 1)
     assert desktop_rounds[0]["verificationPassed"] is methods_passed
-    assert desktop_rounds[0]["pitPassed"] is False
+    assert desktop_rounds[0]["pitPassed"] is True
 
     record_path = build_research_record_pack(current, tmp_path / "accept-record.zip")
     assert record_path.exists()

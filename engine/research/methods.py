@@ -15,7 +15,7 @@ from engine.research.models import (
     MethodUsage,
     Research,
 )
-from engine.verifiers import PIT_VERIFIER_REVISION, VERIFIER_REVISIONS
+from engine.verifiers import PIT_REVISION_V2, PIT_SCOPE, PIT_VERIFIER_REVISION, VERIFIER_REVISIONS
 
 
 class ScorecardDimensionKind(StrEnum):
@@ -220,6 +220,11 @@ def _builtin_preset_catalog() -> tuple[tuple[str, dict[str, object]], ...]:
         catalog.append((method_id, _as_meta(meta)))
     for method_id, pit_meta in PIT_VERIFIER_REVISION.items():
         catalog.append((method_id, _as_meta(pit_meta)))
+    pit_v2 = _as_meta(PIT_VERIFIER_REVISION["pit.consistency"])
+    pit_v2["revision"] = PIT_REVISION_V2
+    pit_v2["scope"] = PIT_SCOPE
+    pit_v2["supersedes"] = "pit-v1"
+    catalog.append(("pit.consistency", pit_v2))
     return tuple(catalog)
 
 

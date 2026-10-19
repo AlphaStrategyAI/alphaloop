@@ -22,6 +22,7 @@ _FIELD_LABELS: dict[str, str] = {
     "cn_cost_bp": "A股成本（bp）",
     "net_excess_min_exclusive": "净超额下限（不含等于）",
     "category": "类别",
+    "scope": "检查范围",
 }
 
 
@@ -63,6 +64,7 @@ _REVISION_LABELS: dict[str, str] = {
     "crowding-v1": f"{method_label('crowding.load')} · 内置第 1 版",
     "cost-v1": f"{method_label('cost.turnover')} · 内置第 1 版",
     "pit-v1": f"{method_label('pit.consistency')} · 内置第 1 版",
+    "pit-v2": f"{method_label('pit.consistency')} · 内置第 2 版",
 }
 
 
