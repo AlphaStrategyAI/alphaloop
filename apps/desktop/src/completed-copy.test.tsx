@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import {cleanup, render} from "@testing-library/react";
+import {cleanup, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {App} from "./App";
@@ -59,5 +59,109 @@ describe("completed screen copy", () => {
     const {container} = render(<App api={makeApi(view)} initialView={view} />);
     const text = container.textContent ?? "";
     expect(text.match(/预算已用尽/g)?.length).toBe(1);
+  });
+
+  it("shows pit scope, cited count, and the no-external-evidence note", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-pit",
+      status: "completed",
+      title: "测试",
+      selectedRoundId: "r-1",
+      selectedMethodId: "m-1",
+      eligibility: {...eligibility, pitExecutedAndPassed: true},
+      pitDetail: {
+        executed: true,
+        passed: true,
+        revision: "pit-v2",
+        evidenceUsed: 0,
+        undatedExcluded: ["local:note.md"],
+        scope: "只查资料发布日 ≤ 回测截止日，不覆盖标的池/复权/财务修订",
+        note: "未引用外部资料",
+      },
+    };
+    render(<App api={makeApi(view)} initialView={view} />);
+    const detail = document.querySelector("[data-testid='pit-detail']");
+    expect(detail?.textContent).toContain("未引用外部资料");
+    expect(detail?.textContent).toContain("已采信 0 份");
+    expect(detail?.textContent).toContain("已浏览未采信 1 份");
+    expect(detail?.textContent).toContain("不覆盖标的池/复权/财务修订");
+  });
+
+  it("shows the first late paper, year-end rule, and separates the two cutoffs", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-pit-fail",
+      status: "ended",
+      title: "均值回归",
+      selectedRoundId: "r-1",
+      selectedMethodId: "m-1",
+      eligibility: {...eligibility, pitExecutedAndPassed: false},
+      exportBlockerMessages: ["时点一致性未通过，暂不能导出策略包"],
+      backtestCutoff: "2026-10-16",
+      symbolSelection: {
+        count: 40,
+        listName: "美股大市值",
+        listVersion: "1",
+        symbols: ["AAPL"],
+        source: "default_pool",
+        dataStart: "2014-10-19",
+        dataEnd: "2026-10-19",
+        dataCutoff: "2026-10-19",
+        dataSource: "雅虎日线",
+      },
+      pitDetail: {
+        executed: true,
+        passed: false,
+        revision: "pit-v2",
+        evidenceUsed: 5,
+        undatedExcluded: [],
+        scope: "只查资料发布日 ≤ 回测截止日，不覆盖标的池/复权/财务修订",
+        note: "",
+        backtestCutoff: "2026-10-16",
+        violationCount: 1,
+        firstViolation: {
+          materialId: "doi:10.37155/3041-0827-0207-3",
+          title: "年份论文",
+          publishedAt: "2026-12-31",
+          precision: "year",
+          reason: "after_cutoff",
+        },
+      },
+    };
+    render(<App api={makeApi(view)} initialView={view} />);
+    const reason = document.querySelector("[data-testid='pit-failure-reason']");
+    expect(reason?.textContent).toContain("时点一致性未通过");
+    expect(reason?.textContent).not.toContain("未通过或未执行");
+    expect(reason?.textContent).toContain("年份论文");
+    expect(reason?.textContent).toContain("DOI 10.37155/3041-0827-0207-3");
+    expect(reason?.textContent).toContain("2026-12-31");
+    expect(reason?.textContent).toContain("仅知年份，按年末计");
+    expect(reason?.textContent).toContain("回测截止日 2026-10-16");
+    expect(reason?.textContent).toContain("共 1 条违规");
+    const windowLine = document.querySelector("[data-testid='completed-symbol-selection']");
+    expect(windowLine?.textContent).toContain("数据窗口截止 2026-10-19");
+    expect(windowLine?.textContent).toContain("回测截止（最后交易日）2026-10-16");
+    expect(screen.getByTestId("completed-gate-pills").textContent).toContain("时点一致性未通过");
+    expect(screen.getByTestId("completed-gate-pills").textContent).not.toContain("未执行");
+  });
+
+  it("says the gate was not executed when PIT never ran", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-no-pit",
+      status: "ended",
+      title: "均值回归",
+      selectedRoundId: "r-1",
+      selectedMethodId: "m-1",
+      eligibility: {...eligibility, pitExecutedAndPassed: false},
+      pitDetail: {executed: false, passed: false},
+    };
+    render(<App api={makeApi(view)} initialView={view} />);
+    expect(screen.getByTestId("completed-gate-pills").textContent).toContain("时点一致性未执行");
+    expect(screen.getByTestId("completed-gate-pills").textContent).not.toContain("未通过或未执行");
+    expect(document.querySelector("[data-testid='pit-failure-reason']")?.textContent).toContain(
+      "时点一致性未执行，暂不能导出策略包",
+    );
   });
 });

@@ -22,6 +22,7 @@ _FIELD_LABELS: dict[str, str] = {
     "cn_cost_bp": "A股成本（bp）",
     "net_excess_min_exclusive": "净超额下限（不含等于）",
     "category": "类别",
+    "scope": "检查范围",
 }
 
 _METHOD_PURPOSE: dict[str, str] = {
@@ -49,6 +50,7 @@ _REVISION_LABELS: dict[str, str] = {
     "crowding-v1": "拥挤度 · 内置第 1 版",
     "cost-v1": "换手成本 · 内置第 1 版",
     "pit-v1": "时点一致性 · 内置第 1 版",
+    "pit-v2": "时点一致性 · 内置第 2 版",
 }
 
 

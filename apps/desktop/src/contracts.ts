@@ -178,6 +178,8 @@ type ViewBody =
           methods: readonly {methodId: string; methodLabel: string}[];
         }[];
       };
+      pitDetail?: PitDetail | null;
+      backtestCutoff?: string | null;
       lastReverification?: {
         roundId: string;
         methodId: string;
@@ -286,6 +288,28 @@ export interface ScorecardDimension {
   comparisonLabel?: string;
   failureDisplay: string;
   unit?: string;
+}
+
+export interface PitViolation {
+  materialId: string;
+  title: string;
+  publishedAt: string;
+  precision: string;
+  reason: string;
+  text?: string;
+}
+
+export interface PitDetail {
+  executed: boolean;
+  passed: boolean;
+  revision?: string;
+  evidenceUsed?: number;
+  undatedExcluded?: readonly string[];
+  scope?: string;
+  note?: string;
+  backtestCutoff?: string;
+  violationCount?: number;
+  firstViolation?: PitViolation | null;
 }
 
 export interface RoundRecord {
