@@ -144,7 +144,7 @@ type ViewBody =
       kind: "awaiting_confirm";
       researchId: string;
       version: number;
-      confirmKind?: "economic" | "coverage";
+      confirmKind?: "economic" | "coverage" | "data_lineage";
       proposed: string;
       reason: string;
       effect: string;
@@ -349,7 +349,7 @@ export interface ConfirmCardData {
   effect: string;
   whyChange: readonly EvidenceRef[];
   whoPaysOptional?: string | null;
-  confirmKind: "economic" | "coverage";
+  confirmKind: "economic" | "coverage" | "data_lineage";
   createdAt: string;
 }
 
