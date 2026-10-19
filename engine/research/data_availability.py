@@ -12,6 +12,14 @@ from engine.research.user_errors import UserFacingError
 
 TRANSIENT_DATA_MESSAGE = "行情数据源暂时不可用，请稍后重试"
 TRANSIENT_DATA_CODE = "DATA_SOURCE_UNAVAILABLE"
+MARKET_DATA_FAILURE_CODES = frozenset(
+    {
+        TRANSIENT_DATA_CODE,
+        "MARKET_DATA_TIMEOUT",
+        "MARKET_DATA_RATE_LIMITED",
+        "MARKET_DATA_FETCH_FAILED",
+    }
+)
 
 
 def transient_data_error() -> UserFacingError:

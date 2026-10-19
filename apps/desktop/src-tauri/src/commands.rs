@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -56,13 +57,23 @@ impl EngineConnection {
             .map_err(|_| "engine connection lock poisoned")?
             .clone()
             .ok_or("engine is not ready")?;
-        let response = Client::new()
+        let response = Client::builder()
+            .timeout(Duration::from_secs(command_timeout_secs_from_env()))
+            .build()
+            .map_err(|error| error.to_string())?
             .post(format!("{}/commands", connection.endpoint))
             .bearer_auth(connection.auth_token)
             .json(&request)
             .send()
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| {
+                if error.is_timeout() {
+                    "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）"
+                        .to_string()
+                } else {
+                    error.to_string()
+                }
+            })?;
         let status = response.status();
         let body = response
             .text()
@@ -73,6 +84,31 @@ impl EngineConnection {
         }
         serde_json::from_str(&body).map_err(|error| error.to_string())
     }
+}
+
+/// Desktop wait for one engine command. Must stay above the Python load
+/// deadline in `shell_command_timeout_seconds` (40 batches × seconds-per-batch,
+/// or the explicit timeout, plus 120s).
+fn command_timeout_secs(explicit: Option<u64>, sec_per_batch: u64) -> u64 {
+    const MARGIN_SECS: u64 = 120;
+    const BATCHES: u64 = 40;
+    match explicit {
+        Some(value) => value.saturating_add(MARGIN_SECS),
+        None => sec_per_batch.saturating_mul(BATCHES).saturating_add(MARGIN_SECS),
+    }
+}
+
+fn command_timeout_secs_from_env() -> u64 {
+    let explicit = std::env::var("ALPHALOOP_MARKET_DATA_TIMEOUT_SEC")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .map(|value| value.ceil() as u64);
+    let per_batch = std::env::var("ALPHALOOP_MARKET_DATA_SEC_PER_BATCH")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .map(|value| value.ceil() as u64)
+        .unwrap_or(60);
+    command_timeout_secs(explicit, per_batch)
 }
 
 fn parse_engine_error_body(body: &str) -> String {
@@ -441,7 +477,10 @@ pub fn restart_engine_sidecar(
 
 #[cfg(test)]
 mod tests {
-    use super::{EngineConnection, notification_title, notify_kinds, parse_engine_error_body};
+    use super::{
+        EngineConnection, command_timeout_secs, notification_title, notify_kinds,
+        parse_engine_error_body,
+    };
 
     #[test]
     fn notify_titles_cover_only_awaiting_and_terminal_states() {
@@ -464,6 +503,15 @@ mod tests {
         assert!(conn.is_configured());
         conn.clear();
         assert!(!conn.is_configured());
+    }
+
+    #[test]
+    fn command_timeout_stays_above_the_v2_fetch_budget() {
+        assert_eq!(command_timeout_secs(None, 60), 60 * 40 + 120);
+        assert!(command_timeout_secs(None, 60) > 38 * 60);
+        assert!(command_timeout_secs(None, 60) > 13 * 60);
+        assert_eq!(command_timeout_secs(Some(120), 60), 240);
+        assert!(command_timeout_secs(Some(120), 60) > 120);
     }
 
     #[test]

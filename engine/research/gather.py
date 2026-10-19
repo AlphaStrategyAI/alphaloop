@@ -27,6 +27,7 @@ from engine.research.market_data_progress import (
 )
 from engine.research.market_data_retry import call_with_rate_limit_retry, is_rate_limited
 from engine.research.market_data_timeouts import (
+    CN_HTTP_TIMEOUT_SEC,
     YAHOO_BATCH_SIZE,
     YAHOO_FETCH_CONCURRENCY,
     cn_market_data_max_workers,
@@ -458,8 +459,33 @@ def _sina_listing_code(symbol: str, provider_symbol: str) -> str:
     return f"sh{provider_symbol}"
 
 
+def _install_cn_request_timeout() -> None:
+    """Sina's client has no timeout, so a stalled socket sits for 60–120s."""
+    import akshare.stock.stock_zh_a_sina as sina
+
+    get = sina.requests.get
+    if getattr(get, "_alphaloop_timeout", False):
+        return
+
+    def wrapped(*args: object, **kwargs: object) -> object:
+        kwargs.setdefault("timeout", CN_HTTP_TIMEOUT_SEC)
+        return get(*args, **kwargs)
+
+    wrapped._alphaloop_timeout = True  # type: ignore[attr-defined]
+    sina.requests.get = wrapped  # type: ignore[method-assign]
+
+
+def _is_transport_timeout(error: BaseException) -> bool:
+    name = type(error).__name__.lower()
+    if "timeout" in name:
+        return True
+    text = str(error).lower()
+    return "timed out" in text or "timeout" in text
+
+
 def _cn_equity_close(provider_symbol: str, symbol: str, start: date, end: date) -> pd.Series:
     """A-share daily close: Sina (akshare) first, Eastmoney akshare fallback."""
+    _install_cn_request_timeout()
     sina_code = _sina_listing_code(symbol, provider_symbol)
     try:
         raw = ak.stock_zh_a_daily(symbol=sina_code, adjust="qfq")
@@ -470,7 +496,7 @@ def _cn_equity_close(provider_symbol: str, symbol: str, start: date, end: date) 
         )
         return series.loc[start.isoformat() : end.isoformat()]
     except Exception as error:
-        if is_rate_limited(error):
+        if is_rate_limited(error) or _is_transport_timeout(error):
             raise
         raw = ak.stock_zh_a_hist(
             symbol=provider_symbol,
@@ -478,6 +504,7 @@ def _cn_equity_close(provider_symbol: str, symbol: str, start: date, end: date) 
             start_date=start.strftime("%Y%m%d"),
             end_date=end.strftime("%Y%m%d"),
             adjust="qfq",
+            timeout=CN_HTTP_TIMEOUT_SEC,
         )
         series = pd.Series(
             raw["收盘"].to_numpy(),

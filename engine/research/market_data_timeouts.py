@@ -24,11 +24,33 @@ _SEC_PER_BATCH = float(
 )
 YAHOO_BATCH_SIZE = 40
 YAHOO_FETCH_CONCURRENCY = 2
+# Enough waves for a 300-name A-share pool (8 at a time) and a 503-name
+# Yahoo pool (40 at a time). The desktop command timeout stays one margin
+# above this budget so the shell does not disconnect first.
+SHELL_TIMEOUT_BATCHES = 40
+SHELL_TIMEOUT_MARGIN_SEC = 120.0
+CN_HTTP_TIMEOUT_SEC = 20.0
 
 
 def cn_market_data_max_workers() -> int:
     raw = os.environ.get("ALPHALOOP_CN_MARKET_MAX_WORKERS", "8")
     return max(1, min(16, int(raw)))
+
+
+def shell_command_timeout_seconds(
+    *,
+    explicit: float | None,
+    sec_per_batch: float,
+) -> float:
+    """How long the desktop may wait on one engine command.
+
+    An explicit ``ALPHALOOP_MARKET_DATA_TIMEOUT_SEC`` is the engine cap, so
+    the shell waits that long plus a margin. Otherwise the shell waits for
+    the largest v2 pool budget plus the same margin.
+    """
+    if explicit is not None:
+        return explicit + SHELL_TIMEOUT_MARGIN_SEC
+    return sec_per_batch * SHELL_TIMEOUT_BATCHES + SHELL_TIMEOUT_MARGIN_SEC
 
 
 def load_deadline_seconds(symbol_count: int, *, batch_size: int) -> float:

@@ -173,7 +173,14 @@ def test_confirm_run_transient_within_market_deadline(
     set_pool_data_loader(None)
 
     assert exc.value.code == "MARKET_DATA_TIMEOUT"
+    assert "MARKET_DATA_TIMEOUT" in exc.value.message
     assert elapsed < mdt.MARKET_DATA_LOAD_TIMEOUT_SEC + 2.0
+    saved = store.load("r-http")
+    assert saved.status is ResearchStatus.DRAFT
+    assert saved.last_run_error_code is None
+    view = service.view_for("#/research/r-http")
+    assert view["kind"] == "confirm_run"
+    assert "MARKET_DATA_TIMEOUT" in view["confirmDataNotice"]
 
 
 def test_overlapping_confirm_run_returns_success_and_starts_once(tmp_path: Path) -> None:

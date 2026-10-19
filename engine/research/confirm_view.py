@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from engine.research.models import Research
-from engine.research.display_names import data_source_label_for_symbols
+from engine.research.models import Research, ResearchStatus
+from engine.research.display_names import data_source_label
+from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
 from engine.research.symbol_selection_display import symbol_selection_summary_fields
-from engine.research.planned_data_window import planned_data_window
+from engine.research.planned_data_window import data_source_id_for_symbols, planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.symbol_pool import pool_for_universe
 from engine.research.universe_pool import materialize_default_pool
@@ -26,6 +27,30 @@ def _resolved_symbols(research: Research) -> tuple[str, ...] | None:
     if pool is not None:
         return pool.symbols
     return None
+
+
+def confirm_data_notice_text(research: Research) -> str | None:
+    """Last assistant line when it is a confirm-time fetch failure."""
+    if not research.dialogue:
+        return None
+    last = research.dialogue[-1]
+    if last.role.value != "assistant":
+        return None
+    if any(code in last.text for code in MARKET_DATA_FAILURE_CODES):
+        return last.text
+    return None
+
+
+def _card_data_source_id(
+    research: Research,
+    symbols: tuple[str, ...],
+    market: object,
+) -> str:
+    if research.status is not ResearchStatus.DRAFT:
+        return research.data_source_id
+    if symbols:
+        return data_source_id_for_symbols(symbols, market)
+    return research.data_source_id
 
 
 def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
@@ -84,7 +109,9 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
             "dataStart": start.isoformat(),
             "dataEnd": end.isoformat(),
             "dataCutoff": end.isoformat(),
-            "dataSource": data_source_label_for_symbols(tuple(symbols), universe.market),
+            "dataSource": data_source_label(
+                _card_data_source_id(research, tuple(symbols), universe.market)
+            ),
             "droppedForMissingData": dropped,
             "shrinkNote": shrink_note or None,
         }

@@ -29,4 +29,5 @@ def record_transient_confirm_notice(
     now: datetime,
 ) -> Research:
     """Keep locked slots; only surface retry copy for confirm-time data outages."""
-    return append_dialogue(research, DialogueRole.ASSISTANT, error.message, now)
+    text = error.message if error.code in error.message else f"{error.message}（{error.code}）"
+    return append_dialogue(research, DialogueRole.ASSISTANT, text, now)

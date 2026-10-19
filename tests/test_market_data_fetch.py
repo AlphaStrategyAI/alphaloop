@@ -51,6 +51,66 @@ def test_builtin_deadline_scales_with_v2_pool_sizes(monkeypatch: pytest.MonkeyPa
     assert mdt.load_deadline_seconds(300, batch_size=8) == 38 * 60
 
 
+def test_shell_timeout_outlasts_the_engine_deadline() -> None:
+    us = mdt.load_deadline_seconds(503, batch_size=mdt.YAHOO_BATCH_SIZE)
+    cn = mdt.load_deadline_seconds(300, batch_size=8)
+    shell = mdt.shell_command_timeout_seconds(explicit=None, sec_per_batch=mdt.DEFAULT_SEC_PER_BATCH)
+    assert shell > us
+    assert shell > cn
+    assert mdt.shell_command_timeout_seconds(explicit=120, sec_per_batch=60) == 240
+
+
+def test_same_window_second_round_does_not_refetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    from engine.research.loop import window_for_round
+    from engine.research.models import new_research
+    from datetime import UTC, datetime
+
+    calls: list[str] = []
+
+    def fake_history(symbol: str, _start: date, _end: date) -> pd.Series:
+        calls.append(symbol)
+        return _bars([symbol])[symbol]
+
+    monkeypatch.setattr("engine.research.gather._yahoo_history", fake_history)
+    symbols = ("AAPL", "MSFT")
+    pinned_start = date(2014, 10, 22)
+    pinned_end = date(2026, 10, 19)
+    research = new_research("r-rounds", datetime(2026, 10, 19, 1, 0, tzinfo=UTC))
+    from dataclasses import replace
+
+    research = replace(
+        research,
+        data_window_start=pinned_start,
+        data_window_end=pinned_end,
+    )
+    start, end = window_for_round(research, date(2014, 10, 21), date(2026, 10, 18))
+    assert (start, end) == (pinned_start, pinned_end)
+    adapter = YahooDataAdapter()
+    adapter.load_daily(symbols, start, end)
+    assert set(calls) == set(symbols)
+    calls.clear()
+    adapter.load_daily(symbols, start, end)
+    assert calls == []
+
+
+def test_sina_get_defaults_a_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    import akshare.stock.stock_zh_a_sina as sina
+
+    from engine.research.gather import _install_cn_request_timeout
+
+    calls: dict[str, object] = {}
+
+    def fake_get(*_args: object, **kwargs: object) -> object:
+        calls["timeout"] = kwargs.get("timeout")
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(sina.requests, "get", fake_get)
+    _install_cn_request_timeout()
+    with pytest.raises(RuntimeError, match="stop"):
+        sina.requests.get("https://example.invalid")
+    assert calls["timeout"] == mdt.CN_HTTP_TIMEOUT_SEC
+
+
 def test_explicit_timeout_override_stays_a_hard_cap(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mdt, "MARKET_DATA_LOAD_TIMEOUT_SEC", 0.5)
     assert mdt.load_deadline_seconds(503, batch_size=40) == 0.5

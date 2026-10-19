@@ -26,11 +26,15 @@ from engine.dialogue.pool_errors import (
     record_transient_confirm_notice,
     reopen_after_pool_failure,
 )
-from engine.research.data_availability import TRANSIENT_DATA_CODE
-from engine.research.universe_pool import materialize_default_pool, pool_resolvable
+from engine.research.confirm_view import confirm_data_notice_text, symbol_selection_payload
+from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
+from engine.research.universe_pool import (
+    materialize_default_pool,
+    pin_draft_data_source,
+    pool_resolvable,
+)
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
-from engine.research.confirm_view import symbol_selection_payload
 from engine.research.thesis_scope import mean_reversion_only_notice
 from engine.research.method_body_display import (
     format_method_body_display,
@@ -654,8 +658,11 @@ class ResearchCommandService:
         research_id = route.removeprefix("#/research/")
         research = self.store.load(research_id)
         if research.status.value == "draft":
-            materialized = materialize_default_pool(research)
-            if materialized.brief != research.brief:
+            materialized = pin_draft_data_source(materialize_default_pool(research))
+            if (
+                materialized.brief != research.brief
+                or materialized.data_source_id != research.data_source_id
+            ):
                 self.store.save(materialized, research.updated_at)
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
@@ -671,6 +678,9 @@ class ResearchCommandService:
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
+                fetch_notice = confirm_data_notice_text(research)
+                if fetch_notice:
+                    body["confirmDataNotice"] = fetch_notice
                 notice = mean_reversion_only_notice(
                     str(research.brief.thesis.value or "")
                 )
@@ -855,7 +865,7 @@ class ResearchCommandService:
             try:
                 research = ensure_runnable_universe(research)
             except UserFacingError as error:
-                if error.code == TRANSIENT_DATA_CODE:
+                if error.code in MARKET_DATA_FAILURE_CODES:
                     updated = record_transient_confirm_notice(research, error, now)
                     self._save(research, updated)
                     raise

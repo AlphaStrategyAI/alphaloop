@@ -67,6 +67,17 @@ def _as_coverage_date(value: object) -> date | None:
     return None
 
 
+def window_for_round(
+    research: Research,
+    fallback_start: date,
+    fallback_end: date,
+) -> tuple[date, date]:
+    """Use the window pinned at confirm so later rounds share that price cache."""
+    if research.data_window_start is not None and research.data_window_end is not None:
+        return research.data_window_start, research.data_window_end
+    return fallback_start, fallback_end
+
+
 def _coverage_window(simulation: object, fallback: date) -> tuple[date, date]:
     start = _as_coverage_date(getattr(simulation, "start", None))
     end = _as_coverage_date(getattr(simulation, "end", None))
@@ -175,6 +186,7 @@ class DefaultRoundBuilder:
         snapshot = self.snapshot_root / (
             f"{research.research_id}-v{version.number}-r{round_number}-a{attempt_number}.csv"
         )
+        self.start, self.end = window_for_round(research, self.start, self.end)
         self._emit(ResearchAction.SIMULATE)
         simulation = simulate_daily(
             strategy,
