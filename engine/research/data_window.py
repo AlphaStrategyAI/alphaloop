@@ -49,10 +49,20 @@ def data_window_key_from_research(research: Research) -> DataWindowKey | None:
 
 
 def data_window_key_from_round(round_: RoundV2, research: Research) -> DataWindowKey | None:
+    """Count a round on the research's pinned window when one exists.
+
+    The confirm-time key (end = the day the run was confirmed) is what
+    ``increment_window_round_count`` uses. The last backtest bar is often an
+    earlier session, so keying the round off ``simulation.end`` never matches
+    that anchor and the exported cumulative M stays 0.
+    """
+    pinned = data_window_key_from_research(research)
+    if pinned is not None:
+        return pinned
     attempt = round_.accepted_attempt
     simulation = attempt.simulation
     if simulation is None:
-        return data_window_key_from_research(research)
+        return None
     start = getattr(simulation, "start", None)
     end = getattr(simulation, "end", None)
     if start is None or end is None:

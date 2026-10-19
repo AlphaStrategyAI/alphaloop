@@ -18,6 +18,7 @@ git checkout <commit> -- .   # restore the old tree locally
 ## What is here
 
 - `README.md` — this file
+- [`docs/GLOSSARY.md`](./docs/GLOSSARY.md) — 当前展示名术语表（门禁改名、试验次数与累计 M、基准与成本口径）。产品说明的大改不在这份表里。
 - [`docs/requirements/product-positioning.md`](./docs/requirements/product-positioning.md) — the product positioning for alphaloop
 - [`docs/requirements/product-design-v0_0_1.md`](./docs/requirements/product-design-v0_0_1.md) — the v0.0.1 product design (features, IA, flows)
 - [`docs/requirements/ui-design-v0_0_1.md`](./docs/requirements/ui-design-v0_0_1.md) — the v0.0.1 UI design (shell, tokens, seven screens)

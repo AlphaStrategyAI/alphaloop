@@ -26,7 +26,7 @@ const detailView: DesktopView = {
     thesis: "测试",
     universe: "A股 · 股票",
     max_effective_hours: "8 小时",
-    round1_methods: "走样检验",
+    round1_methods: "分段稳健性检验",
     coverage_floor: "至少 1 个标的、10 年数据，缺失不超过 5%",
   },
 };
@@ -34,7 +34,7 @@ const detailView: DesktopView = {
 const methodsView: DesktopView = {
   kind: "methods",
   selected: "m1",
-  methods: [{id: "m1", name: "走样", revision: "v1", description: "desc"}],
+  methods: [{id: "m1", name: "分段稳健性检验", revision: "v1", description: "desc"}],
 };
 
 function makeApi(fetchView: DesktopApi["fetchView"]): DesktopApi {

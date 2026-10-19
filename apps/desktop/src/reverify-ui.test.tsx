@@ -51,13 +51,13 @@ describe("reverify controls", () => {
             roundLabel: "第 1 轮",
             methods: [
               {methodId: "scorecard.market", methodLabel: "市场计分卡"},
-              {methodId: "overfit.walk", methodLabel: "走样检验"},
+              {methodId: "overfit.walk", methodLabel: "分段稳健性检验"},
             ],
           },
           {
             roundId: "r2",
             roundLabel: "第 2 轮",
-            methods: [{methodId: "overfit.walk", methodLabel: "走样检验"}],
+            methods: [{methodId: "overfit.walk", methodLabel: "分段稳健性检验"}],
           },
         ],
       },

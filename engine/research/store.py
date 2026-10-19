@@ -103,8 +103,18 @@ CONVERTER.register_structure_hook_func(
 
 
 def _structure_verifier_result(item: dict[str, Any], _: type) -> VerifierResult:
-    target = PitVerifierResult if item.get("verifier_id") == "pit.consistency" else VerifierResult
-    return CONVERTER.structure(item, target)
+    if item.get("verifier_id") != "pit.consistency":
+        return CONVERTER.structure(item, VerifierResult)
+    payload = dict(item)
+    payload.setdefault("evidence_timestamps", [])
+    payload.setdefault("backtest_cutoff", "")
+    payload.setdefault("violations", [])
+    payload.setdefault("evidence_used", 0)
+    payload.setdefault("undated_excluded", [])
+    payload.setdefault("scope", "")
+    payload.setdefault("note", "")
+    payload.setdefault("violation_details", [])
+    return CONVERTER.structure(payload, PitVerifierResult)
 
 
 def _structure_verification_report(data: Any, _: type) -> VerificationReport | None:
@@ -376,7 +386,10 @@ class SQLiteStore:
 
     @staticmethod
     def _decode(payload: str) -> Research:
-        return CONVERTER.structure(json.loads(payload), Research)
+        data = json.loads(payload)
+        if isinstance(data, dict):
+            data.setdefault("pending_non_mr_thesis", None)
+        return CONVERTER.structure(data, Research)
 
     def create(self, research: Research) -> None:
         with self.connection:
@@ -582,6 +595,14 @@ class SQLiteStore:
             if current is None or item.created_at >= current.created_at:
                 latest[item.method_id] = item
         return tuple(latest[method_id] for method_id in sorted(latest))
+
+    def get_method_definition(
+        self, method_id: str, revision_hash: str
+    ) -> MethodDefinition | None:
+        for item in self._all_method_revision_rows():
+            if item.method_id == method_id and item.revision_hash == revision_hash:
+                return item
+        return None
 
     def latest_method_definition(self, method_id: str) -> MethodDefinition | None:
         rows = [item for item in self._all_method_revision_rows() if item.method_id == method_id]

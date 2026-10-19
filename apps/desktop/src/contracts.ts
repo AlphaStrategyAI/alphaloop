@@ -74,6 +74,12 @@ export interface ResearchSummary {
   updatedAt?: string;
 }
 
+export interface GlossaryEntry {
+  id: string;
+  term: string;
+  body: string;
+}
+
 export interface ValidationMethod {
   id: string;
   name: string;
@@ -103,6 +109,7 @@ type ViewBody =
       chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
       confirmDataNotice?: string | null;
+      meanReversionOnlyNotice?: string | null;
     }
   | {
       kind: "running";
@@ -155,6 +162,7 @@ type ViewBody =
       status: "completed" | "ended";
       title: string;
       universeLabel?: string;
+      meanReversionOnlyNotice?: string | null;
       subtitle?: string;
       resultHeadline?: string;
       honestStopHint?: string | null;
@@ -165,6 +173,8 @@ type ViewBody =
       trialBudget?: {used: number; budget: number; remaining: number};
       dataWindowKey?: string | null;
       cumulativeRoundsOnWindow?: number;
+      researchRoundsOnWindow?: number;
+      researchCumulativeLabel?: string;
       windowCumulativeLabel?: string;
       workbenchHeaderSummary?: string;
       highSuspicionRoundThreshold?: number;
@@ -178,6 +188,8 @@ type ViewBody =
           methods: readonly {methodId: string; methodLabel: string}[];
         }[];
       };
+      pitDetail?: PitDetail | null;
+      backtestCutoff?: string | null;
       lastReverification?: {
         roundId: string;
         methodId: string;
@@ -207,7 +219,8 @@ type ViewBody =
       anomaly?: AnomalyPresentation | null;
       recentDialogue?: readonly {role: "user" | "assistant"; text: string}[];
     }
-  | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]};
+  | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]}
+  | {kind: "glossary"; intro: string; entries: readonly GlossaryEntry[]};
 
 export type DesktopView = ViewBody & {
   hostStatus?: HostStatus;
@@ -286,6 +299,28 @@ export interface ScorecardDimension {
   comparisonLabel?: string;
   failureDisplay: string;
   unit?: string;
+}
+
+export interface PitViolation {
+  materialId: string;
+  title: string;
+  publishedAt: string;
+  precision: string;
+  reason: string;
+  text?: string;
+}
+
+export interface PitDetail {
+  executed: boolean;
+  passed: boolean;
+  revision?: string;
+  evidenceUsed?: number;
+  undatedExcluded?: readonly string[];
+  scope?: string;
+  note?: string;
+  backtestCutoff?: string;
+  violationCount?: number;
+  firstViolation?: PitViolation | null;
 }
 
 export interface RoundRecord {
