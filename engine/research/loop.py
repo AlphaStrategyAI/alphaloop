@@ -8,17 +8,24 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from engine.research.a1_copy import FROZEN_INPUT_MISSING, STRATEGY_FAMILY_NOT_RUNNABLE
 from engine.research.clock import TimeBudget
 from engine.research.confirm_evidence import (
     confirm_created_at_after_evidence,
     evidence_refs_from_failed_attempt,
 )
 from engine.research.coverage import decide_coverage, within_floor
+from engine.research.data_port import data_port_for_research
+from engine.research.families import is_legacy_mean_reversion
+from engine.research.frozen_input import (
+    FrozenVersionInput,
+    ensure_frozen_version_input,
+    simulation_window,
+)
 from engine.research.gather import (
     DataPort,
     GatherBatch,
     MaterialPort,
-    gather_materials,
     pit_evidence_annotations,
     pit_evidence_from_payloads,
 )
@@ -46,6 +53,7 @@ from engine.research.simulate import simulate_daily
 from engine.research.specify import ModelProposal, ProposedChange, classify_change, specify
 from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
+from engine.research.user_errors import UserFacingError
 from engine.review.subagent import MAX_CONSECUTIVE_REVIEW_FAILURES
 from engine.strategy import MeanReversionStrategy, StrategySpec
 from engine.verifiers import (
@@ -114,11 +122,12 @@ class RoundBuilder(Protocol):
 @dataclass(slots=True)
 class DefaultRoundBuilder:
     material_ports: tuple[MaterialPort, ...]
-    data_port: DataPort
-    start: date
-    end: date
+    data_port: DataPort | None
+    start: date | None
+    end: date | None
     snapshot_root: Path
     on_action: Callable[[ResearchAction], None] | None = None
+    _frozen: FrozenVersionInput | None = None
 
     def _emit(self, action: ResearchAction) -> None:
         if self.on_action is not None:
@@ -149,9 +158,6 @@ class DefaultRoundBuilder:
         thesis = research.brief.thesis.value
         if thesis is None or research.current_version_number is None:
             raise ValueError("running research requires a locked thesis and version")
-        self._emit(ResearchAction.GATHER)
-        batch = gather_materials(thesis, self.material_ports)
-        evidence_paths = self._write_evidence(batch)
         version = research.versions[research.current_version_number - 1]
         prior = version.rounds[-1].accepted_attempt.spec if version.rounds else None
         lookback = prior.lookback_days + 5 if prior else 20 + 5 * (attempt_number - 1)
@@ -161,15 +167,46 @@ class DefaultRoundBuilder:
             entry_z=prior.entry_z if prior else 1.0,
             side=prior.side if prior else "long_only",
         )
-        self._emit(ResearchAction.SPECIFY)
         spec = specify(research, prior, proposal)
         spec_patch = {
             name: value
             for name, value in version.confirmed_changes
-            if name in {"model_family", "lookback_days", "entry_z", "side", "max_drawdown_floor"}
+            if name in {
+                "model_family",
+                "lookback_days",
+                "entry_z",
+                "side",
+                "max_drawdown_floor",
+                "strategy_family",
+                "family_method",
+                "family_params",
+                "primary_factor",
+            }
         }
         if spec_patch:
             spec = replace(spec, **spec_patch)  # type: ignore[arg-type]
+        if not is_legacy_mean_reversion(spec.strategy_family, spec.family_method):
+            raise UserFacingError("STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
+        universe = research.brief.universe.value
+        if universe is None:
+            raise ValueError("running research requires a universe")
+        self._emit(ResearchAction.GATHER)
+        start, end = simulation_window(research, self.start, self.end)
+        frozen = ensure_frozen_version_input(
+            snapshot_root=self.snapshot_root,
+            research=research,
+            version_number=version.number,
+            symbols=universe.symbols,
+            start=start,
+            end=end,
+            thesis=thesis,
+            material_ports=self.material_ports,
+            live_port=self.data_port,
+            live_port_factory=lambda: data_port_for_research(research),
+        )
+        self._frozen = frozen
+        evidence_paths = self._write_evidence(frozen.batch)
+        self._emit(ResearchAction.SPECIFY)
         strategy = MeanReversionStrategy(spec)
         round_number = len(version.rounds) + 1
         snapshot = self.snapshot_root / (
@@ -178,9 +215,9 @@ class DefaultRoundBuilder:
         self._emit(ResearchAction.SIMULATE)
         simulation = simulate_daily(
             strategy,
-            self.data_port,
-            self.start,
-            self.end,
+            frozen,
+            frozen.start,
+            frozen.end,
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
@@ -220,12 +257,17 @@ class DefaultRoundBuilder:
         )
 
     def retry(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
+        frozen = self._frozen
+        if frozen is None:
+            raise UserFacingError("FROZEN_INPUT_MISSING", FROZEN_INPUT_MISSING)
         self._emit(ResearchAction.SPECIFY)
         spec = replace(
             prior.attempt.spec,
             id=f"{prior.attempt.spec.id}-retry-{prior.attempt.number + 1}",
             lookback_days=prior.attempt.spec.lookback_days + 5,
         )
+        if not is_legacy_mean_reversion(spec.strategy_family, spec.family_method):
+            raise UserFacingError("STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
         strategy = MeanReversionStrategy(spec)
         snapshot = self.snapshot_root / (
             f"retry-v{prior.version_number}-r{prior.round_number}-a{prior.attempt.number + 1}.csv"
@@ -233,9 +275,9 @@ class DefaultRoundBuilder:
         self._emit(ResearchAction.SIMULATE)
         simulation = simulate_daily(
             strategy,
-            self.data_port,
-            self.start,
-            self.end,
+            frozen,
+            frozen.start,
+            frozen.end,
             snapshot_path=snapshot,
         )
         self._emit(ResearchAction.VERIFY)
@@ -509,13 +551,15 @@ class ResearchLoop:
                             why_change,
                             self.now(),
                         )
+                    if change_class is ChangeClass.COVERAGE:
+                        confirm_kind = ConfirmKind.COVERAGE
+                    elif change_class is ChangeClass.DATA_LINEAGE:
+                        confirm_kind = ConfirmKind.DATA_LINEAGE
+                    else:
+                        confirm_kind = ConfirmKind.ECONOMIC
                     request = ConfirmRequest(
                         request_id=f"change-v{version_number}-r{round_number}",
-                        kind=(
-                            ConfirmKind.COVERAGE
-                            if change_class is ChangeClass.COVERAGE
-                            else ConfirmKind.ECONOMIC
-                        ),
+                        kind=confirm_kind,
                         proposed_change=f"{change.field}: {change.before!r} → {change.after!r}",
                         reason="当前冻结验证未全部通过",
                         effect="确认后应用改动并开新版本",

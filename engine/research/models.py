@@ -68,11 +68,13 @@ class ChangeClass(StrEnum):
     MODEL = "model"
     ECONOMIC = "economic"
     COVERAGE = "coverage"
+    DATA_LINEAGE = "data_lineage"
 
 
 class ConfirmKind(StrEnum):
     ECONOMIC = "economic"
     COVERAGE = "coverage"
+    DATA_LINEAGE = "data_lineage"
 
 
 class EvidenceKind(StrEnum):

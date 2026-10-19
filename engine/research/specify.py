@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from engine.research.families import LEGACY_FAMILY_METHOD, LEGACY_STRATEGY_FAMILY
 from engine.research.gather import DataProfile, Material
 from engine.research.models import (
     AssetClass,
@@ -81,18 +82,32 @@ def propose_brief_updates(
     )
 
 
+_ECONOMIC_FIELDS = {
+    "thesis_locked",
+    "universe",
+    "method_set",
+    "round1_methods",
+    "max_drawdown_floor",
+    "validation_thresholds",
+    "strategy_family",
+    "primary_factor",
+}
+_DATA_LINEAGE_FIELDS = {
+    "proxy",
+    "proxy_symbol",
+    "data_binding",
+    "data_bindings",
+    "data_source_id",
+}
+
+
 def classify_change(change: ProposedChange) -> ChangeClass:
     if change.breaches_coverage:
         return ChangeClass.COVERAGE
-    if change.field in {
-        "thesis_locked",
-        "universe",
-        "method_set",
-        "round1_methods",
-        "max_drawdown_floor",
-        "validation_thresholds",
-    }:
+    if change.field in _ECONOMIC_FIELDS:
         return ChangeClass.ECONOMIC
+    if change.field in _DATA_LINEAGE_FIELDS:
+        return ChangeClass.DATA_LINEAGE
     if change.field in {"model_family", "signal_definition", "feature_set"}:
         return ChangeClass.MODEL
     return ChangeClass.PARAM
@@ -125,6 +140,10 @@ def specify(
         lookback_days=proposal.lookback_days,
         entry_z=proposal.entry_z,
         max_drawdown_floor=prior.max_drawdown_floor if prior else -0.25,
+        strategy_family=prior.strategy_family if prior else LEGACY_STRATEGY_FAMILY,
+        family_method=prior.family_method if prior else LEGACY_FAMILY_METHOD,
+        family_params=prior.family_params if prior else (),
+        primary_factor=prior.primary_factor if prior else None,
     )
 
 

@@ -375,7 +375,15 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                 {reverifyBusy ? t("ui.completed.reverifyBusy") : t("ui.completed.reverify")}
               </button>
               {view.lastReverification && (
-                <p className="reverify-result" data-testid="reverify-result" role="status">
+                <p
+                  className={
+                    view.lastReverification.passed
+                      ? "reverify-result"
+                      : "reverify-result reverify-result--fail"
+                  }
+                  data-testid="reverify-result"
+                  role="status"
+                >
                   {view.lastReverification.userMessage ??
                     t("ui.completed.reverifyResult", {
                       method: view.lastReverification.methodLabel,
