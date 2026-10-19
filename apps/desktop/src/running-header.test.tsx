@@ -39,6 +39,35 @@ const runningView: DesktopView = {
 };
 
 describe("running header", () => {
+  it("shows running in the rail while a US quote fetch is in progress", () => {
+    const fetching: DesktopView = {
+      kind: "confirm_run",
+      researchId: "r-1",
+      dialogue: [],
+      settings: {
+        thesis: "t",
+        universe: "u",
+        max_effective_hours: "4 小时",
+        round1_methods: "m",
+        coverage_floor: "c",
+      },
+      hostStatus: "awaiting_confirm",
+      marketDataProgress: {done: 12, total: 503, source: "yahoo"},
+    };
+    render(
+      <App
+        api={{...api, fetchView: vi.fn(async () => fetching)}}
+        initialView={fetching}
+        initialRoute="#/research/r-1"
+      />,
+    );
+    const rail = screen.getByTestId("host-status");
+    expect(rail).toHaveClass("running");
+    expect(rail).not.toHaveClass("awaiting_confirm");
+    expect(screen.getByTestId("rail-status-label")).toHaveTextContent("运行中");
+    expect(screen.getByTestId("market-data-progress")).toHaveTextContent("正在取行情 12/503");
+  });
+
   it("shows market-data progress from the side channel while fetchView is stuck", async () => {
     const fetchView = vi.fn(() => new Promise<DesktopView>(() => undefined));
     const pollMarketDataProgress = vi.fn(async () => ({

@@ -147,12 +147,15 @@ function NightShell({
   runStartRitual?: boolean;
 }) {
   const section = railSection(route);
-  const hostKey: HostStatus = view.hostStatus ?? (
-    view.kind === "awaiting_confirm" ? "awaiting_confirm" :
-    view.kind === "running" ? "running" :
-    view.kind === "completed" ? "completed" : "idle"
-  );
-  const railLabel = railStatusLabel(view);
+  const fetchingQuotes = Boolean(view.marketDataProgress && view.marketDataProgress.total > 0);
+  const hostKey: HostStatus = fetchingQuotes
+    ? "running"
+    : (view.hostStatus ?? (
+      view.kind === "awaiting_confirm" ? "awaiting_confirm" :
+      view.kind === "running" ? "running" :
+      view.kind === "completed" ? "completed" : "idle"
+    ));
+  const railLabel = fetchingQuotes ? "运行中" : railStatusLabel(view);
   const engineLine = engineStatusLabel(sidecarState);
   const statusTitle = railLabel
     ? `${railLabel} · ${engineLine}`
