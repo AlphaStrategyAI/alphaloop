@@ -286,7 +286,17 @@ class ResearchCommandService:
         self.paths = paths
         self.budget = budget
         self._observed_status: dict[str, ResearchStatus] = {}
+        self._research_locks_guard = threading.Lock()
+        self._research_locks: dict[str, threading.Lock] = {}
         seed_preset_methods(store)
+
+    def _lock_for_research(self, research_id: str) -> threading.Lock:
+        with self._research_locks_guard:
+            lock = self._research_locks.get(research_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._research_locks[research_id] = lock
+            return lock
 
     def _save(self, before: Research, after: Research) -> dict[str, Any]:
         if self.budget is not None:
@@ -644,15 +654,6 @@ class ResearchCommandService:
                 self.store.save(materialized, research.updated_at)
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
-            display_research = research
-            confirm_data_notice: str | None = None
-            if view_kind == "confirm_run" and research.data_window_end is None:
-                try:
-                    display_research = ensure_runnable_universe(research)
-                except UserFacingError as error:
-                    display_research = research
-                    if error.code == TRANSIENT_DATA_CODE:
-                        confirm_data_notice = error.message
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
@@ -664,14 +665,12 @@ class ResearchCommandService:
                 "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
             }
             if view_kind == "confirm_run":
-                body["symbolSelection"] = symbol_selection_payload(display_research)
+                body["symbolSelection"] = symbol_selection_payload(research)
                 notice = mean_reversion_only_notice(
                     str(research.brief.thesis.value or "")
                 )
                 if notice:
                     body["meanReversionOnlyNotice"] = notice
-                if confirm_data_notice:
-                    body["confirmDataNotice"] = confirm_data_notice
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -833,6 +832,43 @@ class ResearchCommandService:
             research,
         )
 
+    def _confirm_run(self, research_id: str, now: datetime) -> dict[str, Any]:
+        """Start a draft, or return the current view when that research is already running.
+
+        The per-research lock covers the probe and the write. It is not process-wide:
+        a list fetch must stay responsive while this research waits on market data.
+        SQLite itself is serialized separately, and only around connection calls.
+        """
+        with self._lock_for_research(research_id):
+            research = self.store.load(research_id)
+            if research.status is ResearchStatus.RUNNING:
+                view = self.view_for(f"#/research/{research_id}")
+                view["research_id"] = research.research_id
+                view["status"] = research.status.value
+                return view
+            expected_at = research.updated_at
+            try:
+                research = ensure_runnable_universe(research)
+            except UserFacingError as error:
+                if error.code == TRANSIENT_DATA_CODE:
+                    updated = record_transient_confirm_notice(research, error, now)
+                    self._save(research, updated)
+                    raise
+                if error.code in {
+                    "UNIVERSE_SYMBOLS_EMPTY",
+                    "UNIVERSE_MISSING",
+                    "UNIVERSE_DEFAULT_TOO_SMALL",
+                    "POOL_DATA_SHRINK_TOO_FEW",
+                }:
+                    reopened = reopen_after_pool_failure(research, error, now)
+                    self._save(research, reopened)
+                raise
+            self.store.save(research, expected_at)
+            research = self.store.load(research.research_id)
+            updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
+            self._record_version_methods(updated)
+            return self._save(research, updated)
+
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         kind = request["type"]
         now = datetime.now(UTC)
@@ -895,6 +931,8 @@ class ResearchCommandService:
                 now,
             )
             return {"revision_hash": updated_method.revision_hash}
+        if kind == "confirm_run":
+            return self._confirm_run(str(request["research_id"]), now)
 
         research = self.store.load(request["research_id"])
         if kind == "delete_research":
@@ -926,28 +964,6 @@ class ResearchCommandService:
                         QUESTIONS[open_slot],
                         now,
                     )
-        elif kind == "confirm_run":
-            expected_at = research.updated_at
-            try:
-                research = ensure_runnable_universe(research)
-            except UserFacingError as error:
-                if error.code == TRANSIENT_DATA_CODE:
-                    updated = record_transient_confirm_notice(research, error, now)
-                    self._save(research, updated)
-                    raise
-                if error.code in {
-                    "UNIVERSE_SYMBOLS_EMPTY",
-                    "UNIVERSE_MISSING",
-                    "UNIVERSE_DEFAULT_TOO_SMALL",
-                    "POOL_DATA_SHRINK_TOO_FEW",
-                }:
-                    reopened = reopen_after_pool_failure(research, error, now)
-                    self._save(research, reopened)
-                raise
-            self.store.save(research, expected_at)
-            research = self.store.load(research.research_id)
-            updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
-            self._record_version_methods(updated)
         elif kind == "pause":
             updated = transition(research, ResearchEvent.PAUSE, now)
         elif kind == "resume":
