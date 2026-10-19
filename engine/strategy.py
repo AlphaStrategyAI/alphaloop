@@ -12,7 +12,7 @@ import pandas as pd
 from engine.portfolio import (
     LEGACY_COST_MODEL,
     SCHEDULE_COST_MODEL,
-    SCHEDULE_NAME_CAP,
+    holdable_name_cap,
 )
 from engine.research.families import (
     LEGACY_FAMILY_METHOD,
@@ -163,9 +163,12 @@ class MeanReversionStrategy:
 
 
 def apply_trading_schedule(spec: StrategySpec) -> StrategySpec:
-    """Lock the product cost table. Fund legs and shorts are not name-capped."""
-    fund = spec.universe.asset_class is AssetClass.FUND
-    cap = None if fund or spec.side == "long_short" else SCHEDULE_NAME_CAP
+    """Lock the product cost table. The 5% cap needs at least 20 holdable names."""
+    cap = holdable_name_cap(
+        len(spec.universe.symbols),
+        fund=spec.universe.asset_class is AssetClass.FUND,
+        long_short=spec.side == "long_short",
+    )
     return replace(spec, cost_model=SCHEDULE_COST_MODEL, name_weight_cap=cap)
 
 

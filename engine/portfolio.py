@@ -17,6 +17,15 @@ from engine.research.models import AssetClass, Market
 LEGACY_COST_MODEL = "legacy_zero"
 SCHEDULE_COST_MODEL = "schedule_v1"
 SCHEDULE_NAME_CAP = 0.05
+# Equal weight is about 5% only once at least this many names can be held.
+NAME_CAP_MIN_HOLDABLE = 20
+
+
+def holdable_name_cap(symbol_count: int, *, fund: bool, long_short: bool) -> float | None:
+    """5% name cap, or none when the book is too small or the leg is exempt."""
+    if fund or long_short or symbol_count < NAME_CAP_MIN_HOLDABLE:
+        return None
+    return SCHEDULE_NAME_CAP
 
 
 def min_names_for_cap(cap: float) -> int:

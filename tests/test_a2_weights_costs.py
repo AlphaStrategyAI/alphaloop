@@ -21,7 +21,12 @@ from engine.portfolio import (
     min_names_for_cap,
     one_way_cost_fraction,
 )
-from engine.research.a2_copy import CN_EXECUTION_NOTICE, US_EQUITY_CONSTRUCTION
+from engine.research.a2_copy import (
+    CN_EQUITY_COST,
+    CN_EXECUTION_NOTICE,
+    US_EQUITY_CONSTRUCTION,
+    US_EQUITY_COST,
+)
 from engine.research.loop import _execution_spec
 from engine.research.models import (
     AssetClass,
@@ -161,12 +166,13 @@ def test_cn_new_round_uses_the_schedule_and_us_legacy_round_does_not() -> None:
     confirmed = replace(us, construction_schedule="schedule_v1")
     scheduled = _execution_spec(us_spec, confirmed)
     assert scheduled.cost_model == "schedule_v1"
-    assert scheduled.name_weight_cap == pytest.approx(0.05)
+    assert scheduled.name_weight_cap is None
     cn_universe = Universe(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY, ("600519.SH",))
     cn_spec = replace(us_spec, universe=cn_universe)
     cn = replace(us, brief=replace(us.brief, universe=Slot(cn_universe, True)))
     upgraded = _execution_spec(cn_spec, cn)
     assert upgraded.cost_model == "schedule_v1"
+    assert upgraded.name_weight_cap is None
     assert one_way_cost_fraction(Market.CN, AssetClass.EQUITY) == pytest.approx(20 / 10_000)
 
 
@@ -192,11 +198,82 @@ def test_confirm_card_states_the_us_equity_assumption_and_cn_page_states_tplus(
     service.store.create(us)
     service.store.create(cn)
     confirm = service.view_for("#/research/r-us")
-    assert confirm["constructionNotice"] == US_EQUITY_CONSTRUCTION
+    assert confirm["constructionNotice"] == US_EQUITY_COST
+    assert "单票 ≤5%" not in confirm["constructionNotice"]
     done = service.view_for("#/research/r-cn")
     assert done["cnExecutionNotice"] == CN_EXECUTION_NOTICE
     us_done = service.view_for("#/research/r-us")
     assert "cnExecutionNotice" not in us_done or not us_done.get("cnExecutionNotice")
+
+
+def test_name_cap_tracks_holdable_names_on_the_card_and_in_the_engine() -> None:
+    from engine.research.a2_copy import construction_notice_for
+    from engine.strategy import apply_trading_schedule
+    from tests.test_loop_runtime import running_research
+
+    wide_names = tuple(f"S{i}" for i in range(20))
+    wide = Universe(Market.US, AssetClass.EQUITY, AssetClass.EQUITY, wide_names)
+    single = Universe(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY, ("600519.SH",))
+    base = reference_strategy().spec
+    wide_spec = apply_trading_schedule(replace(base, universe=wide))
+    single_spec = apply_trading_schedule(replace(base, universe=single))
+    assert wide_spec.name_weight_cap == pytest.approx(0.05)
+    assert single_spec.cost_model == "schedule_v1"
+    assert single_spec.name_weight_cap is None
+
+    index = pd.RangeIndex(1)
+    wide_signals = pd.DataFrame([[1.0, *([0.0] * 19)]], index=index, columns=list(wide_names))
+    wide_scores = pd.DataFrame(
+        [[float(20 - i) for i in range(20)]],
+        index=index,
+        columns=list(wide_names),
+    )
+    capped = allocate_weights(
+        wide_signals,
+        wide_scores,
+        name_cap=wide_spec.name_weight_cap,
+    )
+    assert float(capped.iloc[0].max()) <= 0.05 + 1e-12
+    assert float(capped.iloc[0].sum()) == pytest.approx(1.0)
+
+    one_signal = pd.DataFrame([[1.0]], index=index, columns=["600519.SH"])
+    free = allocate_weights(one_signal, one_signal, name_cap=single_spec.name_weight_cap)
+    assert float(free.iloc[0, 0]) == pytest.approx(1.0)
+    assert float(free.iloc[0, 0]) > 0.05
+
+    research = running_research()
+    wide_card = construction_notice_for(
+        replace(research, brief=replace(research.brief, universe=Slot(wide, True)))
+    )
+    single_card = construction_notice_for(
+        replace(research, brief=replace(research.brief, universe=Slot(single, True)))
+    )
+    assert wide_card == US_EQUITY_CONSTRUCTION
+    assert wide_card is not None and "单票 ≤5%" in wide_card
+    assert single_card == CN_EQUITY_COST
+    assert single_card is not None and "单票 ≤5%" not in single_card
+    assert "保守产品假设" in single_card
+    probed = Universe(
+        Market.US,
+        AssetClass.EQUITY,
+        AssetClass.EQUITY,
+        tuple(f"P{i}" for i in range(15)),
+    )
+    probed_card = construction_notice_for(
+        replace(research, brief=replace(research.brief, universe=Slot(probed, True)))
+    )
+    assert probed_card == US_EQUITY_COST
+    assert probed_card is not None and "单票 ≤5%" not in probed_card
+    pool = Universe(
+        Market.US,
+        AssetClass.EQUITY,
+        AssetClass.EQUITY,
+        tuple(f"D{i}" for i in range(503)),
+    )
+    pool_card = construction_notice_for(
+        replace(research, brief=replace(research.brief, universe=Slot(pool, True)))
+    )
+    assert pool_card == US_EQUITY_CONSTRUCTION
 
 
 def test_pack_schedule_matches_engine_within_1e_12(tmp_path: Path) -> None:
