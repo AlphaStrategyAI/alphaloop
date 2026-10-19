@@ -17,6 +17,7 @@ import yfinance as yf
 from engine.research import market_data_timeouts as _market_data_timeouts
 from engine.research.data_availability import transient_data_error
 from engine.research.market_data_timeouts import cn_market_data_max_workers, run_with_deadline
+from engine.research.planned_data_window import is_cn_listed_symbol
 
 CROSSREF_MAILTO = "research@example.invalid"
 _PUBLISHED_HEADER = re.compile(r"published:\s*(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE)
@@ -404,12 +405,7 @@ class RoutingDataAdapter:
             from engine.research.data_errors import EmptySymbolsError
 
             raise EmptySymbolsError()
-        is_cn = all(
-            symbol == "CBA00101.CS"
-            or symbol.startswith(("CN_BOND:", "CN_FUND:"))
-            or symbol.endswith((".SH", ".SZ", ".BJ"))
-            for symbol in symbols
-        )
+        is_cn = all(is_cn_listed_symbol(symbol) for symbol in symbols)
 
         def _load() -> pd.DataFrame:
             return (

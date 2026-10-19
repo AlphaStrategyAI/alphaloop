@@ -125,6 +125,19 @@ def data_source_label(source_id: str) -> str:
     return DATA_SOURCE.get(source_id, source_id)
 
 
+def data_source_label_for_symbols(
+    symbols: tuple[str, ...],
+    market: object | None = None,
+) -> str:
+    """User-facing source line. Same per-symbol mapping as confirm-time pinning."""
+    from engine.research.planned_data_window import data_source_ids_for_symbols
+
+    return "、".join(
+        data_source_label(source_id)
+        for source_id in data_source_ids_for_symbols(symbols, market)
+    )
+
+
 def localize_user_string(text: str) -> str:
     if not text:
         return text

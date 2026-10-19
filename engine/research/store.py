@@ -305,6 +305,14 @@ class _SerializedConnection:
         with self._lock:
             return self._raw.executescript(sql_script)
 
+    def commit(self) -> None:
+        with self._lock:
+            self._raw.commit()
+
+    def rollback(self) -> None:
+        with self._lock:
+            self._raw.rollback()
+
 
 class SQLiteStore:
     def __init__(self, path: Path) -> None:
