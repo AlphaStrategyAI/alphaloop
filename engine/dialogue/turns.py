@@ -8,6 +8,11 @@ from engine.dialogue.prompts import SlotName
 from engine.dialogue.slots import apply_intent, next_question
 from engine.research.coverage_parse import parse_coverage_parts
 from engine.research.models import CoverageFloor, DialogueRole, DialogueTurn, Research, ResearchStatus
+from engine.research.thesis_scope import (
+    MEAN_REVERSION_ONLY_NOTICE,
+    is_mean_reversion_ack,
+    thesis_is_non_mean_reversion,
+)
 
 
 def append_dialogue(
@@ -71,11 +76,41 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
         from engine.dialogue.modification import process_modification_dialogue
 
         return process_modification_dialogue(research, text, now)
+    if research.pending_non_mr_thesis and is_mean_reversion_ack(text):
+        intent = Intent(IntentKind.PROVIDE, (("thesis", research.pending_non_mr_thesis),))
+        with_user = append_dialogue(research, DialogueRole.USER, text, now)
+        updated = apply_intent(with_user, intent, now)
+        updated = replace(updated, pending_non_mr_thesis=None)
+        return append_dialogue(updated, DialogueRole.ASSISTANT, next_question(updated).message, now)
     prompt = next_question(research)
     intent = interpret(text, research, prompt.slot)
+    held_thesis: str | None = None
+    if intent.kind is IntentKind.PROVIDE:
+        kept: list[tuple[str, object]] = []
+        for name, value in intent.updates:
+            if (
+                name == "thesis"
+                and isinstance(value, str)
+                and thesis_is_non_mean_reversion(value)
+            ):
+                held_thesis = value
+                continue
+            kept.append((name, value))
+        if held_thesis is not None:
+            intent = (
+                Intent(IntentKind.PROVIDE, tuple(kept))
+                if kept
+                else Intent(IntentKind.OFF_TOPIC, response=MEAN_REVERSION_ONLY_NOTICE)
+            )
     with_user = append_dialogue(research, DialogueRole.USER, text, now)
     updated = apply_intent(with_user, intent, now)
     updated = _apply_coverage_scratch(updated, text, prompt.slot)
+    if held_thesis is not None:
+        updated = replace(updated, pending_non_mr_thesis=held_thesis)
+    elif any(name == "thesis" for name, _value in intent.updates):
+        updated = replace(updated, pending_non_mr_thesis=None)
+    if held_thesis is not None:
+        return append_dialogue(updated, DialogueRole.ASSISTANT, MEAN_REVERSION_ONLY_NOTICE, now)
     if intent.kind is IntentKind.OFF_TOPIC:
         reply = intent.response or prompt.message
         if research.dialogue and research.dialogue[-1].text == reply:

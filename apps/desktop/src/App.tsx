@@ -490,6 +490,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <p>最长研究时间只计有效研究时间，暂停和等你确认的时间不算。</p>
         </div>
       </details>
+      {view.meanReversionOnlyNotice && (
+        <p className="confirm-lead" data-testid="mean-reversion-only-notice">
+          {view.meanReversionOnlyNotice}
+        </p>
+      )}
       {view.confirmDataNotice && (
         <p className="confirm-data-notice" data-testid="confirm-data-notice" role="alert">
           {view.confirmDataNotice}
@@ -980,6 +985,11 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
         )}
         <h1 data-testid="completed-focus-title">{eligible ? "已完成" : "已完成"}</h1>
         <p className="completed-focus-headline">{headline}</p>
+        {view.meanReversionOnlyNotice && (
+          <p className="confirm-lead" data-testid="mean-reversion-only-notice">
+            {view.meanReversionOnlyNotice}
+          </p>
+        )}
         {view.subtitle && <p className="completed-focus-subtitle">{view.subtitle}</p>}
         {view.honestStopHint && (
           <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>

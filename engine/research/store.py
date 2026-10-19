@@ -298,7 +298,10 @@ class SQLiteStore:
 
     @staticmethod
     def _decode(payload: str) -> Research:
-        return CONVERTER.structure(json.loads(payload), Research)
+        data = json.loads(payload)
+        if isinstance(data, dict):
+            data.setdefault("pending_non_mr_thesis", None)
+        return CONVERTER.structure(data, Research)
 
     def create(self, research: Research) -> None:
         with self.connection:
