@@ -40,10 +40,10 @@ def test_symbol_selection_summary_line_once_lists_pool_name() -> None:
     assert payload is not None
     line = format_symbol_selection_summary(payload)
     assert payload["summaryLine"] == line
-    assert line == "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池"
+    assert line == "503 只 · 美股大市值 · 版本 2 · 2026-10-16 · 默认标的池"
     assert line.count("美股大市值") == 1
-    assert "版本 1" in line
-    assert "（版本 1）" not in line
+    assert "版本 2" in line
+    assert "（版本 2）" not in line
 
 
 def test_user_override_note_copy() -> None:

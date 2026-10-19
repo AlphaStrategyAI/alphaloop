@@ -7,7 +7,7 @@ from engine.research.display_names import data_source_label_for_symbols
 from engine.research.symbol_selection_display import symbol_selection_summary_fields
 from engine.research.planned_data_window import planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
-from engine.research.symbol_pool import pool_for_market
+from engine.research.symbol_pool import pool_for_universe
 from engine.research.universe_pool import materialize_default_pool
 
 
@@ -15,10 +15,11 @@ def _resolved_symbols(research: Research) -> tuple[str, ...] | None:
     universe = research.brief.universe.value
     if universe is None:
         return None
-    pool = pool_for_market(
+    pool = pool_for_universe(
         universe.market,
         universe.asset_class,
         universe.underlying_asset_class,
+        universe.symbol_list_version,
     )
     if universe.symbols:
         return universe.symbols
@@ -37,10 +38,11 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
         start = research.data_window_start
     if research.data_window_end is not None:
         end = research.data_window_end
-    pool = pool_for_market(
+    pool = pool_for_universe(
         universe.market,
         universe.asset_class,
         universe.underlying_asset_class,
+        universe.symbol_list_version,
     )
     user_override = universe.user_symbols_override and bool(universe.symbols)
     if user_override:

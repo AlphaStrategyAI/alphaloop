@@ -43,12 +43,15 @@ DATA_SOURCE: dict[str, str] = {
 POOL_VERSION: dict[str, str] = {
     "us_equity_large_cap_v1": "美股大市值（版本 1）",
     "cn_equity_large_cap_v1": "A股大市值（版本 1）",
+    "us_equity_large_cap_v2": "美股大市值（版本 2）",
+    "cn_equity_large_cap_v2": "A股大市值（版本 2）",
 }
 
 INTERNAL_ID_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])"
     r"(?:scorecard\.market|pit\.consistency|overfit\.walk|stability\.oos|"
-    r"crowding\.load|cost\.turnover|us_equity_large_cap_v1|cn_equity_large_cap_v1|yahoo_daily|akshare_sina_daily|"
+    r"crowding\.load|cost\.turnover|us_equity_large_cap_v1|cn_equity_large_cap_v1|"
+    r"us_equity_large_cap_v2|cn_equity_large_cap_v2|yahoo_daily|akshare_sina_daily|"
     r"mean_reversion|lookback_days)"
 )
 

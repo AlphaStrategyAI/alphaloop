@@ -17,7 +17,7 @@ def pool_version_number(version_id: str) -> str:
 
 
 def format_symbol_selection_summary(payload: dict[str, Any]) -> str:
-    """``40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池``"""
+    """``503 只 · 美股大市值 · 版本 2 · 2026-10-16 · 默认标的池``"""
     count = payload["count"]
     list_name = payload["listName"]
     version_id = str(payload.get("versionId") or payload.get("listVersion") or "")
