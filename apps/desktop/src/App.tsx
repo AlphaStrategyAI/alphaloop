@@ -18,6 +18,7 @@ import type {
 import {formatResearchTimestamp} from "./format";
 import {DialogueTurnBody, EngineFailureText} from "./i18n/engineFailure";
 import {LocalizedRunError} from "./i18n/LocalizedRunError";
+import {I18nText} from "./i18n/I18nText";
 import {useI18n} from "./i18n/I18nProvider";
 import {readBrowserRoute, routeFromHash} from "./routing";
 import {SettingsPage} from "./settings/SettingsPage";
@@ -187,7 +188,9 @@ function NightShell({
             <a className={section === "research" ? "active" : ""} href="#/research">研究</a>
             <a className={section === "methods" ? "active" : ""} href="#/methods">方法库</a>
             <a className={section === "glossary" ? "active" : ""} href="#/glossary">术语</a>
-            <a className={section === "settings" ? "active" : ""} href="#/settings/general">{t("nav.settings")}</a>
+            <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings">
+              <I18nText k="nav.settings" />
+            </a>
           </nav>
         </div>
         {railLabel ? (

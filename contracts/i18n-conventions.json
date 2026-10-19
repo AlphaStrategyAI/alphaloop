@@ -1,5 +1,6 @@
 {
-  "placeholderMarker": "«i18n-placeholder»",
+  "placeholderAttribute": "data-i18n-placeholder",
+  "placeholderMarker": "data-i18n-placeholder",
   "locales": ["zh", "en"],
   "preferences": ["system", "zh", "en"],
   "settingsFileName": "settings.json",

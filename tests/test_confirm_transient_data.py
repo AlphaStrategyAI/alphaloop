@@ -96,7 +96,9 @@ def test_confirm_run_transient_keeps_pool_and_slots(tmp_path: Path) -> None:
     notice = next(turn for turn in view["dialogue"] if turn.get("errorCode") == TRANSIENT_DATA_CODE)
     assert notice["text"] == ""
     assert TRANSIENT_DATA_MESSAGE not in notice["text"]
-    assert "errorDetail" not in notice
+    assert "empty price frame" in notice["errorDetail"]
+    assert TRANSIENT_DATA_MESSAGE not in notice["errorDetail"]
+    assert notice["errorParams"]["symbols"] > 0
 
 
 def test_confirm_run_retries_after_source_recovers(tmp_path: Path) -> None:

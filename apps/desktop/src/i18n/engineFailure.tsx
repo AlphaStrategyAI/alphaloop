@@ -24,17 +24,32 @@ export function parseEngineFailure(raw: string): ErrorInput {
   return {message: raw};
 }
 
+function technicalText(
+  detail: string | null,
+  params?: Record<string, string | number> | null,
+): string {
+  const lines: string[] = [];
+  if (detail && detail.trim()) lines.push(detail.trim());
+  const entries = Object.entries(params ?? {}).filter(([, value]) => value !== undefined && value !== "");
+  if (entries.length) {
+    lines.push(entries.map(([key, value]) => `${key}: ${value}`).join("\n"));
+  }
+  return lines.join("\n");
+}
+
 export function EngineFailureText({raw}: {raw: string}) {
   const {resolved, t} = useI18n();
-  const localized = localizeError(resolved, parseEngineFailure(raw));
+  const parsed = parseEngineFailure(raw);
+  const localized = localizeError(resolved, parsed);
+  const technical = technicalText(localized.detail, parsed.params);
   return (
     <span className="engine-failure" data-testid="engine-failure">
       <span data-testid="engine-failure-summary">{localized.summary}</span>
       {localized.next ? <span> {localized.next}</span> : null}
-      {localized.detail ? (
+      {technical ? (
         <details>
           <summary>{t("glossary.technicalDetails")}</summary>
-          <pre data-testid="engine-failure-detail">{localized.detail}</pre>
+          <pre data-testid="engine-failure-detail">{technical}</pre>
         </details>
       ) : null}
     </span>
@@ -55,6 +70,7 @@ export function DialogueTurnBody({turn}: {turn: DialogueTurnView}) {
     params: turn.errorParams,
     detail: turn.errorDetail,
   });
+  const technical = technicalText(localized.detail, turn.errorParams);
   return (
     <div
       className={`message ${turn.role} error-notice`}
@@ -63,10 +79,10 @@ export function DialogueTurnBody({turn}: {turn: DialogueTurnView}) {
     >
       <p data-testid="dialogue-error-summary">{localized.summary}</p>
       {localized.next ? <p>{localized.next}</p> : null}
-      {localized.detail ? (
+      {technical ? (
         <details>
           <summary>{t("glossary.technicalDetails")}</summary>
-          <pre data-testid="dialogue-error-detail">{localized.detail}</pre>
+          <pre data-testid="dialogue-error-detail">{technical}</pre>
         </details>
       ) : null}
     </div>

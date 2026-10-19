@@ -2,8 +2,15 @@ import {describe, expect, it} from "vitest";
 
 import lockedGlossary from "./locked-glossary.json";
 import {enCatalog, isFinalMessageKey, zhCatalog} from "./catalog";
-import {PLACEHOLDER_MARKER} from "./conventions";
+import {PLACEHOLDER_ATTRIBUTE} from "./conventions";
+import {isPlaceholderMessageKey} from "./I18nText";
 import {containsPlaceholderMarker} from "./placeholder";
+
+const LEGACY_PREFIX = "«i18n-placeholder»";
+
+export function placeholderEnglishCount(): number {
+  return leaves(enCatalog).filter(([key]) => isPlaceholderMessageKey(key)).length;
+}
 
 function leaves(value: unknown, prefix = ""): Array<[string, string]> {
   if (typeof value === "string") return [[prefix, value]];
@@ -16,27 +23,36 @@ function leaves(value: unknown, prefix = ""): Array<[string, string]> {
 }
 
 describe("placeholder marker", () => {
-  it("recognizes the searchable marker and ignores final copy", () => {
-    expect(containsPlaceholderMarker(`${PLACEHOLDER_MARKER} Hello`)).toBe(true);
+  it("counts unfinished English from the key manifest, not a body prefix", () => {
+    expect(placeholderEnglishCount()).toBeGreaterThan(0);
+    expect(PLACEHOLDER_ATTRIBUTE).toBe("data-i18n-placeholder");
+    for (const [, text] of leaves(enCatalog)) {
+      expect(text).not.toContain(LEGACY_PREFIX);
+    }
+  });
+
+  it("recognizes a leftover prefix and ignores final copy", () => {
+    expect(containsPlaceholderMarker(`${LEGACY_PREFIX} Hello`)).toBe(true);
     expect(containsPlaceholderMarker("Strategy family")).toBe(false);
     expect(containsPlaceholderMarker("Technical details")).toBe(false);
   });
 
-  it("marks non-final English and keeps locked glossary terms unmarked", () => {
+  it("keeps unfinished English the same width as the final sentence", () => {
     const zhKeys = leaves(zhCatalog).map(([key]) => key).sort();
     const enLeaves = leaves(enCatalog);
     expect(enLeaves.map(([key]) => key).sort()).toEqual(zhKeys);
     for (const [key, text] of enLeaves) {
       expect(text).not.toBe(key);
+      expect(text.startsWith(LEGACY_PREFIX), key).toBe(false);
       if (isFinalMessageKey(key)) {
-        expect(containsPlaceholderMarker(text), key).toBe(false);
+        expect(isPlaceholderMessageKey(key), key).toBe(false);
       } else {
-        expect(containsPlaceholderMarker(text), key).toBe(true);
+        expect(isPlaceholderMessageKey(key), key).toBe(true);
       }
     }
     for (const [key, entry] of Object.entries(lockedGlossary)) {
       expect(enCatalog.glossary[key as keyof typeof enCatalog.glossary]).toBe(entry.en);
-      expect(containsPlaceholderMarker(entry.en)).toBe(false);
+      expect(entry.en).not.toContain(LEGACY_PREFIX);
     }
   });
 });

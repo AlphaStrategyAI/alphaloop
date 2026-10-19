@@ -1,5 +1,4 @@
 import lockedGlossary from "./locked-glossary.json";
-import {PLACEHOLDER_MARKER} from "./conventions";
 
 type GlossaryKey = keyof typeof lockedGlossary;
 
@@ -13,8 +12,7 @@ function glossaryMessages(lang: "zh" | "en"): {[K in GlossaryKey]: string} {
 
 function messages(lang: "zh" | "en") {
   const zh = lang === "zh";
-  const copy = (zhText: string, enText: string, final = false) =>
-    zh ? zhText : final ? `${enText}` : `${PLACEHOLDER_MARKER} ${enText}`;
+  const copy = (zhText: string, enText: string, _final = false) => (zh ? zhText : enText);
   return {
     nav: {
       settings: copy("设置", "Settings"),
