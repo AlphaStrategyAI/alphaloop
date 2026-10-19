@@ -46,6 +46,12 @@ Engine line (“引擎：运行中”) is no longer shown in the rail; engine he
 
 **Bare rail (v003):** `.host-status.rail-status` overrides the default glass chip (`.night-shell.tech-pulse-shell .host-status`) so the dot + label sit directly on the rail.
 
+## V1 copy vs Figma
+
+Confirm-to-run shows the checked-in pools: 40 US names and 40 CN names. It does not show 128 names, `US-EQ-LIQUID-v3`, or a local parquet file. Those stay P1. Screen notes for 03 / 05 / 06 are in `docs/requirements/ui-design-v0_0_1.md`. This skin is not redrawn here.
+
+The glossary nav item (`#/glossary`) is specified there and takes effect after PR #129 merges. This branch's shell still has two nav links: 研究 and 方法库.
+
 ## Research list
 
 - Header: **+ 新建研究** (`data-testid="new-research-button"`).

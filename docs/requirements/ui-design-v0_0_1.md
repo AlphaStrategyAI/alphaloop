@@ -41,12 +41,28 @@ Figma 文件里：`Screens` 是七屏从左到右；`Handoff` 是 token 与约�
 | 左栏 Rail | 148px 宽，铺满高，`void` 底，右侧 1px `line` |
 | Logo | 组件 `Logo / alphaloop`（40:2），**148×148 正方形**，与栏同宽，水平居中 |
 | Logo + 导航 | 作为一组，在栏内**纵向居中**，组内间距 4px |
-| 导航 | 两项：研究、方法库。17px Noto Serif，左对齐。选中：Medium + `glass` 底 + hairline + 上浮阴影。未选：Regular + `mute`，无底 |
+| 导航 | 见下方「导航规格」。17px Noto Serif，左对齐。选中：Medium + `glass` 底 + hairline + 上浮阴影。未选：Regular + `mute`，无底 |
 | HostStatus | 绝对定位在栏底（约 y=844, x=20）。文案随屏：等确认 / 本机静 / 运行中 / 已完成 |
 | 浏览屏 | 研究列表、草稿、方法库：栏右侧吃掉剩余宽度 |
 | 聚焦屏 | 确认开跑、等待确认、运行中、已完成：栏右侧一个居中主列（640–720） |
 
-页面标题不要在内容区再写一遍「研究 / 方法库」，左栏已经是导航。
+页面标题不要在内容区再写一遍「研究 / 方法库 / 术语」，左栏已经是导航。
+
+### 导航规格
+
+当前 main 的代码是两项：**研究**（`#/research`）、**方法库**（`#/methods`）。Figma 也是这两项。不重画设计稿。
+
+待 [#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129) 合并后生效的第三项：
+
+| 项 | 规格 |
+| --- | --- |
+| 文案 | 术语 |
+| 路由 | `#/glossary` |
+| 选中 / 未选 | 与「研究」「方法库」同一套：选中 Medium + `glass` + hairline + 上浮阴影；未选 Regular + `mute` |
+| 页面 | 不在内容区再写标题。每条术语是一张可折叠卡片，沿用现有 Tech Pulse 卡片，不新做视觉 |
+| 文案来源 | 引擎术语表，桌面不另写一套。文件 `docs/GLOSSARY.md` 也待 #129 合并后入库 |
+
+第三项不是新的信息架构。Night 七屏不变。最终视觉若要改 Figma，留给后续 PR L，不在这里重画。
 
 ---
 
@@ -102,6 +118,16 @@ Figma 文件里：`Screens` 是七屏从左到右；`Handoff` 是 token 与约�
 | 07 | 验证方法库 | [11:13](https://www.figma.com/design/JXelV0rnUUv5U5w9ur7jtk?node-id=11-13) | 浏览，260 列表 + 详情 | 编辑得到新定义。已完成研究、已导出策略包仍用当时那份。 |
 
 Logo 组件：[40:2](https://www.figma.com/design/JXelV0rnUUv5U5w9ur7jtk?node-id=40-2)
+
+### V1 实现标注（不重画设计稿）
+
+只标代码和设计稿不一致的地方。最终措辞留给后续 PR L，本段不改屏的布局。
+
+**03 确认开跑。** 设计稿上的「128 只 · US-EQ-LIQUID-v3 · 本机 parquet」不是 V1。代码和界面文案是美股大市值 40 只、A 股大市值 40 只（`us_equity_large_cap_v1` / `cn_equity_large_cap_v1`），日线走 Yahoo / AkShare，仓库里没有 parquet 池。128 只和本地 CSV/parquet 导入是 P1。设计稿若仍写门禁名「走样 / 拥挤度」，与当前代码展示名一致；改成「分段稳健性检验 / 集中度」待 [#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129) 合并后生效。
+
+**05 等待确认。** 设计稿上的「赚谁的钱」、确认前 EvidenceRef、逻辑 / 实现分栏，在自动研究路径上通常看不到：生产路径的下一步是回看天数这类参数，不要求用户确认。覆盖跌破用户认下的底线时会停。经济确认卡在测试夹具里，以及用户手动改设定后再确认的路径上；自动轮次当前标为「仅测试 / 手动路径可见」。不在这一版改生产逻辑去强迫弹出这张卡。
+
+**06 已完成。** 设计稿所示的全绿路径在 PIT 修复后可达，但默认设定下联网结果通常仍有门禁不通过（如回撤下限），最终措辞待 M2 后实跑。PIT 不再恒败待 [#132](https://github.com/AlphaStrategyAI/alphaloop/pull/132) 合并后生效；本标注所依据的 main 上，没有发布日的资料仍会使时点一致性失败。设计稿若画「6/6 轮、M=8」，与默认实现层预算 5 轮不符。设计稿论点「低波动量价回归 + 拥挤度过滤」不是引擎会另外执行的策略；当前只有均值回归，拥挤度过滤不会改策略代码。设计稿写导出前三关；代码的可实盘资格还有时点第四关。完成页「本研究累计」与导出 `rounds.json` 对齐，待 [#131](https://github.com/AlphaStrategyAI/alphaloop/pull/131) 合并后生效。
 
 ---
 
