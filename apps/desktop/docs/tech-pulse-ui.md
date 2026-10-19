@@ -70,7 +70,7 @@ Engine line (“引擎：运行中”) is no longer shown in the rail; engine he
 
 - Single focus card (`completed-focus-card`): success eyebrow “Export ready · 四关全绿”; failed eyebrow `COMPLETED · 未通过门禁`.
 - Failed: primary **导出研究记录** (coral) only — no duplicate cyan **导出研究记录包**; export success/error feedback via `ExportOutcomeMessages`. **导出策略包（未解锁）** disabled. Reverify / 改策略再跑 in **collapsed** `<details>` by default (failed path).
-- Failed atmosphere: stronger red disc (same pattern as running).
+- Failed atmosphere: large soft **red** disc on `.tech-pulse-atmosphere` when `viewContentFailedTone()` is true (gate-failed `completed`, not only `status: ended`). Matches running orb scale/opacity; `data-atmosphere-tone="failed"` for tests.
 - Success: primary **导出策略包** when all four eligibility gates pass; more actions collapsed under **更多操作**.
 
 ## Regenerate web brand assets

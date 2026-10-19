@@ -219,6 +219,27 @@ describe("Tech Pulse UI", () => {
     expect(within(actions as HTMLElement).getByText("未通过")).toBeInTheDocument();
   });
 
+  it("tags failed completed atmosphere for red orb styling", () => {
+    const view: DesktopView = {
+      kind: "completed",
+      researchId: "r-fail",
+      status: "completed",
+      title: "高频试错",
+      selectedRoundId: "r1",
+      selectedMethodId: "m1",
+      exportKind: "research_record_only",
+      eligibility: {
+        allMethodsPassed: false,
+        noPendingConfirm: true,
+        reverifiesPassed: true,
+        pitExecutedAndPassed: false,
+      },
+    };
+    render(<App api={api} initialView={view} initialRoute="#/research/r-fail" />);
+    expect(screen.getByTestId("tech-pulse-atmosphere")).toHaveAttribute("data-atmosphere-tone", "failed");
+    expect(screen.getByTestId("night-shell").querySelector(".content.completed.tech-pulse-failed-tone")).toBeTruthy();
+  });
+
   it("renders failed completed card with coral export primary", () => {
     const view: DesktopView = {
       kind: "completed",

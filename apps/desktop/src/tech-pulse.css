@@ -185,11 +185,11 @@ a:hover {
   width: min(78vw, 920px);
   height: min(72vh, 720px);
   left: 132px;
-  top: -6%;
-  filter: blur(12px);
+  top: -8%;
+  filter: blur(10px);
   background:
-    radial-gradient(circle at 20% 38%, rgba(248, 113, 113, 0.55) 0%, rgba(248, 113, 113, 0.22) 24%, transparent 54%),
-    radial-gradient(ellipse at 16% 28%, rgba(248, 113, 113, 0.32), transparent 52%);
+    radial-gradient(circle at 22% 32%, rgba(248, 113, 113, 0.62) 0%, rgba(248, 113, 113, 0.28) 22%, transparent 52%),
+    radial-gradient(ellipse at 14% 24%, rgba(248, 113, 113, 0.35), transparent 58%);
 }
 .tech-pulse-content > :not(.tech-pulse-atmosphere) {
   position: relative;

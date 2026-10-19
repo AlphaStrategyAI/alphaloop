@@ -20,6 +20,7 @@ import "./night.css";
 import "./tech-pulse.css";
 import {BrandMark} from "./BrandMark";
 import {parseEffectiveQuotaFromView} from "./effectiveQuota";
+import {completedShowsFailedTone, viewContentFailedTone} from "./completedFailedTone";
 import {listRowStatusLabel} from "./listStatusDisplay";
 import {railStatusLabel} from "./railStatus";
 import {useRunStartRitual} from "./useRunStartRitual";
@@ -140,9 +141,17 @@ function NightShell({
   const statusTitle = railLabel
     ? `${railLabel} · ${engineLine}`
     : engineLine;
-  const failedTone =
-    view.kind === "completed" &&
-    view.status === "ended";
+  const failedTone = viewContentFailedTone(view);
+  const atmosphereTone =
+    view.kind === "running"
+      ? "running"
+      : view.kind === "confirm_run"
+        ? "confirm"
+        : failedTone
+          ? "failed"
+          : view.kind === "completed"
+            ? "success"
+            : undefined;
   return (
     <main className="night-shell tech-pulse-shell" data-testid="night-shell" data-view={view.kind}>
       <aside className="rail" data-testid="rail">
@@ -166,7 +175,12 @@ function NightShell({
         className={`content ${view.kind} tech-pulse-content${failedTone ? " tech-pulse-failed-tone" : ""}${runStartRitual ? " run-start-ritual" : ""}`}
         data-run-start-ritual={runStartRitual ? "active" : undefined}
       >
-        <div className="tech-pulse-atmosphere" aria-hidden />
+        <div
+          className="tech-pulse-atmosphere"
+          data-testid="tech-pulse-atmosphere"
+          data-atmosphere-tone={atmosphereTone}
+          aria-hidden
+        />
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
         {children}
       </section>
@@ -919,8 +933,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     ["时点一致性已执行且通过", view.eligibility.pitExecutedAndPassed],
   ] as const;
   const eligible = checks.every(([, passed]) => passed);
-  const researchRecordExportPrimary =
-    view.exportKind === "research_record_only" || !eligible;
+  const researchRecordExportPrimary = completedShowsFailedTone(view);
   const headline = view.resultHeadline ?? (eligible ? "研究已完成" : "研究已结束，验证未通过");
   const gatesInSubtitle = Boolean(view.subtitle?.includes("未通过门禁"));
   const showFailedGateLine =
