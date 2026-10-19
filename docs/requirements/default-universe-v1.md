@@ -4,6 +4,7 @@
 
 | 日期 | 变更内容 |
 | --- | --- |
+| 2026-10-19 | 旧的 40 只池同样显示幸存者偏差提示，只在显示和导出时渲染，不回写旧记录。维基百科出处放在池详情的来源说明里，确认卡上不放。 |
 | 2026-10-19 | 初稿。新研究的默认池、显示名、幸存者偏差提示和名单来源。名单文件本身依赖 [#138](https://github.com/AlphaStrategyAI/alphaloop/pull/138)，本文不放入那两份代码清单。 |
 
 ## 0. 这份文档是什么
@@ -73,7 +74,7 @@ Universe uses the membership on the list date; earlier history carries survivors
 2. 结论页的同一位置。
 3. 研究记录和策略包里的结构化字段，值为 `survivorship_bias_untested`。
 
-旧的 40 只池若也是生成日名单，打开和导出时同样带这个提示。不因为只数少就省略。
+旧的 40 只池同样带这个提示。只在显示和导出时渲染，不回写旧记录，不改判定，按遗留中性处理。
 
 ## 4. 名单来源
 
@@ -86,7 +87,7 @@ Universe uses the membership on the list date; earlier history carries survivors
 - 来源 URL：https://en.wikipedia.org/w/index.php?title=List_of_S%26P_500_companies&oldid=1380159481
 - 修订时间：2026-10-14T03:35:16Z
 - 抓取日期：2026-10-19
-- 许可：CC BY-SA 4.0。界面和来源说明要注明这段名单来自维基百科，并保留该许可。
+- 许可：CC BY-SA 4.0。维基百科的出处放在池详情的来源说明里，确认卡上不放。来源说明注明这段名单来自维基百科，并保留该许可。
 - 维基文本 SHA-256：`78d66dbd7901dfc54347b4072bc47d0999202c78846a01bc2b360021dc143231`
 
 核对方式：2026-10-19 把这份代码与 State Street SPDR S&P 500 ETF Trust（SPY）日持仓文件里标 As of 16-Oct-2026 的股权行逐只比较。点改成连字符后，对称差为空，共 503 只。因此名单日取 2026-10-16。不纳入美元现金（代码 `-`）和 TPG 的或有价值权（标识 `436CVR021`）。
