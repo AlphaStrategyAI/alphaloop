@@ -34,6 +34,7 @@ const runningView: DesktopView = {
   version: 2,
   effective: "3.00h",
   coverage: "底线 OK",
+  dataCutoff: "2026-10-17",
   rounds: [],
   currentAction: "idle",
 };
@@ -44,5 +45,6 @@ describe("running header", () => {
     const panel = screen.getByTestId("running-screen");
     expect(panel.textContent).toContain("第 2 版");
     expect(panel.textContent).not.toContain("idle");
+    expect(panel.textContent).toMatch(/数据截止：2026-10-17(?![\d:])/);
   });
 });

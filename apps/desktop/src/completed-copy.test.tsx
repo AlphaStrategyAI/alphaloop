@@ -164,10 +164,14 @@ describe("completed screen copy", () => {
     expect(reason?.textContent).toContain("2026-12-31");
     expect(reason?.textContent).toContain("仅知年份，按年末计");
     expect(reason?.textContent).toContain("回测截止日 2026-10-16");
+    expect(reason?.textContent).toMatch(/发布日 2026-12-31（仅知年份，按年末计），回测截止日 2026-10-16/);
     expect(reason?.textContent).toContain("共 1 条违规");
     const windowLine = document.querySelector("[data-testid='completed-symbol-selection']");
     expect(windowLine?.textContent).toContain("数据窗口截止 2026-10-19");
     expect(windowLine?.textContent).toContain("回测截止（最后交易日）2026-10-16");
+    expect(windowLine?.textContent).toMatch(
+      /数据区间 2014-10-19 至 2026-10-19（数据窗口截止 2026-10-19 · 回测截止（最后交易日）2026-10-16）/,
+    );
     expect(screen.getByTestId("completed-gate-pills").textContent).toContain("时点一致性未通过");
     expect(screen.getByTestId("completed-gate-pills").textContent).not.toContain("未执行");
   });

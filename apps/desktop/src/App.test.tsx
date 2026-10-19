@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App, AwaitingConfirmCard, ConfirmRunCard, routeFor } from "./App";
 import type { DesktopApi, DesktopView } from "./contracts";
+import { formatResearchTimestamp } from "./format";
 
 afterEach(() => {
   cleanup();
@@ -329,7 +330,9 @@ describe("Night desktop contract", () => {
     expect(screen.getByText("美股 · 股票")).toBeInTheDocument();
     expect(screen.getByText("美债收益率曲线")).toBeInTheDocument();
     expect(screen.getByText("沪深300波动收缩")).toBeInTheDocument();
-    expect(screen.getByText(/20:00/)).toBeInTheDocument();
+    const created = formatResearchTimestamp("2026-08-28T12:00:00+00:00");
+    expect(created).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/);
+    expect(document.body.textContent).toContain(created);
   });
 
   it("shows readable Chinese settings on confirm-run (not Python repr)", () => {
@@ -341,6 +344,9 @@ describe("Night desktop contract", () => {
     expect(universe?.textContent).not.toMatch(/Universe\(/);
     expect(coverage?.textContent).toContain("至少");
     expect(coverage?.textContent).not.toMatch(/CoverageFloor\(/);
+    expect(document.querySelector(".confirm-data-meta")?.textContent).toBe(
+      "数据 2016-01-01 → 2026-10-17 · 日频 · 来源：yahoo_daily",
+    );
   });
 
   it("renders duplicate dialogue lines with distinct keys", () => {
@@ -639,6 +645,9 @@ describe("Night desktop contract", () => {
     expect(screen.getByText("证据依据")).toBeInTheDocument();
     expect(screen.getByText("attempt")).toBeInTheDocument();
     expect(screen.getByText("attempt-123")).toBeInTheDocument();
+    expect(screen.getByText(formatResearchTimestamp("2026-08-28T10:00:00Z"))).toBeInTheDocument();
+    expect(screen.getByText(formatResearchTimestamp("2026-08-28T09:00:00Z"))).toBeInTheDocument();
+    expect(screen.queryByText("2026-08-28T10:00:00Z")).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText("不填则记录为「未作答」")).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("不填则记录为「未作答」"), {target: {value: "用户自担"}});
     fireEvent.click(screen.getByRole("button", {name: "同意，开新的一版"}));

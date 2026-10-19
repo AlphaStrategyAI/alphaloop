@@ -103,7 +103,7 @@ function messages(lang: "zh" | "en") {
     },
     format: {
       datePattern: copy("YYYY-MM-DD", "YYYY-MM-DD", true),
-      dateTimePattern: copy("YYYY-MM-DD HH:mm", "YYYY-MM-DD HH:mm", true),
+      dateTimePattern: copy("YYYY-MM-DD HH:mm±HH:mm", "YYYY-MM-DD HH:mm±HH:mm", true),
     },
     errors: {
       unmapped: {

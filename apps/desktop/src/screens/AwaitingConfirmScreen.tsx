@@ -40,7 +40,7 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
                 <span className="evidence-kind">{ref.kind}</span>
                 <span className="evidence-id">{ref.recordId}</span>
                 {ref.summary && <span className="evidence-summary">{ref.summary}</span>}
-                <span className="evidence-time">{ref.recordedAt}</span>
+                <span className="evidence-time">{formatResearchTimestamp(ref.recordedAt)}</span>
               </li>
             ))}
           </ul>
