@@ -73,6 +73,8 @@ def test_user_override_note_copy() -> None:
     assert payload is not None
     assert payload["overrideNote"] == "已覆盖默认的池"
     assert "默认认" not in payload["summaryLine"]
+    assert payload["summaryLine"] == "1 只 · 用户指定标的 · 已覆盖默认的池"
+    assert "版本" not in payload["summaryLine"]
 
 
 def test_pool_shrink_disclosure_hidden_when_zero() -> None:

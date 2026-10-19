@@ -34,17 +34,17 @@ class SymbolDataLoader(Protocol):
 
 
 def set_pool_data_loader(loader: SymbolDataLoader | None) -> None:
-    """Test hook: inject a fake loader; production uses RoutingDataAdapter."""
+    """Test hook: inject a fake loader; production builds a port from the symbols."""
     global _LOADER
     _LOADER = loader
 
 
-def _production_loader() -> SymbolDataLoader:
+def _production_loader(symbols: tuple[str, ...]) -> SymbolDataLoader:
     if _LOADER is not None:
         return _LOADER
-    from engine.research.gather import AkShareDataAdapter, RoutingDataAdapter, YahooDataAdapter
+    from engine.research.data_port import data_port_for_symbols
 
-    return RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter())
+    return data_port_for_symbols(symbols)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +80,7 @@ def symbols_with_daily_data(
     if not symbols:
         return ()
     try:
-        active = loader or _production_loader()
+        active = loader or _production_loader(symbols)
 
         def _load() -> pd.DataFrame:
             return active.load_daily(symbols, start, end)

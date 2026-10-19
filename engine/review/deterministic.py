@@ -3,11 +3,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from engine.research.families import is_legacy_mean_reversion
 from engine.research.models import RoundDraft
-from engine.review.subagent import ReviewReport, ReviewerPort
+from engine.review.subagent import ReviewReport
+
+
 def default_v1_pass(draft: RoundDraft) -> bool:
-    """Accept mean-reversion rounds even when method verification failed (honest not-passed path)."""
-    return draft.attempt.spec.model_family == "mean_reversion"
+    """Accept the legacy mean-reversion family even when method verification failed."""
+    spec = draft.attempt.spec
+    return is_legacy_mean_reversion(spec.strategy_family, spec.family_method)
 
 
 @dataclass(slots=True)

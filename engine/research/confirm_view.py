@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from engine.research.models import Research, ResearchStatus
-from engine.research.display_names import data_source_label
+from engine.research.a1_copy import USER_OVERRIDE_NOTE, USER_SPECIFIED_LIST_NAME
 from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
-from engine.research.symbol_selection_display import symbol_selection_summary_fields
+from engine.research.display_names import data_source_label
+from engine.research.models import Research, ResearchStatus
 from engine.research.planned_data_window import data_source_id_for_symbols, planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.symbol_pool import pool_for_universe
+from engine.research.symbol_selection_display import symbol_selection_summary_fields
 from engine.research.universe_pool import materialize_default_pool
 
 
@@ -72,7 +73,7 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
     user_override = universe.user_symbols_override and bool(universe.symbols)
     if user_override:
         symbols = universe.symbols
-        list_name = "用户指定标的"
+        list_name = USER_SPECIFIED_LIST_NAME
         list_version = universe.symbol_list_version or "user"
         generated = ""
         source = "user_override"
@@ -100,7 +101,7 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
         version_id=list_version,
         generated_date=generated,
         source=source,
-        override_note="已覆盖默认的池" if user_override else None,
+        override_note=USER_OVERRIDE_NOTE if user_override else None,
         user_override=user_override,
     )
     payload.update(

@@ -106,7 +106,10 @@ def test_deterministic_reviewer_fails_for_non_mean_reversion_family() -> None:
     draft = _draft(pit_passed=True)
     draft = replace(
         draft,
-        attempt=replace(draft.attempt, spec=_spec(family="momentum")),
+        attempt=replace(
+            draft.attempt,
+            spec=replace(_spec(), strategy_family="low_volatility"),
+        ),
     )
     report = DeterministicReviewer(default_v1_pass).run(draft)
     assert report.passed is False
