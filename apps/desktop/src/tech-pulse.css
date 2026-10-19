@@ -83,11 +83,16 @@ a:hover {
   box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.12);
 }
 
+.night-shell.tech-pulse-shell {
+  grid-template-columns: 180px 1fr;
+}
 .night-shell.tech-pulse-shell .rail {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  width: 180px;
   padding: 20px 0 88px;
+  overflow-x: hidden;
 }
 .night-shell.tech-pulse-shell .rail-center {
   position: static;
@@ -110,7 +115,16 @@ a:hover {
   filter: drop-shadow(0 8px 24px rgba(94, 234, 212, 0.12));
 }
 .night-shell.tech-pulse-shell nav {
-  padding: 0 16px;
+  padding: 0 12px;
+  font-size: 15px;
+}
+.night-shell.tech-pulse-shell nav a {
+  display: block;
+  box-sizing: border-box;
+  padding: 8px;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .night-shell.tech-pulse-shell .host-status {
   position: absolute;
@@ -159,7 +173,7 @@ a:hover {
   z-index: 0;
   width: min(92vw, 1200px);
   height: min(92vh, 960px);
-  left: 148px;
+  left: 180px;
   top: -22%;
   background: radial-gradient(ellipse at 24% 20%, rgba(96, 165, 250, 0.28), transparent 58%);
   filter: blur(4px);

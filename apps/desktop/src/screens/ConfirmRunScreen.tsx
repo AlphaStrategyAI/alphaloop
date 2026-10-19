@@ -1,7 +1,8 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
-import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
+import {DialogueTurnBody} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import type {MessageParams} from "../i18n/translate";
@@ -83,7 +84,7 @@ function DialoguePanel({
 }: {
   researchId: string;
   api: DesktopApi;
-  dialogue: readonly {role: "user" | "assistant"; text: string}[];
+  dialogue: readonly DialogueTurnView[];
   chatEnabled?: boolean;
   title?: string;
 }) {
@@ -115,9 +116,7 @@ function DialoguePanel({
         {t("ui.dialogue.intro")}
       </p>
       {dialogue.map((turn, index) => (
-        <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
-          {turn.text}
-        </p>
+        <DialogueTurnBody turn={turn} key={index} />
       ))}
       {chatEnabled && (
         <form onSubmit={submit}>

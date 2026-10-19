@@ -2,6 +2,7 @@ import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
 import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
+import {EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import type {MessageParams} from "../i18n/translate";
@@ -40,9 +41,10 @@ function ExportOutcomeMessages({
         </p>
       )}
       {exportFeedback?.status === "error" && (
-        <p className="export-feedback error" data-testid="export-error" role="alert">
-          {t("ui.export.failed", {message: exportFeedback.message})}
-        </p>
+        <div className="export-feedback error" data-testid="export-error" role="alert">
+          {t("ui.export.failed", {message: ""})}
+          <EngineFailureText raw={exportFeedback.message} />
+        </div>
       )}
       {openFolderError && (
         <p className="export-feedback error" data-testid="open-folder-error" role="alert">
@@ -89,9 +91,10 @@ function ExportFeedbackBlock({
         </p>
       )}
       {exportFeedback?.status === "error" && (
-        <p className="export-feedback error" data-testid="export-error" role="alert">
-          {t("ui.export.failed", {message: exportFeedback.message})}
-        </p>
+        <div className="export-feedback error" data-testid="export-error" role="alert">
+          {t("ui.export.failed", {message: ""})}
+          <EngineFailureText raw={exportFeedback.message} />
+        </div>
       )}
       {openFolderError && (
         <p className="export-feedback error" data-testid="open-folder-error" role="alert">
@@ -381,7 +384,9 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                 </p>
               )}
               {reverifyError && (
-                <p className="reverify-error" data-testid="reverify-error" role="alert">{reverifyError}</p>
+                <div className="reverify-error" data-testid="reverify-error" role="alert">
+                  <EngineFailureText raw={reverifyError} />
+                </div>
               )}
             </div>
             <div className="stacked-field modify-rerun-field">

@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 
 import {bindDesktopApi} from "./api-bind";
 import type {DesktopApi, DesktopView, SidecarUiState} from "./contracts";
+import {EngineFailureText} from "./i18n/engineFailure";
 import {useI18n} from "./i18n/I18nProvider";
 import {readBrowserRoute} from "./routing";
 import {SettingsPage} from "./settings/SettingsPage";
@@ -205,7 +206,7 @@ export function App({
     <NightShell view={view} route={route} sidecarState={sidecarState} runStartRitual={runStartRitual}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
-          <span>{mutationError}</span>
+          <EngineFailureText raw={mutationError} />
           <button
             type="button"
             className="mutation-error-dismiss"
@@ -233,7 +234,7 @@ export function App({
         <p className="route-loading" data-testid="route-loading">{t("ui.shell.loading")}</p>
       ) : routeFailed ? (
         <div className="route-error" data-testid="route-error" role="alert">
-          <p>{routeError}</p>
+          <p><EngineFailureText raw={routeError ?? ""} /></p>
           <button
             type="button"
             className="quiet-button"

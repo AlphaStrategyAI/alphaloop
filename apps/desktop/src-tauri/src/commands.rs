@@ -106,6 +106,9 @@ impl EngineConnection {
 
 fn parse_engine_error_body(body: &str) -> String {
     if let Ok(payload) = serde_json::from_str::<Value>(body) {
+        if payload.get("code").and_then(|value| value.as_str()).is_some() {
+            return body.to_string();
+        }
         if let Some(message) = payload.get("error").and_then(|value| value.as_str()) {
             return message.to_string();
         }
@@ -526,8 +529,14 @@ mod tests {
     }
 
     #[test]
-    fn parse_engine_error_body_uses_json_error_field() {
+    fn parse_engine_error_body_keeps_the_envelope_when_a_code_is_present() {
         let body = r#"{"error":"请先暂停","code":"RUNNING_CANNOT_MODIFY","params":{},"detail":null}"#;
+        assert_eq!(parse_engine_error_body(body), body);
+    }
+
+    #[test]
+    fn parse_engine_error_body_uses_json_error_field_without_a_code() {
+        let body = r#"{"error":"请先暂停"}"#;
         assert_eq!(parse_engine_error_body(body), "请先暂停");
     }
 
