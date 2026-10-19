@@ -33,7 +33,7 @@ const settings = {
   thesis: "美股低波动回归",
   universe: "美股 · 股票",
   max_effective_hours: "12 小时",
-  round1_methods: "走样检验 · 样本外稳定 · 拥挤度 · 换手成本",
+  round1_methods: "分段稳健性检验 · 样本外稳定 · 集中度 · 换手成本",
   coverage_floor: "至少 10 年，缺失不超过 5%",
 } as const;
 
@@ -137,7 +137,7 @@ const views: DesktopView[] = [
     kind: "methods",
     selected: "overfit.walk",
     methods: [
-      {id: "overfit.walk", name: "走样检验", revision: "walk-v1", description: "检验策略样本外是否走样。"},
+      {id: "overfit.walk", name: "分段稳健性检验", revision: "walk-v1", description: "按时间分段比较前缀与下一段的表现是否一致。"},
       {id: "stability.oos", name: "样本外稳定", revision: "stability-v1", description: "至少三个样本外区间。"},
     ],
   },
@@ -537,14 +537,16 @@ describe("Night desktop contract", () => {
           selectedRoundId: "round-1",
           selectedMethodId: "overfit.walk",
           eligibility: {allMethodsPassed: true, noPendingConfirm: true, reverifiesPassed: true, pitExecutedAndPassed: false},
+          pitDetail: {executed: true, passed: false, violationCount: 1, backtestCutoff: "2026-10-16"},
           currentAction: "idle",
         }}
       />,
     );
     const eligibilityDiv = screen.getByTestId("completed-gate-pills");
     expect(eligibilityDiv.children).toHaveLength(4);
-    expect(eligibilityDiv.textContent).toContain("时点一致性已执行且通过");
-    expect(eligibilityDiv.textContent).toContain("○ 时点一致性已执行且通过");
+    expect(eligibilityDiv.textContent).toContain("时点一致性未通过");
+    expect(eligibilityDiv.textContent).toContain("○ 时点一致性未通过");
+    expect(eligibilityDiv.textContent).not.toContain("未通过或未执行");
     expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
   });
 
