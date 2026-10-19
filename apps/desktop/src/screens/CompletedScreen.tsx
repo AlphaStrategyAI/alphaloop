@@ -236,6 +236,11 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             {view.meanReversionOnlyNotice}
           </p>
         )}
+        {view.cnExecutionNotice && (
+          <p className="confirm-lead" data-testid="cn-execution-notice">
+            {view.cnExecutionNotice}
+          </p>
+        )}
         {view.subtitle && <p className="completed-focus-subtitle">{view.subtitle}</p>}
         {view.honestStopHint && (
           <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>

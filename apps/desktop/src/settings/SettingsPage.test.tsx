@@ -79,7 +79,8 @@ describe("settings language", () => {
         <SettingsPage route="#/settings/general" />
       </I18nProvider>,
     );
-    expect(screen.getByRole("heading", {name: "界面语言"})).toBeInTheDocument();
+    const zhHeading = screen.getByRole("heading", {name: "界面语言"});
+    expect(zhHeading.querySelector("[data-i18n-placeholder]")).toBeNull();
     expect(screen.getByRole("radio", {name: /跟随系统/})).toHaveAccessibleName(expect.stringContaining("中文"));
     port.setSystemLocale("en-US");
     expect(screen.getByRole("heading", {name: "界面语言"})).toBeInTheDocument();

@@ -129,13 +129,18 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .row-actions a { color: var(--mute); }
 .status-pill {
   box-sizing: border-box;
-  width: 96px;
-  padding: 5px 6px;
+  width: max-content;
+  max-width: none;
+  padding: 5px 8px;
   border-radius: var(--radius-control);
   background: var(--glass);
   font-size: 12px;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: normal;
+  word-break: keep-all;
   text-align: center;
 }
 .status-pill.running { color: var(--run); }

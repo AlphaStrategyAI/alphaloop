@@ -217,6 +217,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           {view.meanReversionOnlyNotice}
         </p>
       )}
+      {view.constructionNotice && (
+        <p className="confirm-lead" data-testid="construction-notice">
+          {view.constructionNotice}
+        </p>
+      )}
       {view.confirmDataNotice && (
         <p className="confirm-data-notice" data-testid="confirm-data-notice" role="alert">
           {view.confirmDataNotice}

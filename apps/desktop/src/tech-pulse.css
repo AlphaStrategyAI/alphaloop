@@ -408,21 +408,21 @@ a:hover {
 }
 .research-row .row-actions {
   display: grid;
-  grid-template-columns: auto auto 96px;
-  align-items: start;
+  grid-template-columns: max-content max-content max-content;
+  align-items: center;
   justify-items: end;
   gap: 8px 12px;
-  min-width: 0;
-  white-space: normal;
+  min-width: max-content;
+  white-space: nowrap;
 }
 .research-row .row-actions a,
 .research-row .row-actions button {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 .research-row .row-actions .status-pill {
-  width: 96px;
-  justify-self: stretch;
+  width: max-content;
+  justify-self: end;
+  white-space: nowrap;
 }
 .confirm-data-panel {
   margin: 16px 0;

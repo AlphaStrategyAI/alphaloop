@@ -10,9 +10,9 @@ export function isPlaceholderMessageKey(key: string): boolean {
 }
 
 export function I18nText({k, params}: {k: MessageKey; params?: MessageParams}): ReactNode {
-  const {t} = useI18n();
+  const {t, resolved} = useI18n();
   const text = t(k, params);
-  if (!isPlaceholderMessageKey(k)) return text;
+  if (resolved !== "en" || !isPlaceholderMessageKey(k)) return text;
   return (
     <span className="i18n-placeholder" data-i18n-placeholder="">
       {text}
