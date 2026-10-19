@@ -41,8 +41,8 @@ const runningView: DesktopView = {
 describe("running header", () => {
   it("hides idle currentAction label in the running header", () => {
     render(<App api={api} initialView={runningView} initialRoute="#/research/r-1" />);
-    const header = screen.getByText(/第 2 版/).closest("header");
-    expect(header).toBeTruthy();
-    expect(header?.textContent).not.toContain("idle");
+    const panel = screen.getByTestId("running-screen");
+    expect(panel.textContent).toContain("第 2 版");
+    expect(panel.textContent).not.toContain("idle");
   });
 });

@@ -17,6 +17,13 @@ import type {
 import {formatResearchTimestamp} from "./format";
 import {readBrowserRoute, routeFromHash} from "./routing";
 import "./night.css";
+import "./tech-pulse.css";
+import {BrandMark} from "./BrandMark";
+import {parseEffectiveQuotaFromView} from "./effectiveQuota";
+import {completedShowsFailedTone, viewContentFailedTone} from "./completedFailedTone";
+import {listRowStatusLabel} from "./listStatusDisplay";
+import {railStatusLabel} from "./railStatus";
+import {useRunStartRitual} from "./useRunStartRitual";
 
 const CN_TICKER_IN_PROSE = /(\d{6}\.(?:SH|SZ|BJ))/g;
 
@@ -99,27 +106,10 @@ const statusLabels: Record<ResearchStatus, string> = {
   ended: "已结束（未通过）",
 };
 
-const listStatusLabels: Record<ResearchListDisplayStatus, string> = {
-  ...statusLabels,
-  confirm_run: "确认开跑",
-};
-
-const hostStatusLabels: Record<HostStatus, string> = {
-  awaiting_confirm: "等待确认",
-  running: "运行中",
-  completed: "已完成",
-  idle: "本机静",
-};
-
-
 export function routeFor(view: DesktopView): string {
   if (view.kind === "research_list") return "#/research";
   if (view.kind === "methods") return `#/methods${view.selected ? `/${view.selected}` : ""}`;
   return `#/research/${view.researchId}`;
-}
-
-function Logo() {
-  return <div className="logo" aria-label="alphaloop">α<span /></div>;
 }
 
 function engineStatusLabel(sidecar: SidecarUiState | null | undefined): string {
@@ -133,10 +123,12 @@ function NightShell({
   view,
   children,
   sidecarState,
+  runStartRitual,
 }: {
   view: DesktopView;
   children: React.ReactNode;
   sidecarState?: SidecarUiState | null;
+  runStartRitual?: boolean;
 }) {
   const methods = view.kind === "methods";
   const hostKey: HostStatus = view.hostStatus ?? (
@@ -144,25 +136,51 @@ function NightShell({
     view.kind === "running" ? "running" :
     view.kind === "completed" ? "completed" : "idle"
   );
-  const hostStatus = hostStatusLabels[hostKey];
+  const railLabel = railStatusLabel(view);
   const engineLine = engineStatusLabel(sidecarState);
-  const statusTitle = `研究状态：${hostStatus} · ${engineLine}`;
+  const statusTitle = railLabel
+    ? `${railLabel} · ${engineLine}`
+    : engineLine;
+  const failedTone = viewContentFailedTone(view);
+  const atmosphereTone =
+    view.kind === "running"
+      ? "running"
+      : view.kind === "confirm_run"
+        ? "confirm"
+        : failedTone
+          ? "failed"
+          : view.kind === "completed"
+            ? "success"
+            : undefined;
   return (
-    <main className="night-shell" data-testid="night-shell" data-view={view.kind}>
+    <main className="night-shell tech-pulse-shell" data-testid="night-shell" data-view={view.kind}>
       <aside className="rail" data-testid="rail">
         <div className="rail-center">
-          <Logo />
+          <BrandMark />
           <nav aria-label="主导航">
             <a className={!methods ? "active" : ""} href="#/research">研究</a>
             <a className={methods ? "active" : ""} href="#/methods">方法库</a>
           </nav>
         </div>
-        <div className={`host-status ${hostKey}`} title={statusTitle} data-testid="host-status">
-          <span className="host-status-line">● {hostStatus}</span>
-          <span className="host-status-line host-status-engine">{engineLine}</span>
-        </div>
+        {railLabel ? (
+          <div className={`host-status rail-status ${hostKey}`} title={statusTitle} data-testid="host-status">
+            <span className="host-status-line" data-testid="rail-status-label">
+              <span className="host-status-dot" aria-hidden />
+              {railLabel}
+            </span>
+          </div>
+        ) : null}
       </aside>
-      <section className={`content ${view.kind}`}>
+      <section
+        className={`content ${view.kind} tech-pulse-content${failedTone ? " tech-pulse-failed-tone" : ""}${runStartRitual ? " run-start-ritual" : ""}`}
+        data-run-start-ritual={runStartRitual ? "active" : undefined}
+      >
+        <div
+          className="tech-pulse-atmosphere"
+          data-testid="tech-pulse-atmosphere"
+          data-atmosphere-tone={atmosphereTone}
+          aria-hidden
+        />
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
         {children}
       </section>
@@ -171,7 +189,12 @@ function NightShell({
 }
 
 function StatusPill({status}: {status: ResearchListDisplayStatus}) {
-  return <span className={`status-pill ${status}`}>{listStatusLabels[status]}</span>;
+  return (
+    <span className={`status-pill status-pill-dot ${status}`} data-testid="list-status-pill">
+      <span className="pill-dot" aria-hidden />
+      {listRowStatusLabel(status)}
+    </span>
+  );
 }
 
 const deleteWarning =
@@ -180,7 +203,8 @@ const deleteWarning =
 function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
   const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
   const awaiting = view.awaiting;
-  const rows = view.rows;
+  const confirmPinned = view.rows.find((row) => row.status === "confirm_run");
+  const rows = view.rows.filter((row) => row.status !== "confirm_run");
   const askDelete = (researchId: string) => {
     setDeleteConfirm({
       title: "确认删除研究",
@@ -196,39 +220,77 @@ function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, 
     <div className="browse list-screen">
       <InAppConfirmOverlay request={deleteConfirm} onClose={() => setDeleteConfirm(null)} />
       <header className="list-header">
-        <p>一条对话，一次研究。等你确认的会排在最上面。</p>
+        <div>
+          <p className="tech-pulse-eyebrow">研究</p>
+          <h1 className="list-title">本机工坊</h1>
+          <p className="list-tagline">一条对话，一次研究。等你确认的会排在最上面。</p>
+        </div>
         <button
-          className="quiet-button"
+          className="quiet-button list-new-research"
+          data-testid="new-research-button"
           onClick={() => {
             void api.createDraft().then((id) => {
               window.location.hash = `#/research/${id}`;
             });
           }}
         >
+          <span className="list-new-research-icon" aria-hidden>+</span>
           新建研究
         </button>
       </header>
       {awaiting && (
-        <article className="awaiting-primary" data-kind="awaiting-primary">
+        <article className="awaiting-primary list-pinned-card" data-kind="awaiting-primary">
+          <div className="list-pinned-head">
+            <StatusPill status="awaiting_confirm" />
+            <span className="list-pinned-meta">额度已冻结 · 等你拍板</span>
+          </div>
           <a className="awaiting-primary-body" href={`#/research/${awaiting.id}`}>
             <h2>{awaiting.title}</h2>
             <p>
               <span>{awaiting.universeLabel ?? "未锁定"}</span>
               {awaiting.createdAt
                 ? ` · ${formatResearchTimestamp(awaiting.createdAt)}`
-                : " · 等了 2 小时"}
+                : ""}
             </p>
           </a>
-          <div className="row-actions">
-            <a href={`#/research/${awaiting.id}`}>进入</a>
-            <button onClick={() => askDelete(awaiting.id)}>删除</button>
-            <StatusPill status="awaiting_confirm" />
+          <div className="list-pinned-actions">
+            <a className="cyan-button list-open-confirm" href={`#/research/${awaiting.id}`}>
+              打开确认卡
+            </a>
+            <span className="list-pinned-hint">点击整卡也可进入</span>
+            <button type="button" className="text-button" onClick={() => askDelete(awaiting.id)}>
+              删除
+            </button>
+          </div>
+        </article>
+      )}
+      {confirmPinned && (
+        <article
+          className="awaiting-primary list-pinned-card list-pinned-confirm"
+          data-kind="confirm-pinned"
+          data-testid="confirm-pinned-card"
+        >
+          <div className="list-pinned-head">
+            <StatusPill status="confirm_run" />
+          </div>
+          <a className="awaiting-primary-body" href={`#/research/${confirmPinned.id}`}>
+            <h2>{confirmPinned.title}</h2>
+            <p>{confirmPinned.universeLabel ?? "五项设定已齐"}</p>
+          </a>
+          <div className="list-pinned-actions">
+            <a className="cyan-button list-open-confirm" href={`#/research/${confirmPinned.id}`}>
+              打开确认卡
+            </a>
           </div>
         </article>
       )}
       <div className="research-rows">
         {rows.map((row) => (
-          <article className="research-row" data-testid="research-row" key={row.id}>
+          <article
+            className={`research-row${row.status === "ended" ? " research-row--failed" : ""}`}
+            data-testid="research-row"
+            key={row.id}
+          >
             <div>
               <h3>{row.title}</h3>
               <p>
@@ -410,42 +472,57 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   };
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const sel = view.symbolSelection;
+  const returnToDraft = () => {
+    void api.unlockBrief(view.researchId);
+  };
   return (
-    <article className="confirm-card" data-testid="confirm-run-card">
+    <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
+      <p className="tech-pulse-eyebrow">Confirm to run</p>
       <h1>确认开跑</h1>
-      <p>认下这次研究做什么、跑多久、拿什么验证。确认前不会自己开始。</p>
-      <p>研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。</p>
-      <p>最长研究时间只计有效研究时间，暂停和等你确认的时间不算。</p>
+      <p className="confirm-lead">
+        五项设定已锁定。点开跑后进入本机研究；「再修改」回草稿并解锁设定。
+      </p>
+      <details className="confirm-policy-details" data-testid="confirm-policy-details">
+        <summary>运行与锁定说明</summary>
+        <div className="confirm-policy-body">
+          <p>认下这次研究做什么、跑多久、拿什么验证。确认前不会自己开始。</p>
+          <p>研究方法 / 建模方法 / 参数的小迭代自动做；经济逻辑改动、以及数据覆盖要跌破你认下的底线，都会停下来问你。</p>
+          <p>最长研究时间只计有效研究时间，暂停和等你确认的时间不算。</p>
+        </div>
+      </details>
       {view.confirmDataNotice && (
         <p className="confirm-data-notice" data-testid="confirm-data-notice" role="alert">
           {view.confirmDataNotice}
         </p>
       )}
       {sel && (
-        <section className="symbol-selection" data-testid="symbol-selection">
-          <p className="eyebrow">标的与数据窗口（确认后锁定）</p>
-          <p data-testid="symbol-selection-summary">
+        <section className="confirm-data-panel" data-testid="symbol-selection">
+          <div className="confirm-data-panel-head">
+            <p className="confirm-data-panel-title">将使用的数据</p>
+            <button
+              type="button"
+              className="text-button confirm-data-expand"
+              data-testid="toggle-symbol-list"
+              onClick={() => setSymbolsOpen((open) => !open)}
+            >
+              {symbolsOpen ? "收起看全表" : "展开看全表"}
+            </button>
+          </div>
+          <p className="confirm-data-summary" data-testid="symbol-selection-summary">
             {sel.summaryLine ??
-              `${sel.count} 只 · ${sel.listName} · 版本 ${sel.listVersion}${
-                sel.generatedDate ? ` · ${sel.generatedDate}` : ""
-              }${
+              `标的 ${sel.count} 只 · 清单 ${sel.listName} · 版本 ${sel.listVersion}${
                 sel.isDefaultPool || sel.source === "default_pool"
                   ? " · 默认标的池"
-                  : ` · ${sel.overrideNote ?? "用户指定标的"}`
+                  : ` · ${sel.overrideNote ?? "用户指定池"}`
               }`}
           </p>
-          <p>数据区间 {sel.dataStart} 至 {sel.dataEnd}（截止 {sel.dataCutoff}） · 来源 {sel.dataSource}</p>
+          <p className="confirm-data-meta">
+            数据 {sel.dataStart} → {sel.dataEnd} · 日频 · 来源：{sel.dataSource}
+          </p>
+          <p className="confirm-data-footnote">确认开跑前锁定清单版本与数据区间。</p>
           {sel.shrinkNote && (
             <p className="pool-shrink-note" data-testid="pool-shrink-note">{sel.shrinkNote}</p>
           )}
-          <button
-            type="button"
-            className="text-button"
-            data-testid="toggle-symbol-list"
-            onClick={() => setSymbolsOpen((open) => !open)}
-          >
-            {symbolsOpen ? "收起全部标的" : "展开全部标的"}
-          </button>
           {symbolsOpen && (
             <ul className="symbol-ticker-list" data-testid="symbol-ticker-list">
               {sel.symbols.map((symbol) => (
@@ -456,8 +533,17 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         </section>
       )}
       <Settings values={view.settings} onEditSlot={editSlot} />
-      <div className="actions">
-        <button className="cyan-button" onClick={() => void api.confirmRun(view.researchId)}>确认开跑</button>
+      <div className="actions confirm-actions">
+        <button
+          className="cyan-button"
+          data-testid="confirm-run-start"
+          onClick={() => void api.confirmRun(view.researchId)}
+        >
+          开跑
+        </button>
+        <button type="button" className="quiet-button" data-testid="confirm-return-draft" onClick={returnToDraft}>
+          再修改
+        </button>
       </div>
     </article>
   );
@@ -468,14 +554,62 @@ function RunningScreen({
   view,
   modification,
   onModificationChange,
+  runStartRitual,
 }: {
   api: DesktopApi;
   view: Extract<DesktopView, {kind: "running"}>;
   modification: string;
   onModificationChange: (text: string) => void;
+  runStartRitual?: boolean;
 }) {
+  const quota = parseEffectiveQuotaFromView(view.effective, view.remaining);
+  const stageLabel =
+    view.currentAction && view.currentAction !== "idle" ? view.currentAction : null;
   return (
-    <div className="focus running-screen">
+    <div
+      className={`focus running-screen${runStartRitual ? " run-start-ritual-running" : ""}`}
+      data-testid="running-screen"
+      data-run-start-ritual={runStartRitual ? "active" : undefined}
+    >
+      <div className="running-hero">
+        <div className="version-orbit" data-testid="version-orbit">
+          <span className="orbit-version">v{view.version}</span>
+          {stageLabel ? <span className="orbit-stage">{stageLabel}</span> : null}
+        </div>
+        <div>
+          <h1>运行中</h1>
+          <p className="running-sub">
+            第 {view.version} 版
+            {view.currentAction && view.currentAction !== "idle" ? ` · ${view.currentAction}` : ""}
+          </p>
+          {view.coverage && <p className="running-accent">{view.coverage}</p>}
+        </div>
+        {view.status === "running" ? (
+          <button className="quiet-button" type="button" onClick={() => void api.pauseResearch(view.researchId)}>
+            暂停
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
+      {quota && (
+        <div className="effective-quota" data-testid="effective-quota-progress">
+          <div className="effective-quota-labels">
+            <span>有效研究额度</span>
+            <span>{quota.usedLabel} / {quota.totalLabel}</span>
+          </div>
+          <div
+            className="effective-quota-track"
+            data-testid="effective-quota-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(quota.ratio * 100)}
+          >
+            <div className="effective-quota-fill" style={{width: `${quota.ratio * 100}%`}} />
+          </div>
+        </div>
+      )}
       {view.versionOpenedNotice && (
         <p className="version-opened-banner" data-testid="version-opened-banner" role="status">
           {view.versionOpenedNotice}
@@ -568,9 +702,7 @@ function RunningScreen({
           运行中不能改策略，请先暂停。
         </p>
       )}
-      {view.status === "running" ? (
-        <button className="quiet-button" onClick={() => void api.pauseResearch(view.researchId)}>暂停</button>
-      ) : (
+      {view.status === "running" ? null : (
         <>
           <button className="quiet-button" onClick={() => void api.resumeResearch(view.researchId)}>按当前版本继续</button>
           <input
@@ -605,8 +737,9 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
     void api.resolveConfirm(view.researchId, "approve_new_version", whoPays.trim() || undefined);
   };
   return (
-    <article className="awaiting-card" data-testid="awaiting-confirm-card">
-      <p className="eyebrow">等待确认 · 第 {view.version} 版 · 这段时间不计入额度</p>
+    <article className="awaiting-card tech-pulse-card" data-testid="awaiting-confirm-card">
+      <p className="tech-pulse-eyebrow">等待确认</p>
+      <p className="eyebrow">第 {view.version} 版 · 这段时间不计入额度</p>
       <h1>{isCoverage ? "数据覆盖要跌破底线" : "经济逻辑要改了"}</h1>
       <section><small>现在打算改什么</small><p>{view.proposed}</p></section>
       <section><small>为什么要改</small><p>{view.reason}</p></section>
@@ -663,6 +796,44 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
         </div>
       )}
     </article>
+  );
+}
+
+function ExportOutcomeMessages({
+  exportFeedback,
+  openFolderError,
+  onReveal,
+}: {
+  exportFeedback: {status: "success"; path: string} | {status: "error"; message: string} | null;
+  openFolderError: string | null;
+  onReveal: (path: string) => void;
+}) {
+  return (
+    <div className="export-outcome-messages" data-testid="export-outcome-messages">
+      {exportFeedback?.status === "success" && (
+        <p className="export-feedback success" data-testid="export-success" role="status">
+          已导出到 {exportFeedback.path}
+          <button
+            type="button"
+            className="text-button"
+            data-testid="reveal-export-folder"
+            onClick={() => onReveal(exportFeedback.path)}
+          >
+            打开所在文件夹
+          </button>
+        </p>
+      )}
+      {exportFeedback?.status === "error" && (
+        <p className="export-feedback error" data-testid="export-error" role="alert">
+          导出失败：{exportFeedback.message}
+        </p>
+      )}
+      {openFolderError && (
+        <p className="export-feedback error" data-testid="open-folder-error" role="alert">
+          {openFolderError}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -762,8 +933,7 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
     ["时点一致性已执行且通过", view.eligibility.pitExecutedAndPassed],
   ] as const;
   const eligible = checks.every(([, passed]) => passed);
-  const researchRecordExportPrimary =
-    view.exportKind === "research_record_only" || !eligible;
+  const researchRecordExportPrimary = completedShowsFailedTone(view);
   const headline = view.resultHeadline ?? (eligible ? "研究已完成" : "研究已结束，验证未通过");
   const gatesInSubtitle = Boolean(view.subtitle?.includes("未通过门禁"));
   const showFailedGateLine =
@@ -790,28 +960,184 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
   };
 
   return (
-    <div className="focus completed-screen">
+    <div
+      className={`focus completed-screen${researchRecordExportPrimary ? " tech-pulse-failed-tone" : " tech-pulse-success-tone"}`}
+      data-testid="completed-screen"
+    >
       <InAppConfirmOverlay request={iterateConfirm} onClose={() => setIterateConfirm(null)} />
-      <header className="workbench-header" data-testid="completed-workbench-header">
-        <StatusPill status={view.status} />
-        <span className="workbench-summary">
-          第 {view.version ?? 1} 版 ·{" "}
-          {view.workbenchHeaderSummary || view.windowCumulativeLabel || ""}
+      <article
+        className={`completed-focus-card tech-pulse-card${eligible ? " completed-focus-card--success" : " completed-focus-card--failed"}`}
+        data-testid="completed-focus-card"
+      >
+        {eligible ? (
+          <p className="export-ready-eyebrow" data-testid="export-ready-eyebrow">
+            Export ready · 四关全绿
+          </p>
+        ) : (
+          <p className="failed-eyebrow" data-testid="completed-failed-eyebrow">
+            COMPLETED · 未通过门禁
+          </p>
+        )}
+        <h1 data-testid="completed-focus-title">{eligible ? "已完成" : "已完成"}</h1>
+        <p className="completed-focus-headline">{headline}</p>
+        {view.subtitle && <p className="completed-focus-subtitle">{view.subtitle}</p>}
+        {view.honestStopHint && (
+          <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>
+        )}
+        <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
+          {checks.map(([label, passed]) => (
+            <span className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`} key={label}>
+              {passed ? "●" : "○"} {label}
+            </span>
+          ))}
+        </div>
+        <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
+          第 {view.version ?? 1} 版
+          {view.workbenchHeaderSummary ? ` · ${view.workbenchHeaderSummary}` : ""}
+          {view.windowCumulativeLabel ? ` · ${view.windowCumulativeLabel}` : ""}
           {view.effective ? ` · 有效研究 ${view.effective}` : ""}
           {view.remaining ? ` · 剩余 ${view.remaining}` : ""}
-        </span>
-      </header>
-      <p>{headline}</p>
-      {view.subtitle && <p>{view.subtitle}</p>}
-      {view.honestStopHint && <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>}
-      {researchRecordExportPrimary && (
-        <ExportFeedbackBlock
-          exportFeedback={exportFeedback}
-          openFolderError={openFolderError}
-          onExport={() => void runExport("research_record")}
-          onReveal={revealExportFolder}
-        />
-      )}
+        </p>
+        {showFailedGateLine && (
+          <p className="failed-gates-line" data-testid="failed-gates-line">
+            未通过门禁：{view.failedVerifierIds!.join("、")}
+          </p>
+        )}
+        {eligible && view.title && (
+          <section className="completed-strategy-summary">
+            <h2>{view.title}</h2>
+          </section>
+        )}
+        <div className="completed-export-actions" data-testid="completed-export-actions">
+          {eligible ? (
+            <button
+              type="button"
+              className="cyan-button"
+              data-testid="export-strategy-pack-primary"
+              disabled={view.status === "ended"}
+              onClick={() => void runExport("strategy_pack")}
+            >
+              导出策略包
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="stop-button-primary"
+                data-testid="export-research-record-primary"
+                onClick={() => void runExport("research_record")}
+              >
+                导出研究记录
+              </button>
+              <button type="button" className="quiet-button" disabled data-testid="export-strategy-pack-locked">
+                导出策略包（未解锁）
+              </button>
+            </>
+          )}
+        </div>
+        {!eligible && (
+          <ExportOutcomeMessages
+            exportFeedback={exportFeedback}
+            openFolderError={openFolderError}
+            onReveal={revealExportFolder}
+          />
+        )}
+        {!eligible && view.exportBlockerMessages && view.exportBlockerMessages.length > 0 && (
+          <ul className="export-blockers" data-testid="export-blockers">
+            {view.exportBlockerMessages.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        )}
+        {!eligible && (
+          <details className="completed-tools-details" data-testid="completed-tools-details">
+            <summary>重新验证与改策略再跑</summary>
+            <div className="reverify-panel" data-testid="reverify-panel">
+              <p className="eyebrow">对某一步重新验证</p>
+              <label>
+                轮次
+                <select
+                  value={reverifyRoundId}
+                  onChange={(event) => {
+                    const nextRound = event.target.value;
+                    setReverifyRoundId(nextRound);
+                    const round = reverifyRounds.find((item) => item.roundId === nextRound);
+                    const stillThere = round?.methods.some(
+                      (item) => item.methodId === reverifyMethodId,
+                    );
+                    if (round && !stillThere && round.methods[0]) {
+                      setReverifyMethodId(round.methods[0].methodId);
+                    }
+                  }}
+                  data-testid="reverify-round-select"
+                >
+                  {reverifyRounds.map((round) => (
+                    <option key={round.roundId} value={round.roundId}>{round.roundLabel}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                验证方法
+                <select
+                  value={reverifyMethodId}
+                  onChange={(event) => setReverifyMethodId(event.target.value)}
+                  data-testid="reverify-method-select"
+                >
+                  {methodsForRound.map((method) => (
+                    <option key={method.methodId} value={method.methodId}>
+                      {method.methodLabel}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="text-button"
+                disabled={reverifyBusy}
+                aria-busy={reverifyBusy}
+                data-testid="reverify-submit"
+                onClick={() => void runReverify()}
+              >
+                {reverifyBusy ? "重新验证中…" : "执行重新验证"}
+              </button>
+              {view.lastReverification && (
+                <p className="reverify-result" data-testid="reverify-result" role="status">
+                  {view.lastReverification.userMessage ??
+                    `最近重验：${view.lastReverification.methodLabel}（${
+                      view.lastReverification.passed ? "通过" : "未通过"
+                    }）`}
+                </p>
+              )}
+              {reverifyError && (
+                <p className="reverify-error" data-testid="reverify-error" role="alert">{reverifyError}</p>
+              )}
+            </div>
+            <div className="stacked-field modify-rerun-field">
+              <span className="field-label">改策略再跑</span>
+              <input
+                value={modification}
+                onChange={(event) => setModification(event.target.value)}
+                placeholder="例如：把最长研究时间改成 6 小时"
+                aria-label="改策略再跑"
+              />
+              <button
+                disabled={!modification.trim()}
+                data-testid="confirm-modification-button"
+                onClick={() => void (async () => {
+                  await api.sendDialogue(view.researchId, modification.trim());
+                  await api.confirmModification(view.researchId);
+                })()}
+              >
+                确认修改并开新版
+              </button>
+              {!modification.trim() && (
+                <p className="field-hint" data-testid="modify-empty-hint">
+                  请先在上面的输入框说明要改什么，再点「确认修改并开新版」。
+                </p>
+              )}
+            </div>
+          </details>
+        )}
       {view.symbolSelection && (
         <section className="materials-note completed-data-window" data-testid="completed-symbol-selection">
           <p className="eyebrow">标的与数据窗口</p>
@@ -920,121 +1246,76 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
           ))}
         </section>
       )}
-      <div className="eligibility">{checks.map(([label, passed]) => <span key={label}>{passed ? "●" : "○"} {label}</span>)}</div>
-      <article className="result-card">
-        <h1>{view.title}</h1>
-        {showFailedGateLine && (
-          <p data-testid="failed-gates-line">未通过门禁：{view.failedVerifierIds!.join("、")}</p>
-        )}
-        <button disabled={!eligible || view.status === "ended"} onClick={() => void runExport("strategy_pack")}>导出策略包</button>
-        {!eligible && view.exportBlockerMessages && view.exportBlockerMessages.length > 0 && (
-          <ul className="export-blockers" data-testid="export-blockers">
-            {view.exportBlockerMessages.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-        )}
-        <div className="reverify-panel" data-testid="reverify-panel">
-          <p className="eyebrow">对某一步重新验证</p>
-          <label>
-            轮次
-            <select
-              value={reverifyRoundId}
-              onChange={(event) => {
-                const nextRound = event.target.value;
-                setReverifyRoundId(nextRound);
-                const round = reverifyRounds.find((item) => item.roundId === nextRound);
-                const stillThere = round?.methods.some(
-                  (item) => item.methodId === reverifyMethodId,
-                );
-                if (round && !stillThere && round.methods[0]) {
-                  setReverifyMethodId(round.methods[0].methodId);
-                }
-              }}
-              data-testid="reverify-round-select"
-            >
-              {reverifyRounds.map((round) => (
-                <option key={round.roundId} value={round.roundId}>{round.roundLabel}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            验证方法
-            <select
-              value={reverifyMethodId}
-              onChange={(event) => setReverifyMethodId(event.target.value)}
-              data-testid="reverify-method-select"
-            >
-              {methodsForRound.map((method) => (
-                <option key={method.methodId} value={method.methodId}>
-                  {method.methodLabel}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="text-button"
-            disabled={reverifyBusy}
-            aria-busy={reverifyBusy}
-            data-testid="reverify-submit"
-            onClick={() => void runReverify()}
-          >
-            {reverifyBusy ? "重新验证中…" : "执行重新验证"}
-          </button>
-          {view.lastReverification && (
-            <p className="reverify-result" data-testid="reverify-result" role="status">
-              {view.lastReverification.userMessage ??
-                `最近重验：${view.lastReverification.methodLabel}（${
-                  view.lastReverification.passed ? "通过" : "未通过"
-                }）`}
-            </p>
-          )}
-          {reverifyError && (
-            <p className="reverify-error" data-testid="reverify-error" role="alert">{reverifyError}</p>
-          )}
-        </div>
-        {!researchRecordExportPrimary && (
-          <ExportFeedbackBlock
-            exportFeedback={exportFeedback}
-            openFolderError={openFolderError}
-            onExport={() => void runExport("research_record")}
-            onReveal={revealExportFolder}
-          />
-        )}
-        <div className="stacked-field modify-rerun-field">
-          <span className="field-label">改策略再跑</span>
-          <input
-            value={modification}
-            onChange={(event) => setModification(event.target.value)}
-            placeholder="例如：把最长研究时间改成 6 小时"
-            aria-label="改策略再跑"
-          />
-          <button
-            disabled={!modification.trim()}
-            data-testid="confirm-modification-button"
-            onClick={() => void (async () => {
-              await api.sendDialogue(view.researchId, modification.trim());
-              await api.confirmModification(view.researchId);
-            })()}
-          >
-            确认修改并开新版
-          </button>
-          {!modification.trim() && (
-            <p className="field-hint" data-testid="modify-empty-hint">
-              请先在上面的输入框说明要改什么，再点「确认修改并开新版」。
-            </p>
-          )}
-        </div>
-        {view.recentDialogue && view.recentDialogue.length > 0 && (
-          <div className="modification-dialogue" data-testid="modification-dialogue">
-            {view.recentDialogue.map((turn, index) => (
-              <p className={`message ${turn.role}`} key={index}>{turn.text}</p>
-            ))}
-          </div>
+        {eligible && (
+          <details className="completed-tools-details">
+            <summary>更多操作</summary>
+            <ExportFeedbackBlock
+              exportFeedback={exportFeedback}
+              openFolderError={openFolderError}
+              onExport={() => void runExport("research_record")}
+              onReveal={revealExportFolder}
+            />
+            <div className="reverify-panel" data-testid="reverify-panel">
+              <p className="eyebrow">对某一步重新验证</p>
+              <label>
+                轮次
+                <select
+                  value={reverifyRoundId}
+                  onChange={(event) => setReverifyRoundId(event.target.value)}
+                  data-testid="reverify-round-select"
+                >
+                  {reverifyRounds.map((round) => (
+                    <option key={round.roundId} value={round.roundId}>{round.roundLabel}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                验证方法
+                <select
+                  value={reverifyMethodId}
+                  onChange={(event) => setReverifyMethodId(event.target.value)}
+                  data-testid="reverify-method-select"
+                >
+                  {methodsForRound.map((method) => (
+                    <option key={method.methodId} value={method.methodId}>
+                      {method.methodLabel}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="text-button"
+                disabled={reverifyBusy}
+                data-testid="reverify-submit"
+                onClick={() => void runReverify()}
+              >
+                {reverifyBusy ? "重新验证中…" : "执行重新验证"}
+              </button>
+            </div>
+            <div className="stacked-field modify-rerun-field">
+              <span className="field-label">改策略再跑</span>
+              <input
+                value={modification}
+                onChange={(event) => setModification(event.target.value)}
+                placeholder="例如：把最长研究时间改成 6 小时"
+                aria-label="改策略再跑"
+              />
+              <button
+                disabled={!modification.trim()}
+                data-testid="confirm-modification-button"
+                onClick={() => void (async () => {
+                  await api.sendDialogue(view.researchId, modification.trim());
+                  await api.confirmModification(view.researchId);
+                })()}
+              >
+                确认修改并开新版
+              </button>
+            </div>
+          </details>
         )}
         {view.status === "ended" && (
-          <label>
+          <label className="extend-hours-field">
             延长有效研究小时
             <input value={extensionHours} onChange={(event) => setExtensionHours(event.target.value)} inputMode="decimal" />
             <button onClick={() => void api.extendResearch(view.researchId, Number(extensionHours))}>确认延长并开新版</button>
@@ -1175,7 +1456,8 @@ function Screen({
   initialView: view,
   pausedModificationByResearch,
   onPausedModificationChange,
-}: ScreenProps) {
+  runStartRitual,
+}: ScreenProps & {runStartRitual?: boolean}) {
   switch (view.kind) {
     case "research_list": return <ResearchList api={api} view={view} />;
     case "draft": return <DraftScreen api={api} view={view} />;
@@ -1187,6 +1469,7 @@ function Screen({
           view={view}
           modification={pausedModificationByResearch[view.researchId] ?? ""}
           onModificationChange={(text) => onPausedModificationChange(view.researchId, text)}
+          runStartRitual={runStartRitual}
         />
       );
     case "awaiting_confirm": return <div className="focus"><AwaitingConfirmCard api={api} view={view} /></div>;
@@ -1215,6 +1498,7 @@ export function App({
   }, []);
   const engineStopped = sidecarState?.phase === "stopped";
   const routePending = route !== syncedRoute;
+  const runStartRitual = useRunStartRitual(view);
 
   const refreshView = useCallback(async () => {
     const next = await api.fetchView(route);
@@ -1306,7 +1590,7 @@ export function App({
   }, [restartSidecar, pollSidecar]);
 
   return (
-    <NightShell view={view} sidecarState={sidecarState}>
+    <NightShell view={view} sidecarState={sidecarState} runStartRitual={runStartRitual}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
           <span>{mutationError}</span>
@@ -1339,6 +1623,7 @@ export function App({
           initialView={view}
           pausedModificationByResearch={pausedModificationByResearch}
           onPausedModificationChange={onPausedModificationChange}
+          runStartRitual={runStartRitual}
         />
       )}
     </NightShell>
