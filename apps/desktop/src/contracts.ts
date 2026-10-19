@@ -228,6 +228,7 @@ type ViewBody =
 export type DesktopView = ViewBody & {
   hostStatus?: HostStatus;
   thesisChangeHint?: string;
+  marketDataProgress?: {done: number; total: number; source?: string} | null;
 };
 
 export interface DesktopApi {

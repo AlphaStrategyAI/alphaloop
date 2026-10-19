@@ -151,7 +151,7 @@ def test_threading_server_list_responds_while_confirm_blocks_on_market_io(
     assert elapsed < 2.0, f"list fetch blocked for {elapsed:.1f}s"
     assert confirm_error is not None
     assert confirm_error["status"] == 400
-    assert confirm_error["body"]["code"] == TRANSIENT_DATA_CODE
+    assert confirm_error["body"]["code"] == "MARKET_DATA_TIMEOUT"
 
 
 def test_confirm_run_transient_within_market_deadline(
@@ -172,7 +172,7 @@ def test_confirm_run_transient_within_market_deadline(
     elapsed = time.monotonic() - started
     set_pool_data_loader(None)
 
-    assert exc.value.code == TRANSIENT_DATA_CODE
+    assert exc.value.code == "MARKET_DATA_TIMEOUT"
     assert elapsed < mdt.MARKET_DATA_LOAD_TIMEOUT_SEC + 2.0
 
 

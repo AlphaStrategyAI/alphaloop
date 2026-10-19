@@ -198,6 +198,11 @@ function NightShell({
           data-atmosphere-tone={atmosphereTone}
           aria-hidden
         />
+        {view.marketDataProgress && view.marketDataProgress.total > 0 ? (
+          <p data-testid="market-data-progress">
+            正在取行情 {view.marketDataProgress.done}/{view.marketDataProgress.total}
+          </p>
+        ) : null}
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
         {children}
       </section>

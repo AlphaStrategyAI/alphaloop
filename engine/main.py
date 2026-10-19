@@ -375,6 +375,11 @@ class ResearchCommandService:
         research: Research | None = None,
     ) -> dict[str, Any]:
         payload["hostStatus"] = host_status(self.store.list_research())
+        from engine.research.market_data_progress import market_data_progress_payload
+
+        progress = market_data_progress_payload()
+        if progress is not None:
+            payload["marketDataProgress"] = progress
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
         return self._attach_notify(payload)

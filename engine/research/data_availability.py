@@ -18,6 +18,32 @@ def transient_data_error() -> UserFacingError:
     return UserFacingError(TRANSIENT_DATA_CODE, TRANSIENT_DATA_MESSAGE)
 
 
+def _coded(code: str, message: str) -> UserFacingError:
+    """Keep the code in the sentence the desktop already shows as ``error``."""
+    return UserFacingError(code, f"{message}（{code}）")
+
+
+def market_data_timeout(symbol_count: int) -> UserFacingError:
+    return _coded(
+        "MARKET_DATA_TIMEOUT",
+        f"行情还没取完：{symbol_count} 只在限定时间内没有完成。请稍后重试。",
+    )
+
+
+def market_data_rate_limited() -> UserFacingError:
+    return _coded(
+        "MARKET_DATA_RATE_LIMITED",
+        "行情源限流（HTTP 429），多次退避后仍失败。请稍后重试。",
+    )
+
+
+def market_data_fetch_failed(symbol: str) -> UserFacingError:
+    return _coded(
+        "MARKET_DATA_FETCH_FAILED",
+        f"行情没有取到：{symbol}。",
+    )
+
+
 def classify_load_failure(error: BaseException) -> UserFacingError | None:
     if isinstance(error, DataPipelineError):
         if error.code == TRANSIENT_DATA_CODE:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+from pathlib import Path
 
 import pytest
 
@@ -8,6 +9,19 @@ _REAL_SOCKET = socket.socket
 
 from engine.research.pool_data_shrink import set_pool_data_loader
 from tests.fixtures.pool_loader import AllSymbolsAvailableLoader
+
+
+@pytest.fixture(autouse=True)
+def _isolated_price_cache(tmp_path: Path) -> None:
+    """Keep Yahoo/AkShare caches inside the test tmp dir."""
+    from engine.research.market_data_progress import clear_market_data_progress
+    from engine.research.price_cache import set_price_cache_dir
+
+    clear_market_data_progress()
+    set_price_cache_dir(tmp_path / "price-cache")
+    yield
+    clear_market_data_progress()
+    set_price_cache_dir(None)
 
 
 @pytest.fixture(autouse=True)

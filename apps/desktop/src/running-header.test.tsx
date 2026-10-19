@@ -45,4 +45,15 @@ describe("running header", () => {
     expect(panel.textContent).toContain("第 2 版");
     expect(panel.textContent).not.toContain("idle");
   });
+
+  it("shows how many names the market-data load has finished", () => {
+    render(
+      <App
+        api={api}
+        initialView={{...runningView, marketDataProgress: {done: 12, total: 503, source: "yahoo"}}}
+        initialRoute="#/research/r-1"
+      />,
+    );
+    expect(screen.getByTestId("market-data-progress").textContent).toBe("正在取行情 12/503");
+  });
 });
