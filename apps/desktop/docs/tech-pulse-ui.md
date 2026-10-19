@@ -46,6 +46,10 @@ Engine line (“引擎：运行中”) is no longer shown in the rail; engine he
 
 **Bare rail (v003):** `.host-status.rail-status` overrides the default glass chip (`.night-shell.tech-pulse-shell .host-status`) so the dot + label sit directly on the rail.
 
+## Glossary
+
+`#/glossary` reuses `.tech-pulse-card` and a `<details>` fold. Copy comes from the engine glossary (`docs/GLOSSARY.md`), not from a second set of labels in the desktop.
+
 ## Research list
 
 - Header: **+ 新建研究** (`data-testid="new-research-button"`).

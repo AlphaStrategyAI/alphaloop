@@ -74,6 +74,12 @@ export interface ResearchSummary {
   updatedAt?: string;
 }
 
+export interface GlossaryEntry {
+  id: string;
+  term: string;
+  body: string;
+}
+
 export interface ValidationMethod {
   id: string;
   name: string;
@@ -209,7 +215,8 @@ type ViewBody =
       anomaly?: AnomalyPresentation | null;
       recentDialogue?: readonly {role: "user" | "assistant"; text: string}[];
     }
-  | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]};
+  | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]}
+  | {kind: "glossary"; intro: string; entries: readonly GlossaryEntry[]};
 
 export type DesktopView = ViewBody & {
   hostStatus?: HostStatus;

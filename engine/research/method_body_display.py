@@ -6,13 +6,13 @@ import json
 import re
 from typing import Any
 
-from engine.research.display_names import format_display_number, param_label
+from engine.research.display_names import format_display_number, method_label, param_label
 
 _FIELD_LABELS: dict[str, str] = {
     "sharpe_oos_min_exclusive": "样本外夏普下限（不含等于）",
     "excess_ann_min_exclusive": "年化超额下限（不含等于）",
     "default_max_drawdown_floor": "最大回撤下限",
-    "n_splits": "走样折数",
+    "n_splits": "分段折数",
     "oos_to_is_min": "样本外/样本内比下限",
     "segments_min": "分段数下限",
     "same_sign_ratio_min": "同号比例下限",
@@ -25,14 +25,28 @@ _FIELD_LABELS: dict[str, str] = {
     "scope": "检查范围",
 }
 
-_METHOD_PURPOSE: dict[str, str] = {
-    "scorecard.market": "用多维指标衡量策略是否达到最低可接受表现。",
-    "overfit.walk": "走样分段检验，降低样本内偶然拟合的风险。",
-    "stability.oos": "检验样本外分段方向是否稳定。",
-    "crowding.load": "估计头部持仓拥挤对夏普的拖累。",
-    "cost.turnover": "在换手成本下检验净超额是否仍为正。",
-    "pit.consistency": "确保证据与回测只使用决策当时可获得的信息，杜绝前视偏差。",
-}
+
+def method_purpose(method_id: str) -> str:
+    """User-facing purpose. Gate labels come from display_names, not this table."""
+    purposes = {
+        "scorecard.market": "用多维指标衡量策略是否达到最低可接受表现。",
+        "overfit.walk": (
+            "按时间把固定参数的收益切成若干段，比较前缀与下一段的表现是否一致。"
+            "这是时间分段表现一致性，不是重新估计参数的 walk-forward。"
+        ),
+        "stability.oos": (
+            "检验样本外各段收益方向是否同号。"
+            f"这和「{method_label('overfit.walk')}」不是同一项："
+            "后者看时间分段上前缀与下一段是否一致，这一项只看方向是否稳定。"
+        ),
+        "crowding.load": (
+            "用持仓绝对权重的高分位估计对夏普的影响。这是权重集中度（非市场拥挤度）。"
+        ),
+        "cost.turnover": "在换手成本下检验净超额是否仍为正。",
+        "pit.consistency": "确保证据与回测只使用决策当时可获得的信息，杜绝前视偏差。",
+    }
+    return purposes.get(method_id, "冻结验证方法定义。")
+
 
 _PIT_EN: dict[str, str] = {
     "Point-in-Time Consistency": "时点一致性",
@@ -44,18 +58,14 @@ _PIT_EN: dict[str, str] = {
 }
 
 _REVISION_LABELS: dict[str, str] = {
-    "scorecard-v1": "市场计分卡 · 内置第 1 版",
-    "walk-v1": "走样检验 · 内置第 1 版",
-    "stability-v1": "样本外稳定 · 内置第 1 版",
-    "crowding-v1": "拥挤度 · 内置第 1 版",
-    "cost-v1": "换手成本 · 内置第 1 版",
-    "pit-v1": "时点一致性 · 内置第 1 版",
-    "pit-v2": "时点一致性 · 内置第 2 版",
+    "scorecard-v1": f"{method_label('scorecard.market')} · 内置第 1 版",
+    "walk-v1": f"{method_label('overfit.walk')} · 内置第 1 版",
+    "stability-v1": f"{method_label('stability.oos')} · 内置第 1 版",
+    "crowding-v1": f"{method_label('crowding.load')} · 内置第 1 版",
+    "cost-v1": f"{method_label('cost.turnover')} · 内置第 1 版",
+    "pit-v1": f"{method_label('pit.consistency')} · 内置第 1 版",
+    "pit-v2": f"{method_label('pit.consistency')} · 内置第 2 版",
 }
-
-
-def method_purpose(method_id: str) -> str:
-    return _METHOD_PURPOSE.get(method_id, "冻结验证方法定义。")
 
 
 def revision_display_label(revision_token: str) -> str:

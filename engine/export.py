@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 
 import pandas as pd
 
+from engine.research.glossary import write_glossary
 from engine.research.models import (
     Attempt,
     Research,
@@ -449,6 +450,7 @@ def build_strategy_pack(
             root / "history" / "rounds.json",
             _round_history_with_trials(research, all_rounds),
         )
+        write_glossary(root)
         bundle_root = Path(
             getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
         )
@@ -562,6 +564,7 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
             root / "why_not_live.json",
             why_not_live,
         )
+        write_glossary(root)
         bundle_root = Path(
             getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
         )

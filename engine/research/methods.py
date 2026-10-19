@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from engine.research.display_names import method_label
 from engine.research.models import (
     MethodDefinition,
     MethodRef,
@@ -74,19 +75,18 @@ def validate_dimension_immutability(
 if TYPE_CHECKING:
     from engine.research.store import SQLiteStore
 
-PRESET_NAMES = {
-    "scorecard.market": "市场计分卡",
-    "overfit.walk": "走样检验",
-    "stability.oos": "样本外稳定",
-    "crowding.load": "拥挤度",
-    "cost.turnover": "换手成本",
-    "pit.consistency": "时点一致性",
-}
+PRESET_IDS = (
+    "scorecard.market",
+    "overfit.walk",
+    "stability.oos",
+    "crowding.load",
+    "cost.turnover",
+    "pit.consistency",
+)
+PRESET_NAMES = {method_id: method_label(method_id) for method_id in PRESET_IDS}
 
 
 def format_verifier_display(verifier_id: str) -> str:
-    from engine.research.display_names import method_label
-
     return method_label(verifier_id)
 
 

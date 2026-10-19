@@ -41,7 +41,7 @@ describe("draft universe chips", () => {
         universe_symbols: "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池",
         universe_symbol_chips: ["BRK-B", "SPY"],
         max_effective_hours: "3 小时",
-        round1_methods: "走样检验",
+        round1_methods: "分段稳健性检验",
         coverage_floor: "至少 5 个标的",
       },
     };

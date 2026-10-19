@@ -35,8 +35,10 @@ class Intent:
 
 
 METHOD_WORDS = {
+    "分段稳健性检验": MethodRef("overfit.walk", "walk-v1"),
     "走样检验": MethodRef("overfit.walk", "walk-v1"),
     "样本外稳定": MethodRef("stability.oos", "stability-v1"),
+    "集中度": MethodRef("crowding.load", "crowding-v1"),
     "拥挤度": MethodRef("crowding.load", "crowding-v1"),
     "换手成本": MethodRef("cost.turnover", "cost-v1"),
 }
@@ -105,8 +107,13 @@ def _parse_coverage(message: str, current: CoverageFloor | None = None) -> Cover
 
 
 def _parse_methods(message: str) -> tuple[MethodRef, ...]:
-    methods = tuple(ref for word, ref in METHOD_WORDS.items() if word in message)
-    return methods
+    methods: list[MethodRef] = []
+    seen: set[str] = set()
+    for word, ref in METHOD_WORDS.items():
+        if word in message and ref.method_id not in seen:
+            methods.append(ref)
+            seen.add(ref.method_id)
+    return tuple(methods)
 
 
 _STRATEGY_HINT = re.compile(
