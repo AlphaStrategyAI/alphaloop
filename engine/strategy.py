@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
@@ -9,12 +9,17 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 import numpy as np
 import pandas as pd
 
+from engine.portfolio import (
+    LEGACY_COST_MODEL,
+    SCHEDULE_COST_MODEL,
+    SCHEDULE_NAME_CAP,
+)
 from engine.research.families import (
     LEGACY_FAMILY_METHOD,
     LEGACY_STRATEGY_FAMILY,
     require_family_id,
 )
-from engine.research.models import MethodRef, Universe
+from engine.research.models import AssetClass, MethodRef, Universe
 
 if TYPE_CHECKING:
     from engine.research.models import Research
@@ -52,6 +57,8 @@ class StrategySpec:
     family_method: str = LEGACY_FAMILY_METHOD
     family_params: tuple[tuple[str, str], ...] = ()
     primary_factor: str | None = None
+    cost_model: str = LEGACY_COST_MODEL
+    name_weight_cap: float | None = None
 
     def __post_init__(self) -> None:
         if self.frequency != "1d":
@@ -59,6 +66,10 @@ class StrategySpec:
         if not -1.0 < self.max_drawdown_floor < 0.0:
             raise ValueError("max_drawdown_floor must be between -1 and 0")
         require_family_id(self.strategy_family)
+        if self.cost_model not in {LEGACY_COST_MODEL, SCHEDULE_COST_MODEL}:
+            raise ValueError("unknown cost_model")
+        if self.name_weight_cap is not None and not 0.0 < self.name_weight_cap <= 1.0:
+            raise ValueError("name_weight_cap must be between 0 and 1")
 
 
 @runtime_checkable
@@ -111,21 +122,24 @@ class MeanReversionStrategy:
     def side(self) -> Side:
         return self.spec.side
 
-    def generate_signals(self, data: MarketPanel) -> pd.DataFrame:
+    def _score_frame(self, data: MarketPanel) -> pd.DataFrame:
         returns = data.prices.pct_change(fill_method=None)
         score = -returns.rolling(self.spec.lookback_days).mean()
-        signals = pd.DataFrame(0.0, index=data.prices.index, columns=data.prices.columns)
         if data.prices.shape[1] == 1:
             column = data.prices.columns[0]
             series = score[column]
             dispersion = series.rolling(self.spec.lookback_days).std().replace(0.0, np.nan)
-            zscore = series.div(dispersion)
-            signals.loc[zscore >= self.spec.entry_z, column] = 1.0
-            if self.spec.side == "long_short":
-                signals.loc[zscore <= -self.spec.entry_z, column] = -1.0
-            return signals
+            return series.div(dispersion).to_frame(name=column)
         dispersion = score.std(axis=1).replace(0.0, np.nan)
-        zscore = score.sub(score.mean(axis=1), axis=0).div(dispersion, axis=0)
+        return score.sub(score.mean(axis=1), axis=0).div(dispersion, axis=0)
+
+    def inclusion_scores(self, data: MarketPanel) -> pd.DataFrame:
+        """Higher means more desirable to add when equal weight breaches the cap."""
+        return self._score_frame(data)
+
+    def generate_signals(self, data: MarketPanel) -> pd.DataFrame:
+        zscore = self._score_frame(data)
+        signals = pd.DataFrame(0.0, index=zscore.index, columns=zscore.columns)
         signals[zscore >= self.spec.entry_z] = 1.0
         if self.spec.side == "long_short":
             signals[zscore <= -self.spec.entry_z] = -1.0
@@ -148,9 +162,49 @@ class MeanReversionStrategy:
         return archive
 
 
+def apply_trading_schedule(spec: StrategySpec) -> StrategySpec:
+    """Lock the product cost table. Fund legs and shorts are not name-capped."""
+    fund = spec.universe.asset_class is AssetClass.FUND
+    cap = None if fund or spec.side == "long_short" else SCHEDULE_NAME_CAP
+    return replace(spec, cost_model=SCHEDULE_COST_MODEL, name_weight_cap=cap)
+
+
 def run_daily_backtest(strategy: AlphaStrategy, data: MarketPanel) -> pd.Series:
+    return daily_book(strategy, data).net
+
+
+def daily_book(strategy: AlphaStrategy, data: MarketPanel):
+    from engine.portfolio import allocate_weights, build_book, one_way_cost_fraction
+
     signals = strategy.generate_signals(data).shift(1).fillna(0.0)
-    gross = signals.abs().sum(axis=1).replace(0.0, 1.0)
-    weights = signals.div(gross, axis=0)
+    spec = getattr(strategy, "spec", None)
+    name_cap = None if spec is None else spec.name_weight_cap
+    scores = None
+    pool_symbols: tuple[str, ...] = ()
+    rate = 0.0
+    if spec is not None and (name_cap is not None or spec.cost_model != LEGACY_COST_MODEL):
+        if name_cap is not None and hasattr(strategy, "inclusion_scores"):
+            scores = strategy.inclusion_scores(data).shift(1)
+            pool_symbols = _pool_symbols(spec)
+        if spec.cost_model != LEGACY_COST_MODEL:
+            rate = one_way_cost_fraction(spec.universe.market, spec.universe.asset_class)
+    weights = allocate_weights(signals, scores, name_cap=name_cap, pool_symbols=pool_symbols)
     asset_returns = data.prices.pct_change(fill_method=None).fillna(0.0)
-    return (weights * asset_returns).sum(axis=1).rename("strategy_return")
+    return build_book(weights, asset_returns, one_way_cost=rate)
+
+
+def _pool_symbols(spec: StrategySpec) -> tuple[str, ...]:
+    from engine.research.symbol_pool import pool_by_version, pool_for_market
+
+    pool = None
+    if spec.universe.symbol_list_version:
+        pool = pool_by_version(spec.universe.symbol_list_version)
+    if pool is None:
+        pool = pool_for_market(
+            spec.universe.market,
+            spec.universe.asset_class,
+            spec.universe.underlying_asset_class,
+        )
+    if pool is None:
+        return ()
+    return pool.symbols
