@@ -29,6 +29,7 @@ import {parseEffectiveQuotaFromView} from "./effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "./completedFailedTone";
 import {listRowStatusLabel} from "./listStatusDisplay";
 import {railStatusLabel} from "./railStatus";
+import {SecretVaultButton} from "./SecretVault";
 import {useRunStartRitual} from "./useRunStartRitual";
 
 const CN_TICKER_IN_PROSE = /(\d{6}\.(?:SH|SZ|BJ))/g;
@@ -191,6 +192,7 @@ function NightShell({
             <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings">
               <I18nText k="nav.settings" />
             </a>
+            <SecretVaultButton />
           </nav>
         </div>
         {railLabel ? (
