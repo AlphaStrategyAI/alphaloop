@@ -69,6 +69,14 @@ PIT_VERIFIER_REVISION = MappingProxyType(
 UNKNOWN_METHOD_RULE = "unknown method revision cannot inherit a previous pass"
 
 
+def unknown_revision_rule(method_id: str, revision: str) -> str:
+    """Known method, unknown revision: fail closed instead of running another revision."""
+    return (
+        f"unknown method revision {revision} for {method_id}; "
+        "refusing to fall back to another revision"
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class VerifierResult:
     verifier_id: str
@@ -78,12 +86,33 @@ class VerifierResult:
     rule: str
 
 
+PIT_REVISION_V2 = "pit-v2"
+PIT_SCOPE = "只查资料发布日 ≤ 回测截止日，不覆盖标的池/复权/财务修订"
+NO_EXTERNAL_EVIDENCE_NOTE = "未引用外部资料"
+
+
+@dataclass(frozen=True, slots=True)
+class PitViolationDetail:
+    """One pit-v2 violation. Absent on pit-v1 results."""
+
+    material_id: str
+    published_at: str = ""
+    title: str = ""
+    precision: str = ""
+    reason: str = "after_cutoff"
+
+
 @dataclass(frozen=True, slots=True)
 class PitVerifierResult(VerifierResult):
     """PIT consistency verification result (B1)."""
     evidence_timestamps: tuple[tuple[str, str], ...] = ()
     backtest_cutoff: str = ""
     violations: tuple[str, ...] = ()
+    evidence_used: int = 0
+    undated_excluded: tuple[str, ...] = ()
+    scope: str = ""
+    note: str = ""
+    violation_details: tuple[PitViolationDetail, ...] = ()
 
 
 def _pit_consistency(
@@ -203,12 +232,47 @@ def _cost(report: SimulationReport, spec: StrategySpec) -> VerifierResult:
     )
 
 
-_SELECTABLE: dict[str, Callable[[SimulationReport, StrategySpec], VerifierResult]] = {
-    "overfit.walk": _walk,
-    "stability.oos": _stability,
-    "crowding.load": _crowding,
-    "cost.turnover": _cost,
+_Verifier = Callable[[SimulationReport, StrategySpec], VerifierResult]
+
+_SELECTABLE_BY_REVISION: dict[tuple[str, str], _Verifier] = {
+    ("scorecard.market", "scorecard-v1"): _scorecard,
+    ("overfit.walk", "walk-v1"): _walk,
+    ("stability.oos", "stability-v1"): _stability,
+    ("crowding.load", "crowding-v1"): _crowding,
+    ("cost.turnover", "cost-v1"): _cost,
 }
+_KNOWN_SELECTABLE_IDS = {method_id for method_id, _revision in _SELECTABLE_BY_REVISION}
+_PIT_REVISION_V1 = "pit-v1"
+
+
+def _dispatch_selectable(
+    method_id: str,
+    revision: str,
+    report: SimulationReport,
+    spec: StrategySpec,
+) -> VerifierResult:
+    builder = _SELECTABLE_BY_REVISION.get((method_id, revision))
+    if builder is not None:
+        return builder(report, spec)
+    if method_id in _KNOWN_SELECTABLE_IDS:
+        return VerifierResult(
+            method_id,
+            revision,
+            False,
+            {},
+            unknown_revision_rule(method_id, revision),
+        )
+    return VerifierResult(method_id, revision, False, {}, UNKNOWN_METHOD_RULE)
+
+
+def recorded_pit_revision(verification: VerificationReport | None) -> str:
+    """Revision stored on the round. Missing PIT stays on v1 so old rounds are not re-judged."""
+    if verification is None:
+        return _PIT_REVISION_V1
+    for item in verification.results:
+        if item.verifier_id == "pit.consistency" and item.revision:
+            return item.revision
+    return _PIT_REVISION_V1
 
 
 def _append_pit_result(
@@ -218,8 +282,35 @@ def _append_pit_result(
     *,
     evidence_as_of: tuple[tuple[str, str], ...],
     missing_as_of_material_ids: tuple[str, ...],
+    undated_excluded: tuple[str, ...] = (),
+    evidence_annotations: tuple[tuple[str, str, str], ...] = (),
+    revision: str | None = None,
 ) -> None:
-    revision = str(PIT_VERIFIER_REVISION["pit.consistency"]["revision"])
+    resolved = revision or str(PIT_VERIFIER_REVISION["pit.consistency"]["revision"])
+    if resolved == PIT_REVISION_V2:
+        results.append(
+            _pit_v2(
+                spec,
+                report,
+                evidence_as_of=evidence_as_of,
+                missing_as_of_material_ids=missing_as_of_material_ids,
+                undated_excluded=undated_excluded,
+                evidence_annotations=evidence_annotations,
+            )
+        )
+        return
+    if resolved != _PIT_REVISION_V1:
+        results.append(
+            VerifierResult(
+                "pit.consistency",
+                resolved,
+                False,
+                {},
+                unknown_revision_rule("pit.consistency", resolved),
+            )
+        )
+        return
+    revision = resolved
     if report.end is None:
         results.append(
             PitVerifierResult(
@@ -254,35 +345,114 @@ def _append_pit_result(
     results.append(pit)
 
 
+def _annotation_index(
+    evidence_annotations: tuple[tuple[str, str, str], ...],
+) -> dict[str, tuple[str, str]]:
+    return {
+        material_id: (title, precision)
+        for material_id, title, precision in evidence_annotations
+    }
+
+
+def _pit_v2(
+    spec: StrategySpec | None,
+    report: SimulationReport,
+    *,
+    evidence_as_of: tuple[tuple[str, str], ...],
+    missing_as_of_material_ids: tuple[str, ...],
+    undated_excluded: tuple[str, ...],
+    evidence_annotations: tuple[tuple[str, str, str], ...] = (),
+) -> PitVerifierResult:
+    """Same pass/fail rule as pit-v1, plus citation diagnostics."""
+    del spec
+    note = NO_EXTERNAL_EVIDENCE_NOTE if len(evidence_as_of) == 0 else ""
+    known = _annotation_index(evidence_annotations)
+    end = report.end
+    if end is None:
+        return PitVerifierResult(
+            verifier_id="pit.consistency",
+            revision=PIT_REVISION_V2,
+            passed=False,
+            values={"violations_count": 1.0},
+            rule="backtest cutoff required for PIT",
+            evidence_timestamps=evidence_as_of,
+            backtest_cutoff="",
+            violations=("missing backtest cutoff",),
+            evidence_used=len(evidence_as_of),
+            undated_excluded=undated_excluded,
+            scope=PIT_SCOPE,
+            note=note,
+        )
+    cutoff = end.isoformat()
+    violations: list[str] = []
+    details: list[PitViolationDetail] = []
+    for material_id in missing_as_of_material_ids:
+        violations.append(f"{material_id}: missing as_of")
+        title, precision = known.get(material_id, ("", ""))
+        details.append(
+            PitViolationDetail(
+                material_id=material_id,
+                title=title,
+                precision=precision,
+                reason="missing_as_of",
+            )
+        )
+    for evidence_id, as_of in evidence_as_of:
+        if date.fromisoformat(as_of) > end:
+            violations.append(f"{evidence_id} dated {as_of} > cutoff {cutoff}")
+            title, precision = known.get(evidence_id, ("", ""))
+            details.append(
+                PitViolationDetail(
+                    material_id=evidence_id,
+                    published_at=as_of,
+                    title=title,
+                    precision=precision,
+                    reason="after_cutoff",
+                )
+            )
+    return PitVerifierResult(
+        verifier_id="pit.consistency",
+        revision=PIT_REVISION_V2,
+        passed=len(violations) == 0,
+        values={"violations_count": float(len(violations))},
+        rule="all evidence as_of <= backtest cutoff",
+        evidence_timestamps=evidence_as_of,
+        backtest_cutoff=cutoff,
+        violations=tuple(violations),
+        evidence_used=len(evidence_as_of),
+        undated_excluded=undated_excluded,
+        scope=PIT_SCOPE,
+        note=note,
+        violation_details=tuple(details),
+    )
+
+
 def run_verifiers(
     report: SimulationReport,
     spec: StrategySpec,
     *,
     evidence_as_of: tuple[tuple[str, str], ...] = (),
     missing_as_of_material_ids: tuple[str, ...] = (),
+    undated_excluded: tuple[str, ...] = (),
+    evidence_annotations: tuple[tuple[str, str, str], ...] = (),
+    pit_revision: str | None = None,
 ) -> VerificationReport:
-    results: list[VerifierResult] = [_scorecard(report, spec)]
+    scorecard = _SELECTABLE_BY_REVISION[("scorecard.market", "scorecard-v1")]
+    results: list[VerifierResult] = [scorecard(report, spec)]
     for item in spec.method_set:
         if item.method_id in {"scorecard.market", "pit.consistency"}:
             continue
-        builder = _SELECTABLE.get(item.method_id)
-        if builder is None:
-            results.append(
-                VerifierResult(
-                    item.method_id,
-                    item.revision_hash,
-                    False,
-                    {},
-                    UNKNOWN_METHOD_RULE,
-                )
-            )
-            continue
-        results.append(builder(report, spec))
+        results.append(
+            _dispatch_selectable(item.method_id, item.revision_hash, report, spec)
+        )
     _append_pit_result(
         results,
         spec,
         report,
         evidence_as_of=evidence_as_of,
         missing_as_of_material_ids=missing_as_of_material_ids,
+        undated_excluded=undated_excluded,
+        evidence_annotations=evidence_annotations,
+        revision=pit_revision,
     )
     return VerificationReport(tuple(results))

@@ -30,7 +30,7 @@ const settings = {
   thesis: "关注 600519.SH",
   universe: "A股",
   max_effective_hours: "12h",
-  round1_methods: "走样",
+  round1_methods: "分段稳健性检验",
   coverage_floor: "8年",
 };
 
