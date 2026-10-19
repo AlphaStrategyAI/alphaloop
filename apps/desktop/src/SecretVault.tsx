@@ -1,4 +1,5 @@
-import {FormEvent, useEffect, useState} from "react";
+import {FormEvent, useEffect, useLayoutEffect, useState} from "react";
+import {createPortal} from "react-dom";
 import {invoke} from "@tauri-apps/api/core";
 
 import {secretVaultCopy as copy} from "./secret-vault-copy";
@@ -12,7 +13,12 @@ export function SecretVaultButton() {
       <button type="button" data-testid="secret-vault-open" onClick={() => setOpen(true)}>
         {copy.open}
       </button>
-      {open ? <SecretVaultPanel onClose={() => setOpen(false)} /> : null}
+      {open
+        ? createPortal(
+            <SecretVaultPanel onClose={() => setOpen(false)} />,
+            document.body,
+          )
+        : null}
     </>
   );
 }
@@ -40,6 +46,13 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
     void refresh().catch((error: unknown) => setNote(String(error)));
   }, []);
 
+  useLayoutEffect(() => {
+    const node = document.querySelector<HTMLElement>("[data-testid=secret-vault]");
+    // Read layout once so WebKit paints the overlay immediately instead of
+    // waiting for a window resize.
+    if (node) void node.getBoundingClientRect();
+  }, []);
+
   async function onSave(event: FormEvent) {
     event.preventDefault();
     setFailure("");
@@ -54,11 +67,26 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
   }
 
   return (
-    <div className="secret-vault-backdrop" data-testid="secret-vault">
-      <form className="tech-pulse-card secret-vault-panel" onSubmit={(event) => void onSave(event)}>
+    <div
+      className="secret-vault-backdrop"
+      data-testid="secret-vault"
+      role="presentation"
+      style={{position: "fixed", inset: 0, zIndex: 80, pointerEvents: "auto"}}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <form
+        className="tech-pulse-card secret-vault-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="secret-vault-title"
+        onSubmit={(event) => void onSave(event)}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header>
-          <h2>{copy.title}</h2>
-          <button type="button" onClick={onClose}>{copy.close}</button>
+          <h2 id="secret-vault-title">{copy.title}</h2>
+          <button type="button" data-testid="secret-vault-close" onClick={onClose}>{copy.close}</button>
         </header>
         {status?.backend === "needs_choice" ? (
           <div data-testid="secret-fallback">

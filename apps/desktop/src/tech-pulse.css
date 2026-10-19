@@ -581,17 +581,22 @@ a:hover {
 .secret-vault-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 80;
   display: grid;
   place-items: center;
   background: rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
 }
 
 .secret-vault-panel {
+  position: relative;
+  z-index: 1;
   width: min(28rem, calc(100% - 2rem));
   display: grid;
   gap: 0.75rem;
   padding: 1rem;
+  pointer-events: auto;
+  background: var(--void, #0b0d10);
 }
 
 .secret-vault-panel label,

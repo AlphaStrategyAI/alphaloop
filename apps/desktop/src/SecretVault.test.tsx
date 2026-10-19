@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
-import {SecretVaultPanel} from "./SecretVault";
+import {SecretVaultButton, SecretVaultPanel} from "./SecretVault";
 
 const invoke = vi.fn();
 
@@ -16,6 +16,33 @@ afterEach(() => {
 });
 
 describe("secret vault panel", () => {
+  it("opens on the document body above a transformed rail and a covering list card", async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === "secret_store_status") return {backend: "needs_choice", locked: false};
+      if (command === "secret_is_set") return false;
+      return undefined;
+    });
+    const {container} = render(
+      <div className="rail-center" style={{transform: "translateY(-50%)", position: "absolute"}}>
+        <div data-testid="list-card" style={{position: "relative", zIndex: 30}}>
+          研究列表
+        </div>
+        <SecretVaultButton />
+      </div>,
+    );
+
+    fireEvent.click(screen.getByTestId("secret-vault-open"));
+    const vault = await screen.findByTestId("secret-vault");
+
+    expect(vault.parentElement).toBe(document.body);
+    expect(container.contains(vault)).toBe(false);
+    expect(vault).toHaveStyle({position: "fixed", zIndex: "80", pointerEvents: "auto"});
+    expect(Number.parseInt(vault.style.zIndex, 10)).toBeGreaterThan(30);
+
+    fireEvent.click(screen.getByTestId("secret-vault-close"));
+    expect(screen.queryByTestId("secret-vault")).not.toBeInTheDocument();
+  });
+
   it("asks for a fallback when Secret Service is missing and never echoes a secret", async () => {
     invoke.mockImplementation(async (command: string) => {
       if (command === "secret_store_status") return {backend: "needs_choice", locked: false};
