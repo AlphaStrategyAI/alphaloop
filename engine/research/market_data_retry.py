@@ -6,11 +6,14 @@ import time
 from collections.abc import Callable
 from typing import TypeVar
 
-from engine.research.data_availability import market_data_rate_limited
+from engine.research.data_availability import market_data_fetch_failed, market_data_rate_limited
+from engine.research.market_data_cancel import MarketDataCancelled, raise_if_market_data_cancelled
+from engine.research.user_errors import UserFacingError
 
 T = TypeVar("T")
 
 MAX_RATE_LIMIT_ATTEMPTS = 4
+SYMBOL_FETCH_ATTEMPTS = 3
 
 
 def is_rate_limited(error: BaseException) -> bool:
@@ -53,3 +56,31 @@ def call_with_rate_limit_retry(
                 break
             sleep(retry_after_seconds(error, attempt))
     raise market_data_rate_limited() from last
+
+
+def call_with_symbol_retry(
+    fn: Callable[[], T],
+    *,
+    symbol: str,
+    attempts: int = SYMBOL_FETCH_ATTEMPTS,
+    sleep: Callable[[float], None] | None = None,
+) -> T:
+    """Retry one symbol a few times, then fail the whole load by naming it.
+
+    A missing bar with no exception is not a failure. Cancellation and an
+    already-structured error are not retried.
+    """
+    pause = time.sleep if sleep is None else sleep
+    last: BaseException | None = None
+    for attempt in range(attempts):
+        raise_if_market_data_cancelled()
+        try:
+            return fn()
+        except (UserFacingError, MarketDataCancelled):
+            raise
+        except Exception as error:
+            last = error
+            if attempt + 1 >= attempts:
+                break
+            pause(min(1.0, 0.2 * (2**attempt)))
+    raise market_data_fetch_failed(symbol) from last

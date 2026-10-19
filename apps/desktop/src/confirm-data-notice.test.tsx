@@ -27,8 +27,9 @@ describe("confirm data notice", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("confirm-data-notice")).toHaveTextContent(
-      "行情数据源暂时不可用，请稍后重试",
-    );
+    const notice = screen.getByTestId("confirm-data-notice");
+    expect(notice).toHaveTextContent("行情数据源暂时不可用，请稍后重试");
+    expect(notice).toHaveClass("confirm-data-notice");
+    expect(notice).toHaveAttribute("role", "alert");
   });
 });

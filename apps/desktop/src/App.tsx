@@ -1677,6 +1677,7 @@ export function App({
 
   useEffect(() => {
     if (!mutationError) return;
+    if (/MARKET_DATA_|DATA_SOURCE_UNAVAILABLE/.test(mutationError)) return;
     const timer = window.setTimeout(() => clearMutationError(), 12_000);
     return () => window.clearTimeout(timer);
   }, [mutationError, clearMutationError]);

@@ -193,10 +193,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .confirm-data-notice {
   margin: 12px 0;
   padding: 10px 14px;
-  border: 1px solid var(--hold);
+  border: 1px solid var(--stop);
   border-radius: 8px;
-  background: rgba(251, 191, 36, 0.12);
-  color: var(--text);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--stop);
   font-size: 14px;
 }
 .confirm-card, .awaiting-card {

@@ -94,9 +94,13 @@ def test_same_window_second_round_does_not_refetch(monkeypatch: pytest.MonkeyPat
 
 
 def test_sina_get_defaults_a_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    import akshare.stock.stock_zh_a_sina as sina
+    import requests
 
-    from engine.research.gather import _install_cn_request_timeout
+    from engine.research.market_data_cancel import (
+        begin_market_data_generation,
+        end_market_data_generation,
+        install_market_data_request_guard,
+    )
 
     calls: dict[str, object] = {}
 
@@ -104,10 +108,17 @@ def test_sina_get_defaults_a_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
         calls["timeout"] = kwargs.get("timeout")
         raise RuntimeError("stop")
 
-    monkeypatch.setattr(sina.requests, "get", fake_get)
-    _install_cn_request_timeout()
-    with pytest.raises(RuntimeError, match="stop"):
-        sina.requests.get("https://example.invalid")
+    install_market_data_request_guard()
+    monkeypatch.setattr(
+        "engine.research.market_data_cancel._session",
+        lambda _generation: type("S", (), {"get": staticmethod(fake_get)})(),
+    )
+    _generation_id, token = begin_market_data_generation()
+    try:
+        with pytest.raises(RuntimeError, match="stop"):
+            requests.get("https://example.invalid")
+    finally:
+        end_market_data_generation(token)
     assert calls["timeout"] == mdt.CN_HTTP_TIMEOUT_SEC
 
 
@@ -311,3 +322,46 @@ def test_cache_roundtrip_does_not_store_weights(tmp_path) -> None:
     assert narrower is not None
     assert len(narrower) == 1
     assert get_cached_close("yahoo", "AAPL", START, date(2024, 1, 5)) is None
+
+
+def test_failed_symbol_is_retried_then_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_daily(*_args: object, **kwargs: object) -> pd.DataFrame:
+        calls.append(str(kwargs["symbol"]))
+        raise RuntimeError("upstream down")
+
+    monkeypatch.setattr("engine.research.gather.ak.stock_zh_a_daily", fake_daily)
+    monkeypatch.setattr("engine.research.market_data_retry.time.sleep", lambda _seconds: None)
+    with pytest.raises(UserFacingError) as exc:
+        AkShareDataAdapter().load_daily(("002460.SZ",), START, END)
+    assert exc.value.code == "MARKET_DATA_FETCH_FAILED"
+    assert "002460.SZ" in exc.value.message
+    assert "MARKET_DATA_FETCH_FAILED" in exc.value.message
+    assert len(calls) == 3
+
+
+def test_timeout_does_not_start_more_symbol_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    from engine.research.gather import RoutingDataAdapter
+
+    monkeypatch.setattr(mdt, "MARKET_DATA_LOAD_TIMEOUT_SEC", 0.2)
+    monkeypatch.setattr("engine.research.gather.cn_market_data_max_workers", lambda: 2)
+    calls: list[str] = []
+    lock = threading.Lock()
+
+    def fake_daily(*_args: object, **kwargs: object) -> pd.DataFrame:
+        with lock:
+            calls.append(str(kwargs["symbol"]))
+        time.sleep(1.0)
+        index = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"])
+        return pd.DataFrame({"close": [1.0, 2.0, 3.0], "date": index})
+
+    monkeypatch.setattr("engine.research.gather.ak.stock_zh_a_daily", fake_daily)
+    symbols = tuple(f"{index:06d}.SZ" for index in range(8))
+    with pytest.raises(UserFacingError) as exc:
+        RoutingDataAdapter(YahooDataAdapter(), AkShareDataAdapter()).load_daily(symbols, START, END)
+    assert exc.value.code == "MARKET_DATA_TIMEOUT"
+    settled = len(calls)
+    time.sleep(1.3)
+    assert len(calls) == settled
+    assert settled < len(symbols)

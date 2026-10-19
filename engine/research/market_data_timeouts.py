@@ -69,12 +69,34 @@ def load_deadline_seconds(symbol_count: int, *, batch_size: int) -> float:
 
 
 def run_with_deadline(seconds: float, fn: Callable[[], T]) -> T:
-    """Run blocking provider IO on a worker thread with an overall deadline."""
+    """Run blocking provider IO on a worker thread with an overall deadline.
+
+    On timeout the generation is cancelled, so queued symbol fetches do not
+    open another connection. The in-flight HTTP session is closed.
+    """
+    from engine.research.market_data_cancel import (
+        begin_market_data_generation,
+        bind_market_data_generation,
+        cancel_market_data,
+        end_market_data_generation,
+    )
+
+    generation, token = begin_market_data_generation()
+
+    def _run() -> T:
+        worker_token = bind_market_data_generation(generation)
+        try:
+            return fn()
+        finally:
+            end_market_data_generation(worker_token)
+
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="market-io")
-    future = pool.submit(fn)
+    future = pool.submit(_run)
     try:
         return future.result(timeout=seconds)
     except FuturesTimeoutError:
+        cancel_market_data()
         raise TimeoutError(f"market data call exceeded {seconds:.0f}s deadline") from None
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
+        end_market_data_generation(token)

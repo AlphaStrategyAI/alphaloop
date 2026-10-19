@@ -17,15 +17,23 @@ import pandas as pd
 import yfinance as yf
 
 from engine.research import market_data_timeouts as _market_data_timeouts
-from engine.research.data_availability import (
-    market_data_fetch_failed,
-    market_data_timeout,
-)
+from engine.research.data_availability import market_data_timeout
 from engine.research.market_data_progress import (
     clear_market_data_progress,
     set_market_data_progress,
 )
-from engine.research.market_data_retry import call_with_rate_limit_retry, is_rate_limited
+from engine.research.market_data_cancel import (
+    bind_market_data_generation,
+    current_market_data_generation,
+    end_market_data_generation,
+    install_market_data_request_guard,
+    raise_if_market_data_cancelled,
+)
+from engine.research.market_data_retry import (
+    call_with_rate_limit_retry,
+    call_with_symbol_retry,
+    is_rate_limited,
+)
 from engine.research.market_data_timeouts import (
     CN_HTTP_TIMEOUT_SEC,
     YAHOO_BATCH_SIZE,
@@ -36,7 +44,6 @@ from engine.research.market_data_timeouts import (
 )
 from engine.research.planned_data_window import is_cn_listed_symbol
 from engine.research.price_cache import get_cached_close, put_cached_close
-from engine.research.user_errors import UserFacingError
 
 CROSSREF_MAILTO = "research@example.invalid"
 _PUBLISHED_HEADER = re.compile(r"published:\s*(\d{4}-\d{2}-\d{2})\s*$", re.IGNORECASE)
@@ -320,6 +327,7 @@ def _empty_close(symbol: str) -> pd.Series:
 
 def _yahoo_history(symbol: str, start: date, end: date) -> pd.Series:
     """One chart request. Missing prices stay empty; 429 keeps Retry-After."""
+    raise_if_market_data_cancelled()
     _install_yahoo_retry_after_capture()
     _retry_after_local.value = None
     provider = _yahoo_provider_symbol(symbol)
@@ -411,15 +419,21 @@ class YahooDataAdapter:
         """
         columns: dict[str, pd.Series] = {}
 
+        generation = current_market_data_generation()
+
         def fetch(symbol: str) -> pd.Series | None:
+            token = bind_market_data_generation(generation)
             try:
-                series = call_with_rate_limit_retry(
-                    lambda symbol=symbol: _yahoo_history(symbol, start, end)
-                )
-            except UserFacingError:
-                raise
-            except Exception as error:
-                raise market_data_fetch_failed(symbol) from error
+                raise_if_market_data_cancelled()
+
+                def once() -> pd.Series:
+                    return call_with_rate_limit_retry(
+                        lambda symbol=symbol: _yahoo_history(symbol, start, end)
+                    )
+
+                series = call_with_symbol_retry(once, symbol=symbol)
+            finally:
+                end_market_data_generation(token)
             if series is None or not series.notna().any():
                 return None
             put_cached_close("yahoo", symbol, start, end, series)
@@ -440,6 +454,7 @@ class YahooDataAdapter:
             try:
                 futures = {pool.submit(fetch, symbol): symbol for symbol in symbols}
                 for future in as_completed(futures):
+                    raise_if_market_data_cancelled()
                     symbol = futures[future]
                     mark(symbol, future.result())
             finally:
@@ -459,22 +474,6 @@ def _sina_listing_code(symbol: str, provider_symbol: str) -> str:
     return f"sh{provider_symbol}"
 
 
-def _install_cn_request_timeout() -> None:
-    """Sina's client has no timeout, so a stalled socket sits for 60–120s."""
-    import akshare.stock.stock_zh_a_sina as sina
-
-    get = sina.requests.get
-    if getattr(get, "_alphaloop_timeout", False):
-        return
-
-    def wrapped(*args: object, **kwargs: object) -> object:
-        kwargs.setdefault("timeout", CN_HTTP_TIMEOUT_SEC)
-        return get(*args, **kwargs)
-
-    wrapped._alphaloop_timeout = True  # type: ignore[attr-defined]
-    sina.requests.get = wrapped  # type: ignore[method-assign]
-
-
 def _is_transport_timeout(error: BaseException) -> bool:
     name = type(error).__name__.lower()
     if "timeout" in name:
@@ -485,7 +484,8 @@ def _is_transport_timeout(error: BaseException) -> bool:
 
 def _cn_equity_close(provider_symbol: str, symbol: str, start: date, end: date) -> pd.Series:
     """A-share daily close: Sina (akshare) first, Eastmoney akshare fallback."""
-    _install_cn_request_timeout()
+    raise_if_market_data_cancelled()
+    install_market_data_request_guard()
     sina_code = _sina_listing_code(symbol, provider_symbol)
     try:
         raw = ak.stock_zh_a_daily(symbol=sina_code, adjust="qfq")
@@ -594,6 +594,7 @@ class AkShareDataAdapter:
     ) -> pd.DataFrame:
         if not symbols:
             return pd.DataFrame()
+        install_market_data_request_guard()
         set_market_data_progress(0, len(symbols), "akshare")
         try:
             columns: dict[str, pd.Series] = {}
@@ -626,15 +627,21 @@ class AkShareDataAdapter:
         columns: dict[str, pd.Series] = {}
         workers = min(cn_market_data_max_workers(), len(symbols))
 
+        generation = current_market_data_generation()
+
         def fetch(symbol: str) -> pd.Series:
+            token = bind_market_data_generation(generation)
             try:
-                series = call_with_rate_limit_retry(
-                    lambda symbol=symbol: _fetch_cn_symbol_series(symbol, start, end)
-                )
-            except UserFacingError:
-                raise
-            except Exception as error:
-                raise market_data_fetch_failed(symbol) from error
+                raise_if_market_data_cancelled()
+
+                def once() -> pd.Series:
+                    return call_with_rate_limit_retry(
+                        lambda symbol=symbol: _fetch_cn_symbol_series(symbol, start, end)
+                    )
+
+                series = call_with_symbol_retry(once, symbol=symbol)
+            finally:
+                end_market_data_generation(token)
             put_cached_close("akshare", symbol, start, end, series)
             return series
 
@@ -645,13 +652,17 @@ class AkShareDataAdapter:
                 set_market_data_progress(done, total, "akshare")
             return columns
 
-        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="cn-daily") as pool:
+        pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="cn-daily")
+        try:
             futures = {pool.submit(fetch, symbol): symbol for symbol in symbols}
             for future in as_completed(futures):
+                raise_if_market_data_cancelled()
                 symbol = futures[future]
                 columns[symbol] = future.result()
                 done += 1
                 set_market_data_progress(done, total, "akshare")
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
         return columns
 
 
