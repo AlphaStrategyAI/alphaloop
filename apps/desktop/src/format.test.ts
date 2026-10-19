@@ -27,9 +27,10 @@ describe("formatResearchTimestamp", () => {
     expect(formatResearchTimestamp(INSTANT, null)).toBe("2026-10-19 02:24Z");
   });
 
-  it("shifts a date-only UTC midnight west of UTC, so trading days must stay literal strings", () => {
-    expect(formatResearchTimestamp("2026-10-19", "America/Los_Angeles")).toBe("2026-10-18 17:00-07:00");
-    expect(formatResearchTimestamp("2026-10-19", "Asia/Shanghai")).toBe("2026-10-19 08:00+08:00");
+  it("returns a calendar day unchanged in every zone", () => {
+    expect(formatResearchTimestamp("2026-10-19", "America/Los_Angeles")).toBe("2026-10-19");
+    expect(formatResearchTimestamp("2026-10-16", "Asia/Shanghai")).toBe("2026-10-16");
+    expect(formatResearchTimestamp("2026-10-18", "Pacific/Kiritimati")).toBe("2026-10-18");
   });
 });
 

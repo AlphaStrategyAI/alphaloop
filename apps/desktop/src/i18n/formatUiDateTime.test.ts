@@ -27,9 +27,11 @@ describe("formatUiDateTime", () => {
     expect(formatUiDateTime(INSTANT, null)).toBe("2026-10-19 02:24Z");
   });
 
-  it("keeps a date-only rendering free of a clock and an offset", () => {
+  it("keeps a calendar day on that day in every zone", () => {
+    expect(formatUiDateTime("2026-10-19", "America/Los_Angeles")).toBe("2026-10-19");
+    expect(formatUiDate("2026-10-19", "Pacific/Kiritimati")).toBe("2026-10-19");
+    expect(formatUiDateTime("2026-10-16", "Asia/Shanghai")).toBe("2026-10-16");
     expect(formatUiDate("2026-10-19T10:00:00.000Z", "Asia/Shanghai")).toBe("2026-10-19");
-    expect(formatUiDateTime("2026-01-01T16:00:00.000Z", "Asia/Shanghai")).toBe("2026-01-02 00:00+08:00");
   });
 
   it("uses the same pattern in Chinese and English", () => {

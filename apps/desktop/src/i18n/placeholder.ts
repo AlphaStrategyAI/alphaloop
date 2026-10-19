@@ -1,5 +1,5 @@
-import {PLACEHOLDER_MARKER} from "./conventions";
+const LEGACY_PREFIX = "«i18n-placeholder»";
 
 export function containsPlaceholderMarker(text: string): boolean {
-  return text.includes(PLACEHOLDER_MARKER);
+  return text.includes(LEGACY_PREFIX);
 }

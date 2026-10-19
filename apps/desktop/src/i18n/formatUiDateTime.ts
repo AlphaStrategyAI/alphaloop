@@ -1,10 +1,15 @@
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * Human-facing dates are YYYY-MM-DD. Timestamps are YYYY-MM-DD HH:mm±HH:mm
  * in the computer's local zone, in both languages.
  * Pass null when the zone cannot be read: the clock is UTC and ends with Z.
- * Do not pass a trading-day YYYY-MM-DD: that string is UTC midnight and shifts west of UTC.
+ * A calendar day is returned unchanged. It is not a UTC midnight timestamp.
  */
 export function formatUiDateTime(input: Date | string | number, timeZone?: string | null): string {
+  if (typeof input === "string" && CALENDAR_DATE.test(input)) {
+    return input;
+  }
   const date = input instanceof Date ? input : new Date(input);
   if (Number.isNaN(date.getTime())) {
     throw new RangeError("invalid date");
@@ -17,6 +22,9 @@ export function formatUiDateTime(input: Date | string | number, timeZone?: strin
 }
 
 export function formatUiDate(input: Date | string | number, timeZone?: string | null): string {
+  if (typeof input === "string" && CALENDAR_DATE.test(input)) {
+    return input;
+  }
   return formatUiDateTime(input, timeZone).slice(0, 10);
 }
 

@@ -25,8 +25,8 @@ const view: Extract<DesktopView, {kind: "confirm_run"}> = {
       role: "assistant",
       text: "",
       errorCode: "DATA_SOURCE_UNAVAILABLE",
-      errorParams: {},
-      errorDetail: null,
+      errorParams: {symbols: 40},
+      errorDetail: "provider returned an empty price frame",
     },
   ],
   settings: {
@@ -47,6 +47,9 @@ describe("coded engine errors in English", () => {
     );
     expect(screen.getByTestId("dialogue-error-summary").textContent).not.toContain(CHINESE);
     expect(screen.getByTestId("dialogue-error-summary").textContent).toContain("temporarily unavailable");
+    expect(screen.getByTestId("dialogue-error-detail").textContent).toContain("empty price frame");
+    expect(screen.getByTestId("dialogue-error-detail").textContent).toContain("symbols: 40");
+    expect(screen.getByTestId("dialogue-error-detail").textContent).not.toContain(CHINESE);
     expect(document.body.textContent).not.toContain(CHINESE);
   });
 

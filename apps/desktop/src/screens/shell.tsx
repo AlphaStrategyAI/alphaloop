@@ -2,6 +2,7 @@ import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
 import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
+import {I18nText} from "../i18n/I18nText";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import type {MessageParams} from "../i18n/translate";
@@ -81,10 +82,10 @@ export function NightShell({
         <div className="rail-center">
           <BrandMark />
           <nav aria-label={t("ui.shell.aria")}>
-            <a className={section === "research" ? "active" : ""} href="#/research">{t("nav.research")}</a>
-            <a className={section === "methods" ? "active" : ""} href="#/methods">{t("nav.methods")}</a>
-            <a className={section === "glossary" ? "active" : ""} href="#/glossary">{t("nav.glossary")}</a>
-            <a className={section === "settings" ? "active" : ""} href="#/settings/general">{t("nav.settings")}</a>
+            <a className={section === "research" ? "active" : ""} href="#/research"><I18nText k="nav.research" /></a>
+            <a className={section === "methods" ? "active" : ""} href="#/methods"><I18nText k="nav.methods" /></a>
+            <a className={section === "glossary" ? "active" : ""} href="#/glossary"><I18nText k="nav.glossary" /></a>
+            <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings"><I18nText k="nav.settings" /></a>
           </nav>
         </div>
         {railLabel ? (

@@ -16,6 +16,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "apps" / "desktop" / "src"
 CJK = re.compile(r"[\u4e00-\u9fff]")
+LEGACY_PREFIX = "«i18n-placeholder»"
+PREFIX_ALLOWED = {
+    "apps/desktop/src/i18n/placeholder.ts",
+    "apps/desktop/src/i18n/placeholder.test.ts",
+}
 SKIP_PARTS = {"i18n"}
 
 
@@ -72,7 +77,27 @@ def violations(path: Path) -> list[str]:
     return found
 
 
+def prefix_violations() -> list[str]:
+    found: list[str] = []
+    for path in SRC.rglob("*"):
+        if path.suffix not in {".ts", ".tsx"} or ".test." in path.name:
+            continue
+        rel = str(path.relative_to(ROOT))
+        if rel in PREFIX_ALLOWED:
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if LEGACY_PREFIX in line:
+                found.append(f"{rel}:{number}: leftover placeholder prefix in body text")
+    return found
+
+
 def main() -> int:
+    prefixed = prefix_violations()
+    if prefixed:
+        print("i18n error: placeholder copy must use data-i18n-placeholder, not a body prefix")
+        for line in prefixed:
+            print(f"  fail {line}")
+        return 1
     base = resolve_base()
     changed = changed_files(base)
     strict: list[str] = []

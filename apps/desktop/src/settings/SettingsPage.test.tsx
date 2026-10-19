@@ -6,7 +6,6 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 import {App} from "../App";
 import {I18nProvider} from "../i18n/I18nProvider";
 import {createMemoryLanguagePort} from "../i18n/port";
-import {PLACEHOLDER_MARKER} from "../i18n/conventions";
 import type {UiLanguagePreference} from "../i18n/types";
 import {minimalDesktopApi} from "../test-fixtures";
 import {SettingsPage} from "./SettingsPage";
@@ -66,7 +65,9 @@ describe("settings language", () => {
     await waitFor(() => expect(screen.getByRole("heading", {name: /Interface language/})).toBeInTheDocument());
     expect(screen.getByTestId("ticks")).toHaveTextContent("1");
     expect(screen.queryByText("settings.general.title")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", {name: /Interface language/}).textContent).toContain(PLACEHOLDER_MARKER);
+    const heading = screen.getByRole("heading", {name: "Interface language"});
+    expect(heading.textContent).toBe("Interface language");
+    expect(heading.querySelector("[data-i18n-placeholder]")).not.toBeNull();
     release("en");
     await waitFor(() => expect(port.engineLocales.at(-1)).toBe("en"));
   });

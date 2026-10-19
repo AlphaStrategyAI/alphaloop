@@ -419,7 +419,9 @@ class RoutingDataAdapter:
                 _market_data_timeouts.MARKET_DATA_LOAD_TIMEOUT_SEC, _load
             )
         except TimeoutError:
-            raise transient_data_error() from None
+            raise transient_data_error(
+                detail="TimeoutError: market data load exceeded the deadline"
+            ) from None
 
 
 @dataclass(frozen=True, slots=True)

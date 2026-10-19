@@ -1,3 +1,6 @@
+import type {ReactNode} from "react";
+
+import {I18nText} from "../i18n/I18nText";
 import {languageFromSystemLocale, languageName} from "../i18n/locale";
 import {useI18n} from "../i18n/I18nProvider";
 import type {UiLanguagePreference} from "../i18n/types";
@@ -17,7 +20,7 @@ export function SettingsPage({route}: {route: string}) {
   return (
     <div className="settings-screen" data-testid="settings-page">
       <p className="settings-kicker">
-        {t("settings.kicker")} · {t("settings.routeLabel")}
+        <I18nText k="settings.kicker" /> · <I18nText k="settings.routeLabel" />
       </p>
       <nav className="settings-tabs" aria-label={t("nav.settings")}>
         <a
@@ -25,14 +28,14 @@ export function SettingsPage({route}: {route: string}) {
           className={tab === "data" ? "active" : ""}
           data-testid="settings-tab-data"
         >
-          {t("settings.tabs.data")}
+          <I18nText k="settings.tabs.data" />
         </a>
         <a
           href="#/settings/llm"
           className={tab === "llm" ? "active" : ""}
           data-testid="settings-tab-llm"
         >
-          {t("settings.tabs.llm")}
+          <I18nText k="settings.tabs.llm" />
         </a>
         <a
           href="#/settings/general"
@@ -40,70 +43,73 @@ export function SettingsPage({route}: {route: string}) {
           data-testid="settings-tab-general"
           aria-current={tab === "general" ? "page" : undefined}
         >
-          {t("settings.tabs.general")}
+          <I18nText k="settings.tabs.general" />
         </a>
       </nav>
       {tab === "general" ? (
         <div className="settings-grid">
           <section className="settings-card" aria-labelledby="ui-language-title">
-            <h2 id="ui-language-title">{t("settings.general.title")}</h2>
-            <p>{t("settings.general.immediate")}</p>
+            <h2 id="ui-language-title"><I18nText k="settings.general.title" /></h2>
+            <p><I18nText k="settings.general.immediate" /></p>
             <div className="settings-options" role="radiogroup" aria-labelledby="ui-language-title">
               <LanguageOption
                 value="system"
                 checked={preference === "system"}
-                title={t("settings.general.followSystem", {languageName: followName})}
-                hint={t("settings.general.followHint")}
-                badge={t("settings.general.defaultBadge")}
+                title={<I18nText k="settings.general.followSystem" params={{languageName: followName}} />}
+                hint={<I18nText k="settings.general.followHint" />}
+                badge={<I18nText k="settings.general.defaultBadge" />}
                 onSelect={setPreference}
               />
               <LanguageOption
                 value="zh"
                 checked={preference === "zh"}
-                title={t("settings.general.optionZh")}
+                title={<I18nText k="settings.general.optionZh" />}
                 onSelect={setPreference}
               />
               <LanguageOption
                 value="en"
                 checked={preference === "en"}
-                title={t("settings.general.optionEn")}
+                title={<I18nText k="settings.general.optionEn" />}
                 onSelect={setPreference}
               />
             </div>
-            <p>{t("settings.general.ruleSystem")}</p>
-            <p>{t("settings.general.ruleManual")}</p>
-            <p>{t("settings.general.stored")}</p>
+            <p><I18nText k="settings.general.ruleSystem" /></p>
+            <p><I18nText k="settings.general.ruleManual" /></p>
+            <p><I18nText k="settings.general.stored" /></p>
           </section>
           <section className="settings-card" aria-labelledby="ui-language-scope">
-            <h2 id="ui-language-scope">{t("settings.scope.title")}</h2>
-            <p className="settings-scope-label">{t("settings.scope.switchesLabel")}</p>
+            <h2 id="ui-language-scope"><I18nText k="settings.scope.title" /></h2>
+            <p className="settings-scope-label"><I18nText k="settings.scope.switchesLabel" /></p>
             <ul>
-              <li>{t("settings.scope.switchUi")}</li>
-              <li>{t("settings.scope.switchPages")}</li>
-              <li>{t("settings.scope.switchNames")}</li>
-              <li>{t("settings.scope.switchErrors")}</li>
-              <li>{t("settings.scope.switchExport")}</li>
-              <li>{t("settings.scope.switchLlm")}</li>
+              <li><I18nText k="settings.scope.switchUi" /></li>
+              <li><I18nText k="settings.scope.switchPages" /></li>
+              <li><I18nText k="settings.scope.switchNames" /></li>
+              <li><I18nText k="settings.scope.switchErrors" /></li>
+              <li><I18nText k="settings.scope.switchExport" /></li>
+              <li><I18nText k="settings.scope.switchLlm" /></li>
             </ul>
-            <p className="settings-scope-label">{t("settings.scope.keepsLabel")}</p>
+            <p className="settings-scope-label"><I18nText k="settings.scope.keepsLabel" /></p>
             <ul>
-              <li>{t("settings.scope.keepNotes")}</li>
-              <li>{t("settings.scope.keepSaved")}</li>
-              <li>{t("settings.scope.keepLiterature")}</li>
-              <li>{t("settings.scope.keepNames")}</li>
-              <li>{t("settings.scope.keepLegacy", {languageNotRecorded})}</li>
+              <li><I18nText k="settings.scope.keepNotes" /></li>
+              <li><I18nText k="settings.scope.keepSaved" /></li>
+              <li><I18nText k="settings.scope.keepLiterature" /></li>
+              <li><I18nText k="settings.scope.keepNames" /></li>
+              <li><I18nText k="settings.scope.keepLegacy" params={{languageNotRecorded}} /></li>
             </ul>
             <p>
-              {t("settings.scope.footnote", {
-                datePattern: t("format.datePattern"),
-                dateTimePattern: t("format.dateTimePattern"),
-              })}
+              <I18nText
+                k="settings.scope.footnote"
+                params={{
+                  datePattern: t("format.datePattern"),
+                  dateTimePattern: t("format.dateTimePattern"),
+                }}
+              />
             </p>
           </section>
         </div>
       ) : (
         <section className="settings-card" data-testid="settings-later">
-          <p>{t("settings.later.body")}</p>
+          <p><I18nText k="settings.later.body" /></p>
         </section>
       )}
     </div>
@@ -120,9 +126,9 @@ function LanguageOption({
 }: {
   value: UiLanguagePreference;
   checked: boolean;
-  title: string;
-  hint?: string;
-  badge?: string;
+  title: ReactNode;
+  hint?: ReactNode;
+  badge?: ReactNode;
   onSelect: (preference: UiLanguagePreference) => Promise<void>;
 }) {
   return (

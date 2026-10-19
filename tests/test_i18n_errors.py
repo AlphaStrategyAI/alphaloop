@@ -79,7 +79,7 @@ def test_catalogued_codes_match_the_contract_file() -> None:
     assert set(catalog) == set(disk)
     assert "contact_email_missing" in catalog
     assert catalog["contact_email_missing"]["params"] == ["sources"]
-    assert placeholder_marker() == "«i18n-placeholder»"
+    assert placeholder_marker() == "data-i18n-placeholder"
 
 
 def test_user_facing_error_params_round_trip() -> None:
