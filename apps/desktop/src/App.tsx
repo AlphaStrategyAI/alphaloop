@@ -554,6 +554,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                   : ` · ${sel.overrideNote ?? "用户指定池"}`
               }`}
           </p>
+          {sel.listNote ? (
+            <p className="confirm-data-meta" data-testid="symbol-selection-note">{sel.listNote}</p>
+          ) : null}
+          {sel.listNote && sel.listVersion ? (
+            <p className="confirm-data-footnote" data-testid="symbol-selection-version">
+              版本 {sel.listVersion}
+            </p>
+          ) : null}
           <p className="confirm-data-meta">
             数据 {sel.dataStart} → {sel.dataEnd} · 日频 · 来源：{sel.dataSource}
           </p>
@@ -1233,10 +1241,16 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
       {view.symbolSelection && (
         <section className="materials-note completed-data-window" data-testid="completed-symbol-selection">
           <p className="eyebrow">标的与数据窗口</p>
-          <p>
+          <p data-testid="completed-symbol-selection-summary">
             {view.symbolSelection.summaryLine ??
               `${view.symbolSelection.count} 只 · ${view.symbolSelection.listName} · 版本 ${view.symbolSelection.listVersion}`}
           </p>
+          {view.symbolSelection.listNote ? (
+            <p data-testid="symbol-selection-note">{view.symbolSelection.listNote}</p>
+          ) : null}
+          {view.symbolSelection.listNote && view.symbolSelection.listVersion ? (
+            <p data-testid="symbol-selection-version">版本 {view.symbolSelection.listVersion}</p>
+          ) : null}
           <p>
             数据区间 {view.symbolSelection.dataStart} 至 {view.symbolSelection.dataEnd}
             （数据窗口截止 {view.symbolSelection.dataCutoff}

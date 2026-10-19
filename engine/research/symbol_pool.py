@@ -88,11 +88,22 @@ def pool_for_universe(
     return pool_for_market(market, asset_class, underlying)
 
 
+def _pool_prompt_label(pool: SymbolPool | None, fallback: str) -> str:
+    if pool is None:
+        return fallback
+    from engine.research.pool_display import public_pool_copy
+
+    copy = public_pool_copy(pool.version_id, len(pool.symbols), pool.generated_date)
+    if copy is not None:
+        return copy["zh"]
+    return f"{pool.display_name} {len(pool.symbols)} 只"
+
+
 def _empty_pool_dialogue_prompt() -> str:
     us = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
     cn = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
-    us_text = f"{us.display_name} {len(us.symbols)} 只" if us is not None else "美股大市值"
-    cn_text = f"{cn.display_name} {len(cn.symbols)} 只" if cn is not None else "A股大市值"
+    us_text = _pool_prompt_label(us, "美股大市值")
+    cn_text = _pool_prompt_label(cn, "A股大市值")
     return (
         f"要用哪组标的？默认：{us_text}或 {cn_text}，也可以说「600519.SH」或「SPY、QQQ」。"
     )

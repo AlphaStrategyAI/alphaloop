@@ -42,6 +42,9 @@ export interface SymbolSelectionSummary {
   listName: string;
   listVersion: string;
   summaryLine?: string;
+  listNote?: string;
+  listNameEn?: string;
+  listNoteEn?: string;
   generatedDate?: string;
   symbols: readonly string[];
   source: "default_pool" | "user_override";

@@ -40,10 +40,15 @@ def test_symbol_selection_summary_line_once_lists_pool_name() -> None:
     assert payload is not None
     line = format_symbol_selection_summary(payload)
     assert payload["summaryLine"] == line
-    assert line == "503 只 · 美股大市值 · 版本 2 · 2026-10-16 · 默认标的池"
-    assert line.count("美股大市值") == 1
-    assert "版本 2" in line
-    assert "（版本 2）" not in line
+    assert line == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert line.count("美股大市值池") == 1
+    assert "版本" not in line
+    assert payload["listVersion"] == "2"
+    assert payload["listNote"] == "取自标普 500 在名单日的成分，非时点成分"
+    assert payload["listNameEn"] == "US large-cap universe · 503 names · list date 2026-10-16"
+    assert payload["listNoteEn"] == (
+        "Taken from S&P 500 membership on the list date; not point-in-time."
+    )
 
 
 def test_user_override_note_copy() -> None:

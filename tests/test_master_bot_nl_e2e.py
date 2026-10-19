@@ -39,9 +39,11 @@ def _dialogue_to_confirm(service: ResearchCommandService, research_id: str) -> d
     assert view["kind"] == "confirm_run"
     sel = view["symbolSelection"]
     assert sel is not None
-    assert sel["listName"] == "美股大市值"
+    assert sel["listName"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
     assert sel["listVersion"] == "2"
-    assert sel["summaryLine"] == "503 只 · 美股大市值 · 版本 2 · 2026-10-16 · 默认标的池"
+    assert sel["summaryLine"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert "版本" not in sel["summaryLine"]
+    assert sel["listNote"] == "取自标普 500 在名单日的成分，非时点成分"
     assert sel["count"] == 503
     assert len(sel["symbols"]) == 503
     assert sel["isDefaultPool"] is True

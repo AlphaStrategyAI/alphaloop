@@ -45,7 +45,8 @@ def _dialogue_to_confirm(service: ResearchCommandService, research_id: str) -> d
     assert sel is not None
     assert sel["count"] >= 100
     assert sel["listVersion"] == "2"
-    assert sel["summaryLine"] == "503 只 · 美股大市值 · 版本 2 · 2026-10-16 · 默认标的池"
+    assert sel["summaryLine"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert "版本" not in sel["summaryLine"]
     assert sel["dataCutoff"]
     return view
 

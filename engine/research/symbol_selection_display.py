@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from engine.research.pool_display import public_pool_copy
+
+
 def pool_version_number(version_id: str) -> str:
     if not version_id:
         return ""
@@ -17,7 +20,9 @@ def pool_version_number(version_id: str) -> str:
 
 
 def format_symbol_selection_summary(payload: dict[str, Any]) -> str:
-    """``503 只 · 美股大市值 · 版本 2 · 2026-10-16 · 默认标的池``"""
+    """v2 name omits the version. v1 stays ``40 只 · 美股大市值 · 版本 1 · …``."""
+    if payload.get("listNote"):
+        return str(payload["listName"])
     count = payload["count"]
     list_name = payload["listName"]
     version_id = str(payload.get("versionId") or payload.get("listVersion") or "")
@@ -44,6 +49,9 @@ def symbol_selection_summary_fields(
     user_override: bool,
 ) -> dict[str, Any]:
     version_num = pool_version_number(version_id)
+    copy = public_pool_copy(version_id, count, generated_date)
+    if copy is not None:
+        list_name = copy["zh"]
     base = {
         "count": count,
         "listName": list_name,
@@ -52,6 +60,9 @@ def symbol_selection_summary_fields(
         "source": source,
         "overrideNote": override_note,
         "isDefaultPool": source == "default_pool",
+        "listNote": copy["zh_note"] if copy is not None else "",
+        "listNameEn": copy["en"] if copy is not None else "",
+        "listNoteEn": copy["en_note"] if copy is not None else "",
     }
     base["summaryLine"] = format_symbol_selection_summary(
         {**base, "versionId": version_id}

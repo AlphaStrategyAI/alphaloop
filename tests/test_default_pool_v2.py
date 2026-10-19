@@ -71,7 +71,8 @@ def _brief(market: Market, symbols: tuple[str, ...], *, version: str | None, ove
 
 def test_empty_pool_prompt_names_the_current_default_counts() -> None:
     assert EMPTY_POOL_DIALOGUE_PROMPT == (
-        "要用哪组标的？默认：美股大市值 503 只或 A股大市值 300 只，也可以说「600519.SH」或「SPY、QQQ」。"
+        "要用哪组标的？默认：美股大市值池 · 503 只 · 名单日 2026-10-16"
+        "或 A 股大市值池 · 300 只 · 名单日 2026-10-19，也可以说「600519.SH」或「SPY、QQQ」。"
     )
 
 
@@ -156,6 +157,8 @@ def test_pinned_v1_research_keeps_symbols_and_confirm_line() -> None:
     assert payload["listVersion"] == "1"
     assert payload["symbols"] == list(v1.symbols)
     assert payload["summaryLine"] == "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池"
+    assert payload["listNote"] == ""
+    assert "美股大市值池" not in payload["summaryLine"]
 
 
 def test_new_empty_universe_confirm_line_uses_v2() -> None:
@@ -168,13 +171,39 @@ def test_new_empty_universe_confirm_line_uses_v2() -> None:
     us = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
     assert us is not None
     assert payload["count"] == len(us.symbols) >= 100
-    assert payload["listName"] == "美股大市值"
+    assert payload["listName"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
     assert payload["listVersion"] == "2"
+    assert "版本" not in payload["summaryLine"]
     assert payload["generatedDate"] == "2026-10-16"
-    assert payload["summaryLine"] == (
-        f"{len(us.symbols)} 只 · 美股大市值 · 版本 2 · 2026-10-16 · 默认标的池"
-    )
+    assert payload["summaryLine"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert payload["listNote"] == "取自标普 500 在名单日的成分，非时点成分"
+    assert payload["listNameEn"] == "US large-cap universe · 503 names · list date 2026-10-16"
     assert payload["isDefaultPool"] is True
+
+
+def test_v2_display_name_is_not_stored_on_the_research() -> None:
+    from engine.research.store import _deep_unstructure
+
+    research = replace(
+        new_research("r-store", NOW),
+        brief=_brief(Market.CN, (), version=None, override=False),
+    )
+    stored = _deep_unstructure(materialize_default_pool(research))
+    blob = json.dumps(stored, ensure_ascii=False)
+    assert "cn_equity_large_cap_v2" in blob
+    assert "A 股大市值池" not in blob
+    assert "China A-share" not in blob
+    payload = symbol_selection_payload(research)
+    assert payload is not None
+    assert payload["summaryLine"] == "A 股大市值池 · 300 只 · 名单日 2026-10-19"
+    assert payload["listNote"] == "取自沪深 300 在名单日的成分，非时点成分"
+    assert payload["listNameEn"] == (
+        "China A-share large-cap universe · 300 names · list date 2026-10-19"
+    )
+    assert payload["listNoteEn"] == (
+        "Taken from CSI 300 membership on the list date; not point-in-time."
+    )
+    assert "版本" not in payload["summaryLine"]
 
 
 def test_shrink_before_run_only_drops_names_inside_the_new_default_pool() -> None:
