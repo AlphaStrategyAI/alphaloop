@@ -8,6 +8,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from engine.portfolio import LEGACY_COST_MODEL, SCHEDULE_COST_MODEL
 from engine.research.a1_copy import FROZEN_INPUT_MISSING, STRATEGY_FAMILY_NOT_RUNNABLE
 from engine.research.clock import TimeBudget
 from engine.research.confirm_evidence import (
@@ -41,6 +42,7 @@ from engine.research.models import (
     ConfirmRequest,
     CoverageSnapshot,
     EvidenceRef,
+    Market,
     Research,
     ResearchAction,
     ResearchEvent,
@@ -55,7 +57,7 @@ from engine.research.state_machine import transition
 from engine.research.store import SQLiteStore
 from engine.research.user_errors import UserFacingError
 from engine.review.subagent import MAX_CONSECUTIVE_REVIEW_FAILURES
-from engine.strategy import MeanReversionStrategy, StrategySpec
+from engine.strategy import MeanReversionStrategy, StrategySpec, apply_trading_schedule
 from engine.verifiers import (
     PIT_REVISION_V2,
     method_set_excluding_pit,
@@ -65,6 +67,23 @@ from engine.verifiers import (
 
 if TYPE_CHECKING:
     from engine.review.subagent import ReviewerPort, ReviewGateOutcome
+
+
+def _execution_spec(spec: StrategySpec, research: Research) -> StrategySpec:
+    """Apply the product cost table without rewriting a stored legacy spec.
+
+    A new confirm sets ``construction_schedule``. An old A-share mean-reversion
+    record stays legacy on reverify; the next round built here uses the table.
+    """
+    if spec.cost_model != LEGACY_COST_MODEL:
+        return spec
+    cn_legacy_round = (
+        spec.universe.market is Market.CN
+        and is_legacy_mean_reversion(spec.strategy_family, spec.family_method)
+    )
+    if research.construction_schedule != SCHEDULE_COST_MODEL and not cn_legacy_round:
+        return spec
+    return apply_trading_schedule(spec)
 
 
 def _as_coverage_date(value: object) -> date | None:
@@ -190,6 +209,7 @@ class DefaultRoundBuilder:
         }
         if spec_patch:
             spec = replace(spec, **spec_patch)  # type: ignore[arg-type]
+        spec = _execution_spec(spec, research)
         if not is_legacy_mean_reversion(spec.strategy_family, spec.family_method):
             raise UserFacingError("STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
         universe = research.brief.universe.value
