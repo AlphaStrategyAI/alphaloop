@@ -17,6 +17,28 @@ function messages(lang: "zh" | "en") {
     nav: {
       settings: copy("设置", "Settings"),
     },
+    host: {
+      running: copy("运行中", "Running"),
+    },
+    research: {
+      quoteProgress: copy("正在取行情 {{done}}/{{total}}", "Loading prices {{done}}/{{total}}"),
+    },
+    confirm: {
+      construction: {
+        usEquityCap: copy("单票 ≤5%、成本 5 bp（保守产品假设）", "≤5% per name, cost 5 bp"),
+        usEquityCost: copy("成本 5 bp（保守产品假设）", "Cost 5 bp"),
+        cnEquityCap: copy("单票 ≤5%、成本 20 bp（保守产品假设）", "≤5% per name, cost 20 bp"),
+        cnEquityCost: copy("成本 20 bp（保守产品假设）", "Cost 20 bp"),
+        usFund: copy(
+          "基金腿不受单票 5% 上限约束、成本 1 bp（保守产品假设）",
+          "Fund sleeve: no 5% cap, cost 1 bp",
+        ),
+        cnFund: copy(
+          "基金腿不受单票 5% 上限约束、成本 5 bp（保守产品假设）",
+          "Fund sleeve: no 5% cap, cost 5 bp",
+        ),
+      },
+    },
     settings: {
       kicker: copy("SETTINGS", "SETTINGS", true),
       routeLabel: copy("#/settings", "#/settings", true),
@@ -133,6 +155,22 @@ function messages(lang: "zh" | "en") {
         contact_email_missing: copy(
           "未配置联系邮箱，本次不查询 {{sources}}。",
           "No contact email is configured, so this run does not query {{sources}}.",
+        ),
+        MARKET_DATA_TIMEOUT: copy(
+          "行情还没取完：{{symbol_count}} 只在限定时间内没有完成。请稍后重试。（MARKET_DATA_TIMEOUT）",
+          "Timed out before {{symbol_count}} names finished. Try again.",
+        ),
+        MARKET_DATA_RATE_LIMITED: copy(
+          "行情源限流（HTTP 429），多次退避后仍失败。请稍后重试。（MARKET_DATA_RATE_LIMITED）",
+          "Rate limited (HTTP 429) after retries. Try again.",
+        ),
+        MARKET_DATA_FETCH_FAILED: copy(
+          "行情没有取到：{{symbol}}。（MARKET_DATA_FETCH_FAILED）",
+          "No prices for {{symbol}}.",
+        ),
+        MARKET_DATA_SHELL_TIMEOUT: copy(
+          "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）",
+          "Quote request timed out in the shell. Try again.",
         ),
       },
     },

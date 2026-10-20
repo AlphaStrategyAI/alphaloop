@@ -12,6 +12,14 @@ from engine.research.user_errors import UserFacingError
 
 TRANSIENT_DATA_MESSAGE = "行情数据源暂时不可用，请稍后重试"
 TRANSIENT_DATA_CODE = "DATA_SOURCE_UNAVAILABLE"
+MARKET_DATA_FAILURE_CODES = frozenset(
+    {
+        TRANSIENT_DATA_CODE,
+        "MARKET_DATA_TIMEOUT",
+        "MARKET_DATA_RATE_LIMITED",
+        "MARKET_DATA_FETCH_FAILED",
+    }
+)
 _EMPTY_FRAME_DETAIL = "provider returned an empty price frame"
 
 
@@ -36,6 +44,48 @@ def transient_data_error(
         TRANSIENT_DATA_MESSAGE,
         params=dict(params or {}),
         detail=technical,
+    )
+
+
+def _coded(
+    code: str,
+    message: str,
+    *,
+    params: dict[str, Any] | None = None,
+    detail: str | None = None,
+) -> UserFacingError:
+    """Keep the code in the legacy sentence. The envelope carries code, params, and detail."""
+    return UserFacingError(
+        code,
+        f"{message}（{code}）",
+        params=dict(params or {}),
+        detail=detail,
+    )
+
+
+def market_data_timeout(symbol_count: int) -> UserFacingError:
+    return _coded(
+        "MARKET_DATA_TIMEOUT",
+        f"行情还没取完：{symbol_count} 只在限定时间内没有完成。请稍后重试。",
+        params={"symbol_count": symbol_count},
+        detail="TimeoutError: market data load exceeded the deadline",
+    )
+
+
+def market_data_rate_limited() -> UserFacingError:
+    return _coded(
+        "MARKET_DATA_RATE_LIMITED",
+        "行情源限流（HTTP 429），多次退避后仍失败。请稍后重试。",
+        detail="HTTP 429: rate limit retries exhausted",
+    )
+
+
+def market_data_fetch_failed(symbol: str) -> UserFacingError:
+    return _coded(
+        "MARKET_DATA_FETCH_FAILED",
+        f"行情没有取到：{symbol}。",
+        params={"symbol": symbol},
+        detail=f"symbol fetch failed: {symbol}",
     )
 
 

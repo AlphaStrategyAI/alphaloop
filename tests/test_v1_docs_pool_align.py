@@ -21,8 +21,15 @@ def test_checked_in_pools_are_forty_names_and_not_a_parquet_universe() -> None:
     names = [path.name for path in list_pool_files()]
     assert names == [
         "cn_equity_large_cap_v1.json",
+        "cn_equity_large_cap_v2.json",
         "us_equity_large_cap_v1.json",
+        "us_equity_large_cap_v2.json",
     ]
+    us_v2 = pool_by_version("us_equity_large_cap_v2")
+    cn_v2 = pool_by_version("cn_equity_large_cap_v2")
+    assert us_v2 is not None and cn_v2 is not None
+    assert len(us_v2.symbols) >= 100
+    assert len(cn_v2.symbols) >= 100
     for path in list_pool_files():
         raw = json.loads(path.read_text(encoding="utf-8"))
         assert "parquet" not in json.dumps(raw).lower()

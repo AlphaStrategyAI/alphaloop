@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
-from engine.research import market_data_timeouts as _market_data_timeouts
 from engine.research.data_availability import (
     classify_load_failure,
+    market_data_timeout,
     raise_if_total_source_outage,
     symbols_with_any_bars,
-    transient_data_error,
 )
-from engine.research.market_data_timeouts import run_with_deadline
+from engine.research.market_data_timeouts import load_deadline_seconds, run_with_deadline
+from engine.research.planned_data_window import is_cn_listed_symbol
 from engine.research.user_errors import UserFacingError
 
 if TYPE_CHECKING:
@@ -61,6 +61,16 @@ class PoolDataShrinkResult:
         return len(self.symbols)
 
 
+def _deadline_for_symbols(symbols: tuple[str, ...]) -> float:
+    from engine.research.market_data_timeouts import YAHOO_BATCH_SIZE, cn_market_data_max_workers
+
+    if symbols and all(is_cn_listed_symbol(symbol) for symbol in symbols):
+        batch = cn_market_data_max_workers()
+    else:
+        batch = YAHOO_BATCH_SIZE
+    return load_deadline_seconds(len(symbols), batch_size=batch)
+
+
 def symbols_with_daily_data(
     symbols: tuple[str, ...],
     start: date,
@@ -75,11 +85,9 @@ def symbols_with_daily_data(
         def _load() -> pd.DataFrame:
             return active.load_daily(symbols, start, end)
 
-        data = run_with_deadline(
-            _market_data_timeouts.MARKET_DATA_LOAD_TIMEOUT_SEC, _load
-        )
+        data = run_with_deadline(_deadline_for_symbols(symbols), _load)
     except TimeoutError:
-        raise transient_data_error(detail="TimeoutError: market data load exceeded the deadline") from None
+        raise market_data_timeout(len(symbols)) from None
     except Exception as error:
         classified = classify_load_failure(error)
         if classified is not None:

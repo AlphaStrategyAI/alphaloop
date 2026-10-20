@@ -13,6 +13,7 @@
 | 2026-10-19 | 用户决定：中国大陆策略族不进 M2。旧混池不继续迭代；派生草稿的 `derived_from.tried_rounds` 计入累计 M，并影响多重检验门槛。见 [设置功能](./settings-config-v1.md)。 |
 | 2026-10-19 | 用户决定（Q1、Q9）：Yahoo 与 AkShare 在 M2 期间不下线；是否下线、何时下线，在 M2 出口评审时再议。标签都定为「未经许可」，是用户 2026-10-19 的决定。见 [设置功能](./settings-config-v1.md)。M2 的商业数据商连接器仍未对接。 |
 | 2026-10-19 | 本地 CSV 导入（原 P1）和多策略族的美国版本（原 P2）提前到 M2。Parquet 放到 M2 之后。见 [策略族 v1](./strategy-families-v1.md) 与 [设置功能](./settings-config-v1.md)。已经交出去的 V1 均值回归路径不因此改写。 |
+| 2026-10-19 | M2 新研究的股票默认池改为生成日名单，各不少于 100 只（`us_equity_large_cap_v2`、`cn_equity_large_cap_v2`）。v1 的 40 只不改，旧研究仍加载原池。池不是数据源，不预选 Yahoo 或 AkShare。 |
 
 **决定：** 收口野心，不砍铁律。V1 是一条诚实走通的路径，不是多策略挖掘平台。
 
@@ -146,7 +147,7 @@ M2 把原来排在后面的几项提前进来：本地 CSV 导入、五个策略
 
 **实现层迭代预算（已落地）：** 验证方法集未全部通过时，若下一步是实现层 PARAM / `model_family` 调整（`change_requires_user_confirm()` 为 false），`ResearchLoop` 在**当前版本**内按轮次自动迭代，直到 `implementation_trial_budget` 用尽（默认 **5** 轮，环境变量 `ALPHALOOP_MAX_TRIALS`）才 `COMPLETED` 并只能导出 `research_record`。同一**数据窗口**（`symbol_list_version` + 模拟起止日 + `data_source_id`，见 `DataWindowKey.serialize()`）上跨研究、跨版本累计轮次 **M** 存于 SQLite `data_window_round_counts`，并写入 B2 `history/rounds.json` 与运行视图（本版本 X/N、本研究累计、本窗口所有研究累计）。V1 已落地的展示是披露。从旧混池复制出的单市场草稿另有一条：继承的已试轮数 N 计入这份新研究的累计 M，两份草稿都继承全部 N，并影响多重检验门槛。见 [设置功能](./settings-config-v1.md) 第 2.6.1 节。
 
-**标的池（P0，产品定稿）：** 默认池为仓库内版本化 JSON：`us_equity_large_cap_v1` 美股大市值 40 只（当时为 Yahoo 日线），`cn_equity_large_cap_v1` A 股大市值 40 只（当时为 AkShare，新浪优先）。没有 `US-EQ-LIQUID`。用户写明代码则覆盖默认池；无池且无代码时回到对话追问，禁止静默空跑。确认开跑卡展示池名、版本、标的数量、数据区间与截止日；确认后写入研究状态与导出出处。本地 CSV 导入已从 P1 提前到 M2，Parquet 放到 M2 之后，见 [设置功能](./settings-config-v1.md)。股票默认池扩到不少于 100 只也提前到 M2，见 [策略族 v1](./strategy-families-v1.md)。Yahoo（美股）与 AkShare（A 股）是内置源，不是默认选中，界面标「未经许可」。M2 期间不下线；是否下线、何时下线，在 M2 出口评审时再议。见 [设置功能](./settings-config-v1.md)。**Holdout、更强反假发现** 等仍留后续；V1 只展示累计轮次与先前失败记录（B5）。经济/覆盖/B3 逻辑字段始终 `REQUEST_CONFIRM`。预算用尽后「继续迭代」需每次用户确认（高累计轮次二次确认），`ALPHALOOP_TRIAL_BUDGET_INCREMENT` 默认 **5** 追加预算；阈值不放宽。
+**标的池（P0，产品定稿）：** V1 默认池为仓库内版本化 JSON：`us_equity_large_cap_v1` 美股大市值 40 只（当时为 Yahoo 日线），`cn_equity_large_cap_v1` A 股大市值 40 只（当时为 AkShare，新浪优先）。这两份文件不改，已经引用它们的研究仍按原成员加载。M2 新研究改用 `us_equity_large_cap_v2` 与 `cn_equity_large_cap_v2`：生成日名单，各不少于 100 只，一池一个市场。池记录写成员、来源和选取日期。没有 `US-EQ-LIQUID`。用户写明代码则覆盖默认池；无池且无代码时回到对话追问，禁止静默空跑。确认开跑卡展示池名、版本、标的数量、数据区间与截止日；确认后写入研究状态与导出出处。本地 CSV 导入已从 P1 提前到 M2，Parquet 放到 M2 之后，见 [设置功能](./settings-config-v1.md)。股票默认池扩到不少于 100 只也提前到 M2，见 [策略族 v1](./strategy-families-v1.md)。Yahoo（美股）与 AkShare（A 股）是内置源，不是默认选中，界面标「未经许可」。选池不预选数据源。M2 期间不下线；是否下线、何时下线，在 M2 出口评审时再议。见 [设置功能](./settings-config-v1.md)。**Holdout、更强反假发现** 等仍留后续；V1 只展示累计轮次与先前失败记录（B5）。经济/覆盖/B3 逻辑字段始终 `REQUEST_CONFIRM`。预算用尽后「继续迭代」需每次用户确认（高累计轮次二次确认），`ALPHALOOP_TRIAL_BUDGET_INCREMENT` 默认 **5** 追加预算；阈值不放宽。
 
 **策略族：** V1 已交付的引擎路径是均值回归。五个策略族的美国版本已从原 P2 提前到 M2，见 [策略族 v1](./strategy-families-v1.md)。M2 可以新建并运行 A 股研究，但只能用现有的逐日 z 分数均值回归，不算五族验收。低波、股债再平衡、基本面因子、全天候的中国大陆版本列入第二批，M2 出口评审时再定。不再写成「第二个策略族在 P2」。
 

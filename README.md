@@ -5,14 +5,14 @@
 ## 当前能做
 
 - 在桌面应用里用对话把一项研究谈清楚，确认后用冻结的验证方法做历史回测。
-- 默认标的池是仓库里的版本化清单：美股大市值 40 只（`us_equity_large_cap_v1`）、A 股大市值 40 只（`cn_equity_large_cap_v1`）。日线来自 Yahoo（美股）和 AkShare（A 股，新浪优先）。用户写出代码可以覆盖默认池。
+- 新研究的默认标的池是仓库里的版本化清单：美股大市值（`us_equity_large_cap_v2`，标普 500 生成日成分）和 A 股大市值（`cn_equity_large_cap_v2`，沪深 300 生成日成份），各不少于 100 只。旧研究仍加载各 40 只的 `us_equity_large_cap_v1` / `cn_equity_large_cap_v1`，成员不改。池不是数据源，不预选 Yahoo 或 AkShare。用户写出代码可以覆盖默认池。
 - 导出策略包或研究记录。包里的回测是历史假设业绩，不是实盘业绩，也不是对未来的承诺。
 - 引擎里实现的策略族只有截面均值回归。
 
 ## 当前不能做
 
 - 不下单，不接券商，不跑模拟盘。
-- 没有 128 只池，没有 `US-EQ-LIQUID`，没有本机 parquet。本地 CSV/parquet 导入和更大的池是 P1，不在这一版。
+- 没有 `US-EQ-LIQUID`，没有本机 parquet。设计稿上的 128 只当时和本地导入同列 P1；M2 的股票默认池是另一份生成日名单，不少于 100 只。本地 CSV 导入在 M2，Parquet 放到 M2 之后。
 - 论点文字不会把策略换成动量或其他族。对话、确认卡和完成页会说明 V1 只做均值回归（[#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133)）。
 - 门禁展示名是「分段稳健性检验」「集中度」。旧词「走样检验」「拥挤度」只在对话里当别名。左栏有「术语」页（[#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129)）。
 - 联网时，默认设定下回撤等门禁通常仍可能不通过。无发布日的资料不作为证据，时点一致性不再因此恒败（[#132](https://github.com/AlphaStrategyAI/alphaloop/pull/132)，pit-v2）。完成页「本研究累计」与导出 `rounds.json` 用同一把研究窗口键（[#131](https://github.com/AlphaStrategyAI/alphaloop/pull/131)）。

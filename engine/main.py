@@ -26,8 +26,13 @@ from engine.dialogue.pool_errors import (
     record_transient_confirm_notice,
     reopen_after_pool_failure,
 )
-from engine.research.data_availability import TRANSIENT_DATA_CODE
-from engine.research.universe_pool import materialize_default_pool, pool_resolvable
+from engine.research.confirm_view import confirm_data_notice, symbol_selection_payload
+from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
+from engine.research.universe_pool import (
+    materialize_default_pool,
+    pin_draft_data_source,
+    pool_resolvable,
+)
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.i18n.errors import build_error_envelope, redact_technical_detail
 from engine.i18n.locale import (
@@ -38,7 +43,6 @@ from engine.i18n.locale import (
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.portfolio import SCHEDULE_COST_MODEL
 from engine.research.a2_copy import cn_execution_notice_for, construction_notice_for
-from engine.research.confirm_view import symbol_selection_payload
 from engine.research.thesis_scope import mean_reversion_only_notice
 from engine.research.method_body_display import (
     format_method_body_display,
@@ -127,6 +131,7 @@ from engine.research.models import (
 from engine.research.progress import (
     ResearchListItem,
     host_status,
+    host_status_while_fetching,
     list_items,
     notification_event,
     thesis_divergence_hint,
@@ -373,12 +378,31 @@ class ResearchCommandService:
             "coverage_floor": format_coverage_floor_display(brief.coverage_floor.value),
         }
 
+    def _market_data_status(self) -> dict[str, Any]:
+        """Progress without the research lock, so a confirm probe cannot hide it."""
+        from engine.research.market_data_progress import market_data_progress_payload
+
+        progress = market_data_progress_payload()
+        status = host_status_while_fetching(
+            host_status(self.store.list_research()),
+            fetching=progress is not None,
+        )
+        return {"marketDataProgress": progress, "hostStatus": status}
+
     def _host_payload(
         self,
         payload: dict[str, Any],
         research: Research | None = None,
     ) -> dict[str, Any]:
-        payload["hostStatus"] = host_status(self.store.list_research())
+        from engine.research.market_data_progress import market_data_progress_payload
+
+        progress = market_data_progress_payload()
+        payload["hostStatus"] = host_status_while_fetching(
+            host_status(self.store.list_research()),
+            fetching=progress is not None,
+        )
+        if progress is not None:
+            payload["marketDataProgress"] = progress
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
         return self._attach_notify(payload)
@@ -653,8 +677,11 @@ class ResearchCommandService:
         research_id = route.removeprefix("#/research/")
         research = self.store.load(research_id)
         if research.status.value == "draft":
-            materialized = materialize_default_pool(research)
-            if materialized.brief != research.brief:
+            materialized = pin_draft_data_source(materialize_default_pool(research))
+            if (
+                materialized.brief != research.brief
+                or materialized.data_source_id != research.data_source_id
+            ):
                 self.store.save(materialized, research.updated_at)
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
@@ -667,6 +694,12 @@ class ResearchCommandService:
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
+                fetch_notice = confirm_data_notice(research)
+                if fetch_notice:
+                    body["confirmDataNotice"] = fetch_notice["text"]
+                    if fetch_notice.get("code"):
+                        body["confirmDataNoticeCode"] = fetch_notice["code"]
+                        body["confirmDataNoticeParams"] = fetch_notice.get("params") or {}
                 notice = mean_reversion_only_notice(
                     str(research.brief.thesis.value or "")
                 )
@@ -860,7 +893,7 @@ class ResearchCommandService:
             try:
                 research = ensure_runnable_universe(research)
             except UserFacingError as error:
-                if error.code == TRANSIENT_DATA_CODE:
+                if error.code in MARKET_DATA_FAILURE_CODES:
                     updated = record_transient_confirm_notice(research, error, now)
                     self._save(research, updated)
                     raise
@@ -894,6 +927,8 @@ class ResearchCommandService:
         now = datetime.now(UTC)
         if kind == "fetch_view":
             return self.view_for(request["route"])
+        if kind == "market_data_progress":
+            return self._market_data_status()
         if kind == "create_draft":
             research_id = str(uuid.uuid4())
             self.store.create(new_research(research_id, now))

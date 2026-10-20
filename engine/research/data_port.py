@@ -8,10 +8,17 @@ from datetime import date
 import pandas as pd
 
 from engine.research.a1_copy import DATA_SOURCE_UNBOUND
-from engine.research.market_data_timeouts import run_with_deadline
+from engine.research.data_availability import market_data_timeout
+from engine.research.market_data_timeouts import (
+    YAHOO_BATCH_SIZE,
+    cn_market_data_max_workers,
+    load_deadline_seconds,
+    run_with_deadline,
+)
 from engine.research.planned_data_window import (
     AKSHARE_SINA_DATA_SOURCE_ID,
     DEFAULT_DATA_SOURCE_ID,
+    is_cn_listed_symbol,
 )
 from engine.research.user_errors import UserFacingError
 
@@ -30,8 +37,6 @@ class BoundDataPort:
         start: date,
         end: date,
     ) -> pd.DataFrame:
-        from engine.research import market_data_timeouts as timeouts
-        from engine.research.data_availability import transient_data_error
         from engine.research.data_errors import EmptySymbolsError
 
         if not symbols:
@@ -40,12 +45,18 @@ class BoundDataPort:
         def _load() -> pd.DataFrame:
             return self.inner.load_daily(symbols, start, end)  # type: ignore[attr-defined, no-any-return]
 
+        batch = (
+            cn_market_data_max_workers()
+            if symbols and all(is_cn_listed_symbol(symbol) for symbol in symbols)
+            else YAHOO_BATCH_SIZE
+        )
         try:
-            return run_with_deadline(timeouts.MARKET_DATA_LOAD_TIMEOUT_SEC, _load)
+            return run_with_deadline(
+                load_deadline_seconds(len(symbols), batch_size=batch),
+                _load,
+            )
         except TimeoutError:
-            raise transient_data_error(
-                detail="TimeoutError: market data load exceeded the deadline"
-            ) from None
+            raise market_data_timeout(len(symbols)) from None
 
 
 def data_port_for_symbols(symbols: tuple[str, ...]) -> BoundDataPort:

@@ -22,5 +22,21 @@
   "contact_email_missing": {
     "params": ["sources"],
     "legacyZh": "未配置联系邮箱，本次不查询 Crossref / SEC 全文。"
+  },
+  "MARKET_DATA_TIMEOUT": {
+    "params": ["symbol_count"],
+    "legacyZh": "行情还没取完：{{symbol_count}} 只在限定时间内没有完成。请稍后重试。（MARKET_DATA_TIMEOUT）"
+  },
+  "MARKET_DATA_RATE_LIMITED": {
+    "params": [],
+    "legacyZh": "行情源限流（HTTP 429），多次退避后仍失败。请稍后重试。（MARKET_DATA_RATE_LIMITED）"
+  },
+  "MARKET_DATA_FETCH_FAILED": {
+    "params": ["symbol"],
+    "legacyZh": "行情没有取到：{{symbol}}。（MARKET_DATA_FETCH_FAILED）"
+  },
+  "MARKET_DATA_SHELL_TIMEOUT": {
+    "params": [],
+    "legacyZh": "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）"
   }
 }

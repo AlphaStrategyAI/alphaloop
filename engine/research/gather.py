@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import calendar
 import re
+import threading
+import warnings
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -15,9 +17,33 @@ import pandas as pd
 import yfinance as yf
 
 from engine.research import market_data_timeouts as _market_data_timeouts
-from engine.research.data_availability import transient_data_error
-from engine.research.market_data_timeouts import cn_market_data_max_workers, run_with_deadline
+from engine.research.data_availability import market_data_timeout
+from engine.research.market_data_progress import (
+    clear_market_data_progress,
+    set_market_data_progress,
+)
+from engine.research.market_data_cancel import (
+    bind_market_data_generation,
+    current_market_data_generation,
+    end_market_data_generation,
+    install_market_data_request_guard,
+    raise_if_market_data_cancelled,
+)
+from engine.research.market_data_retry import (
+    call_with_rate_limit_retry,
+    call_with_symbol_retry,
+    is_rate_limited,
+)
+from engine.research.market_data_timeouts import (
+    CN_HTTP_TIMEOUT_SEC,
+    YAHOO_BATCH_SIZE,
+    YAHOO_FETCH_CONCURRENCY,
+    cn_market_data_max_workers,
+    load_deadline_seconds,
+    run_with_deadline,
+)
 from engine.research.planned_data_window import is_cn_listed_symbol
+from engine.research.price_cache import get_cached_close, put_cached_close
 from engine.research.secret_redaction import redact_text
 
 CROSSREF_MAILTO = "research@example.invalid"
@@ -230,6 +256,113 @@ class LocalMaterialAdapter:
         return tuple(result)
 
 
+def _yahoo_provider_symbol(symbol: str) -> str:
+    return "^GSPC" if symbol == "SPX" else symbol
+
+
+def _yahoo_batches(symbols: tuple[str, ...], batch_size: int) -> tuple[tuple[str, ...], ...]:
+    size = max(1, batch_size)
+    return tuple(symbols[index : index + size] for index in range(0, len(symbols), size))
+
+
+_retry_after_local = threading.local()
+_yahoo_capture_installed = False
+_yahoo_capture_lock = threading.Lock()
+
+
+class _RetryAfterRateLimit(Exception):
+    """429 that still carries the Retry-After yfinance drops from YFRateLimitError."""
+
+    def __init__(self, retry_after: object) -> None:
+        headers: dict[str, str] = {}
+        if retry_after is not None and str(retry_after).strip():
+            headers["Retry-After"] = str(retry_after).strip()
+        self.response = type("Resp", (), {"status_code": 429, "headers": headers})()
+        super().__init__("HTTP 429")
+
+
+def _note_retry_after(response: object) -> None:
+    if getattr(response, "status_code", None) != 429:
+        return
+    headers = getattr(response, "headers", None)
+    raw = headers.get("Retry-After") if headers is not None and hasattr(headers, "get") else None
+    _retry_after_local.value = raw
+
+
+def _install_yahoo_retry_after_capture() -> None:
+    """Wrap each Yahoo session so a 429 keeps its Retry-After header.
+
+    ``yfinance`` raises ``YFRateLimitError()`` with no response, and ``download()``
+    then stores that per ticker and returns an empty frame. Chart requests go
+    through ``Ticker.history`` instead, and this wrapper reads the header first.
+    """
+    global _yahoo_capture_installed
+    with _yahoo_capture_lock:
+        if _yahoo_capture_installed:
+            return
+        from yfinance.data import YfData
+
+        original = YfData._set_session
+
+        def _set_session(self: object, session: object) -> None:
+            original(self, session)
+            if session is None or getattr(session, "_alphaloop_retry_after", False):
+                return
+            original_get = session.get
+
+            def get(*args: object, **kwargs: object) -> object:
+                response = original_get(*args, **kwargs)
+                _note_retry_after(response)
+                return response
+
+            session.get = get  # type: ignore[method-assign]
+            session._alphaloop_retry_after = True  # type: ignore[attr-defined]
+
+        YfData._set_session = _set_session  # type: ignore[method-assign]
+        _yahoo_capture_installed = True
+
+
+def _empty_close(symbol: str) -> pd.Series:
+    return pd.Series(dtype="float64", name=symbol)
+
+
+def _yahoo_history(symbol: str, start: date, end: date) -> pd.Series:
+    """One chart request. Missing prices stay empty; 429 keeps Retry-After."""
+    raise_if_market_data_cancelled()
+    _install_yahoo_retry_after_capture()
+    _retry_after_local.value = None
+    provider = _yahoo_provider_symbol(symbol)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            frame = yf.Ticker(provider).history(
+                start=start.isoformat(),
+                end=end.isoformat(),
+                auto_adjust=True,
+                actions=False,
+                raise_errors=True,
+            )
+    except Exception as error:
+        if _is_missing_yahoo_prices(error):
+            if is_rate_limited(error):
+                raise _RetryAfterRateLimit(getattr(_retry_after_local, "value", None)) from error
+            return _empty_close(symbol)
+        if is_rate_limited(error):
+            raise _RetryAfterRateLimit(getattr(_retry_after_local, "value", None)) from error
+        raise
+    if frame is None or not isinstance(frame, pd.DataFrame) or frame.empty or "Close" not in frame.columns:
+        return _empty_close(symbol)
+    series = pd.Series(frame["Close"].to_numpy(), index=pd.to_datetime(frame.index), name=symbol)
+    if getattr(series.index, "tz", None) is not None:
+        series.index = series.index.tz_localize(None)
+    return series
+
+
+def _is_missing_yahoo_prices(error: BaseException) -> bool:
+    name = type(error).__name__
+    return name in {"YFPricesMissingError", "YFTzMissingError"}
+
+
 class YahooDataAdapter:
     def load_daily(
         self,
@@ -237,21 +370,99 @@ class YahooDataAdapter:
         start: date,
         end: date,
     ) -> pd.DataFrame:
-        provider_symbols = ["^GSPC" if symbol == "SPX" else symbol for symbol in symbols]
-        frame = yf.download(
-            provider_symbols,
-            start=start.isoformat(),
-            end=end.isoformat(),
-            auto_adjust=True,
-            progress=False,
-        )
-        close = frame.get("Close", frame)
-        if len(symbols) == 1:
-            close = close.to_frame(name=symbols[0]) if isinstance(close, pd.Series) else close
-            close.columns = [symbols[0]]
+        if not symbols:
+            return pd.DataFrame()
+        set_market_data_progress(0, len(symbols), "yahoo")
+        try:
+            cached: dict[str, pd.Series] = {}
+            missing: list[str] = []
+            for symbol in symbols:
+                hit = get_cached_close("yahoo", symbol, start, end)
+                if hit is None:
+                    missing.append(symbol)
+                else:
+                    cached[symbol] = hit
+            done = len(cached)
+            set_market_data_progress(done, len(symbols), "yahoo")
+            fetched: dict[str, pd.Series] = {}
+
+            def advance() -> None:
+                nonlocal done
+                done += 1
+                set_market_data_progress(done, len(symbols), "yahoo")
+
+            for batch in _yahoo_batches(tuple(missing), YAHOO_BATCH_SIZE):
+                frame = self._download_batch(batch, start, end, on_symbol_done=advance)
+                for symbol in batch:
+                    if symbol in frame.columns and frame[symbol].notna().any():
+                        fetched[symbol] = frame[symbol].rename(symbol)
+            columns = {symbol: cached.get(symbol, fetched.get(symbol)) for symbol in symbols}
+            present = {symbol: series for symbol, series in columns.items() if series is not None}
+            if not present:
+                return pd.DataFrame()
+            return pd.DataFrame(present).sort_index()
+        finally:
+            clear_market_data_progress()
+
+    def _download_batch(
+        self,
+        symbols: tuple[str, ...],
+        start: date,
+        end: date,
+        on_symbol_done: Callable[[], None] | None = None,
+    ) -> pd.DataFrame:
+        """Fetch one batch, two chart calls at a time, and cache each success.
+
+        ``yf.download`` swallows HTTP 429 into an empty column. Per-symbol
+        ``history`` lets the retry see the error. A symbol with no prices is
+        left out so confirm can drop just that name; a 429 or other failure
+        aborts the load instead of looking like a smaller pool.
+        """
+        columns: dict[str, pd.Series] = {}
+
+        generation = current_market_data_generation()
+
+        def fetch(symbol: str) -> pd.Series | None:
+            token = bind_market_data_generation(generation)
+            try:
+                raise_if_market_data_cancelled()
+
+                def once() -> pd.Series:
+                    return call_with_rate_limit_retry(
+                        lambda symbol=symbol: _yahoo_history(symbol, start, end)
+                    )
+
+                series = call_with_symbol_retry(once, symbol=symbol)
+            finally:
+                end_market_data_generation(token)
+            if series is None or not series.notna().any():
+                return None
+            put_cached_close("yahoo", symbol, start, end, series)
+            return series
+
+        def mark(symbol: str, series: pd.Series | None) -> None:
+            if series is not None:
+                columns[symbol] = series
+            if on_symbol_done is not None:
+                on_symbol_done()
+
+        workers = min(YAHOO_FETCH_CONCURRENCY, len(symbols))
+        if workers <= 1:
+            for symbol in symbols:
+                mark(symbol, fetch(symbol))
         else:
-            close = close.rename(columns={"^GSPC": "SPX"})
-        return close.rename_axis("date").sort_index()  # type: ignore[no-any-return]
+            pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="yahoo-daily")
+            try:
+                futures = {pool.submit(fetch, symbol): symbol for symbol in symbols}
+                for future in as_completed(futures):
+                    raise_if_market_data_cancelled()
+                    symbol = futures[future]
+                    mark(symbol, future.result())
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)
+        if not columns:
+            return pd.DataFrame()
+        return pd.DataFrame(columns)
 
 
 def _sina_listing_code(symbol: str, provider_symbol: str) -> str:
@@ -264,8 +475,18 @@ def _sina_listing_code(symbol: str, provider_symbol: str) -> str:
     return f"sh{provider_symbol}"
 
 
+def _is_transport_timeout(error: BaseException) -> bool:
+    name = type(error).__name__.lower()
+    if "timeout" in name:
+        return True
+    text = str(error).lower()
+    return "timed out" in text or "timeout" in text
+
+
 def _cn_equity_close(provider_symbol: str, symbol: str, start: date, end: date) -> pd.Series:
     """A-share daily close: Sina (akshare) first, Eastmoney akshare fallback."""
+    raise_if_market_data_cancelled()
+    install_market_data_request_guard()
     sina_code = _sina_listing_code(symbol, provider_symbol)
     try:
         raw = ak.stock_zh_a_daily(symbol=sina_code, adjust="qfq")
@@ -275,13 +496,16 @@ def _cn_equity_close(provider_symbol: str, symbol: str, start: date, end: date) 
             name=symbol,
         )
         return series.loc[start.isoformat() : end.isoformat()]
-    except Exception:
+    except Exception as error:
+        if is_rate_limited(error) or _is_transport_timeout(error):
+            raise
         raw = ak.stock_zh_a_hist(
             symbol=provider_symbol,
             period="daily",
             start_date=start.strftime("%Y%m%d"),
             end_date=end.strftime("%Y%m%d"),
             adjust="qfq",
+            timeout=CN_HTTP_TIMEOUT_SEC,
         )
         series = pd.Series(
             raw["收盘"].to_numpy(),
@@ -295,7 +519,9 @@ def _cn_csi300_close(start: date, end: date) -> pd.Series:
     symbol = "000300.SH"
     try:
         raw = ak.stock_zh_index_daily(symbol="sh000300")
-    except Exception:
+    except Exception as error:
+        if is_rate_limited(error):
+            raise
         raw = ak.stock_zh_index_daily_em(symbol="sh000300")
     series = pd.Series(
         raw["close"].to_numpy(),
@@ -369,26 +595,76 @@ class AkShareDataAdapter:
     ) -> pd.DataFrame:
         if not symbols:
             return pd.DataFrame()
+        install_market_data_request_guard()
+        set_market_data_progress(0, len(symbols), "akshare")
+        try:
+            columns: dict[str, pd.Series] = {}
+            missing: list[str] = []
+            for symbol in symbols:
+                hit = get_cached_close("akshare", symbol, start, end)
+                if hit is None:
+                    missing.append(symbol)
+                else:
+                    columns[symbol] = hit
+            done = len(columns)
+            set_market_data_progress(done, len(symbols), "akshare")
+            if missing:
+                fetched = self._fetch_missing(tuple(missing), start, end, done, len(symbols))
+                columns.update(fetched)
+            if not columns:
+                return pd.DataFrame()
+            return pd.DataFrame({symbol: columns[symbol] for symbol in symbols if symbol in columns}).sort_index()
+        finally:
+            clear_market_data_progress()
+
+    def _fetch_missing(
+        self,
+        symbols: tuple[str, ...],
+        start: date,
+        end: date,
+        done: int,
+        total: int,
+    ) -> dict[str, pd.Series]:
         columns: dict[str, pd.Series] = {}
         workers = min(cn_market_data_max_workers(), len(symbols))
 
-        def store(symbol: str, series: pd.Series) -> None:
-            columns[symbol] = _slice_series_to_window(series, start, end)
+        generation = current_market_data_generation()
+
+        def fetch(symbol: str) -> pd.Series:
+            token = bind_market_data_generation(generation)
+            try:
+                raise_if_market_data_cancelled()
+
+                def once() -> pd.Series:
+                    return call_with_rate_limit_retry(
+                        lambda symbol=symbol: _fetch_cn_symbol_series(symbol, start, end)
+                    )
+
+                series = call_with_symbol_retry(once, symbol=symbol)
+            finally:
+                end_market_data_generation(token)
+            put_cached_close("akshare", symbol, start, end, series)
+            return series
 
         if workers <= 1 or len(symbols) == 1:
             for symbol in symbols:
-                store(symbol, _fetch_cn_symbol_series(symbol, start, end))
-            return pd.DataFrame(columns).sort_index()
+                columns[symbol] = fetch(symbol)
+                done += 1
+                set_market_data_progress(done, total, "akshare")
+            return columns
 
-        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="cn-daily") as pool:
-            futures = {
-                pool.submit(_fetch_cn_symbol_series, symbol, start, end): symbol
-                for symbol in symbols
-            }
+        pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="cn-daily")
+        try:
+            futures = {pool.submit(fetch, symbol): symbol for symbol in symbols}
             for future in as_completed(futures):
+                raise_if_market_data_cancelled()
                 symbol = futures[future]
-                store(symbol, future.result())
-        return pd.DataFrame(columns).sort_index()
+                columns[symbol] = future.result()
+                done += 1
+                set_market_data_progress(done, total, "akshare")
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+        return columns
 
 
 @dataclass(frozen=True, slots=True)
@@ -415,14 +691,15 @@ class RoutingDataAdapter:
                 else self.yahoo.load_daily(symbols, start, end)
             )
 
+        batch = (
+            cn_market_data_max_workers()
+            if is_cn
+            else _market_data_timeouts.YAHOO_BATCH_SIZE
+        )
         try:
-            return run_with_deadline(
-                _market_data_timeouts.MARKET_DATA_LOAD_TIMEOUT_SEC, _load
-            )
+            return run_with_deadline(load_deadline_seconds(len(symbols), batch_size=batch), _load)
         except TimeoutError:
-            raise transient_data_error(
-                detail="TimeoutError: market data load exceeded the deadline"
-            ) from None
+            raise market_data_timeout(len(symbols)) from None
 
 
 @dataclass(frozen=True, slots=True)

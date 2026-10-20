@@ -113,8 +113,8 @@ def test_confirm_run_retries_after_source_recovers(tmp_path: Path) -> None:
     service.handle({"type": "confirm_run", "research_id": research.research_id})
     loaded = store.load(research.research_id)
     assert loaded.status is ResearchStatus.RUNNING
-    assert loaded.symbol_list_version == "us_equity_large_cap_v1"
-    assert len(loaded.brief.universe.value.symbols) >= 25
+    assert loaded.symbol_list_version == "us_equity_large_cap_v2"
+    assert len(loaded.brief.universe.value.symbols) >= 100
 
 
 def test_genuine_missing_symbols_still_shrink_and_too_few(tmp_path: Path) -> None:
