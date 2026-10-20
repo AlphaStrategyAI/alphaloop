@@ -1,15 +1,16 @@
 import type {ResearchListDisplayStatus} from "./contracts";
+import type {MessageKey} from "./i18n/I18nProvider";
 
-const BASE: Record<ResearchListDisplayStatus, string> = {
-  draft: "草稿",
-  running: "运行中",
-  awaiting_confirm: "等待确认",
-  paused: "已暂停",
-  completed: "已完成",
-  ended: "未通过",
-  confirm_run: "确认开跑",
+const BASE: Record<ResearchListDisplayStatus, MessageKey> = {
+  draft: "ui.status.draft",
+  running: "ui.status.running",
+  awaiting_confirm: "ui.status.awaiting",
+  paused: "ui.status.paused",
+  completed: "ui.status.completed",
+  ended: "ui.status.endedShort",
+  confirm_run: "ui.status.confirmRun",
 };
 
-export function listRowStatusLabel(status: ResearchListDisplayStatus): string {
+export function listRowStatusKey(status: ResearchListDisplayStatus): MessageKey {
   return BASE[status];
 }

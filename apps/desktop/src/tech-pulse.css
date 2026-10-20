@@ -407,20 +407,22 @@ a:hover {
   word-break: break-word;
 }
 .research-row .row-actions {
-  flex: 0 0 auto;
-  flex-shrink: 0;
-  min-width: 9.5rem;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  align-items: center;
+  justify-items: end;
+  gap: 8px 12px;
+  min-width: max-content;
   white-space: nowrap;
 }
 .research-row .row-actions a,
 .research-row .row-actions button {
   white-space: nowrap;
-  flex-shrink: 0;
 }
 .research-row .row-actions .status-pill {
+  width: max-content;
+  justify-self: end;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 .confirm-data-panel {
   margin: 16px 0;
@@ -514,12 +516,34 @@ a:hover {
   flex-wrap: wrap;
   gap: 8px;
   margin: 16px 0;
+  min-width: 0;
 }
 .gate-pill {
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
   font-size: 12px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.confirm-card,
+.awaiting-card,
+.completed-focus-card,
+.in-app-confirm-card,
+.materials-note,
+.export-feedback,
+.decision-stack,
+.confirm-actions,
+.completed-export-actions {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.decision-stack,
+.confirm-actions,
+.completed-export-actions,
+.in-app-confirm-actions {
+  flex-wrap: wrap;
 }
 .gate-pill--ok {
   border-color: rgba(52, 211, 153, 0.45);

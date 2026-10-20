@@ -1,15 +1,10 @@
-/** Fixed timezone for deterministic vitest. */
-export function formatResearchTimestamp(
-  iso: string,
-  timeZone: string = "Asia/Shanghai",
-): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(iso));
+import {formatUiDateTime} from "./i18n/formatUiDateTime";
+
+/**
+ * Display-only clock: YYYY-MM-DD HH:mm±HH:mm in the computer's local zone.
+ * Omit `timeZone` for the machine zone. Pass null when that zone cannot be read (UTC with Z).
+ * Stored timestamps, fingerprints, and date-only trading days are not formatted here.
+ */
+export function formatResearchTimestamp(iso: string, timeZone?: string | null): string {
+  return formatUiDateTime(iso, timeZone);
 }

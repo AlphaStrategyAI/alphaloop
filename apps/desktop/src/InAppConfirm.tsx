@@ -1,5 +1,7 @@
 import {useEffect} from "react";
 
+import {useI18n} from "./i18n/I18nProvider";
+
 export interface InAppConfirmRequest {
   title: string;
   body: string;
@@ -24,6 +26,7 @@ export function InAppConfirmOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [request, onClose]);
 
+  const {t} = useI18n();
   if (!request) return null;
 
   return (
@@ -33,14 +36,14 @@ export function InAppConfirmOverlay({
         <p className="in-app-confirm-body">{request.body}</p>
         <div className="in-app-confirm-actions">
           <button type="button" onClick={onClose}>
-            {request.cancelLabel ?? "取消"}
+            {request.cancelLabel ?? t("ui.common.cancel")}
           </button>
           <button
             type="button"
             className="cyan-button"
             onClick={() => request.onConfirm()}
           >
-            {request.confirmLabel ?? "确认"}
+            {request.confirmLabel ?? t("ui.common.confirm")}
           </button>
         </div>
       </div>

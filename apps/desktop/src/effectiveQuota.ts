@@ -15,11 +15,11 @@ function parseHoursMinutes(token: string): number | null {
   if (decimal) {
     return Math.round(Number(decimal[1]) * 60);
   }
-  const zh = /^(\d+(?:\.\d+)?)\s*小时/.exec(trimmed);
+  const zh = /^(\d+(?:\.\d+)?)\s*小时/.exec(trimmed); // i18n-allow engine quota text
   if (zh) {
     return Math.round(Number(zh[1]) * 60);
   }
-  const zhShort = /^(\d+(?:\.\d+)?)\s*小时?$/.exec(trimmed);
+  const zhShort = /^(\d+(?:\.\d+)?)\s*小时?$/.exec(trimmed); // i18n-allow engine quota text
   if (zhShort) {
     return Math.round(Number(zhShort[1]) * 60);
   }

@@ -1,6 +1,7 @@
 import {describe, expect, it} from "vitest";
 
-import {railStatusLabel} from "./railStatus";
+import {translate} from "./i18n/translate";
+import {railStatusKey} from "./railStatus";
 
 const briefSettings = {
   thesis: "t",
@@ -10,18 +11,19 @@ const briefSettings = {
   coverage_floor: "8y",
 };
 
-describe("railStatusLabel", () => {
+describe("railStatusKey", () => {
   it("maps confirm and awaiting views", () => {
     expect(
-      railStatusLabel({
+      railStatusKey({
         kind: "confirm_run",
         researchId: "r",
         dialogue: [],
         settings: briefSettings,
       }),
-    ).toBe("确认开跑");
+    ).toBe("ui.status.confirmRun");
+    expect(translate("zh", "ui.status.confirmRun")).toBe("确认开跑");
     expect(
-      railStatusLabel({
+      railStatusKey({
         kind: "awaiting_confirm",
         researchId: "r",
         version: 1,
@@ -30,23 +32,23 @@ describe("railStatusLabel", () => {
         reason: "b",
         effect: "c",
       }),
-    ).toBe("等确认");
+    ).toBe("ui.status.awaitingShort");
   });
 
   it("summarizes research_list from rows and awaiting pin", () => {
-    expect(railStatusLabel({kind: "research_list", rows: []})).toBeNull();
+    expect(railStatusKey({kind: "research_list", rows: []})).toBeNull();
     expect(
-      railStatusLabel({
+      railStatusKey({
         kind: "research_list",
         awaiting: {id: "a", title: "t", status: "awaiting_confirm"},
         rows: [],
       }),
-    ).toBe("等确认");
+    ).toBe("ui.status.awaitingShort");
     expect(
-      railStatusLabel({
+      railStatusKey({
         kind: "research_list",
         rows: [{id: "r", title: "t", status: "confirm_run"}],
       }),
-    ).toBe("确认开跑");
+    ).toBe("ui.status.confirmRun");
   });
 });

@@ -1,4 +1,5 @@
 import lockedGlossary from "./locked-glossary.json";
+import {buildUiMessages} from "./uiMessages";
 
 type GlossaryKey = keyof typeof lockedGlossary;
 
@@ -15,8 +16,12 @@ function messages(lang: "zh" | "en") {
   const copy = (zhText: string, enText: string, _final = false) => (zh ? zhText : enText);
   return {
     nav: {
+      research: copy("研究", "Research"),
+      methods: copy("方法库", "Methods"),
+      glossary: copy("术语", "Glossary"),
       settings: copy("设置", "Settings"),
     },
+    ui: buildUiMessages(copy),
     host: {
       running: copy("运行中", "Running"),
     },
@@ -118,7 +123,7 @@ function messages(lang: "zh" | "en") {
     },
     format: {
       datePattern: copy("YYYY-MM-DD", "YYYY-MM-DD", true),
-      dateTimePattern: copy("YYYY-MM-DD HH:mm", "YYYY-MM-DD HH:mm", true),
+      dateTimePattern: copy("YYYY-MM-DD HH:mm±HH:mm", "YYYY-MM-DD HH:mm±HH:mm", true),
     },
     errors: {
       unmapped: {

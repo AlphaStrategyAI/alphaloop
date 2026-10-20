@@ -1,11 +1,12 @@
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Interface dates are YYYY-MM-DD, and timestamps YYYY-MM-DD HH:mm, in both languages.
- * A calendar day is returned unchanged: it is not a UTC midnight timestamp.
- * `format.ts` still serves existing call sites until I1 switches them over.
+ * Human-facing dates are YYYY-MM-DD. Timestamps are YYYY-MM-DD HH:mm±HH:mm
+ * in the computer's local zone, in both languages.
+ * Pass null when the zone cannot be read: the clock is UTC and ends with Z.
+ * A calendar day is returned unchanged. It is not a UTC midnight timestamp.
  */
-export function formatUiDateTime(input: Date | string | number, timeZone?: string): string {
+export function formatUiDateTime(input: Date | string | number, timeZone?: string | null): string {
   if (typeof input === "string" && CALENDAR_DATE.test(input)) {
     return input;
   }
@@ -13,6 +14,32 @@ export function formatUiDateTime(input: Date | string | number, timeZone?: strin
   if (Number.isNaN(date.getTime())) {
     throw new RangeError("invalid date");
   }
+  const zone = timeZone === undefined ? readLocalTimeZone() : timeZone;
+  if (zone === null) {
+    return `${formatWallClock(date, "UTC")}Z`;
+  }
+  return `${formatWallClock(date, zone)}${numericOffset(date, zone)}`;
+}
+
+export function formatUiDate(input: Date | string | number, timeZone?: string | null): string {
+  if (typeof input === "string" && CALENDAR_DATE.test(input)) {
+    return input;
+  }
+  return formatUiDateTime(input, timeZone).slice(0, 10);
+}
+
+function readLocalTimeZone(): string | null {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!zone) return null;
+    new Intl.DateTimeFormat("en-US", {timeZone: zone}).format(0);
+    return zone;
+  } catch {
+    return null;
+  }
+}
+
+function formatWallClock(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
@@ -29,9 +56,24 @@ export function formatUiDateTime(input: Date | string | number, timeZone?: strin
   return `${pick("year")}-${pick("month")}-${pick("day")} ${hour}:${pick("minute")}`;
 }
 
-export function formatUiDate(input: Date | string | number, timeZone?: string): string {
-  if (typeof input === "string" && CALENDAR_DATE.test(input)) {
-    return input;
+/** ICU longOffset is "GMT+08:00", "GMT-05:00", "GMT+05:30", or "GMT" for zero. */
+function numericOffset(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "longOffset",
+  }).formatToParts(date);
+  const name = parts.find((part) => part.type === "timeZoneName")?.value ?? "";
+  const match = /^(?:GMT|UTC)([+-])(\d{1,2})(?::(\d{2}))?$/.exec(name);
+  if (!match) {
+    if (name === "GMT" || name === "UTC" || name === "GMT+00:00" || name === "UTC+00:00") {
+      return "+00:00";
+    }
+    throw new RangeError(`unreadable offset: ${name}`);
   }
-  return formatUiDateTime(input, timeZone).slice(0, 10);
+  const hours = match[2].padStart(2, "0");
+  const minutes = (match[3] ?? "00").padStart(2, "0");
+  return `${match[1]}${hours}:${minutes}`;
 }
