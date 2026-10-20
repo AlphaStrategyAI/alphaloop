@@ -189,6 +189,7 @@ export function buildUiMessages(copy: Copy) {
       doiPart: copy("（DOI {{doi}}）", " (DOI {{doi}})"),
       trusted: copy("已采信 {{count}} 份有发布日的资料", "Used {{count}} materials that have a publication date"),
       undated: copy("，已浏览未采信 {{count}} 份无日期资料", ", browsed and did not use {{count}} undated materials"),
+      sentenceStop: copy("。", ". "),
     },
     completed: {
       gateMethods: copy("当前验证方法全部通过", "Every selected verification method passed"),
@@ -312,7 +313,7 @@ export function buildUiMessages(copy: Copy) {
       ),
       memory: copy("仅本次会话", "This session only"),
       passphraseFile: copy("口令加密的本机文件", "Passphrase-encrypted local file"),
-      preview: copy("查看失败说明", "Show failure text"),
+      preview: copy("查看失败说明", "Failure"),
       keyring: copy("存在系统钥匙串里。", "Stored in the system keyring."),
       memoryNote: copy("只留在这次会话的内存里，退出即失。", "Kept only in memory for this session. It is gone when you quit."),
       saved: copy("已保存。界面不保留明文。", "Saved. The screen does not keep the plaintext."),
@@ -388,6 +389,15 @@ export function buildUiMessages(copy: Copy) {
       usLargeV1: copy("美股大市值（版本 1）", "US large-cap (version 1)"),
       cnLargeV1: copy("A股大市值（版本 1）", "China A-share large-cap (version 1)"),
       userSpecified: copy("用户指定标的", "User-specified symbols"),
+      overrideDefault: copy("已覆盖默认的池", "Replaced the default universe"),
+      userLine: copy(
+        "{{count}} 只 · {{listName}} · {{tail}}",
+        "{{count}} names · {{listName}} · {{tail}}",
+      ),
+      userLineOne: copy(
+        "1 只 · {{listName}} · {{tail}}",
+        "1 name · {{listName}} · {{tail}}",
+      ),
       selected: copy("已选标的", "Selected symbols"),
       defaultTail: copy("默认标的池", "default universe"),
       yahoo: copy("雅虎日线", "Yahoo daily"),
@@ -417,7 +427,7 @@ export function buildUiMessages(copy: Copy) {
       reverifyFail: copy("「{{method}}」重验未通过。", "“{{method}}” re-verification did not pass."),
       reverifyUnchanged: copy(
         "仅「{{method}}」重验通过；整轮结论未变。仍未通过：{{gates}}。",
-        "Only “{{method}}” passed re-verification. The round’s conclusion is unchanged. Still not passing: {{gates}}.",
+        "Only “{{method}}” passed re-verification. The round's conclusion is unchanged. Still not passing: {{gates}}.",
       ),
       cnExecution: copy(
         "未模拟 T+1 与涨跌停，实际成交可能更差",
@@ -433,7 +443,7 @@ export function buildUiMessages(copy: Copy) {
       ),
       pitScope: copy(
         "只查资料发布日 ≤ 回测截止日，不覆盖标的池/复权/财务修订",
-        "Checks only that a source’s publication date is on or before the backtest cutoff. It does not cover the universe, adjustments, or financial revisions.",
+        "Checks only that a source's publication date is on or before the backtest cutoff. It does not cover the universe, adjustments, or financial revisions.",
       ),
       pitNoExternal: copy("未引用外部资料", "No external sources were cited"),
       blockPitFailed: copy("时点一致性未通过，暂不能导出策略包", "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet"),

@@ -140,7 +140,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             <span><I18nText k="ui.secrets.passphraseHint" /></span>
           </label>
         ) : null}
-        <div className="secret-vault-actions">
+        <div className="secret-vault-actions" style={{whiteSpace: "nowrap"}}>
           {locked ? (
             <button
               type="button"

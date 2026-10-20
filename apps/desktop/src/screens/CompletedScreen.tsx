@@ -259,14 +259,14 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note || pitFailure) && (
           <p className="materials-note" data-testid="pit-detail">
             {pitFailure ? <span data-testid="pit-failure-reason">{pitFailure}</span> : null}
-            {view.pitDetail.note ? `${copyText(view.pitDetail.note)}。` : ""}
+            {view.pitDetail.note ? `${copyText(view.pitDetail.note)}${t("ui.pit.sentenceStop")}` : ""}
             {view.pitDetail.executed ? (
               <>
                 {t("ui.pit.trusted", {count: view.pitDetail.evidenceUsed ?? 0})}
                 {(view.pitDetail.undatedExcluded?.length ?? 0) > 0
                   ? t("ui.pit.undated", {count: view.pitDetail.undatedExcluded?.length ?? 0})
                   : ""}
-                。{copyText(view.pitDetail.scope)}
+                {t("ui.pit.sentenceStop")}{copyText(view.pitDetail.scope)}
               </>
             ) : null}
           </p>

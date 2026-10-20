@@ -41,6 +41,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["分段稳健性检验", "ui.copy.walk"],
   ["研究状态未完成", "ui.copy.gateCompleted"],
   ["冻结验证方法集", "ui.copy.frozenSet"],
+  ["已覆盖默认的池", "ui.copy.overrideDefault"],
   ["用户指定标的", "ui.copy.userSpecified"],
   ["样本外稳定", "ui.copy.oos"],
   ["默认标的池", "ui.copy.defaultTail"],
@@ -117,6 +118,14 @@ const RULES: Rule[] = [
       version: m[3].trim(),
       date: m[4],
       tail: exactLabel(m[5], t),
+    }),
+  },
+  {
+    re: /^(\d+) 只 · ([^·]+) · ([^·]+)$/,
+    render: (m, t) => t(m[1] === "1" ? "ui.copy.userLineOne" : "ui.copy.userLine", {
+      count: m[1],
+      listName: exactLabel(m[2], t),
+      tail: exactLabel(m[3], t),
     }),
   },
   {

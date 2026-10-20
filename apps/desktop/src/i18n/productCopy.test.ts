@@ -42,6 +42,17 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
     expect(zh("未模拟 T+1 与涨跌停，实际成交可能更差")).toBe("未模拟 T+1 与涨跌停，实际成交可能更差");
     expect(en("0.00 小时")).toBe("0.00 hours");
     expect(zh("0.00 小时")).toBe("0.00 小时");
+    const singleName = "1 只 · 用户指定标的 · 已覆盖默认的池";
+    expect(zh(singleName)).toBe(singleName);
+    expect(en(singleName)).toBe("1 name · User-specified symbols · Replaced the default universe");
+    expect(en(singleName)).not.toMatch(/[\u4e00-\u9fff]/);
+    const scope = translate("en", "ui.copy.pitScope");
+    expect(scope).toBe(
+      "Checks only that a source's publication date is on or before the backtest cutoff. It does not cover the universe, adjustments, or financial revisions.",
+    );
+    expect(scope).not.toMatch(/[。，、；：！？「」『』（）‘’]/);
+    expect(scope).toContain("source's");
+    expect(scope).not.toMatch(/source\s+'|'\s+s/);
   });
 
   it("does not translate a user thesis or a literature title", () => {
