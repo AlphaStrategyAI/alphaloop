@@ -46,6 +46,11 @@ class DataPaths:
     def snapshots_dir(self) -> Path:
         return self.root / "snapshots"
 
+    @property
+    def settings_file(self) -> Path:
+        """App preferences (UI language and later settings). Not the research database."""
+        return self.root / "settings.json"
+
     @classmethod
     def default(cls) -> Self:
         return cls(resolve_data_root(ensure_exists=True))

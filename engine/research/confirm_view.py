@@ -7,7 +7,7 @@ from engine.research.display_names import data_source_label_for_symbols
 from engine.research.models import Research
 from engine.research.planned_data_window import planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
-from engine.research.symbol_pool import pool_for_market
+from engine.research.symbol_pool import pool_by_version, pool_for_market
 from engine.research.symbol_selection_display import symbol_selection_summary_fields
 from engine.research.universe_pool import materialize_default_pool
 
@@ -38,11 +38,14 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
         start = research.data_window_start
     if research.data_window_end is not None:
         end = research.data_window_end
-    pool = pool_for_market(
-        universe.market,
-        universe.asset_class,
-        universe.underlying_asset_class,
-    )
+    pinned_version = universe.symbol_list_version or research.symbol_list_version
+    pool = pool_by_version(pinned_version) if pinned_version else None
+    if pool is None:
+        pool = pool_for_market(
+            universe.market,
+            universe.asset_class,
+            universe.underlying_asset_class,
+        )
     user_override = universe.user_symbols_override and bool(universe.symbols)
     if user_override:
         symbols = universe.symbols

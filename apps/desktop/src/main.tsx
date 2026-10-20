@@ -10,6 +10,8 @@ import {createRoot} from "react-dom/client";
 
 import {App} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
+import {I18nProvider} from "./i18n/I18nProvider";
+import {tauriLanguagePort, createMemoryLanguagePort} from "./i18n/port";
 import {readBrowserRoute} from "./routing";
 
 const desktopApi: DesktopApi = {
@@ -78,14 +80,21 @@ const restartSidecar =
       }
     : undefined;
 
+const languagePort =
+  "__TAURI_INTERNALS__" in window
+    ? tauriLanguagePort
+    : createMemoryLanguagePort({systemLocale: navigator.language || null});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App
-      api={api}
-      initialView={preview}
-      initialRoute={bootRoute}
-      pollSidecar={pollSidecar}
-      restartSidecar={restartSidecar}
-    />
+    <I18nProvider port={languagePort}>
+      <App
+        api={api}
+        initialView={preview}
+        initialRoute={bootRoute}
+        pollSidecar={pollSidecar}
+        restartSidecar={restartSidecar}
+      />
+    </I18nProvider>
   </StrictMode>,
 );

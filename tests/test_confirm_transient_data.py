@@ -92,6 +92,13 @@ def test_confirm_run_transient_keeps_pool_and_slots(tmp_path: Path) -> None:
     assert loaded.symbol_list_version is None
     assert loaded.versions == ()
     assert any(TRANSIENT_DATA_MESSAGE in turn.text for turn in loaded.dialogue)
+    view = service.view_for(f"#/research/{research.research_id}")
+    notice = next(turn for turn in view["dialogue"] if turn.get("errorCode") == TRANSIENT_DATA_CODE)
+    assert notice["text"] == ""
+    assert TRANSIENT_DATA_MESSAGE not in notice["text"]
+    assert "empty price frame" in notice["errorDetail"]
+    assert TRANSIENT_DATA_MESSAGE not in notice["errorDetail"]
+    assert notice["errorParams"]["symbols"] > 0
 
 
 def test_confirm_run_retries_after_source_recovers(tmp_path: Path) -> None:

@@ -9,6 +9,7 @@ use crate::secrets::SecretVault;
 use crate::sidecar::EngineSupervisor;
 use crate::sidecar_runtime::SidecarRuntime;
 use crate::start_desktop_sidecar;
+use crate::ui_language::{self, UiLanguageSnapshot};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -23,6 +24,7 @@ type Redactor = Arc<dyn Fn(&str) -> String + Send + Sync>;
 #[derive(Clone)]
 pub struct EngineConnection {
     connection: Arc<Mutex<Option<Connection>>>,
+    locale: Arc<Mutex<Option<String>>>,
     redactor: Redactor,
 }
 
@@ -30,6 +32,7 @@ impl Default for EngineConnection {
     fn default() -> Self {
         Self {
             connection: Arc::new(Mutex::new(None)),
+            locale: Arc::new(Mutex::new(None)),
             redactor: Arc::new(|text| text.to_string()),
         }
     }
@@ -51,6 +54,7 @@ impl EngineConnection {
     pub fn with_redactor(redactor: Redactor) -> Self {
         Self {
             connection: Arc::new(Mutex::new(None)),
+            locale: Arc::new(Mutex::new(None)),
             redactor,
         }
     }
@@ -69,7 +73,34 @@ impl EngineConnection {
             .unwrap_or(false)
     }
 
+    pub fn set_locale(&self, locale: &str) -> Result<(), String> {
+        if locale != "zh" && locale != "en" {
+            return Err("locale must be the resolved language zh or en".into());
+        }
+        let mut slot = self
+            .locale
+            .lock()
+            .map_err(|_| "engine locale lock poisoned")?;
+        *slot = Some(locale.to_string());
+        Ok(())
+    }
+
+    fn inject_locale(&self, mut request: Value) -> Value {
+        let locale = self
+            .locale
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone());
+        if let Some(locale) = locale {
+            if let Some(object) = request.as_object_mut() {
+                object.entry("locale").or_insert(json!(locale));
+            }
+        }
+        request
+    }
+
     async fn post(&self, request: Value) -> Result<Value, String> {
+        let request = self.inject_locale(request);
         let connection = self
             .connection
             .lock()
@@ -98,6 +129,9 @@ impl EngineConnection {
 
 fn parse_engine_error_body(body: &str) -> String {
     if let Ok(payload) = serde_json::from_str::<Value>(body) {
+        if payload.get("code").and_then(|value| value.as_str()).is_some() {
+            return body.to_string();
+        }
         if let Some(message) = payload.get("error").and_then(|value| value.as_str()) {
             return message.to_string();
         }
@@ -442,6 +476,35 @@ pub fn engine_sidecar_state(runtime: State<'_, Arc<SidecarRuntime>>) -> Result<V
 }
 
 #[tauri::command]
+pub fn get_ui_language() -> UiLanguageSnapshot {
+    ui_language::current_snapshot()
+}
+
+#[tauri::command]
+pub fn set_ui_language(
+    preference: String,
+    connection: State<'_, EngineConnection>,
+) -> Result<UiLanguageSnapshot, String> {
+    ui_language::write_ui_language_preference(&ui_language::settings_file(), &preference)?;
+    let snapshot = ui_language::current_snapshot();
+    connection.set_locale(&snapshot.resolved)?;
+    Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn read_system_locale() -> Option<String> {
+    ui_language::read_system_locale_tag()
+}
+
+#[tauri::command]
+pub fn set_engine_locale(
+    locale: String,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    connection.set_locale(&locale)
+}
+
+#[tauri::command]
 pub fn restart_engine_sidecar(
     app: AppHandle,
     runtime: State<'_, Arc<SidecarRuntime>>,
@@ -544,6 +607,7 @@ pub async fn secret_failure_preview(
 #[cfg(test)]
 mod tests {
     use super::{EngineConnection, notification_title, notify_kinds, parse_engine_error_body};
+    use serde_json::json;
 
     #[test]
     fn notify_titles_cover_only_awaiting_and_terminal_states() {
@@ -569,12 +633,27 @@ mod tests {
     }
 
     #[test]
-    fn parse_engine_error_body_uses_json_error_field() {
-        let body = r#"{"error":"请先暂停","code":"RUNNING_CANNOT_MODIFY"}"#;
-        assert_eq!(
-            parse_engine_error_body(body),
-            "请先暂停"
-        );
+    fn parse_engine_error_body_keeps_the_envelope_when_a_code_is_present() {
+        let body = r#"{"error":"请先暂停","code":"RUNNING_CANNOT_MODIFY","params":{},"detail":null}"#;
+        assert_eq!(parse_engine_error_body(body), body);
+    }
+
+    #[test]
+    fn parse_engine_error_body_uses_json_error_field_without_a_code() {
+        let body = r#"{"error":"请先暂停"}"#;
+        assert_eq!(parse_engine_error_body(body), "请先暂停");
+    }
+
+    #[test]
+    fn inject_locale_adds_the_resolved_language_to_every_request() {
+        let connection = EngineConnection::default();
+        let untouched = connection.inject_locale(json!({"type": "create_draft"}));
+        assert!(untouched.get("locale").is_none());
+        connection.set_locale("zh").expect("zh");
+        let body = connection.inject_locale(json!({"type": "fetch_view", "route": "#/research"}));
+        assert_eq!(body["locale"], "zh");
+        assert!(connection.set_locale("zh-CN").is_err());
+        assert!(connection.set_locale("system").is_err());
     }
 
     #[test]

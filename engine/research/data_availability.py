@@ -12,24 +12,52 @@ from engine.research.user_errors import UserFacingError
 
 TRANSIENT_DATA_MESSAGE = "行情数据源暂时不可用，请稍后重试"
 TRANSIENT_DATA_CODE = "DATA_SOURCE_UNAVAILABLE"
+_EMPTY_FRAME_DETAIL = "provider returned an empty price frame"
 
 
-def transient_data_error() -> UserFacingError:
-    return UserFacingError(TRANSIENT_DATA_CODE, TRANSIENT_DATA_MESSAGE)
+def _technical(error: BaseException) -> str:
+    text = str(error).strip()
+    name = type(error).__name__
+    if not text or text == TRANSIENT_DATA_MESSAGE or text == name:
+        return name
+    return f"{name}: {text}"
+
+
+def transient_data_error(
+    detail: str | None = None,
+    *,
+    params: dict[str, Any] | None = None,
+) -> UserFacingError:
+    technical = (detail or "").strip()
+    if not technical or technical == TRANSIENT_DATA_MESSAGE:
+        technical = "DATA_SOURCE_UNAVAILABLE: market data source returned no usable bars"
+    return UserFacingError(
+        TRANSIENT_DATA_CODE,
+        TRANSIENT_DATA_MESSAGE,
+        params=dict(params or {}),
+        detail=technical,
+    )
 
 
 def classify_load_failure(error: BaseException) -> UserFacingError | None:
     if isinstance(error, DataPipelineError):
         if error.code == TRANSIENT_DATA_CODE:
-            return transient_data_error()
-        return UserFacingError(error.code, error.message)
+            return transient_data_error(detail=_technical(error))
+        return UserFacingError(error.code, error.message, detail=_technical(error))
     if isinstance(error, UserFacingError):
-        return error
+        if error.detail:
+            return error
+        return UserFacingError(
+            error.code,
+            error.message,
+            params=error.params,
+            detail=_technical(error),
+        )
     if isinstance(error, httpx.HTTPStatusError):
         if error.response.status_code in {403, 429, 500, 502, 503, 504}:
-            return transient_data_error()
+            return transient_data_error(detail=_technical(error))
     if isinstance(error, (httpx.TimeoutException, httpx.ConnectError, TimeoutError, OSError)):
-        return transient_data_error()
+        return transient_data_error(detail=_technical(error))
     text = str(error).lower()
     if any(
         token in text
@@ -45,7 +73,7 @@ def classify_load_failure(error: BaseException) -> UserFacingError | None:
             "temporarily unavailable",
         )
     ):
-        return transient_data_error()
+        return transient_data_error(detail=_technical(error))
     return None
 
 
@@ -65,6 +93,12 @@ def raise_if_total_source_outage(symbols: tuple[str, ...], frame: pd.DataFrame) 
     if not symbols:
         return
     if frame is None or frame.empty:
-        raise transient_data_error()
+        raise transient_data_error(
+            _EMPTY_FRAME_DETAIL,
+            params={"symbols": len(symbols)},
+        )
     if not symbols_with_any_bars(frame, symbols):
-        raise transient_data_error()
+        raise transient_data_error(
+            f"provider returned no bars for {len(symbols)} symbols",
+            params={"symbols": len(symbols)},
+        )

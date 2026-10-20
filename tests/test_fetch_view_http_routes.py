@@ -18,7 +18,9 @@ from engine.research.store import SQLiteStore
 
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP_SRC = ROOT / "apps" / "desktop" / "src"
+# Engine fetch_view routes. `#/settings` is desktop-local (I0) and is not sent to the engine.
 ALLOWED_PREFIXES = frozenset({"research", "methods", "glossary"})
+LOCAL_PREFIXES = frozenset({"settings"})
 
 NOW = datetime(2026, 10, 19, 8, 0, tzinfo=UTC)
 
@@ -92,7 +94,8 @@ def _frontend_hash_prefixes() -> set[str]:
 
 def test_frontend_hash_prefixes_stay_inside_the_schema_allowlist() -> None:
     found = _frontend_hash_prefixes()
-    assert found == ALLOWED_PREFIXES
+    assert found - LOCAL_PREFIXES == ALLOWED_PREFIXES
+    assert LOCAL_PREFIXES <= found
 
 
 def test_http_fetch_view_rejects_unknown_route(api: tuple[str, str]) -> None:

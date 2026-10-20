@@ -43,7 +43,9 @@ class BoundDataPort:
         try:
             return run_with_deadline(timeouts.MARKET_DATA_LOAD_TIMEOUT_SEC, _load)
         except TimeoutError:
-            raise transient_data_error() from None
+            raise transient_data_error(
+                detail="TimeoutError: market data load exceeded the deadline"
+            ) from None
 
 
 def data_port_for_symbols(symbols: tuple[str, ...]) -> BoundDataPort:

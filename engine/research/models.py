@@ -18,6 +18,9 @@ class DialogueRole(StrEnum):
 class DialogueTurn:
     role: DialogueRole
     text: str
+    error_code: str | None = None
+    error_params: dict[str, Any] | None = None
+    error_detail: str | None = None
 
 
 class ResearchStatus(StrEnum):
@@ -492,6 +495,8 @@ class Research:
     data_source_id: str = "yahoo_daily"
     last_run_error: str | None = None
     last_run_error_code: str | None = None
+    last_run_error_params: dict[str, Any] | None = None
+    last_run_error_detail: str | None = None
     consecutive_identical_run_errors: int = 0
     pool_data_dropped_count: int = 0
     coverage_min_assets_scratch: int | None = None
