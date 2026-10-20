@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
+import {I18nProvider} from "./i18n/I18nProvider";
 import {SecretVaultButton, SecretVaultPanel} from "./SecretVault";
 
 const invoke = vi.fn();
@@ -84,5 +85,39 @@ describe("secret vault panel", () => {
     const failure = await screen.findByTestId("secret-failure-text");
     expect(failure).toHaveTextContent("example.invalid");
     expect(failure.textContent).not.toContain("alphaloop-test-secret-9f3a");
+  });
+
+  it("does not claim a passphrase vault is locked when the file is absent", async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === "secret_store_status") return {backend: "passphrase", locked: false};
+      if (command === "secret_is_set") return false;
+      return undefined;
+    });
+    render(<SecretVaultPanel onClose={() => undefined} />);
+    expect(await screen.findByTestId("secret-passphrase")).toBeInTheDocument();
+    expect(screen.queryByTestId("secret-locked")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "解锁"})).not.toBeInTheDocument();
+  });
+
+  it("switches the rail button and the locked line with the interface language", async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === "secret_store_status") return {backend: "passphrase", locked: true};
+      if (command === "secret_is_set") return false;
+      return undefined;
+    });
+    render(
+      <I18nProvider initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <SecretVaultButton />
+      </I18nProvider>,
+    );
+    const open = screen.getByTestId("secret-vault-open");
+    expect(open).toHaveTextContent("Secrets");
+    expect(open.querySelector("[data-i18n-placeholder]")).toBeTruthy();
+    fireEvent.click(open);
+    const locked = await screen.findByTestId("secret-locked");
+    expect(locked).toHaveTextContent("A passphrase file is present and needs to be unlocked.");
+    expect(locked.querySelector("[data-i18n-placeholder]")).toBeTruthy();
+    expect(screen.queryByText("密钥")).not.toBeInTheDocument();
+    expect(screen.queryByText("口令文件已在，需要解锁。")).not.toBeInTheDocument();
   });
 });

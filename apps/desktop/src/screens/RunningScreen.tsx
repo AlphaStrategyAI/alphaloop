@@ -4,6 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -29,9 +30,10 @@ export function RunningScreen({
   runStartRitual?: boolean;
 }) {
   const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const quota = parseEffectiveQuotaFromView(view.effective, view.remaining);
   const stageLabel =
-    view.currentAction && view.currentAction !== "idle" ? view.currentAction : null;
+    view.currentAction && view.currentAction !== "idle" ? copyText(view.currentAction) : null;
   return (
     <div
       className={`focus running-screen${runStartRitual ? " run-start-ritual-running" : ""}`}
@@ -47,7 +49,7 @@ export function RunningScreen({
           <h1>{t("ui.running.title")}</h1>
           <p className="running-sub">
             {t("ui.running.version", {version: view.version})}
-            {view.currentAction && view.currentAction !== "idle" ? ` · ${view.currentAction}` : ""}
+            {view.currentAction && view.currentAction !== "idle" ? ` · ${copyText(view.currentAction)}` : ""}
           </p>
           {view.coverage && <p className="running-accent">{view.coverage}</p>}
         </div>
@@ -79,37 +81,37 @@ export function RunningScreen({
       )}
       {view.versionOpenedNotice && (
         <p className="version-opened-banner" data-testid="version-opened-banner" role="status">
-          {view.versionOpenedNotice}
+          {copyText(view.versionOpenedNotice)}
         </p>
       )}
       <header className="running-header">
         <StatusPill status={view.status} />
         {view.currentAction && view.currentAction !== "idle"
-          ? ` ${view.currentAction} · `
+          ? ` ${copyText(view.currentAction)} · `
           : " "}
-        {t("ui.running.header", {version: view.version, effective: view.effective})}
-        {view.remaining ? ` · ${t("ui.running.remaining", {remaining: view.remaining})}` : ""}
-        {" · "}{view.coverage}
-        {view.workbenchHeaderSummary ? ` · ${view.workbenchHeaderSummary}` : ""}
-        {view.versionTrialLabel ? ` · ${view.versionTrialLabel}` : ""}
+        {t("ui.running.header", {version: view.version, effective: copyText(view.effective)})}
+        {view.remaining ? ` · ${t("ui.running.remaining", {remaining: copyText(view.remaining)})}` : ""}
+        {" · "}{copyText(view.coverage)}
+        {view.workbenchHeaderSummary ? ` · ${copyText(view.workbenchHeaderSummary)}` : ""}
+        {view.versionTrialLabel ? ` · ${copyText(view.versionTrialLabel)}` : ""}
         {!view.workbenchHeaderSummary && view.windowCumulativeLabel
-          ? ` · ${view.windowCumulativeLabel}`
+          ? ` · ${copyText(view.windowCumulativeLabel)}`
           : ""}
       </header>
       {view.effectiveTimeHint && (
         <p className="effective-time-hint" data-testid="effective-time-hint">
-          {view.effectiveTimeHint}
+          {copyText(view.effectiveTimeHint)}
         </p>
       )}
       {view.lastError && <LocalizedRunError error={view.lastError} />}
       {view.honestStopHint && (
         <p className="honest-stop-hint" data-testid="honest-stop-hint-running">
-          {view.honestStopHint}
+          {copyText(view.honestStopHint)}
         </p>
       )}
       <section className="materials-note">
         <p className="eyebrow">{t("ui.running.materials")}</p>
-        <p>{t("ui.running.sources", {sources: view.sources ?? t("ui.running.sourcesFallback")})}</p>
+        <p>{t("ui.running.sources", {sources: copyText(view.sources) || t("ui.running.sourcesFallback")})}</p>
         <p>{t("ui.running.cutoff", {cutoff: view.dataCutoff || t("ui.running.cutoffFallback")})}</p>
         <p>{t("ui.running.coverageNow", {coverage: view.coverage})}</p>
         <p>{t("ui.running.notATerminal")}</p>
@@ -127,14 +129,14 @@ export function RunningScreen({
             <div className="round-impl">
               <p className="eyebrow">{t("ui.running.implementation")}</p>
               {round.implementationDelta.modelChangesDisplay ? (
-                <p>{round.implementationDelta.modelChangesDisplay}</p>
+                <p>{copyText(round.implementationDelta.modelChangesDisplay)}</p>
               ) : (
                 round.implementationDelta.modelChanges.length > 0 && (
                   <p>{t("ui.running.modelChanges", {changes: round.implementationDelta.modelChanges.join("、")})}</p>
                 )
               )}
               {round.logicStatement.changedFromPrior && round.logicStatement.changeDescription && (
-                <p className="change-note">{round.logicStatement.changeDescription}</p>
+                <p className="change-note">{copyText(round.logicStatement.changeDescription)}</p>
               )}
               {round.implementationDelta.paramChanges.length > 0 && (
                 <ul className="param-changes">

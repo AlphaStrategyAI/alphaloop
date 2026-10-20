@@ -2,7 +2,7 @@ import {FormEvent, useEffect, useLayoutEffect, useState} from "react";
 import {createPortal} from "react-dom";
 import {invoke} from "@tauri-apps/api/core";
 
-import {secretVaultCopy as copy} from "./secret-vault-copy";
+import {I18nText} from "./i18n/I18nText";
 
 type VaultStatus = {backend: string; locked: boolean};
 
@@ -11,7 +11,7 @@ export function SecretVaultButton() {
   return (
     <>
       <button type="button" data-testid="secret-vault-open" onClick={() => setOpen(true)}>
-        {copy.open}
+        <I18nText k="ui.secrets.open" />
       </button>
       {open
         ? createPortal(
@@ -29,6 +29,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
   const [secret, setSecret] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [isSet, setIsSet] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [note, setNote] = useState("");
   const [failure, setFailure] = useState("");
 
@@ -62,9 +63,12 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
       passphrase: passphrase || null,
     });
     setSecret("");
-    setNote(copy.saved);
+    setSaved(true);
+    setNote("");
     await refresh();
   }
+
+  const locked = Boolean(status?.locked);
 
   return (
     <div
@@ -85,30 +89,36 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header>
-          <h2 id="secret-vault-title">{copy.title}</h2>
-          <button type="button" data-testid="secret-vault-close" onClick={onClose}>{copy.close}</button>
+          <h2 id="secret-vault-title"><I18nText k="ui.secrets.title" /></h2>
+          <button type="button" data-testid="secret-vault-close" onClick={onClose}>
+            <I18nText k="ui.secrets.close" />
+          </button>
         </header>
         {status?.backend === "needs_choice" ? (
           <div data-testid="secret-fallback">
-            <p>{copy.needsChoice}</p>
+            <p><I18nText k="ui.secrets.needsChoice" /></p>
             <button type="button" onClick={() => void invoke("secret_choose_fallback", {choice: "memory"}).then(() => refresh())}>
-              {copy.memory}
+              <I18nText k="ui.secrets.memory" />
             </button>
             <button type="button" onClick={() => void invoke("secret_choose_fallback", {choice: "passphrase"}).then(() => refresh())}>
-              {copy.passphraseFile}
+              <I18nText k="ui.secrets.passphraseFile" />
             </button>
           </div>
         ) : null}
-        {status?.backend === "keyring" ? <p>{copy.keyring}</p> : null}
-        {status?.backend === "memory" ? <p>{copy.memoryNote}</p> : null}
-        {status?.locked ? <p data-testid="secret-locked">{copy.locked}</p> : null}
-        <p data-testid="secret-status">{isSet ? copy.set : copy.unset}</p>
+        {status?.backend === "keyring" ? <p><I18nText k="ui.secrets.keyring" /></p> : null}
+        {status?.backend === "memory" ? <p><I18nText k="ui.secrets.memoryNote" /></p> : null}
+        {locked ? (
+          <p data-testid="secret-locked"><I18nText k="ui.secrets.locked" /></p>
+        ) : null}
+        <p data-testid="secret-status">
+          <I18nText k={isSet ? "ui.secrets.set" : "ui.secrets.unset"} />
+        </p>
         <label>
-          {copy.alias}
+          <I18nText k="ui.secrets.alias" />
           <input value={alias} onChange={(event) => setAlias(event.target.value)} data-testid="secret-alias" />
         </label>
         <label>
-          {copy.secret}
+          <I18nText k="ui.secrets.secret" />
           <input
             type="password"
             value={secret}
@@ -119,7 +129,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
         </label>
         {status?.backend === "passphrase" ? (
           <label>
-            {copy.passphrase}
+            <I18nText k="ui.secrets.passphrase" />
             <input
               type="password"
               value={passphrase}
@@ -127,24 +137,26 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
               data-testid="secret-passphrase"
               autoComplete="off"
             />
-            <span>{copy.passphraseHint}</span>
+            <span><I18nText k="ui.secrets.passphraseHint" /></span>
           </label>
         ) : null}
         <div className="secret-vault-actions">
-          {status?.locked ? (
+          {locked ? (
             <button
               type="button"
               onClick={() => void invoke("secret_unlock", {passphrase}).then(() => refresh())}
             >
-              {copy.unlock}
+              <I18nText k="ui.secrets.unlock" />
             </button>
           ) : null}
-          <button type="submit" disabled={status?.backend === "needs_choice"}>{copy.save}</button>
+          <button type="submit" disabled={status?.backend === "needs_choice"}>
+            <I18nText k="ui.secrets.save" />
+          </button>
           <button
             type="button"
             onClick={() => void invoke("secret_delete", {id: alias}).then(() => refresh())}
           >
-            {copy.remove}
+            <I18nText k="ui.secrets.remove" />
           </button>
           <button
             type="button"
@@ -155,9 +167,10 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
               })
             }
           >
-            {copy.preview}
+            <I18nText k="ui.secrets.preview" />
           </button>
         </div>
+        {saved ? <p><I18nText k="ui.secrets.saved" /></p> : null}
         {note ? <p>{note}</p> : null}
         {failure ? <p data-testid="secret-failure-text">{failure}</p> : null}
       </form>

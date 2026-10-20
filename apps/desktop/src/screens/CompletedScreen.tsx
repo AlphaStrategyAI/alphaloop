@@ -5,6 +5,7 @@ import {formatResearchTimestamp} from "../format";
 import {EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -134,6 +135,7 @@ function pitFailureCopy(detail: PitDetail | null | undefined, t: Translate): str
 
 export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
   const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const [extensionHours, setExtensionHours] = useState("4");
   const [modification, setModification] = useState("");
   const [iterateConfirm, setIterateConfirm] = useState<InAppConfirmRequest | null>(null);
@@ -184,8 +186,10 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
   const pitFailure = pitFailureCopy(view.pitDetail, t);
   const eligible = checks.every(([, passed]) => passed);
   const researchRecordExportPrimary = completedShowsFailedTone(view);
-  const headline = view.resultHeadline ?? (eligible ? t("ui.completed.doneOk") : t("ui.completed.doneFailed"));
-  // Engine subtitle is still Chinese until I2. Match that sentence, do not translate it.
+  const headline = view.resultHeadline
+    ? copyText(view.resultHeadline)
+    : (eligible ? t("ui.completed.doneOk") : t("ui.completed.doneFailed"));
+  // The engine sentence still uses this phrase. Match the raw subtitle.
   const gatesInSubtitle = Boolean(view.subtitle?.includes("未通过门禁")); // i18n-allow engine copy
   const showFailedGateLine =
     view.failedVerifierIds &&
@@ -233,17 +237,17 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         <p className="completed-focus-headline">{headline}</p>
         {view.meanReversionOnlyNotice && (
           <p className="confirm-lead" data-testid="mean-reversion-only-notice">
-            {view.meanReversionOnlyNotice}
+            {copyText(view.meanReversionOnlyNotice)}
           </p>
         )}
         {view.cnExecutionNotice && (
           <p className="confirm-lead" data-testid="cn-execution-notice">
-            {view.cnExecutionNotice}
+            {copyText(view.cnExecutionNotice)}
           </p>
         )}
-        {view.subtitle && <p className="completed-focus-subtitle">{view.subtitle}</p>}
+        {view.subtitle && <p className="completed-focus-subtitle">{copyText(view.subtitle)}</p>}
         {view.honestStopHint && (
-          <p className="honest-stop-hint" data-testid="honest-stop-hint">{view.honestStopHint}</p>
+          <p className="honest-stop-hint" data-testid="honest-stop-hint">{copyText(view.honestStopHint)}</p>
         )}
         <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
           {checks.map(([label, passed]) => (
@@ -255,31 +259,33 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note || pitFailure) && (
           <p className="materials-note" data-testid="pit-detail">
             {pitFailure ? <span data-testid="pit-failure-reason">{pitFailure}</span> : null}
-            {view.pitDetail.note ? `${view.pitDetail.note}。` : ""}
+            {view.pitDetail.note ? `${copyText(view.pitDetail.note)}。` : ""}
             {view.pitDetail.executed ? (
               <>
                 {t("ui.pit.trusted", {count: view.pitDetail.evidenceUsed ?? 0})}
                 {(view.pitDetail.undatedExcluded?.length ?? 0) > 0
                   ? t("ui.pit.undated", {count: view.pitDetail.undatedExcluded?.length ?? 0})
                   : ""}
-                。{view.pitDetail.scope}
+                。{copyText(view.pitDetail.scope)}
               </>
             ) : null}
           </p>
         )}
         <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
           {t("ui.running.version", {version: view.version ?? 1})}
-          {view.researchCumulativeLabel ? ` · ${view.researchCumulativeLabel}` : ""}
-          {view.workbenchHeaderSummary ? ` · ${view.workbenchHeaderSummary}` : ""}
+          {view.researchCumulativeLabel ? ` · ${copyText(view.researchCumulativeLabel)}` : ""}
+          {view.workbenchHeaderSummary ? ` · ${copyText(view.workbenchHeaderSummary)}` : ""}
           {view.windowCumulativeLabel && view.windowCumulativeLabel !== view.workbenchHeaderSummary
-            ? ` · ${view.windowCumulativeLabel}`
+            ? ` · ${copyText(view.windowCumulativeLabel)}`
             : ""}
-          {view.effective ? ` · ${t("ui.running.effectiveOnly", {effective: view.effective})}` : ""}
-          {view.remaining ? ` · ${t("ui.running.remaining", {remaining: view.remaining})}` : ""}
+          {view.effective ? ` · ${t("ui.running.effectiveOnly", {effective: copyText(view.effective)})}` : ""}
+          {view.remaining ? ` · ${t("ui.running.remaining", {remaining: copyText(view.remaining)})}` : ""}
         </p>
         {showFailedGateLine && (
           <p className="failed-gates-line" data-testid="failed-gates-line">
-            {t("ui.completed.failedGates", {gates: view.failedVerifierIds!.join("、")})}
+            {t("ui.completed.failedGates", {
+              gates: view.failedVerifierIds!.map((id) => copyText(id)).join(t("ui.copy.gateJoiner")),
+            })}
           </p>
         )}
         {eligible && view.title && (
@@ -324,7 +330,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         {!eligible && view.exportBlockerMessages && view.exportBlockerMessages.length > 0 && (
           <ul className="export-blockers" data-testid="export-blockers">
             {view.exportBlockerMessages.map((message) => (
-              <li key={message}>{message}</li>
+              <li key={message}>{copyText(message)}</li>
             ))}
           </ul>
         )}
@@ -351,7 +357,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                   data-testid="reverify-round-select"
                 >
                   {reverifyRounds.map((round) => (
-                    <option key={round.roundId} value={round.roundId}>{round.roundLabel}</option>
+                    <option key={round.roundId} value={round.roundId}>{copyText(round.roundLabel)}</option>
                   ))}
                 </select>
               </label>
@@ -364,7 +370,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                 >
                   {methodsForRound.map((method) => (
                     <option key={method.methodId} value={method.methodId}>
-                      {method.methodLabel}
+                      {copyText(method.methodLabel)}
                     </option>
                   ))}
                 </select>
@@ -389,9 +395,10 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                   data-testid="reverify-result"
                   role="status"
                 >
-                  {view.lastReverification.userMessage ??
-                    t("ui.completed.reverifyResult", {
-                      method: view.lastReverification.methodLabel,
+                  {view.lastReverification.userMessage
+                    ? copyText(view.lastReverification.userMessage)
+                    : t("ui.completed.reverifyResult", {
+                      method: copyText(view.lastReverification.methodLabel),
                       result: view.lastReverification.passed ? t("ui.completed.pass") : t("ui.completed.fail"),
                     })}
                 </p>
@@ -432,15 +439,15 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         <section className="materials-note completed-data-window" data-testid="completed-symbol-selection">
           <p className="eyebrow">{t("ui.completed.windowEyebrow")}</p>
           <p data-testid="completed-symbol-selection-summary">
-            {view.symbolSelection.summaryLine ??
+            {copyText(view.symbolSelection.summaryLine) ||
               t("ui.completed.windowSummary", {
                 count: view.symbolSelection.count,
-                listName: view.symbolSelection.listName,
+                listName: copyText(view.symbolSelection.listName),
                 listVersion: view.symbolSelection.listVersion,
               })}
           </p>
           {view.symbolSelection.listNote ? (
-            <p data-testid="symbol-selection-note">{view.symbolSelection.listNote}</p>
+            <p data-testid="symbol-selection-note">{copyText(view.symbolSelection.listNote)}</p>
           ) : null}
           {view.symbolSelection.listNote && view.symbolSelection.listVersion ? (
             <p data-testid="symbol-selection-version">
@@ -453,7 +460,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
               end: view.symbolSelection.dataEnd,
               cutoff: view.symbolSelection.dataCutoff,
               backtest: view.backtestCutoff ? t("ui.completed.backtest", {date: view.backtestCutoff}) : "",
-              source: view.symbolSelection.dataSource,
+              source: copyText(view.symbolSelection.dataSource),
             })}
           </p>
         </section>
@@ -473,7 +480,9 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             setIterateConfirm({
               title: t("ui.completed.iterateTitle"),
               body: t("ui.completed.iterateBody", {
-                window: view.windowCumulativeLabel ?? t("ui.completed.iterateFallback", {n: m}),
+                window: view.windowCumulativeLabel
+                  ? copyText(view.windowCumulativeLabel)
+                  : t("ui.completed.iterateFallback", {n: m}),
               }),
               confirmLabel: t("ui.completed.iterateTitle"),
               onConfirm: () => {
@@ -508,7 +517,9 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         <section className="late-pass-record" data-testid="late-pass-prior-failures">
           <p className="eyebrow">{t("ui.completed.priorEyebrow")}</p>
           <p>
-            {view.windowCumulativeLabel ?? t("ui.completed.iterateFallback", {n: view.latePassPresentation.cumulativeRoundsOnWindow})}
+            {view.windowCumulativeLabel
+              ? copyText(view.windowCumulativeLabel)
+              : t("ui.completed.iterateFallback", {n: view.latePassPresentation.cumulativeRoundsOnWindow})}
             ；{t("ui.completed.priorLead", {round: view.latePassPresentation.conclusionRoundId})}
           </p>
           <ul>
@@ -543,10 +554,10 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
               <small>{t("ui.completed.roundN", {n: (view.rounds?.length ?? 0) - index})}</small>
               <p>{round.logicStatement.statement}</p>
               {round.logicStatement.changeDescription && (
-                <p className="change-note">{round.logicStatement.changeDescription}</p>
+                <p className="change-note">{copyText(round.logicStatement.changeDescription)}</p>
               )}
               {round.implementationDelta.modelChangesDisplay && (
-                <p>{round.implementationDelta.modelChangesDisplay}</p>
+                <p>{copyText(round.implementationDelta.modelChangesDisplay)}</p>
               )}
               <p className="round-verdict">
                 {round.verificationPassed
@@ -578,7 +589,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                   data-testid="reverify-round-select"
                 >
                   {reverifyRounds.map((round) => (
-                    <option key={round.roundId} value={round.roundId}>{round.roundLabel}</option>
+                    <option key={round.roundId} value={round.roundId}>{copyText(round.roundLabel)}</option>
                   ))}
                 </select>
               </label>
@@ -591,7 +602,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                 >
                   {methodsForRound.map((method) => (
                     <option key={method.methodId} value={method.methodId}>
-                      {method.methodLabel}
+                      {copyText(method.methodLabel)}
                     </option>
                   ))}
                 </select>
