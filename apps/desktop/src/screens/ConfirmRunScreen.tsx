@@ -1,7 +1,7 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
 import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
-import {formatResearchTimestamp} from "../format";
+import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataCopy";
 import {DialogueTurnBody} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
@@ -219,12 +219,16 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       )}
       {view.constructionNotice && (
         <p className="confirm-lead" data-testid="construction-notice">
-          {view.constructionNotice}
+          <ConstructionNoticeText text={view.constructionNotice} />
         </p>
       )}
       {view.confirmDataNotice && (
         <p className="confirm-data-notice" data-testid="confirm-data-notice" role="alert">
-          {view.confirmDataNotice}
+          <ConfirmDataNoticeText
+            text={view.confirmDataNotice}
+            code={view.confirmDataNoticeCode}
+            params={view.confirmDataNoticeParams}
+          />
         </p>
       )}
       {sel && (
@@ -251,6 +255,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                   : t("ui.confirm.userPool", {note: sel.overrideNote ?? t("ui.confirm.userPoolFallback")}),
               })}
           </p>
+          {sel.listNote ? (
+            <p className="confirm-data-meta" data-testid="symbol-selection-note">{sel.listNote}</p>
+          ) : null}
+          {sel.listNote && sel.listVersion ? (
+            <p className="confirm-data-footnote" data-testid="symbol-selection-version">
+              {t("ui.confirm.listVersion", {version: sel.listVersion})}
+            </p>
+          ) : null}
           <p className="confirm-data-meta">
             {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: sel.dataSource})}
           </p>

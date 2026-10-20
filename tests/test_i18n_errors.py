@@ -82,6 +82,31 @@ def test_catalogued_codes_match_the_contract_file() -> None:
     assert placeholder_marker() == "data-i18n-placeholder"
 
 
+def test_market_data_errors_use_the_envelope() -> None:
+    from engine.research.data_availability import (
+        market_data_fetch_failed,
+        market_data_rate_limited,
+        market_data_timeout,
+    )
+
+    timeout = http_error_payload(market_data_timeout(300))
+    assert timeout["code"] == "MARKET_DATA_TIMEOUT"
+    assert timeout["params"] == {"symbol_count": 300}
+    assert timeout["detail"] == "TimeoutError: market data load exceeded the deadline"
+    assert "300" in timeout["error"]
+    assert "MARKET_DATA_TIMEOUT" in timeout["error"]
+
+    limited = http_error_payload(market_data_rate_limited())
+    assert limited["code"] == "MARKET_DATA_RATE_LIMITED"
+    assert limited["params"] == {}
+    assert limited["detail"]
+
+    failed = http_error_payload(market_data_fetch_failed("002460.SZ"))
+    assert failed["code"] == "MARKET_DATA_FETCH_FAILED"
+    assert failed["params"] == {"symbol": "002460.SZ"}
+    assert "002460.SZ" in failed["error"]
+
+
 def test_user_facing_error_params_round_trip() -> None:
     error = UserFacingError("DATA_EMPTY_PRICES", "数据源未返回行情，请检查标的和网络。", params={})
     payload = http_error_payload(error)

@@ -95,8 +95,10 @@ def test_view_source_follows_symbols_and_does_not_probe(
     assert mixed["kind"] == "confirm_run"
     assert cn["symbolSelection"]["dataSource"] == AKSHARE
     assert us["symbolSelection"]["dataSource"] == YAHOO
-    assert mixed["symbolSelection"]["dataSource"] == f"{YAHOO}、{AKSHARE}"
-    assert store.load("r-cn").data_source_id == "yahoo_daily"
+    assert mixed["symbolSelection"]["dataSource"] == YAHOO
+    assert store.load("r-cn").data_source_id == AKSHARE_SINA_DATA_SOURCE_ID
+    assert store.load("r-us").data_source_id == "yahoo_daily"
+    assert cn.get("confirmDataNotice") is None
 
 
 def test_confirm_pin_uses_the_same_symbol_mapping() -> None:

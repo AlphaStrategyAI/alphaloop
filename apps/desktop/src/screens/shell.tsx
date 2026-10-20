@@ -55,13 +55,16 @@ export function NightShell({
 }) {
   const section = railSection(route);
   const {t} = useI18n();
-  const hostKey: HostStatus = view.hostStatus ?? (
-    view.kind === "awaiting_confirm" ? "awaiting_confirm" :
-    view.kind === "running" ? "running" :
-    view.kind === "completed" ? "completed" : "idle"
-  );
-  const railKey = railStatusKey(view);
-  const railLabel = railKey ? t(railKey) : null;
+  const fetchingQuotes = Boolean(view.marketDataProgress && view.marketDataProgress.total > 0);
+  const hostKey: HostStatus = fetchingQuotes
+    ? "running"
+    : (view.hostStatus ?? (
+      view.kind === "awaiting_confirm" ? "awaiting_confirm" :
+      view.kind === "running" ? "running" :
+      view.kind === "completed" ? "completed" : "idle"
+    ));
+  const railKey = fetchingQuotes ? null : railStatusKey(view);
+  const railLabel = fetchingQuotes ? t("host.running") : railKey ? t(railKey) : null;
   const engineLine = engineStatusLabel(sidecarState, t);
   const statusTitle = railLabel
     ? `${railLabel} · ${engineLine}`
@@ -109,6 +112,14 @@ export function NightShell({
           data-atmosphere-tone={atmosphereTone}
           aria-hidden
         />
+        {view.marketDataProgress && view.marketDataProgress.total > 0 ? (
+          <p data-testid="market-data-progress">
+            {t("research.quoteProgress", {
+              done: view.marketDataProgress.done,
+              total: view.marketDataProgress.total,
+            })}
+          </p>
+        ) : null}
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
         {children}
       </section>

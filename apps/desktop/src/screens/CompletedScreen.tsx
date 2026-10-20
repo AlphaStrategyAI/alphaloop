@@ -431,7 +431,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
       {view.symbolSelection && (
         <section className="materials-note completed-data-window" data-testid="completed-symbol-selection">
           <p className="eyebrow">{t("ui.completed.windowEyebrow")}</p>
-          <p>
+          <p data-testid="completed-symbol-selection-summary">
             {view.symbolSelection.summaryLine ??
               t("ui.completed.windowSummary", {
                 count: view.symbolSelection.count,
@@ -439,6 +439,14 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                 listVersion: view.symbolSelection.listVersion,
               })}
           </p>
+          {view.symbolSelection.listNote ? (
+            <p data-testid="symbol-selection-note">{view.symbolSelection.listNote}</p>
+          ) : null}
+          {view.symbolSelection.listNote && view.symbolSelection.listVersion ? (
+            <p data-testid="symbol-selection-version">
+              {t("ui.confirm.listVersion", {version: view.symbolSelection.listVersion})}
+            </p>
+          ) : null}
           <p>
             {t("ui.completed.windowMeta", {
               start: view.symbolSelection.dataStart,

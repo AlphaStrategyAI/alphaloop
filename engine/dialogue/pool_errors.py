@@ -40,4 +40,6 @@ def record_transient_confirm_notice(
     now: datetime,
 ) -> Research:
     """Keep locked slots; only surface retry copy for confirm-time data outages."""
-    return _append_user_error(research, error, now)
+    message = error.message if error.code in error.message else f"{error.message}（{error.code}）"
+    coded = UserFacingError(error.code, message, params=error.params, detail=error.detail)
+    return _append_user_error(research, coded, now)

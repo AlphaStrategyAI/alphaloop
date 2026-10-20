@@ -151,7 +151,75 @@ def test_threading_server_list_responds_while_confirm_blocks_on_market_io(
     assert elapsed < 2.0, f"list fetch blocked for {elapsed:.1f}s"
     assert confirm_error is not None
     assert confirm_error["status"] == 400
-    assert confirm_error["body"]["code"] == TRANSIENT_DATA_CODE
+    assert confirm_error["body"]["code"] == "MARKET_DATA_TIMEOUT"
+
+
+def test_progress_stays_visible_while_confirm_holds_the_research(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from engine.research import market_data_timeouts as mdt
+    from engine.research.market_data_progress import (
+        clear_market_data_progress,
+        set_market_data_progress,
+    )
+
+    monkeypatch.setattr(mdt, "MARKET_DATA_LOAD_TIMEOUT_SEC", 2.0)
+
+    class _ProgressLoader:
+        def load_daily(
+            self,
+            symbols: tuple[str, ...],
+            start: date,
+            end: date,
+        ) -> pd.DataFrame:
+            set_market_data_progress(4, 503, "yahoo")
+            time.sleep(0.5)
+            clear_market_data_progress()
+            index = pd.to_datetime([start, end])
+            return pd.DataFrame(
+                {symbol: pd.Series([100.0, 101.0], index=index) for symbol in symbols}
+            )
+
+    set_pool_data_loader(_ProgressLoader())
+    store = SQLiteStore(tmp_path / "progress.db")
+    _confirm_ready_in_store(store)
+    service = ResearchCommandService(store, EnginePaths.for_colocated_root(tmp_path))
+    token = "test-token"
+    server, endpoint = start_api(service, token)
+    thread = threading.Thread(
+        target=lambda: _post(
+            endpoint,
+            token,
+            {"type": "confirm_run", "research_id": "r-http"},
+        ),
+        name="confirm-progress",
+    )
+    thread.start()
+    status = 0
+    body: dict = {}
+    view_status = 0
+    view: dict = {}
+    deadline = time.monotonic() + 1.5
+    while time.monotonic() < deadline:
+        status, body = _post(endpoint, token, {"type": "market_data_progress"})
+        view_status, view = _post(
+            endpoint,
+            token,
+            {"type": "fetch_view", "route": "#/research/r-http"},
+        )
+        if body.get("marketDataProgress") and view.get("marketDataProgress"):
+            break
+        time.sleep(0.02)
+    thread.join(timeout=5.0)
+    server.shutdown()
+    set_pool_data_loader(None)
+
+    assert status == 200
+    assert body["marketDataProgress"] == {"done": 4, "total": 503, "source": "yahoo"}
+    assert body["hostStatus"] == "running"
+    assert view_status == 200
+    assert view["marketDataProgress"]["done"] == 4
+    assert view["marketDataProgress"]["total"] == 503
 
 
 def test_confirm_run_transient_within_market_deadline(
@@ -172,8 +240,15 @@ def test_confirm_run_transient_within_market_deadline(
     elapsed = time.monotonic() - started
     set_pool_data_loader(None)
 
-    assert exc.value.code == TRANSIENT_DATA_CODE
+    assert exc.value.code == "MARKET_DATA_TIMEOUT"
+    assert "MARKET_DATA_TIMEOUT" in exc.value.message
     assert elapsed < mdt.MARKET_DATA_LOAD_TIMEOUT_SEC + 2.0
+    saved = store.load("r-http")
+    assert saved.status is ResearchStatus.DRAFT
+    assert saved.last_run_error_code is None
+    view = service.view_for("#/research/r-http")
+    assert view["kind"] == "confirm_run"
+    assert "MARKET_DATA_TIMEOUT" in view["confirmDataNotice"]
 
 
 def test_overlapping_confirm_run_returns_success_and_starts_once(tmp_path: Path) -> None:

@@ -161,7 +161,7 @@ def test_routing_timeout_still_transient_without_shrinking_pool(
 
         with pytest.raises(UserFacingError) as exc:
             port.load_daily(("600519.SH",), START, END)
-        assert exc.value.code == TRANSIENT_DATA_CODE
+        assert exc.value.code == "MARKET_DATA_TIMEOUT"
 
 
 def test_symbols_with_daily_data_uses_non_empty_frame(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -129,6 +129,7 @@ export function App({
 
   useEffect(() => {
     if (!mutationError) return;
+    if (/MARKET_DATA_|DATA_SOURCE_UNAVAILABLE/.test(mutationError)) return;
     const timer = window.setTimeout(() => clearMutationError(), 12_000);
     return () => window.clearTimeout(timer);
   }, [mutationError, clearMutationError]);
@@ -158,6 +159,31 @@ export function App({
       window.clearInterval(timer);
     };
   }, [pollSidecar]);
+
+  useEffect(() => {
+    if (engineStopped || !api.pollMarketDataProgress) return;
+    let active = true;
+    const tick = () => {
+      void api.pollMarketDataProgress?.()
+        .then((next) => {
+          if (!active || !next) return;
+          setView((current) => ({
+            ...current,
+            marketDataProgress: next.marketDataProgress,
+            hostStatus: next.hostStatus ?? current.hostStatus,
+          }));
+        })
+        .catch(() => {
+          /* progress poll failed; the route poll can still refresh */
+        });
+    };
+    tick();
+    const timer = window.setInterval(tick, 400);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [api, engineStopped]);
 
   useEffect(() => {
     if (isSettingsRoute(route)) return;

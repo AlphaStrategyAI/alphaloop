@@ -42,6 +42,9 @@ export interface SymbolSelectionSummary {
   listName: string;
   listVersion: string;
   summaryLine?: string;
+  listNote?: string;
+  listNameEn?: string;
+  listNoteEn?: string;
   generatedDate?: string;
   symbols: readonly string[];
   source: "default_pool" | "user_override";
@@ -117,6 +120,8 @@ type ViewBody =
       chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
       confirmDataNotice?: string | null;
+      confirmDataNoticeCode?: string | null;
+      confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
       constructionNotice?: string | null;
     }
@@ -241,10 +246,18 @@ type ViewBody =
 export type DesktopView = ViewBody & {
   hostStatus?: HostStatus;
   thesisChangeHint?: string;
+  marketDataProgress?: {done: number; total: number; source?: string} | null;
 };
+
+export type MarketDataProgress = {done: number; total: number; source?: string};
 
 export interface DesktopApi {
   fetchView(route: string): Promise<DesktopView>;
+  /** Independent of fetchView so a blocking confirm_run cannot hide fetch progress. */
+  pollMarketDataProgress?(): Promise<{
+    marketDataProgress: MarketDataProgress | null;
+    hostStatus?: HostStatus;
+  }>;
   createDraft(): Promise<string>;
   confirmRun(researchId: string): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;

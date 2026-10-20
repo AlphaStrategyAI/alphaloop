@@ -43,9 +43,10 @@ def _dialogue_to_confirm(service: ResearchCommandService, research_id: str) -> d
     assert view["kind"] == "confirm_run"
     sel = view.get("symbolSelection")
     assert sel is not None
-    assert sel["count"] >= 25
-    assert sel["listVersion"] == "1"
-    assert sel["summaryLine"] == "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池"
+    assert sel["count"] >= 100
+    assert sel["listVersion"] == "2"
+    assert sel["summaryLine"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert "版本" not in sel["summaryLine"]
     assert sel["dataCutoff"]
     return view
 
@@ -74,8 +75,8 @@ def test_chat_draft_confirm_run_populates_symbols_and_runs_one_round(
     loaded = service.store.load(research_id)
     assert loaded.status is ResearchStatus.RUNNING
     symbols = loaded.brief.universe.value.symbols
-    assert len(symbols) >= 25
-    assert loaded.symbol_list_version == "us_equity_large_cap_v1"
+    assert len(symbols) >= 100
+    assert loaded.symbol_list_version == "us_equity_large_cap_v2"
     assert "prices must be non-empty" not in (loaded.last_run_error or "")
 
     mono = FakeMonotonic()

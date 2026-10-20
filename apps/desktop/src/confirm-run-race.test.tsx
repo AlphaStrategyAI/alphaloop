@@ -127,13 +127,15 @@ describe("confirm run race", () => {
   });
 
   it("re-enables 开跑 after confirmRun fails", async () => {
+    const failure = "行情还没取完：300 只在限定时间内没有完成。请稍后重试。（MARKET_DATA_TIMEOUT）";
+    const failedView: DesktopView = {...confirmView, confirmDataNotice: failure};
     const confirmRun = vi.fn(async () => {
-      throw new Error("服务器内部错误，请稍后重试。");
+      throw new Error(failure);
     });
     render(
       <App
-        api={makeApi({confirmRun, fetchView: vi.fn(async () => confirmView)})}
-        initialView={confirmView}
+        api={makeApi({confirmRun, fetchView: vi.fn(async () => failedView)})}
+        initialView={failedView}
         initialRoute="#/research/r-confirm"
       />,
     );
@@ -142,6 +144,7 @@ describe("confirm run race", () => {
     const button = screen.getByTestId("confirm-run-start");
     await waitFor(() => expect(button).toBeEnabled());
     expect(button).toHaveTextContent("开跑");
-    expect(screen.getByTestId("mutation-error")).toHaveTextContent("服务器内部错误，请稍后重试。");
+    expect(screen.getByTestId("mutation-error")).toHaveTextContent("MARKET_DATA_TIMEOUT");
+    expect(screen.getByTestId("confirm-data-notice")).toHaveTextContent("MARKET_DATA_TIMEOUT");
   });
 });

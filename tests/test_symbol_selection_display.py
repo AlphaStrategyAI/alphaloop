@@ -46,12 +46,11 @@ def test_list_date_is_the_pool_calendar_day() -> None:
         / "engine"
         / "research"
         / "symbol_pools"
-        / "us_equity_large_cap_v1.json"
+        / f"us_equity_large_cap_v{payload['listVersion']}.json"
     )
     generated = json.loads(pool_path.read_text(encoding="utf-8"))["generated_date"]
-    assert generated == "2026-10-17"
     assert payload["generatedDate"] == generated
-    assert payload["summaryLine"].split(" · ")[3] == generated
+    assert f"名单日 {generated}" in payload["summaryLine"]
     for field in ("dataStart", "dataEnd", "dataCutoff"):
         assert len(payload[field]) == 10 and payload[field][4] == "-" and "T" not in payload[field]
     assert payload["dataCutoff"] == payload["dataEnd"]
@@ -62,10 +61,15 @@ def test_symbol_selection_summary_line_once_lists_pool_name() -> None:
     assert payload is not None
     line = format_symbol_selection_summary(payload)
     assert payload["summaryLine"] == line
-    assert line == "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池"
-    assert line.count("美股大市值") == 1
-    assert "版本 1" in line
-    assert "（版本 1）" not in line
+    assert line == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert line.count("美股大市值池") == 1
+    assert "版本" not in line
+    assert payload["listVersion"] == "2"
+    assert payload["listNote"] == "取自标普 500 在名单日的成分，非时点成分"
+    assert payload["listNameEn"] == "US large-cap universe · 503 names · list date 2026-10-16"
+    assert payload["listNoteEn"] == (
+        "Taken from S&P 500 membership on the list date; not point-in-time."
+    )
 
 
 def test_user_override_note_copy() -> None:

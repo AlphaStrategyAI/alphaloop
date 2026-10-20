@@ -96,6 +96,7 @@ export function buildUiMessages(copy: Copy) {
         "Data {{start}} → {{end}} · daily · source: {{source}}",
       ),
       footnote: copy("确认开跑前锁定清单版本与数据区间。", "The list version and the data window lock before you confirm the run."),
+      listVersion: copy("版本 {{version}}", "Version {{version}}"),
       starting: copy("开跑中…", "Starting…"),
       editAgain: copy("再修改", "Edit again"),
     },

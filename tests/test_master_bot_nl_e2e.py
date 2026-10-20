@@ -39,11 +39,13 @@ def _dialogue_to_confirm(service: ResearchCommandService, research_id: str) -> d
     assert view["kind"] == "confirm_run"
     sel = view["symbolSelection"]
     assert sel is not None
-    assert sel["listName"] == "美股大市值"
-    assert sel["listVersion"] == "1"
-    assert sel["summaryLine"] == "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池"
-    assert sel["count"] == 40
-    assert len(sel["symbols"]) == 40
+    assert sel["listName"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert sel["listVersion"] == "2"
+    assert sel["summaryLine"] == "美股大市值池 · 503 只 · 名单日 2026-10-16"
+    assert "版本" not in sel["summaryLine"]
+    assert sel["listNote"] == "取自标普 500 在名单日的成分，非时点成分"
+    assert sel["count"] == 503
+    assert len(sel["symbols"]) == 503
     assert sel["isDefaultPool"] is True
     assert sel["dataStart"]
     assert sel["dataEnd"]
@@ -65,7 +67,7 @@ def test_master_bot_nl_confirm_starts_and_runs_one_round(tmp_path: Path) -> None
     service.handle({"type": "confirm_run", "research_id": research_id})
     loaded = service.store.load(research_id)
     assert loaded.status is ResearchStatus.RUNNING
-    assert len(loaded.brief.universe.value.symbols) == 40
+    assert len(loaded.brief.universe.value.symbols) == 503
     loop = ResearchLoop(
         service.store,
         FakeBuilder(),
