@@ -27,3 +27,14 @@ export function routeFromHash(hash: string): string {
 export function readBrowserRoute(): string {
   return routeFromHash(window.location.hash);
 }
+
+/** A detail route may only display the research it names. */
+export function viewMatchesRoute(
+  view: {kind: string; researchId?: string},
+  route: string,
+): boolean {
+  if (!route.startsWith("#/research/")) return true;
+  if (view.researchId === undefined) return true;
+  const id = route.slice("#/research/".length).split("?")[0] ?? "";
+  return view.researchId === id;
+}

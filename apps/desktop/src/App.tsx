@@ -4,7 +4,7 @@ import {bindDesktopApi} from "./api-bind";
 import type {DesktopApi, DesktopView, SidecarUiState} from "./contracts";
 import {EngineFailureText} from "./i18n/engineFailure";
 import {useI18n} from "./i18n/I18nProvider";
-import {readBrowserRoute} from "./routing";
+import {readBrowserRoute, viewMatchesRoute} from "./routing";
 import {SettingsPage} from "./settings/SettingsPage";
 import "./night.css";
 import "./tech-pulse.css";
@@ -105,6 +105,7 @@ export function App({
     if (isSettingsRoute(requestedRoute)) return;
     const next = await api.fetchView(requestedRoute);
     if (generation !== routeGeneration.current) return;
+    if (!viewMatchesRoute(next, requestedRoute)) return;
     setView(next);
     setSyncedRoute(requestedRoute);
     setRouteError(null);
@@ -196,6 +197,7 @@ export function App({
         .fetchView(requestedRoute)
         .then((next) => {
           if (!active || generation !== routeGeneration.current) return;
+          if (!viewMatchesRoute(next, requestedRoute)) return;
           setView(next);
           setSyncedRoute(requestedRoute);
           setRouteError(null);

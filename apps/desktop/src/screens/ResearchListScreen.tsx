@@ -14,6 +14,36 @@ import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
+function researchHref(researchId: string): string {
+  return `#/research/${researchId}`;
+}
+
+function OpenResearchLink({
+  researchId,
+  className,
+  children,
+}: {
+  researchId: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      className={className}
+      href={researchHref(researchId)}
+      data-research-id={researchId}
+      onClick={(event) => {
+        event.preventDefault();
+        const id = event.currentTarget.dataset.researchId;
+        if (!id) return;
+        window.location.hash = researchHref(id);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 export function StatusPill({status}: {status: ResearchListDisplayStatus}) {
   const {t} = useI18n();
   return (
@@ -28,9 +58,16 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
   const {t} = useI18n();
   const deleteWarning = t("ui.list.deleteBody");
   const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
-  const awaiting = view.awaiting;
-  const confirmPinned = view.rows.find((row) => row.status === "confirm_run");
-  const rows = view.rows.filter((row) => row.status !== "confirm_run");
+  const awaitingCards = [
+    ...(view.awaiting ? [view.awaiting] : []),
+    ...view.rows.filter(
+      (row) => row.status === "awaiting_confirm" && row.id !== view.awaiting?.id,
+    ),
+  ];
+  const confirmCards = view.rows.filter((row) => row.status === "confirm_run");
+  const rows = view.rows.filter(
+    (row) => row.status !== "confirm_run" && row.status !== "awaiting_confirm",
+  );
   const askDelete = (researchId: string) => {
     setDeleteConfirm({
       title: t("ui.list.deleteTitle"),
@@ -64,52 +101,60 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
           {t("ui.list.newResearch")}
         </button>
       </header>
-      {awaiting && (
-        <article className="awaiting-primary list-pinned-card" data-kind="awaiting-primary">
+      {awaitingCards.map((item) => (
+        <article
+          className="awaiting-primary list-pinned-card"
+          data-kind="awaiting-primary"
+          data-testid="awaiting-pinned-card"
+          data-research-id={item.id}
+          key={item.id}
+        >
           <div className="list-pinned-head">
             <StatusPill status="awaiting_confirm" />
             <span className="list-pinned-meta">{t("ui.list.frozen")}</span>
           </div>
-          <a className="awaiting-primary-body" href={`#/research/${awaiting.id}`}>
-            <h2>{awaiting.title}</h2>
+          <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
+            <h2>{item.title}</h2>
             <p>
-              <span>{awaiting.universeLabel ?? t("ui.list.unlocked")}</span>
-              {awaiting.createdAt
-                ? ` · ${formatResearchTimestamp(awaiting.createdAt)}`
+              <span>{item.universeLabel ?? t("ui.list.unlocked")}</span>
+              {item.createdAt
+                ? ` · ${formatResearchTimestamp(item.createdAt)}`
                 : ""}
             </p>
-          </a>
+          </OpenResearchLink>
           <div className="list-pinned-actions">
-            <a className="cyan-button list-open-confirm" href={`#/research/${awaiting.id}`}>
+            <OpenResearchLink className="cyan-button list-open-confirm" researchId={item.id}>
               {t("ui.list.openCard")}
-            </a>
+            </OpenResearchLink>
             <span className="list-pinned-hint">{t("ui.list.clickCard")}</span>
-            <button type="button" className="text-button" onClick={() => askDelete(awaiting.id)}>
+            <button type="button" className="text-button" onClick={() => askDelete(item.id)}>
               {t("ui.list.delete")}
             </button>
           </div>
         </article>
-      )}
-      {confirmPinned && (
+      ))}
+      {confirmCards.map((item) => (
         <article
           className="awaiting-primary list-pinned-card list-pinned-confirm"
           data-kind="confirm-pinned"
           data-testid="confirm-pinned-card"
+          data-research-id={item.id}
+          key={item.id}
         >
           <div className="list-pinned-head">
             <StatusPill status="confirm_run" />
           </div>
-          <a className="awaiting-primary-body" href={`#/research/${confirmPinned.id}`}>
-            <h2>{confirmPinned.title}</h2>
-            <p>{confirmPinned.universeLabel ?? t("ui.list.briefReady")}</p>
-          </a>
+          <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
+            <h2>{item.title}</h2>
+            <p>{item.universeLabel ?? t("ui.list.briefReady")}</p>
+          </OpenResearchLink>
           <div className="list-pinned-actions">
-            <a className="cyan-button list-open-confirm" href={`#/research/${confirmPinned.id}`}>
+            <OpenResearchLink className="cyan-button list-open-confirm" researchId={item.id}>
               {t("ui.list.openCard")}
-            </a>
+            </OpenResearchLink>
           </div>
         </article>
-      )}
+      ))}
       <div className="research-rows">
         {rows.map((row) => (
           <article
@@ -126,7 +171,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
               </p>
             </div>
             <div className="row-actions">
-              <a href={`#/research/${row.id}`}>{t("ui.list.enter")}</a>
+              <OpenResearchLink researchId={row.id}>{t("ui.list.enter")}</OpenResearchLink>
               <button onClick={() => askDelete(row.id)}>{t("ui.list.delete")}</button>
               <StatusPill status={row.status} />
             </div>
