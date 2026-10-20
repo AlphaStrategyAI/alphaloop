@@ -400,6 +400,9 @@ class SQLiteStore:
         return CONVERTER.structure(data, Research)
 
     def create(self, research: Research) -> None:
+        from engine.research.removal import forget_research_removed
+
+        forget_research_removed(research.research_id)
         with self.connection:
             self.connection.execute(
                 "INSERT INTO researches(research_id,state_json,updated_at) VALUES(?,?,?)",
@@ -684,6 +687,9 @@ class SQLiteStore:
         )
 
     def delete(self, research_id: str) -> None:
+        from engine.research.removal import mark_research_removed
+
+        mark_research_removed(research_id)
         with self.connection:
             self.connection.execute(
                 "DELETE FROM review_attempts WHERE research_id=?",

@@ -113,6 +113,14 @@ def _coverage_window(simulation: object, fallback: date) -> tuple[date, date]:
     return start, end
 
 
+def _row_missing(store: SQLiteStore, research_id: str) -> bool:
+    try:
+        store.load(research_id)
+    except KeyError:
+        return True
+    return False
+
+
 def run_review_gate(
     draft: RoundDraft,
     reviewer: ReviewerPort,
@@ -362,7 +370,46 @@ class ResearchLoop:
     now: Callable[[], datetime]
 
     def run_once(self, research_id: str) -> Research:
-        research = self.store.load(research_id)
+        from engine.research.market_data_cancel import (
+            MarketDataCancelled,
+            bind_active_research,
+            reset_active_research,
+        )
+        from engine.research.removal import ResearchRemoved, research_was_removed
+        from engine.research.store import ConcurrentWrite
+
+        token = bind_active_research(research_id)
+        started_before = self.budget._started
+        try:
+            if research_was_removed(research_id):
+                raise ResearchRemoved(research_id)
+            try:
+                return self._run_once_bound(research_id)
+            except ResearchRemoved:
+                raise
+            except (KeyError, ConcurrentWrite, MarketDataCancelled) as exc:
+                if research_was_removed(research_id) or _row_missing(self.store, research_id):
+                    raise ResearchRemoved(research_id) from exc
+                raise
+        except ResearchRemoved:
+            if started_before is None and self.budget._started is not None:
+                self.budget.begin(ResearchStatus.PAUSED)
+            raise
+        finally:
+            reset_active_research(token)
+
+    def _run_once_bound(self, research_id: str) -> Research:
+        from engine.research.removal import ResearchRemoved, research_was_removed
+        from engine.research.store import ConcurrentWrite
+
+        def abort_if_removed() -> None:
+            if research_was_removed(research_id):
+                raise ResearchRemoved(research_id)
+
+        try:
+            research = self.store.load(research_id)
+        except KeyError as exc:
+            raise ResearchRemoved(research_id) from exc
         if research.status is ResearchStatus.RUNNING:
             from engine.research.secret_memory import (
                 DESKTOP_REQUIRED_CODE,
@@ -397,8 +444,12 @@ class ResearchLoop:
 
         def persist_action(next_action: ResearchAction) -> None:
             nonlocal expected_updated_at, action
+            abort_if_removed()
             action = next_action
-            current = self.store.load(research_id)
+            try:
+                current = self.store.load(research_id)
+            except KeyError as exc:
+                raise ResearchRemoved(research_id) from exc
             if current.current_action is next_action:
                 return
             snapshot = replace(
@@ -410,6 +461,7 @@ class ResearchLoop:
             expected_updated_at = snapshot.updated_at
 
         def finish(result: Research) -> Research:
+            abort_if_removed()
             if entry_running:
                 result = self.budget.finish(result)
                 if result.status is ResearchStatus.RUNNING:
@@ -424,7 +476,12 @@ class ResearchLoop:
                     updated_at=self.now(),
                 ),
             )
-            self.store.save(result, expected_updated_at)
+            try:
+                self.store.save(result, expected_updated_at)
+            except ConcurrentWrite as exc:
+                if research_was_removed(research_id) or _row_missing(self.store, research_id):
+                    raise ResearchRemoved(research_id) from exc
+                raise
             return result
 
         entry_running = research.status is ResearchStatus.RUNNING
@@ -470,6 +527,7 @@ class ResearchLoop:
                 prior_failures = 0
             persist_action(ResearchAction.GATHER)
             draft = self.builder.build(research, prior_failures + 1)
+            abort_if_removed()
             version = research.versions[version_number - 1]
             prior_spec = (
                 version.rounds[-1].accepted_attempt.spec if version.rounds else None

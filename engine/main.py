@@ -147,7 +147,7 @@ from engine.research.runtime import (
 )
 from engine.research.simulate import simulate_daily
 from engine.research.state_machine import InvalidTransition, all_slots_locked, transition
-from engine.research.store import SQLiteStore
+from engine.research.store import ConcurrentWrite, SQLiteStore
 from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
 from engine.strategy import MarketPanel, MeanReversionStrategy
@@ -1389,6 +1389,56 @@ def start_api(
     return server, endpoint
 
 
+def advance_running_research(
+    store: SQLiteStore,
+    loop: ResearchLoop,
+    research_id: str,
+) -> None:
+    """Run one tick for a running id. A deleted id is cancellation, not a crash."""
+    from engine.research.removal import ResearchRemoved
+
+    try:
+        loop.run_once(research_id)
+    except ResearchRemoved:
+        return
+    except Exception as error:  # noqa: BLE001
+        try:
+            before = store.load(research_id)
+        except KeyError:
+            return
+        now = datetime.now(UTC)
+        code, message = classify_run_error(error)
+        detail = error.detail if isinstance(error, UserFacingError) else None
+        if detail is None:
+            technical = str(error)
+            if technical and technical != message:
+                detail = technical
+        params = error.params if isinstance(error, UserFacingError) else None
+        after = apply_run_failure(
+            before,
+            message,
+            now,
+            code=code,
+            params=params,
+            detail=detail,
+        )
+        try:
+            store.save(after, before.updated_at)
+        except ConcurrentWrite:
+            try:
+                store.load(research_id)
+            except KeyError:
+                return
+            raise
+        store.record_error(
+            research_id,
+            message,
+            now,
+            force=after.status.value == "paused"
+            and after.consecutive_identical_run_errors >= max_consecutive_run_errors(),
+        )
+
+
 def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     try:
         lock = EngineLock.acquire(paths.runtime, owner_kind)
@@ -1440,35 +1490,7 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     try:
         while not stop.wait(1.0):
             for research_id in store.running_ids():
-                try:
-                    loop.run_once(research_id)
-                except Exception as error:  # noqa: BLE001
-                    now = datetime.now(UTC)
-                    code, message = classify_run_error(error)
-                    detail = error.detail if isinstance(error, UserFacingError) else None
-                    if detail is None:
-                        technical = str(error)
-                        if technical and technical != message:
-                            detail = technical
-                    params = error.params if isinstance(error, UserFacingError) else None
-                    before = store.load(research_id)
-                    after = apply_run_failure(
-                        before,
-                        message,
-                        now,
-                        code=code,
-                        params=params,
-                        detail=detail,
-                    )
-                    store.save(after, before.updated_at)
-                    store.record_error(
-                        research_id,
-                        message,
-                        now,
-                        force=after.status.value == "paused"
-                        and after.consecutive_identical_run_errors
-                        >= max_consecutive_run_errors(),
-                    )
+                advance_running_research(store, loop, research_id)
             store.heartbeat(owner, datetime.now(UTC))
     finally:
         server.shutdown()
