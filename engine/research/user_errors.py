@@ -5,6 +5,7 @@ from typing import Any
 
 from engine.i18n.errors import build_error_envelope
 from engine.research.data_errors import DataPipelineError
+from engine.research.secret_redaction import redact_text
 from engine.research.state_machine import InvalidTransition
 
 
@@ -40,7 +41,7 @@ def classify_run_error(error: BaseException) -> tuple[str, str]:
             "DATA_SYMBOLS_EMPTY",
             "未选择任何标的，无法加载行情。",
         )
-    return ("RUN_LOOP_FAILED", text)
+    return ("RUN_LOOP_FAILED", redact_text(text))
 
 
 def http_error_payload(error: BaseException) -> dict[str, Any]:
@@ -61,8 +62,9 @@ def http_error_payload(error: BaseException) -> dict[str, Any]:
         return build_error_envelope(code=code, message=message)
     if isinstance(error, DataPipelineError):
         return build_error_envelope(code=error.code, message=error.message)
+    redacted = redact_text(str(error))
     return build_error_envelope(
         code="bad_request",
-        message=str(error),
-        detail=str(error),
+        message=redacted,
+        detail=redacted,
     )

@@ -22,6 +22,27 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["type", "secrets"],
+      "properties": {
+        "type": {"const": "install_secrets"},
+        "secrets": {
+          "type": "object",
+          "additionalProperties": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "secret_id"],
+      "properties": {
+        "type": {"const": "secret_failure_preview"},
+        "secret_id": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["type", "research_id"],
       "properties": {
         "type": {

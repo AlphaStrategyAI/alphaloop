@@ -3,6 +3,7 @@ import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
 import {I18nText} from "../i18n/I18nText";
+import {SecretVaultButton} from "../SecretVault";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import type {MessageParams} from "../i18n/translate";
@@ -86,6 +87,7 @@ export function NightShell({
             <a className={section === "methods" ? "active" : ""} href="#/methods"><I18nText k="nav.methods" /></a>
             <a className={section === "glossary" ? "active" : ""} href="#/glossary"><I18nText k="nav.glossary" /></a>
             <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings"><I18nText k="nav.settings" /></a>
+            <SecretVaultButton />
           </nav>
         </div>
         {railLabel ? (
