@@ -16,7 +16,13 @@ import type {
   ValidationMethod,
 } from "./contracts";
 import {formatResearchTimestamp} from "./format";
+import {DialogueTurnBody, EngineFailureText} from "./i18n/engineFailure";
+import {LocalizedRunError} from "./i18n/LocalizedRunError";
+import {I18nText} from "./i18n/I18nText";
+import {ConfirmDataNoticeText, ConstructionNoticeText} from "./i18n/marketDataCopy";
+import {useI18n} from "./i18n/I18nProvider";
 import {readBrowserRoute, routeFromHash} from "./routing";
+import {SettingsPage} from "./settings/SettingsPage";
 import "./night.css";
 import "./tech-pulse.css";
 import {BrandMark} from "./BrandMark";
@@ -122,9 +128,14 @@ function engineStatusLabel(sidecar: SidecarUiState | null | undefined): string {
   return "引擎：运行中";
 }
 
-function railSection(route: string): "research" | "methods" | "glossary" {
+export function isSettingsRoute(route: string): boolean {
+  return route === "#/settings" || route.startsWith("#/settings/") || route.startsWith("#/settings?");
+}
+
+function railSection(route: string): "research" | "methods" | "glossary" | "settings" {
   if (route.startsWith("#/glossary")) return "glossary";
   if (route.startsWith("#/methods")) return "methods";
+  if (isSettingsRoute(route)) return "settings";
   return "research";
 }
 
@@ -148,6 +159,7 @@ function NightShell({
   runStartRitual?: boolean;
 }) {
   const section = railSection(route);
+  const {t} = useI18n();
   const fetchingQuotes = Boolean(view.marketDataProgress && view.marketDataProgress.total > 0);
   const hostKey: HostStatus = fetchingQuotes
     ? "running"
@@ -156,7 +168,7 @@ function NightShell({
       view.kind === "running" ? "running" :
       view.kind === "completed" ? "completed" : "idle"
     ));
-  const railLabel = fetchingQuotes ? "运行中" : railStatusLabel(view);
+  const railLabel = fetchingQuotes ? t("host.running") : railStatusLabel(view);
   const engineLine = engineStatusLabel(sidecarState);
   const statusTitle = railLabel
     ? `${railLabel} · ${engineLine}`
@@ -181,6 +193,9 @@ function NightShell({
             <a className={section === "research" ? "active" : ""} href="#/research">研究</a>
             <a className={section === "methods" ? "active" : ""} href="#/methods">方法库</a>
             <a className={section === "glossary" ? "active" : ""} href="#/glossary">术语</a>
+            <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings">
+              <I18nText k="nav.settings" />
+            </a>
             <SecretVaultButton />
           </nav>
         </div>
@@ -205,7 +220,10 @@ function NightShell({
         />
         {view.marketDataProgress && view.marketDataProgress.total > 0 ? (
           <p data-testid="market-data-progress">
-            正在取行情 {view.marketDataProgress.done}/{view.marketDataProgress.total}
+            {t("research.quoteProgress", {
+              done: view.marketDataProgress.done,
+              total: view.marketDataProgress.total,
+            })}
           </p>
         ) : null}
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
@@ -437,9 +455,7 @@ function DialoguePanel({
         我会逐项问清原理、资产、时间、方法和覆盖底线；齐全后进入确认开跑。
       </p>
       {dialogue.map((turn, index) => (
-        <p className={`message ${turn.role}`} data-testid="dialogue-turn" key={index}>
-          {turn.text}
-        </p>
+        <DialogueTurnBody turn={turn} key={index} />
       ))}
       {chatEnabled && (
         <form onSubmit={submit}>
@@ -540,12 +556,16 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       )}
       {view.constructionNotice && (
         <p className="confirm-lead" data-testid="construction-notice">
-          {view.constructionNotice}
+          <ConstructionNoticeText text={view.constructionNotice} />
         </p>
       )}
       {view.confirmDataNotice && (
         <p className="confirm-data-notice" data-testid="confirm-data-notice" role="alert">
-          {view.confirmDataNotice}
+          <ConfirmDataNoticeText
+            text={view.confirmDataNotice}
+            code={view.confirmDataNoticeCode}
+            params={view.confirmDataNoticeParams}
+          />
         </p>
       )}
       {sel && (
@@ -697,12 +717,7 @@ function RunningScreen({
           {view.effectiveTimeHint}
         </p>
       )}
-      {view.lastError && (
-        <p className="run-error" data-testid="last-run-error">
-          运行错误（{view.lastError.count} 次
-          {view.lastError.code ? ` · ${view.lastError.code}` : ""}）：{view.lastError.message}
-        </p>
-      )}
+      {view.lastError && <LocalizedRunError error={view.lastError} />}
       {view.honestStopHint && (
         <p className="honest-stop-hint" data-testid="honest-stop-hint-running">
           {view.honestStopHint}
@@ -888,7 +903,7 @@ function ExportOutcomeMessages({
       )}
       {exportFeedback?.status === "error" && (
         <p className="export-feedback error" data-testid="export-error" role="alert">
-          导出失败：{exportFeedback.message}
+          导出失败：<EngineFailureText raw={exportFeedback.message} />
         </p>
       )}
       {openFolderError && (
@@ -936,7 +951,7 @@ function ExportFeedbackBlock({
       )}
       {exportFeedback?.status === "error" && (
         <p className="export-feedback error" data-testid="export-error" role="alert">
-          导出失败：{exportFeedback.message}
+          导出失败：<EngineFailureText raw={exportFeedback.message} />
         </p>
       )}
       {openFolderError && (
@@ -1237,7 +1252,9 @@ function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopVie
                 </p>
               )}
               {reverifyError && (
-                <p className="reverify-error" data-testid="reverify-error" role="alert">{reverifyError}</p>
+                <p className="reverify-error" data-testid="reverify-error" role="alert">
+                  <EngineFailureText raw={reverifyError} />
+                </p>
               )}
             </div>
             <div className="stacked-field modify-rerun-field">
@@ -1659,13 +1676,15 @@ export function App({
     setPausedModificationByResearch((prev) => ({...prev, [researchId]: text}));
   }, []);
   const engineStopped = sidecarState?.phase === "stopped";
-  const routeFailed = failedRoute === route && routeError !== null;
-  const routePending = route !== syncedRoute && !routeFailed;
+  const settingsRoute = isSettingsRoute(route);
+  const routeFailed = !settingsRoute && failedRoute === route && routeError !== null;
+  const routePending = !settingsRoute && route !== syncedRoute && !routeFailed;
   const runStartRitual = useRunStartRitual(view);
 
   const refreshView = useCallback(async () => {
     const generation = routeGeneration.current;
     const requestedRoute = route;
+    if (isSettingsRoute(requestedRoute)) return;
     const next = await api.fetchView(requestedRoute);
     if (generation !== routeGeneration.current) return;
     setView(next);
@@ -1749,6 +1768,7 @@ export function App({
   }, [api, engineStopped]);
 
   useEffect(() => {
+    if (isSettingsRoute(route)) return;
     if (engineStopped) return;
     let active = true;
     const generation = routeGeneration.current;
@@ -1794,7 +1814,7 @@ export function App({
     <NightShell view={view} route={route} sidecarState={sidecarState} runStartRitual={runStartRitual}>
       {mutationError && (
         <p className="mutation-error" data-testid="mutation-error" role="alert">
-          <span>{mutationError}</span>
+          <EngineFailureText raw={mutationError} />
           <button
             type="button"
             className="mutation-error-dismiss"
@@ -1816,11 +1836,13 @@ export function App({
           )}
         </div>
       )}
-      {routePending ? (
+      {settingsRoute ? (
+        <SettingsPage route={route} />
+      ) : routePending ? (
         <p className="route-loading" data-testid="route-loading">加载中…</p>
       ) : routeFailed ? (
         <div className="route-error" data-testid="route-error" role="alert">
-          <p>{routeError}</p>
+          <p><EngineFailureText raw={routeError} /></p>
           <button
             type="button"
             className="quiet-button"

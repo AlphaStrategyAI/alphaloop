@@ -35,6 +35,27 @@ def _research_with_pool() -> object:
     return replace(new_research("r-1", NOW), brief=brief)
 
 
+def test_list_date_is_the_pool_calendar_day() -> None:
+    import json
+    from pathlib import Path
+
+    payload = symbol_selection_payload(_research_with_pool())
+    assert payload is not None
+    pool_path = (
+        Path(__file__).resolve().parents[1]
+        / "engine"
+        / "research"
+        / "symbol_pools"
+        / f"us_equity_large_cap_v{payload['listVersion']}.json"
+    )
+    generated = json.loads(pool_path.read_text(encoding="utf-8"))["generated_date"]
+    assert payload["generatedDate"] == generated
+    assert f"名单日 {generated}" in payload["summaryLine"]
+    for field in ("dataStart", "dataEnd", "dataCutoff"):
+        assert len(payload[field]) == 10 and payload[field][4] == "-" and "T" not in payload[field]
+    assert payload["dataCutoff"] == payload["dataEnd"]
+
+
 def test_symbol_selection_summary_line_once_lists_pool_name() -> None:
     payload = symbol_selection_payload(_research_with_pool())
     assert payload is not None

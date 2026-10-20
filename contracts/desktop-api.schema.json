@@ -9,14 +9,15 @@
       "required": ["type", "route"],
       "properties": {
         "type": {"const": "fetch_view"},
-        "route": {"type": "string", "pattern": "^#/(research|methods|glossary)"}
+        "route": {"type": "string", "pattern": "^#/(research|methods|glossary)"},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
       "required": ["type"],
-      "properties": {"type": {"const": "create_draft"}}
+      "properties": {"type": {"const": "create_draft"}, "locale": {"type": "string", "enum": ["zh", "en"]}}
     },
     {
       "type": "object",
@@ -59,7 +60,8 @@
             "delete_research"
           ]
         },
-        "research_id": {"type": "string", "minLength": 1}
+        "research_id": {"type": "string", "minLength": 1},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -78,7 +80,8 @@
             "round1_methods",
             "coverage_floor"
           ]
-        }
+        },
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -89,7 +92,8 @@
         "type": {"const": "continue_iterate"},
         "research_id": {"type": "string", "minLength": 1},
         "user_confirmed": {"const": true},
-        "high_suspicion_acknowledged": {"type": "boolean"}
+        "high_suspicion_acknowledged": {"type": "boolean"},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -130,7 +134,8 @@
               "summary": {"type": "string"}
             }
           }
-        }
+        },
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -140,7 +145,8 @@
       "properties": {
         "type": {"const": "extend_research"},
         "research_id": {"type": "string", "minLength": 1},
-        "hours": {"type": "number", "exclusiveMinimum": 0, "maximum": 720}
+        "hours": {"type": "number", "exclusiveMinimum": 0, "maximum": 720},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -151,7 +157,8 @@
         "type": {"const": "reverify"},
         "research_id": {"type": "string", "minLength": 1},
         "round_id": {"type": "string", "minLength": 1},
-        "method_id": {"type": "string", "minLength": 1}
+        "method_id": {"type": "string", "minLength": 1},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -161,7 +168,8 @@
       "properties": {
         "type": {"const": "send_dialogue"},
         "research_id": {"type": "string", "minLength": 1},
-        "message": {"type": "string", "minLength": 1}
+        "message": {"type": "string", "minLength": 1},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -171,7 +179,8 @@
       "properties": {
         "type": {"const": "export_artifact"},
         "research_id": {"type": "string", "minLength": 1},
-        "kind": {"enum": ["strategy_pack", "research_record"]}
+        "kind": {"enum": ["strategy_pack", "research_record"]},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -181,7 +190,8 @@
       "properties": {
         "type": {"const": "revise_method"},
         "method_id": {"type": "string", "minLength": 1},
-        "definition": {"type": "string", "minLength": 1}
+        "definition": {"type": "string", "minLength": 1},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
@@ -194,14 +204,15 @@
         "name": {"type": "string", "minLength": 1},
         "description": {"type": "string"},
         "body": {"type": "string", "minLength": 1},
-        "source": {"type": "string", "enum": ["preset", "deposited"]}
+        "source": {"type": "string", "enum": ["preset", "deposited"]},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
       "required": ["type"],
-      "properties": {"type": {"const": "list_methods"}}
+      "properties": {"type": {"const": "list_methods"}, "locale": {"type": "string", "enum": ["zh", "en"]}}
     }
   ]
 }

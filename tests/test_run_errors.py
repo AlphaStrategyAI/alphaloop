@@ -5,6 +5,7 @@ import pytest
 
 from engine.main import ResearchCommandService
 from engine.research.models import ResearchStatus, new_research
+from engine.i18n.errors import set_technical_detail_redactor
 from engine.research.run_errors import apply_run_failure, max_consecutive_run_errors
 from engine.research.runtime import EnginePaths
 from engine.research.state_machine import transition
@@ -74,3 +75,34 @@ def test_last_error_includes_code_when_classified(tmp_path: Path) -> None:
     )
     view = service.view_for("#/research/r-loop")
     assert view["lastError"]["code"] == "DATA_EMPTY_PRICES"
+
+
+def test_last_error_passes_params_and_redacts_detail(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "detail.db")
+    research = running_research()
+    research = apply_run_failure(
+        research,
+        "数据源未返回行情，请检查标的和网络。",
+        NOW,
+        code="DATA_EMPTY_PRICES",
+        params={"symbols": 3},
+        detail="secret-token failed",
+    )
+    research = transition(research, ResearchEvent.PAUSE, NOW)
+    store.create(research)
+    service = ResearchCommandService(
+        store,
+        EnginePaths.for_colocated_root(tmp_path),
+    )
+
+    def hide(text: str) -> str:
+        return text.replace("secret-token", "[redacted]")
+
+    previous = set_technical_detail_redactor(hide)
+    try:
+        view = service.view_for("#/research/r-loop")
+    finally:
+        set_technical_detail_redactor(previous)
+    assert view["lastError"]["params"] == {"symbols": 3}
+    assert view["lastError"]["detail"] == "[redacted] failed"
+    assert "secret-token" not in view["lastError"]["detail"]

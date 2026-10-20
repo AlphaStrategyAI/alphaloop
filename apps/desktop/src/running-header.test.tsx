@@ -1,9 +1,17 @@
 import "@testing-library/jest-dom/vitest";
 import {cleanup, render, screen} from "@testing-library/react";
+import type {ReactElement} from "react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {App} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
+import {I18nProvider} from "./i18n/I18nProvider";
+
+const ZH = {preference: "zh" as const, systemLocale: "zh-CN", resolved: "zh" as const};
+
+function renderZh(ui: ReactElement) {
+  return render(<I18nProvider initial={ZH}>{ui}</I18nProvider>);
+}
 
 afterEach(() => cleanup());
 
@@ -54,7 +62,7 @@ describe("running header", () => {
       hostStatus: "awaiting_confirm",
       marketDataProgress: {done: 12, total: 503, source: "yahoo"},
     };
-    render(
+    renderZh(
       <App
         api={{...api, fetchView: vi.fn(async () => fetching)}}
         initialView={fetching}
@@ -74,7 +82,7 @@ describe("running header", () => {
       marketDataProgress: {done: 12, total: 503, source: "yahoo" as const},
       hostStatus: "running" as const,
     }));
-    render(
+    renderZh(
       <App
         api={{...api, fetchView, pollMarketDataProgress}}
         initialView={runningView}
@@ -85,14 +93,14 @@ describe("running header", () => {
   });
 
   it("hides idle currentAction label in the running header", () => {
-    render(<App api={api} initialView={runningView} initialRoute="#/research/r-1" />);
+    renderZh(<App api={api} initialView={runningView} initialRoute="#/research/r-1" />);
     const panel = screen.getByTestId("running-screen");
     expect(panel.textContent).toContain("第 2 版");
     expect(panel.textContent).not.toContain("idle");
   });
 
   it("shows how many names the market-data load has finished", () => {
-    render(
+    renderZh(
       <App
         api={api}
         initialView={{...runningView, marketDataProgress: {done: 12, total: 503, source: "yahoo"}}}

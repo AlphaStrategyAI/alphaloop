@@ -32,14 +32,28 @@ def _resolved_symbols(research: Research) -> tuple[str, ...] | None:
 
 def confirm_data_notice_text(research: Research) -> str | None:
     """Last assistant line when it is a confirm-time fetch failure."""
+    notice = confirm_data_notice(research)
+    if notice is None:
+        return None
+    return str(notice["text"])
+
+
+def confirm_data_notice(research: Research) -> dict[str, Any] | None:
+    """Legacy sentence plus the I0 code and params, when the turn recorded them."""
     if not research.dialogue:
         return None
     last = research.dialogue[-1]
     if last.role.value != "assistant":
         return None
-    if any(code in last.text for code in MARKET_DATA_FAILURE_CODES):
-        return last.text
-    return None
+    coded = bool(last.error_code and last.error_code in MARKET_DATA_FAILURE_CODES)
+    textual = any(code in last.text for code in MARKET_DATA_FAILURE_CODES)
+    if not coded and not textual:
+        return None
+    payload: dict[str, Any] = {"text": last.text}
+    if last.error_code:
+        payload["code"] = last.error_code
+        payload["params"] = dict(last.error_params or {})
+    return payload
 
 
 def _card_data_source_id(
@@ -68,7 +82,7 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
         universe.market,
         universe.asset_class,
         universe.underlying_asset_class,
-        universe.symbol_list_version,
+        universe.symbol_list_version or research.symbol_list_version,
     )
     user_override = universe.user_symbols_override and bool(universe.symbols)
     if user_override:

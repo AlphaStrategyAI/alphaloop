@@ -4,7 +4,11 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {App, ConfirmRunCard} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
+import {I18nProvider} from "./i18n/I18nProvider";
 import {minimalDesktopApi} from "./test-fixtures";
+
+const ZH = {preference: "zh" as const, systemLocale: "zh-CN", resolved: "zh" as const};
+const EN = {preference: "en" as const, systemLocale: "en-US", resolved: "en" as const};
 
 afterEach(() => cleanup());
 
@@ -27,8 +31,37 @@ describe("A2 construction notices", () => {
         coverage_floor: "至少 25 个标的",
       },
     };
-    render(<ConfirmRunCard api={api} view={view} />);
+    render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard api={api} view={view} />
+      </I18nProvider>,
+    );
     expect(screen.getByTestId("construction-notice")).toHaveTextContent(US_LINE);
+  });
+
+  it("uses the short English line for the 5% cap", () => {
+    const api = {unlockBrief: vi.fn(), confirmRun: vi.fn()} as unknown as DesktopApi;
+    const view: DesktopView = {
+      kind: "confirm_run",
+      researchId: "r-1",
+      dialogue: [],
+      constructionNotice: US_LINE,
+      settings: {
+        thesis: "美股股票的均值回归",
+        universe: "美股 · 股票",
+        max_effective_hours: "4 小时",
+        round1_methods: "样本外稳定",
+        coverage_floor: "至少 25 个标的",
+      },
+    };
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={api} view={view} />
+      </I18nProvider>,
+    );
+    const notice = screen.getByTestId("construction-notice");
+    expect(notice).toHaveTextContent("≤5% per name, cost 5 bp");
+    expect(notice.textContent ?? "").not.toContain("保守产品假设");
   });
 
   it("shows the A-share execution notice on the conclusion page", () => {

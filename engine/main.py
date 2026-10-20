@@ -26,7 +26,7 @@ from engine.dialogue.pool_errors import (
     record_transient_confirm_notice,
     reopen_after_pool_failure,
 )
-from engine.research.confirm_view import confirm_data_notice_text, symbol_selection_payload
+from engine.research.confirm_view import confirm_data_notice, symbol_selection_payload
 from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
 from engine.research.universe_pool import (
     materialize_default_pool,
@@ -34,6 +34,12 @@ from engine.research.universe_pool import (
     pool_resolvable,
 )
 from engine.research.universe_validation import ensure_runnable_universe
+from engine.i18n.errors import build_error_envelope, redact_technical_detail
+from engine.i18n.locale import (
+    normalize_request_locale,
+    push_request_locale,
+    reset_request_locale,
+)
 from engine.research.user_errors import UserFacingError, classify_run_error, http_error_payload
 from engine.portfolio import SCHEDULE_COST_MODEL
 from engine.research.a2_copy import cn_execution_notice_for, construction_notice_for
@@ -45,7 +51,7 @@ from engine.research.method_body_display import (
     revision_token_from_body,
 )
 from engine.research.method_labels import format_methods_display
-from engine.dialogue.turns import process_send_dialogue
+from engine.dialogue.turns import dialogue_turn_view, process_send_dialogue
 from engine.export_paths import export_zip_filename
 from engine.export import (
     build_research_record_pack,
@@ -290,6 +296,7 @@ class ResearchCommandService:
         self._observed_status: dict[str, ResearchStatus] = {}
         self._research_locks_guard = threading.Lock()
         self._research_locks: dict[str, threading.Lock] = {}
+        self.last_request_locale: str | None = None
         seed_preset_methods(store)
 
     def _lock_for_research(self, research_id: str) -> threading.Lock:
@@ -681,18 +688,18 @@ class ResearchCommandService:
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
-                "dialogue": [
-                    {"role": turn.role.value, "text": turn.text}
-                    for turn in research.dialogue
-                ],
+                "dialogue": [dialogue_turn_view(turn) for turn in research.dialogue],
                 "settings": self._settings(research),
                 "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
-                fetch_notice = confirm_data_notice_text(research)
+                fetch_notice = confirm_data_notice(research)
                 if fetch_notice:
-                    body["confirmDataNotice"] = fetch_notice
+                    body["confirmDataNotice"] = fetch_notice["text"]
+                    if fetch_notice.get("code"):
+                        body["confirmDataNoticeCode"] = fetch_notice["code"]
+                        body["confirmDataNoticeParams"] = fetch_notice.get("params") or {}
                 notice = mean_reversion_only_notice(
                     str(research.brief.thesis.value or "")
                 )
@@ -758,6 +765,12 @@ class ResearchCommandService:
                 }
                 if research.last_run_error_code:
                     running_payload["lastError"]["code"] = research.last_run_error_code
+                if research.last_run_error_params:
+                    running_payload["lastError"]["params"] = dict(research.last_run_error_params)
+                if research.last_run_error_detail:
+                    running_payload["lastError"]["detail"] = redact_technical_detail(
+                        research.last_run_error_detail
+                    )
             running_payload.update(trial_tracking_for_view(research, self.store))
             running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
             late = late_pass_presentation(research)
@@ -856,8 +869,7 @@ class ResearchCommandService:
                 "currentAction": _ACTION_LABELS[research.current_action],
                 "anomaly": self._compute_anomaly(research),
                 "recentDialogue": [
-                    {"role": turn.role.value, "text": turn.text}
-                    for turn in research.dialogue[-8:]
+                    dialogue_turn_view(turn) for turn in research.dialogue[-8:]
                 ],
             },
             research,
@@ -902,6 +914,15 @@ class ResearchCommandService:
             return self._save(research, updated)
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
+        locale = normalize_request_locale(request.get("locale"))
+        self.last_request_locale = locale
+        token = push_request_locale(locale)
+        try:
+            return self._dispatch(request)
+        finally:
+            reset_request_locale(token)
+
+    def _dispatch(self, request: dict[str, Any]) -> dict[str, Any]:
         kind = request["type"]
         now = datetime.now(UTC)
         if kind == "fetch_view":
@@ -1316,7 +1337,7 @@ class EngineApiHandler(BaseHTTPRequestHandler):
             jsonschema.validate(request, self.request_schema)
             self._send(200, self.service.handle(request))
         except UserFacingError as error:
-            self._send(400, {"error": error.message, "code": error.code})
+            self._send(400, http_error_payload(error))
         except (
             ValueError,
             KeyError,
@@ -1327,13 +1348,13 @@ class EngineApiHandler(BaseHTTPRequestHandler):
         except InvalidTransition as error:
             self._send(400, http_error_payload(error))
         except Exception as error:  # noqa: BLE001
-            logging.exception("engine command failed")
+            logging.exception("engine command failed: %s", type(error).__name__)
             self._send(
                 500,
-                {
-                    "error": "服务器内部错误，请稍后重试。",
-                    "code": "internal_error",
-                },
+                build_error_envelope(
+                    code="internal_error",
+                    message="服务器内部错误，请稍后重试。",
+                ),
             )
 
     def log_message(self, format: str, *args: object) -> None:
@@ -1424,8 +1445,21 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
                 except Exception as error:  # noqa: BLE001
                     now = datetime.now(UTC)
                     code, message = classify_run_error(error)
+                    detail = error.detail if isinstance(error, UserFacingError) else None
+                    if detail is None:
+                        technical = str(error)
+                        if technical and technical != message:
+                            detail = technical
+                    params = error.params if isinstance(error, UserFacingError) else None
                     before = store.load(research_id)
-                    after = apply_run_failure(before, message, now, code=code)
+                    after = apply_run_failure(
+                        before,
+                        message,
+                        now,
+                        code=code,
+                        params=params,
+                        detail=detail,
+                    )
                     store.save(after, before.updated_at)
                     store.record_error(
                         research_id,

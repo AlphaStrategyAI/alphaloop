@@ -10,6 +10,18 @@ from engine.research.models import DialogueRole, Research
 from engine.research.user_errors import UserFacingError
 
 
+def _append_user_error(research: Research, error: UserFacingError, now: datetime) -> Research:
+    return append_dialogue(
+        research,
+        DialogueRole.ASSISTANT,
+        error.message,
+        now,
+        error_code=error.code,
+        error_params=error.params,
+        error_detail=error.detail,
+    )
+
+
 def reopen_after_pool_failure(
     research: Research,
     error: UserFacingError,
@@ -17,10 +29,9 @@ def reopen_after_pool_failure(
 ) -> Research:
     """Put pool resolution failures back into the chat instead of a dead-end confirm card."""
     if error.code == TRANSIENT_DATA_CODE:
-        return append_dialogue(research, DialogueRole.ASSISTANT, error.message, now)
+        return _append_user_error(research, error, now)
     updated = unlock_slot(research, "universe", now)
-    updated = append_dialogue(updated, DialogueRole.ASSISTANT, error.message, now)
-    return updated
+    return append_dialogue(updated, DialogueRole.ASSISTANT, error.message, now)
 
 
 def record_transient_confirm_notice(
@@ -29,5 +40,6 @@ def record_transient_confirm_notice(
     now: datetime,
 ) -> Research:
     """Keep locked slots; only surface retry copy for confirm-time data outages."""
-    text = error.message if error.code in error.message else f"{error.message}（{error.code}）"
-    return append_dialogue(research, DialogueRole.ASSISTANT, text, now)
+    message = error.message if error.code in error.message else f"{error.message}（{error.code}）"
+    coded = UserFacingError(error.code, message, params=error.params, detail=error.detail)
+    return _append_user_error(research, coded, now)
