@@ -97,17 +97,17 @@ export function buildUiMessages(copy: Copy) {
       ),
       footnote: copy("确认开跑前锁定清单版本与数据区间。", "The list version and the data window lock before you confirm the run."),
       poolNoteMembers: copy(
-        "两个股票池都用名单日成分，不是时点成分；回看更早的历史含有幸存者偏差。",
+        "新研究的股票默认池是生成日名单（标普 500、沪深 300），不是时点成分。用它回看历史时仍要警示幸存者偏差。",
         "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
         true,
       ),
       poolNoteConstituents: copy(
-        "本次没有时点成分。",
+        "免费时点成分没有找到。",
         "Point-in-time constituents are missing for this run.",
         true,
       ),
       poolNoteEdgar: copy(
-        "EDGAR 可能用后来的重述替换旧数字，因此这些数据可能通不过时点检查。",
+        "本次没有抽一份修订实例核对「旧值是否永远留在 JSON 里不被覆盖」，所以「EDGAR 绝不会覆盖旧值」仍待定。做不到保留旧值时，本族 PIT 不通过，不得改用最新值。",
         "EDGAR can replace older figures with later restatements, so this data may fail the PIT check.",
         true,
       ),

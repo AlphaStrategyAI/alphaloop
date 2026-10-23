@@ -9,6 +9,7 @@ import {CompletedScreen} from "../screens/CompletedScreen";
 import {ConfirmRunCard} from "../screens/ConfirmRunScreen";
 
 const EN = {preference: "en" as const, systemLocale: "en-US", resolved: "en" as const};
+const ZH = {preference: "zh" as const, systemLocale: "zh-CN", resolved: "zh" as const};
 const CJK_PUNCT = /[。，、；：！？「」『』（）〈〉《》【】‘’]/;
 
 afterEach(() => cleanup());
@@ -252,46 +253,61 @@ describe("I2 smoke follow-ups", () => {
     for (const sentence of sentences) {
       expect(sentence).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
     }
+    // Previous Chinese, copied from the spec. These lines were not a new paraphrase.
     expect(zhCatalog.ui.confirm.poolNoteMembers).toBe(
-      "两个股票池都用名单日成分，不是时点成分；回看更早的历史含有幸存者偏差。",
+      "新研究的股票默认池是生成日名单（标普 500、沪深 300），不是时点成分。用它回看历史时仍要警示幸存者偏差。",
     );
-    expect(zhCatalog.ui.confirm.poolNoteConstituents).toBe("本次没有时点成分。");
+    expect(zhCatalog.ui.confirm.poolNoteConstituents).toBe("免费时点成分没有找到。");
     expect(zhCatalog.ui.confirm.poolNoteEdgar).toBe(
-      "EDGAR 可能用后来的重述替换旧数字，因此这些数据可能通不过时点检查。",
+      "本次没有抽一份修订实例核对「旧值是否永远留在 JSON 里不被覆盖」，所以「EDGAR 绝不会覆盖旧值」仍待定。做不到保留旧值时，本族 PIT 不通过，不得改用最新值。",
     );
+
+    const readyView: DesktopView = {
+      kind: "confirm_run",
+      researchId: "r-ready",
+      dialogue: [],
+      chatEnabled: false,
+      settings: {
+        thesis: "均值回归",
+        universe: "美股 · 股票",
+        max_effective_hours: "4 小时",
+        round1_methods: "分段稳健性检验",
+        coverage_floor: "至少 25 个标的",
+      },
+      symbolSelection: {
+        count: 503,
+        listName: "美股大市值池 · 503 只 · 名单日 2026-10-16",
+        listVersion: "2",
+        summaryLine: "美股大市值池 · 503 只 · 名单日 2026-10-16",
+        listNote: "取自标普 500 在名单日的成分，非时点成分",
+        symbols: ["AAPL"],
+        source: "default_pool",
+        isDefaultPool: true,
+        dataStart: "2016-10-20",
+        dataEnd: "2026-10-19",
+        dataCutoff: "2026-10-19",
+        dataSource: "雅虎日线",
+      },
+    };
+    const chinese = render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard api={api()} view={readyView} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByTestId("default-pool-notes")).toBeNull();
+    expect(screen.getByTestId("symbol-selection-summary")).toHaveTextContent(
+      "美股大市值池 · 503 只 · 名单日 2026-10-16",
+    );
+    expect(screen.getByTestId("symbol-selection-note")).toHaveTextContent(
+      "取自标普 500 在名单日的成分，非时点成分",
+    );
+    expect(screen.getByTestId("symbol-selection-version")).toHaveTextContent("版本 2");
+    expect(document.body.textContent).not.toContain("两个股票池都用名单日成分");
+    chinese.unmount();
 
     render(
       <I18nProvider initial={EN}>
-        <ConfirmRunCard
-          api={api()}
-          view={{
-            kind: "confirm_run",
-            researchId: "r-ready",
-            dialogue: [],
-            chatEnabled: false,
-            settings: {
-              thesis: "均值回归",
-              universe: "美股 · 股票",
-              max_effective_hours: "4 小时",
-              round1_methods: "分段稳健性检验",
-              coverage_floor: "至少 25 个标的",
-            },
-            symbolSelection: {
-              count: 503,
-              listName: "美股大市值池 · 503 只 · 名单日 2026-10-16",
-              listVersion: "2",
-              summaryLine: "美股大市值池 · 503 只 · 名单日 2026-10-16",
-              listNote: "取自标普 500 在名单日的成分，非时点成分",
-              symbols: ["AAPL"],
-              source: "default_pool",
-              isDefaultPool: true,
-              dataStart: "2016-10-20",
-              dataEnd: "2026-10-19",
-              dataCutoff: "2026-10-19",
-              dataSource: "雅虎日线",
-            },
-          }}
-        />
+        <ConfirmRunCard api={api()} view={readyView} />
       </I18nProvider>,
     );
     const notes = screen.getAllByTestId("default-pool-note").map((node) => node.textContent);

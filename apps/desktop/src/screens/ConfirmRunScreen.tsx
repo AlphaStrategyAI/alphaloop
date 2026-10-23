@@ -166,7 +166,7 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
 }
 
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
-  const {t} = useI18n();
+  const {t, resolved} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const editSlot = (slot: BriefSlotName) => {
     void api.unlockBrief(view.researchId, slot).then(() => {
@@ -271,7 +271,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: copyText(sel.dataSource)})}
           </p>
           <p className="confirm-data-footnote">{t("ui.confirm.footnote")}</p>
-          {sel.isDefaultPool || sel.source === "default_pool" ? (
+          {resolved === "en" && (sel.isDefaultPool || sel.source === "default_pool") ? (
             <div data-testid="default-pool-notes">
               <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteMembers" /></p>
               <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteConstituents" /></p>
