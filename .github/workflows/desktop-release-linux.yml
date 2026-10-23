@@ -1,0 +1,92 @@
+name: desktop-release-linux
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main, "cursor/**"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build-linux-deb:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Check desktop version declarations
+        id: ver
+        run: |
+          python scripts/check_app_version.py --check
+          echo "version=$(python scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri and sidecar system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            python3-venv
+          uname -m | grep -qx x86_64
+
+      - name: Build engine sidecar (PyInstaller onedir)
+        run: bash scripts/build_sidecar.sh
+
+      - name: Stage engine for Tauri
+        run: TARGET=linux bash scripts/stage_engine_for_tauri.sh
+
+      - name: Build unsigned deb bundle
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          # Signing is intentionally unset. This deb is unsigned.
+          npm run tauri -- build --bundles deb
+
+      - name: Name the deb from tauri.conf.json
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          DEB=$(find apps/desktop/src-tauri/target/release/bundle/deb -name '*.deb' -maxdepth 1 | head -1)
+          if [[ -z "$DEB" ]]; then
+            find apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f || true
+            exit 1
+          fi
+          ARCH=$(dpkg-deb -f "$DEB" Architecture)
+          if [[ "$ARCH" != "amd64" ]]; then
+            echo "expected amd64 deb, got $ARCH"
+            exit 1
+          fi
+          mkdir -p release-artifacts
+          cp "$DEB" "release-artifacts/alphaloop_${VERSION}_linux_amd64.deb"
+          ls -la release-artifacts
+
+      - name: Upload Linux deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_linux_amd64.deb
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_linux_amd64.deb
+          if-no-files-found: error

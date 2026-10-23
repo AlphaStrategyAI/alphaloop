@@ -1,0 +1,70 @@
+name: desktop-release
+
+# Cuts a draft prerelease when a v* tag is pushed. workflow_dispatch builds the
+# installers and does not create a release. This workflow does not push tags.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  linux:
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/desktop-release-linux.yml
+  macos:
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/desktop-release-macos.yml
+  windows:
+    permissions:
+      contents: read
+      actions: write
+    uses: ./.github/workflows/desktop-release-windows.yml
+
+  publish:
+    needs: [linux, macos, windows]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require the tag to match tauri.conf.json
+        id: ver
+        run: |
+          python3 scripts/check_app_version.py --check
+          VERSION=$(python3 scripts/check_app_version.py --print)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_NAME}" != "v${VERSION}" ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match tauri.conf.json version ${VERSION}"
+            exit 1
+          fi
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: alphaloop_*
+          path: dist
+          merge-multiple: true
+
+      - name: Write SHA256SUMS.txt and release notes
+        run: |
+          python3 scripts/assemble_release_assets.py dist \
+            "${{ steps.ver.outputs.version }}" \
+            "${{ github.sha }}"
+
+      - name: Create draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --draft \
+            --prerelease \
+            --title "alphaloop ${{ steps.ver.outputs.version }}" \
+            --notes-file release-notes.md

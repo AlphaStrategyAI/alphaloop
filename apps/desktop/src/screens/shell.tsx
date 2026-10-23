@@ -81,7 +81,12 @@ export function NightShell({
             ? "success"
             : undefined;
   return (
-    <main className="night-shell tech-pulse-shell" data-testid="night-shell" data-view={view.kind}>
+    <main
+      className="night-shell tech-pulse-shell"
+      data-testid="night-shell"
+      data-view={view.kind}
+      data-engine-phase={sidecarState?.phase ?? "unknown"}
+    >
       <aside className="rail" data-testid="rail">
         <div className="rail-center">
           <BrandMark />

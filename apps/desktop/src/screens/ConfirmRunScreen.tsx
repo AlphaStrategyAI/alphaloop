@@ -41,6 +41,7 @@ function Settings({
           <dd
             className={`settings-value${key === "thesis" ? " settings-value-prose" : ""}`}
             data-testid={key === "thesis" ? "brief-thesis-value" : undefined}
+            data-user-content={key === "thesis" ? "true" : undefined}
           >
             {key === "thesis"
               ? values.thesis

@@ -64,7 +64,10 @@ pub fn start_desktop_sidecar(
     let stderr_vault = vault.clone();
     thread::spawn(move || {
         for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-            eprintln!("alphaloop-engine stderr: {}", stderr_vault.redact(&line));
+            let redacted = stderr_vault.redact(&line);
+            let message = format!("alphaloop-engine stderr: {redacted}");
+            eprintln!("{message}");
+            append_desktop_log(&message);
         }
     });
     let stdout = child.stdout.take().ok_or("engine stdout was not piped")?;
@@ -126,12 +129,27 @@ pub fn start_desktop_sidecar(
     }
     thread::spawn(move || {
         for line in lines.map_while(Result::ok) {
-            eprintln!("alphaloop-engine: {line}");
+            let message = format!("alphaloop-engine: {line}");
+            eprintln!("{message}");
+            append_desktop_log(&message);
         }
     });
     runtime.mark_running();
     tauri::async_runtime::block_on(commands::push_installed_secrets(&connection, &vault));
     Ok(())
+}
+
+fn append_desktop_log(line: &str) {
+    let path = crate::ui_language::data_root().join("desktop.log");
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let mut file = match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        Ok(file) => file,
+        Err(_) => return,
+    };
+    use std::io::Write;
+    let _ = writeln!(file, "{line}");
 }
 
 fn schedule_sidecar_restart(
@@ -219,7 +237,12 @@ pub fn run() {
                 sidecar_runtime.clone(),
                 sidecar_vault.clone(),
             ) {
-                eprintln!("alphaloop sidecar startup failed: {}", sidecar_vault.redact(&error));
+                let message = format!(
+                    "alphaloop sidecar startup failed: {}",
+                    sidecar_vault.redact(&error)
+                );
+                eprintln!("{message}");
+                append_desktop_log(&message);
                 sidecar_restart::schedule_sidecar_recovery(
                     handle,
                     sidecar,

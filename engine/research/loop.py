@@ -411,6 +411,12 @@ class ResearchLoop:
         except KeyError as exc:
             raise ResearchRemoved(research_id) from exc
         if research.status is ResearchStatus.RUNNING:
+            from engine.research.e2e_hooks import hold_running_for_e2e
+
+            hold_running_for_e2e()
+            if research_was_removed(research_id):
+                raise ResearchRemoved(research_id)
+        if research.status is ResearchStatus.RUNNING:
             from engine.research.secret_memory import (
                 DESKTOP_REQUIRED_CODE,
                 DESKTOP_REQUIRED_MESSAGE,

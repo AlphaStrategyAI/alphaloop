@@ -4,6 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
+import {LogicStatementText} from "../i18n/logicStatement";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
@@ -110,6 +111,19 @@ function pitGateLabel(detail: PitDetail | null | undefined, passed: boolean, t: 
   if (passed) return t("ui.pit.passed");
   if (!detail || detail.executed === false) return t("ui.pit.notRun");
   return t("ui.pit.failed");
+}
+
+function PitFailureText({text, title}: {text: string; title?: string | null}) {
+  if (!title) return text;
+  const index = text.indexOf(title);
+  if (index < 0) return text;
+  return (
+    <>
+      {text.slice(0, index)}
+      <span data-user-content="true">{title}</span>
+      {text.slice(index + title.length)}
+    </>
+  );
 }
 
 function pitFailureCopy(detail: PitDetail | null | undefined, t: Translate): string | null {
@@ -258,7 +272,11 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         </div>
         {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note || pitFailure) && (
           <p className="materials-note" data-testid="pit-detail">
-            {pitFailure ? <span data-testid="pit-failure-reason">{pitFailure}</span> : null}
+            {pitFailure ? (
+              <span data-testid="pit-failure-reason">
+                <PitFailureText text={pitFailure} title={view.pitDetail?.firstViolation?.title} />
+              </span>
+            ) : null}
             {view.pitDetail.note ? `${copyText(view.pitDetail.note)}${t("ui.pit.sentenceStop")}` : ""}
             {view.pitDetail.executed ? (
               <>
@@ -290,7 +308,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         )}
         {eligible && view.title && (
           <section className="completed-strategy-summary">
-            <h2>{view.title}</h2>
+            <h2 data-user-content="true">{view.title}</h2>
           </section>
         )}
         <div className="completed-export-actions" data-testid="completed-export-actions">
@@ -520,7 +538,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             {view.windowCumulativeLabel
               ? copyText(view.windowCumulativeLabel)
               : t("ui.completed.iterateFallback", {n: view.latePassPresentation.cumulativeRoundsOnWindow})}
-            ；{t("ui.completed.priorLead", {round: view.latePassPresentation.conclusionRoundId})}
+            {t("ui.copy.clauseJoin")}{t("ui.completed.priorLead", {round: view.latePassPresentation.conclusionRoundId})}
           </p>
           <ul>
             {view.latePassPresentation.priorFailureRecords.map((record) => (
@@ -552,7 +570,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {view.rounds.map((round, index) => (
             <article className="round-card" key={round.roundId} data-testid="completed-round-card">
               <small>{t("ui.completed.roundN", {n: (view.rounds?.length ?? 0) - index})}</small>
-              <p>{round.logicStatement.statement}</p>
+              <p data-testid="logic-statement"><LogicStatementText text={round.logicStatement.statement} /></p>
               {round.logicStatement.changeDescription && (
                 <p className="change-note">{copyText(round.logicStatement.changeDescription)}</p>
               )}

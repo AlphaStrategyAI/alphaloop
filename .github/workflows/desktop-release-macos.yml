@@ -6,10 +6,16 @@ on:
   pull_request:
     branches: [main, "cursor/**"]
   workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  actions: write
 
 jobs:
   build-macos-bundle:
-    runs-on: macos-latest
+    # macos-14 is an Apple Silicon runner. Signing stays off on purpose.
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -18,6 +24,15 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Check desktop version declarations
+        id: ver
+        run: |
+          python3 scripts/check_app_version.py --check
+          echo "version=$(python3 scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
+
+      - name: Require an arm64 host
+        run: uname -m | grep -qx arm64
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -25,6 +40,11 @@ jobs:
           cache-dependency-path: apps/desktop/package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Confirm the Rust host is Apple Silicon
+        run: "rustc -vV | grep -q 'host: aarch64-apple-darwin'"
 
       - name: Build engine sidecar (PyInstaller onedir)
         run: bash scripts/build_sidecar.sh
@@ -38,35 +58,46 @@ jobs:
           python3 scripts/verify_engine_resource_layout.py \
             --staged apps/desktop/src-tauri/resources/engine/alphaloop-engine
 
-      - name: Build Tauri desktop bundle
+      - name: Build unsigned arm64 Tauri bundle
         working-directory: apps/desktop
         run: |
           npm ci
-          npm run tauri -- build
+          # No Apple signing identity and no notarization. The .app is unsigned.
+          npm run tauri -- build --target aarch64-apple-darwin
 
-      - name: Package .app zip and DMG fallback
+      - name: Package arm64 DMG and app archive
         run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          OUT="release-artifacts/macos-${SHORT_SHA}"
+          VERSION="${{ steps.ver.outputs.version }}"
+          OUT="release-artifacts"
           mkdir -p "$OUT"
-          APP=$(find apps/desktop/src-tauri/target/release/bundle/macos -name '*.app' -maxdepth 1 | head -1)
+          APP=$(find apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos -name '*.app' -maxdepth 1 | head -1)
           if [[ -z "$APP" ]]; then
-            find apps/desktop/src-tauri/target/release/bundle -maxdepth 4 -type d -name '*.app' || true
+            find apps/desktop/src-tauri/target -path '*bundle/macos/*.app' -maxdepth 8 || true
             exit 1
           fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT/alphaloop-macos-${SHORT_SHA}.zip"
-          DMG=$(find apps/desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' -maxdepth 1 2>/dev/null | head -1 || true)
+          BIN="$APP/Contents/MacOS/alphaloop"
+          file "$BIN"
+          file "$BIN" | grep -q arm64
+          tar -czf "$OUT/alphaloop_${VERSION}_macos_arm64.app.tar.gz" -C "$(dirname "$APP")" "$(basename "$APP")"
+          DMG=$(find apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -maxdepth 1 2>/dev/null | head -1 || true)
           if [[ -n "$DMG" && -f "$DMG" ]]; then
-            cp "$DMG" "$OUT/"
+            cp "$DMG" "$OUT/alphaloop_${VERSION}_macos_arm64.dmg"
           else
             hdiutil create -volname alphaloop -srcfolder "$APP" -ov -format UDZO \
-              "$OUT/alphaloop-macos-${SHORT_SHA}.dmg"
+              "$OUT/alphaloop_${VERSION}_macos_arm64.dmg"
           fi
           ls -la "$OUT"
 
-      - name: Upload macOS bundles
+      - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: alphaloop-desktop-macos-${{ github.sha }}
-          path: release-artifacts/**
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg
+          if-no-files-found: error
+
+      - name: Upload macOS app archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
           if-no-files-found: error

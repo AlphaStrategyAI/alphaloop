@@ -1439,7 +1439,20 @@ def advance_running_research(
         )
 
 
+def configure_engine_file_log(path: Path) -> logging.Handler:
+    """Append engine logs to the contracted ``engine.log``. Returns the handler."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(path, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
+    logging.getLogger("alphaloop.engine").info("engine log opened at %s", path)
+    return handler
+
+
 def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
+    configure_engine_file_log(paths.data.engine_log)
     try:
         lock = EngineLock.acquire(paths.runtime, owner_kind)
     except RuntimeError:

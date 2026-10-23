@@ -3,6 +3,7 @@ import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
+import {LogicStatementText} from "../i18n/logicStatement";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
@@ -124,7 +125,7 @@ export function RunningScreen({
           <div className="round-columns">
             <div className="round-logic">
               <p className="eyebrow">{t("ui.running.logic")}</p>
-              <p>{round.logicStatement.statement}</p>
+              <p data-testid="logic-statement"><LogicStatementText text={round.logicStatement.statement} /></p>
             </div>
             <div className="round-impl">
               <p className="eyebrow">{t("ui.running.implementation")}</p>

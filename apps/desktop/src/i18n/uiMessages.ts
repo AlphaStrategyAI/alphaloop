@@ -421,6 +421,13 @@ export function buildUiMessages(copy: Copy) {
       features: copy("特征集", "feature set"),
       modelFamily: copy("模型族", "model family"),
       meanReversion: copy("均值回归", "mean reversion"),
+      initialSpec: copy("初始 {{family}} 规格", "Initial {{family}} spec"),
+      logicLead: copy("论点：", "Thesis: "),
+      logicTail: copy(
+        "；实际执行：截面均值回归，回看 {{days}} 天",
+        "; executed as cross-sectional mean reversion, lookback {{days}} days",
+      ),
+      clauseJoin: copy("；", "; "),
       paramChange: copy("{{name}}：{{before}} → {{after}}", "{{name}}: {{before}} → {{after}}"),
       changeLine: copy("变更：{{text}}", "Change: {{text}}"),
       reverifyPass: copy("「{{method}}」重验通过。", "“{{method}}” re-verification passed."),

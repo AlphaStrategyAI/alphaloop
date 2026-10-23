@@ -46,6 +46,10 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
     expect(zh(singleName)).toBe(singleName);
     expect(en(singleName)).toBe("1 name · User-specified symbols · Replaced the default universe");
     expect(en(singleName)).not.toMatch(/[\u4e00-\u9fff]/);
+    const initialSpec = "模型变更：初始 均值回归 规格";
+    expect(zh(initialSpec)).toBe(initialSpec);
+    expect(en(initialSpec)).toBe("Model changes: Initial mean reversion spec");
+    expect(en(initialSpec)).not.toMatch(/[\u4e00-\u9fff]/);
     const scope = translate("en", "ui.copy.pitScope");
     expect(scope).toBe(
       "Checks only that a source's publication date is on or before the backtest cutoff. It does not cover the universe, adjustments, or financial revisions.",

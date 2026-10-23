@@ -92,13 +92,20 @@ function gates(raw: string, t: CopyFn): string {
 }
 
 function paramPiece(piece: string, t: CopyFn): string {
-  const match = /^(.+?)：(.*) → (.*)$/.exec(piece.trim());
-  if (!match) return exactLabel(piece.trim(), t);
-  return t("ui.copy.paramChange", {
-    name: exactLabel(match[1], t),
-    before: match[2],
-    after: match[3],
-  });
+  const trimmed = piece.trim();
+  const match = /^(.+?)：(.*) → (.*)$/.exec(trimmed);
+  if (match) {
+    return t("ui.copy.paramChange", {
+      name: exactLabel(match[1], t),
+      before: match[2],
+      after: match[3],
+    });
+  }
+  const initial = /^初始 (.+) 规格$/.exec(trimmed);
+  if (initial) {
+    return t("ui.copy.initialSpec", {family: exactLabel(initial[1].trim(), t)});
+  }
+  return exactLabel(trimmed, t);
 }
 
 const RULES: Rule[] = [
