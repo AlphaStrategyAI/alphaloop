@@ -88,6 +88,10 @@ export function buildUiMessages(copy: Copy) {
         "标的 {{count}} 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
         "{{count}} symbols · list {{listName}} · version {{listVersion}}{{pool}}",
       ),
+      summaryOne: copy(
+        "标的 1 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
+        "1 symbol · list {{listName}} · version {{listVersion}}{{pool}}",
+      ),
       defaultPool: copy(" · 默认标的池", " · default universe"),
       userPool: copy(" · {{note}}", " · {{note}}"),
       userPoolFallback: copy("用户指定池", "User-specified universe"),
@@ -198,9 +202,15 @@ export function buildUiMessages(copy: Copy) {
         "时点一致性未通过，暂不能导出策略包。共 {{count}} 条违规。第一条：{{title}}{{doiPart}}，{{when}}，{{cutoff}}。",
         "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet. {{count}} violations. First: {{title}}{{doiPart}}, {{when}}, {{cutoff}}.",
       ),
+      firstViolationOne: copy(
+        "时点一致性未通过，暂不能导出策略包。共 1 条违规。第一条：{{title}}{{doiPart}}，{{when}}，{{cutoff}}。",
+        "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet. 1 violation. First: {{title}}{{doiPart}}, {{when}}, {{cutoff}}.",
+      ),
       doiPart: copy("（DOI {{doi}}）", " (DOI {{doi}})"),
       trusted: copy("已采信 {{count}} 份有发布日的资料", "Used {{count}} materials that have a publication date"),
+      trustedOne: copy("已采信 1 份有发布日的资料", "Used 1 material that has a publication date"),
       undated: copy("，已浏览未采信 {{count}} 份无日期资料", ", browsed and did not use {{count}} undated materials"),
+      undatedOne: copy("，已浏览未采信 1 份无日期资料", ", browsed and did not use 1 undated material"),
       sentenceStop: copy("。", ". "),
     },
     completed: {
@@ -233,6 +243,10 @@ export function buildUiMessages(copy: Copy) {
       windowSummary: copy(
         "{{count}} 只 · {{listName}} · 版本 {{listVersion}}",
         "{{count}} symbols · {{listName}} · version {{listVersion}}",
+      ),
+      windowSummaryOne: copy(
+        "1 只 · {{listName}} · 版本 {{listVersion}}",
+        "1 symbol · {{listName}} · version {{listVersion}}",
       ),
       windowMeta: copy(
         "数据区间 {{start}} 至 {{end}}（数据窗口截止 {{cutoff}}{{backtest}}） · 来源 {{source}}",
@@ -275,6 +289,7 @@ export function buildUiMessages(copy: Copy) {
     methods: {
       advanced: copy("修订标识（高级）", "Revision id (advanced)"),
       used: copy("被 {{count}} 次研究用过", "Used by {{count}} researches"),
+      usedOne: copy("被 1 次研究用过", "Used by 1 research"),
       dimensions: copy("计分卡维度", "Scorecard dimensions"),
       colKind: copy("类型", "Kind"),
       colName: copy("名称", "Name"),
@@ -465,14 +480,39 @@ export function buildUiMessages(copy: Copy) {
       versionTrials: copy("本版本 {{used}}/{{budget}} 轮", "This version {{used}}/{{budget}} rounds"),
       hours: copy("{{n}} 小时", "{{n}} hours"),
       durationSeconds: copy("{{n}} 秒", "{{n}} seconds"),
+      durationSecond: copy("1 秒", "1 second"),
       durationMinutes: copy("{{minutes}} 分 {{seconds}} 秒", "{{minutes}} minutes {{seconds}} seconds"),
       coverageNow: copy(
         "当前 {{assets}} 个标的、{{years}} 年数据，缺失 {{missing}}%",
         "Now {{assets}} names, {{years}} years of data, {{missing}}% missing",
       ),
+      coverageNowOne: copy(
+        "当前 1 个标的、{{years}} 年数据，缺失 {{missing}}%",
+        "Now 1 name, {{years}} years of data, {{missing}}% missing",
+      ),
+      coverageNowYear: copy(
+        "当前 {{assets}} 个标的、1 年数据，缺失 {{missing}}%",
+        "Now {{assets}} names, 1 year of data, {{missing}}% missing",
+      ),
+      coverageNowOneYear: copy(
+        "当前 1 个标的、1 年数据，缺失 {{missing}}%",
+        "Now 1 name, 1 year of data, {{missing}}% missing",
+      ),
       coverageFloor: copy(
         "至少 {{assets}} 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
         "At least {{assets}} names, {{years}} years of data, missing no more than {{missing}}%",
+      ),
+      coverageFloorOne: copy(
+        "至少 1 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
+        "At least 1 name, {{years}} years of data, missing no more than {{missing}}%",
+      ),
+      coverageFloorYear: copy(
+        "至少 {{assets}} 个标的、1 年数据，缺失不超过 {{missing}}%",
+        "At least {{assets}} names, 1 year of data, missing no more than {{missing}}%",
+      ),
+      coverageFloorOneYear: copy(
+        "至少 1 个标的、1 年数据，缺失不超过 {{missing}}%",
+        "At least 1 name, 1 year of data, missing no more than {{missing}}%",
       ),
       coverageWithFloor: copy("{{current}}；底线 {{floor}}", "{{current}}; floor {{floor}}"),
       universe: copy("{{market}} · {{asset}}", "{{market}} · {{asset}}"),

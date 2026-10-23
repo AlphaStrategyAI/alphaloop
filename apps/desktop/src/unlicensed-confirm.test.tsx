@@ -3,7 +3,8 @@ import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {ConfirmRunCard} from "./App";
-import type {DesktopApi, DesktopView} from "./contracts";
+import type {DesktopApi, DesktopView, PriceSourceChoice} from "./contracts";
+import {formatResearchTimestamp} from "./format";
 import {I18nProvider} from "./i18n/I18nProvider";
 import {CompletedScreen} from "./screens/CompletedScreen";
 
@@ -66,6 +67,63 @@ const confirmView: Extract<DesktopView, {kind: "confirm_run"}> = {
     ],
   },
 };
+
+const ACK_AT = "2026-10-23T17:57:51.504418+00:00";
+
+function sources(acknowledgedAt: string | null): PriceSourceChoice[] {
+  return [{id: "yahoo_daily", label: "雅虎日线", unlicensed: true, acknowledgedAt}];
+}
+
+describe("confirm source presentation", () => {
+  it("formats the acknowledgement in local time and updates the source line", () => {
+    const ackedView: Extract<DesktopView, {kind: "confirm_run"}> = {
+      ...confirmView,
+      symbolSelection: {
+        ...confirmView.symbolSelection!,
+        dataSourcePending: true,
+        priceSources: sources(ACK_AT),
+      },
+    };
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={api()} view={ackedView} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByTestId("unlicensed-ack-done")).toBeNull();
+    fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
+    const done = screen.getByTestId("unlicensed-ack-done");
+    expect(done.textContent).toContain(formatResearchTimestamp(ACK_AT));
+    expect(done.textContent).not.toContain("T17:57:51");
+    expect(screen.getByTestId("confirm-data-meta").textContent).toContain("Yahoo daily");
+    expect(screen.getByTestId("confirm-data-meta").textContent).not.toContain("Not selected");
+    expect(screen.getByTestId("unlicensed-notice")).toBeInTheDocument();
+  });
+
+  it("hides the unlicensed notice when a licensed local file is selected", () => {
+    const licensed: Extract<DesktopView, {kind: "confirm_run"}> = {
+      ...confirmView,
+      symbolSelection: {
+        ...confirmView.symbolSelection!,
+        dataSource: "Desk CSV",
+        dataSourceId: "local-file-desk",
+        dataSourcePending: false,
+        priceSources: [
+          {id: "local-file-desk", label: "Desk CSV", unlicensed: false, acknowledgedAt: null},
+          {id: "yahoo_daily", label: "雅虎日线", unlicensed: true, acknowledgedAt: null},
+        ],
+      },
+    };
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={api()} view={licensed} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByTestId("unlicensed-notice")).toBeNull();
+    expect(screen.getByTestId("confirm-data-meta").textContent).toContain("Desk CSV");
+    fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
+    expect(screen.getByTestId("unlicensed-notice")).toBeInTheDocument();
+  });
+});
 
 describe("unlicensed tag", () => {
   it("renders Unlicensed in English and 未经许可 in Chinese", () => {

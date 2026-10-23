@@ -93,6 +93,27 @@ function gates(raw: string, t: CopyFn): string {
   return raw.split("、").map((part) => gateToken(part, t)).join(t("ui.copy.gateJoiner"));
 }
 
+function coverageSentence(
+  kind: "now" | "floor",
+  assets: string,
+  years: string,
+  missing: string,
+  t: CopyFn,
+): string {
+  const oneName = assets === "1";
+  const oneYear = years === "1";
+  if (kind === "now") {
+    if (oneName && oneYear) return t("ui.copy.coverageNowOneYear", {missing});
+    if (oneName) return t("ui.copy.coverageNowOne", {years, missing});
+    if (oneYear) return t("ui.copy.coverageNowYear", {assets, missing});
+    return t("ui.copy.coverageNow", {assets, years, missing});
+  }
+  if (oneName && oneYear) return t("ui.copy.coverageFloorOneYear", {missing});
+  if (oneName) return t("ui.copy.coverageFloorOne", {years, missing});
+  if (oneYear) return t("ui.copy.coverageFloorYear", {assets, missing});
+  return t("ui.copy.coverageFloor", {assets, years, missing});
+}
+
 function paramPiece(piece: string, t: CopyFn): string {
   const match = /^(.+?)：(.*) → (.*)$/.exec(piece.trim());
   if (!match) return exactLabel(piece.trim(), t);
@@ -216,7 +237,7 @@ const RULES: Rule[] = [
   },
   {
     re: /^(\d+) 秒$/,
-    render: (m, t) => t("ui.copy.durationSeconds", {n: m[1]}),
+    render: (m, t) => t(m[1] === "1" ? "ui.copy.durationSecond" : "ui.copy.durationSeconds", {n: m[1]}),
   },
   {
     re: /^(\d+) 分 (\d+) 秒$/,
@@ -225,17 +246,17 @@ const RULES: Rule[] = [
   {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%；底线 (.+)$/,
     render: (m, t) => t("ui.copy.coverageWithFloor", {
-      current: t("ui.copy.coverageNow", {assets: m[1], years: m[2], missing: m[3]}),
+      current: coverageSentence("now", m[1], m[2], m[3], t),
       floor: localizeKnownCopy(m[4], t),
     }),
   },
   {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%$/,
-    render: (m, t) => t("ui.copy.coverageNow", {assets: m[1], years: m[2], missing: m[3]}),
+    render: (m, t) => coverageSentence("now", m[1], m[2], m[3], t),
   },
   {
     re: /^至少 (\d+) 个标的、([\d.]+) 年数据，缺失不超过 ([\d.]+)%$/,
-    render: (m, t) => t("ui.copy.coverageFloor", {assets: m[1], years: m[2], missing: m[3]}),
+    render: (m, t) => coverageSentence("floor", m[1], m[2], m[3], t),
   },
   {
     re: /^(美股|A股) · (股票|债券|基金)(?:（(.+)）)?$/,

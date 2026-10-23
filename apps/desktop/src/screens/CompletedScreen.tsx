@@ -131,7 +131,13 @@ function pitFailureCopy(detail: PitDetail | null | undefined, t: Translate): str
     : t("ui.pit.noPublished");
   const cutoff = detail.backtestCutoff ? t("ui.pit.cutoff", {date: detail.backtestCutoff}) : t("ui.pit.noCutoff");
   const doiPart = doi ? t("ui.pit.doiPart", {doi}) : "";
-  return t("ui.pit.firstViolation", {count, title, doiPart, when, cutoff});
+  return t(count === 1 ? "ui.pit.firstViolationOne" : "ui.pit.firstViolation", {
+    count,
+    title,
+    doiPart,
+    when,
+    cutoff,
+  });
 }
 
 export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
@@ -277,9 +283,13 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             {view.pitDetail.note ? `${copyText(view.pitDetail.note)}${t("ui.pit.sentenceStop")}` : ""}
             {view.pitDetail.executed ? (
               <>
-                {t("ui.pit.trusted", {count: view.pitDetail.evidenceUsed ?? 0})}
+                {t((view.pitDetail.evidenceUsed ?? 0) === 1 ? "ui.pit.trustedOne" : "ui.pit.trusted", {
+                  count: view.pitDetail.evidenceUsed ?? 0,
+                })}
                 {(view.pitDetail.undatedExcluded?.length ?? 0) > 0
-                  ? t("ui.pit.undated", {count: view.pitDetail.undatedExcluded?.length ?? 0})
+                  ? t((view.pitDetail.undatedExcluded?.length ?? 0) === 1 ? "ui.pit.undatedOne" : "ui.pit.undated", {
+                      count: view.pitDetail.undatedExcluded?.length ?? 0,
+                    })
                   : ""}
                 {t("ui.pit.sentenceStop")}{copyText(view.pitDetail.scope)}
               </>
@@ -472,7 +482,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           <p className="eyebrow">{t("ui.completed.windowEyebrow")}</p>
           <p data-testid="completed-symbol-selection-summary">
             {copyText(view.symbolSelection.summaryLine) ||
-              t("ui.completed.windowSummary", {
+              t(view.symbolSelection.count === 1 ? "ui.completed.windowSummaryOne" : "ui.completed.windowSummary", {
                 count: view.symbolSelection.count,
                 listName: copyText(view.symbolSelection.listName),
                 listVersion: view.symbolSelection.listVersion,

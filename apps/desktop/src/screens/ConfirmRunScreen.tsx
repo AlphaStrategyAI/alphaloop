@@ -1,8 +1,9 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
 import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import {formatResearchTimestamp} from "../format";
 import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataCopy";
-import {DialogueTurnBody} from "../i18n/engineFailure";
+import {DialogueTurnBody, EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
@@ -183,6 +184,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const [starting, setStarting] = useState(false);
   const [pickedSource, setPickedSource] = useState("");
   const [acked, setAcked] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
   const startingRef = useRef(false);
   const sel = view.symbolSelection;
   const returnToDraft = () => {
@@ -206,13 +208,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     if (startingRef.current || !canRun) return;
     startingRef.current = true;
     setStarting(true);
+    setRunError(null);
     void api
       .confirmRun(view.researchId, {
         dataSourceId: selectedId || undefined,
-        unlicensedAcknowledged: ackRequired ? acked : undefined,
+        unlicensedAcknowledged: ackRequired ? true : undefined,
       })
-      .catch(() => {
-        /* bindDesktopApi already recorded the message */
+      .catch((error: unknown) => {
+        setRunError(error instanceof Error ? error.message : String(error));
       })
       .finally(() => {
         startingRef.current = false;
@@ -268,7 +271,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           </div>
           <p className="confirm-data-summary" data-testid="symbol-selection-summary">
             {copyText(sel.summaryLine) ||
-              t("ui.confirm.summary", {
+              t(sel.count === 1 ? "ui.confirm.summaryOne" : "ui.confirm.summary", {
                 count: sel.count,
                 listName: copyText(sel.listName),
                 listVersion: sel.listVersion,
@@ -285,12 +288,16 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               {t("ui.confirm.listVersion", {version: sel.listVersion})}
             </p>
           ) : null}
-          <p className="confirm-data-meta">
-            {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: copyText(sel.dataSource)})}
+          <p className="confirm-data-meta" data-testid="confirm-data-meta">
+            {t("ui.confirm.meta", {
+              start: sel.dataStart,
+              end: sel.dataEnd,
+              source: selectedChoice ? copyText(selectedChoice.label) : copyText(sel.dataSource),
+            })}
           </p>
           {catalogMode && (
             <div className="confirm-source-choice" data-testid="price-source-picker">
-              {catalog.some((item) => item.unlicensed) && (
+              {selectedChoice?.unlicensed && (
                 <p className="confirm-data-footnote" data-testid="unlicensed-notice">
                   {t("ui.confirm.unlicensedNotice")}
                 </p>
@@ -351,9 +358,18 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               <span>{t("ui.confirm.unlicensedAck")}</span>
             </label>
           )}
-          {alreadyAcked && selectedId && (
+          {selectedChoice?.unlicensed && selectedChoice.acknowledgedAt && (
             <p className="confirm-data-footnote" data-testid="unlicensed-ack-done">
-              {t("ui.confirm.unlicensedAcked", {date: sel.unlicensedAcknowledgedAt || ""})}
+              {t("ui.confirm.unlicensedAcked", {
+                date: formatResearchTimestamp(selectedChoice.acknowledgedAt),
+              })}
+            </p>
+          )}
+          {!catalogMode && alreadyAcked && selectedId && sel.unlicensedAcknowledgedAt && (
+            <p className="confirm-data-footnote" data-testid="unlicensed-ack-done">
+              {t("ui.confirm.unlicensedAcked", {
+                date: formatResearchTimestamp(sel.unlicensedAcknowledgedAt),
+              })}
             </p>
           )}
           <p className="confirm-data-footnote">{t("ui.confirm.footnote")}</p>
@@ -370,6 +386,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         </section>
       )}
       <Settings values={view.settings} onEditSlot={editSlot} />
+      {runError && (
+        <p className="confirm-run-error" data-testid="confirm-run-error" role="alert">
+          <EngineFailureText raw={runError} />
+        </p>
+      )}
       <div className="actions confirm-actions">
         <button
           className="cyan-button"

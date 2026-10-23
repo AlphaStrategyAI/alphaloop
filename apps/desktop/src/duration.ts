@@ -10,7 +10,7 @@ export function formatDuration(seconds: number, t: Translate): string {
     const minutes = Math.floor(whole / 60);
     const secs = whole % 60;
     if (minutes === 0) {
-      return t("ui.copy.durationSeconds", {n: secs});
+      return t(secs === 1 ? "ui.copy.durationSecond" : "ui.copy.durationSeconds", {n: secs});
     }
     return t("ui.copy.durationMinutes", {minutes, seconds: secs});
   }
