@@ -625,6 +625,10 @@ def write_summary(results: list[StepResult]) -> None:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
     if len(sys.argv) != 2:
         print("usage: windows_gui_e2e.py <installer.exe>", file=sys.stderr)
         return 2
