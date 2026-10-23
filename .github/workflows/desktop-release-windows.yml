@@ -211,16 +211,46 @@ jobs:
       - name: Install Selenium 4.51.0
         run: python -m pip install selenium==4.51.0
 
+      # WebView2 Runtime 150+ ignores WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS on an
+      # elevated host. msedgedriver puts --remote-debugging-port there, and
+      # windows-2025 jobs run as admin, so session creation dies with
+      # "DevToolsActivePort file doesn't exist" while the app itself stays up.
+      # Dropping to medium integrity restores the variable. See
+      # https://github.com/tauri-apps/wry/issues/1782
+      - name: Install gsudo and open the workspace to a medium-integrity token
+        shell: pwsh
+        run: |
+          winget install gerardog.gsudo --accept-source-agreements --accept-package-agreements --disable-interactivity
+          $env:PATH = [Environment]::GetEnvironmentVariable('PATH','Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH','User')
+          $gsudo = (Get-Command gsudo -ErrorAction Stop).Source
+          Split-Path $gsudo | Add-Content -Path $env:GITHUB_PATH
+          & $gsudo --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The filtered medium token is not in Administrators. Grant an ACE it
+          # holds so it can read the installer and write screenshots and logs.
+          icacls "$env:GITHUB_WORKSPACE" /grant "Everyone:(OI)(CI)F" /T /C | Out-Null
+          if ($env:RUNNER_TEMP) {
+            icacls "$env:RUNNER_TEMP" /grant "Everyone:(OI)(CI)F" /T /C | Out-Null
+          }
+          $cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+          if (Test-Path $cargoBin) {
+            icacls $cargoBin /grant "Everyone:(OI)(CI)RX" /T /C | Out-Null
+          }
+
       - name: Windows GUI end-to-end
-        shell: bash
+        shell: pwsh
         env:
           ALPHALOOP_OFFLINE_MARKET_DATA: "1"
           ALPHALOOP_MAX_TRIALS: "1"
           ALPHALOOP_E2E_HOLD_RUNNING_SEC: "45"
           ALPHALOOP_REVIEWER: deterministic
         run: |
-          VERSION="${{ steps.ver.outputs.version }}"
-          python apps/desktop/e2e/windows_gui_e2e.py "installer/alphaloop_${VERSION}_windows_x64-setup.exe"
+          $version = "${{ steps.ver.outputs.version }}"
+          $installer = Join-Path (Get-Location) "installer/alphaloop_${version}_windows_x64-setup.exe"
+          if (-not (Test-Path $installer)) { throw "installer missing: $installer" }
+          Unblock-File -Path $installer
+          gsudo --integrity Medium python "apps/desktop/e2e/windows_gui_e2e.py" $installer
+          exit $LASTEXITCODE
 
       - name: Publish step summary
         if: always()

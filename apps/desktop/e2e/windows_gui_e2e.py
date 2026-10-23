@@ -283,9 +283,10 @@ class Session:
         except Exception:
             pass
         kill_app()
+        image = INSTALLED_EXE.name if INSTALLED_EXE is not None else "alphaloop-desktop.exe"
         deadline = time.time() + 20
         while time.time() < deadline:
-            if not process_running("alphaloop.exe") and not process_running("alphaloop-engine.exe"):
+            if not process_running(image) and not process_running("alphaloop-engine.exe"):
                 break
             time.sleep(0.4)
         self.driver = self._connect()
@@ -816,7 +817,7 @@ def main() -> int:
                 pass
         kill_app()
         uninstall_silent(installed)
-        return "silent uninstall removed alphaloop.exe"
+        return "silent uninstall removed the installed executable"
 
     try:
         run_step("install silently", "install", step_install)
