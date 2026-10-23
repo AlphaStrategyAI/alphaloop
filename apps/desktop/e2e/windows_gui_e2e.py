@@ -988,12 +988,40 @@ def main() -> int:
         if research_ids["us"] == research_ids["cn"]:
             raise AssertionError("both dialogues wrote the same research id")
         open_confirm_card(session.driver, research_ids["us"])
+        WebDriverWait(session.driver, 20).until(
+            lambda d: "AAPL" in d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
+        )
+        session.driver.execute_script(
+            """
+            const needle = arguments[0];
+            const card = document.querySelector('[data-testid=confirm-run-card]');
+            const hit = [...(card ? card.querySelectorAll('*') : [])].find((el) =>
+              [...el.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || '').includes(needle))
+            );
+            (hit || card)?.scrollIntoView({block: 'center'});
+            """,
+            "AAPL",
+        )
         shoot("confirms-us")
         us_text = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
         if "AAPL" not in us_text:
             raise AssertionError(f"US confirm card did not mention AAPL: {us_text[:300]}")
         assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "US confirm card")
         open_confirm_card(session.driver, research_ids["cn"])
+        WebDriverWait(session.driver, 20).until(
+            lambda d: "600519" in d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
+        )
+        session.driver.execute_script(
+            """
+            const needle = arguments[0];
+            const card = document.querySelector('[data-testid=confirm-run-card]');
+            const hit = [...(card ? card.querySelectorAll('*') : [])].find((el) =>
+              [...el.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || '').includes(needle))
+            );
+            (hit || card)?.scrollIntoView({block: 'center'});
+            """,
+            "600519",
+        )
         shoot("confirms-cn")
         cn_text = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
         if "600519" not in cn_text:
