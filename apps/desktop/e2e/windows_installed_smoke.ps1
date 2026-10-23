@@ -103,9 +103,13 @@ try {
         if ($direct.HasExited) { break }
         Start-Sleep -Milliseconds 300
     }
-    if (-not $direct.HasExited) { Stop-Process -Id $direct.Id -Force -ErrorAction SilentlyContinue; $direct.WaitForExit() }
+    if (-not $direct.HasExited) {
+        Stop-Process -Id $direct.Id -Force -ErrorAction SilentlyContinue
+        [void]$direct.WaitForExit()
+    }
     $exitCode = $direct.ExitCode
-    $exitHex = if ($null -ne $exitCode) { "{0:X8}" -f ([uint32]$exitCode) } else { "unknown" }
+    # Stop-Process reports -1. Format as unsigned so a loader NTSTATUS still prints.
+    $exitHex = if ($null -eq $exitCode) { "unknown" } else { "{0:X8}" -f ($exitCode -band 0xFFFFFFFF) }
     Write-Probe "direct engine exit $exitCode hex $exitHex handshake=$sawHandshake"
     if (Test-Path $stderr) {
         $errText = Get-Content -LiteralPath $stderr -Raw -ErrorAction SilentlyContinue
