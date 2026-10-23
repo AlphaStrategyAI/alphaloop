@@ -86,7 +86,7 @@ export function buildUiMessages(copy: Copy) {
       expand: copy("展开看全表", "Show the full list"),
       summary: copy(
         "标的 {{count}} 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
-        "{{count}} symbols · list {{listName}} · version {{listVersion}}{{pool}}",
+        "{{count}} {{countSymbolNoun}} · list {{listName}} · version {{listVersion}}{{pool}}",
       ),
       defaultPool: copy(" · 默认标的池", " · default universe"),
       userPool: copy(" · {{note}}", " · {{note}}"),
@@ -235,7 +235,7 @@ export function buildUiMessages(copy: Copy) {
       windowEyebrow: copy("标的与数据窗口", "Symbols and the data window"),
       windowSummary: copy(
         "{{count}} 只 · {{listName}} · 版本 {{listVersion}}",
-        "{{count}} symbols · {{listName}} · version {{listVersion}}",
+        "{{count}} {{countSymbolNoun}} · {{listName}} · version {{listVersion}}",
       ),
       windowMeta: copy(
         "数据区间 {{start}} 至 {{end}}（数据窗口截止 {{cutoff}}{{backtest}}） · 来源 {{source}}",
@@ -337,7 +337,7 @@ export function buildUiMessages(copy: Copy) {
       gateJoiner: copy("、", ", "),
       shrink: copy(
         "因缺少行情数据，已从标的池剔除 {{dropped}} 只，剩余 {{remaining}} 只可用于本轮研究。",
-        "Missing prices removed {{dropped}} names from the universe. {{remaining}} names remain for this round.",
+        "Missing prices removed {{dropped}} {{droppedNoun}} from the universe. {{remaining}} {{remainingNoun}} {{remainingRemain}} for this round.",
       ),
       summaryEligible: copy(
         "当前冻结验证已全部通过（含时点第四关）。可导出策略包；alphaloop 不提供执行入口。",
@@ -381,11 +381,11 @@ export function buildUiMessages(copy: Copy) {
       hintRunningWindow: copy("{{base}} {{window}}。", "{{base}} {{window}}."),
       usLarge: copy(
         "美股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "US large-cap universe · {{count}} names · list date {{date}}",
+        "US large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
       ),
       cnLarge: copy(
         "A 股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "China A-share large-cap universe · {{count}} names · list date {{date}}",
+        "China A-share large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
         true,
       ),
       usLargeNote: copy(
@@ -404,7 +404,7 @@ export function buildUiMessages(copy: Copy) {
       ),
       v1Line: copy(
         "{{count}} 只 · {{listName}} · 版本 {{version}} · {{date}} · {{tail}}",
-        "{{count}} names · {{listName}} · version {{version}} · {{date}} · {{tail}}",
+        "{{count}} {{countNoun}} · {{listName}} · version {{version}} · {{date}} · {{tail}}",
       ),
       usLargeShort: copy("美股大市值", "US large-cap"),
       cnLargeShort: copy("A股大市值", "China A-share large-cap"),
@@ -414,7 +414,7 @@ export function buildUiMessages(copy: Copy) {
       overrideDefault: copy("已覆盖默认的池", "Replaced the default universe"),
       userLine: copy(
         "{{count}} 只 · {{listName}} · {{tail}}",
-        "{{count}} names · {{listName}} · {{tail}}",
+        "{{count}} {{countNoun}} · {{listName}} · {{tail}}",
       ),
       userLineOne: copy(
         "1 只 · {{listName}} · {{tail}}",
@@ -476,11 +476,11 @@ export function buildUiMessages(copy: Copy) {
       hours: copy("{{n}} 小时", "{{n}} hours"),
       coverageNow: copy(
         "当前 {{assets}} 个标的、{{years}} 年数据，缺失 {{missing}}%",
-        "Now {{assets}} names, {{years}} years of data, {{missing}}% missing",
+        "Now {{assets}} {{assetsNoun}}, {{years}} years of data, {{missing}}% missing",
       ),
       coverageFloor: copy(
         "至少 {{assets}} 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
-        "At least {{assets}} names, {{years}} years of data, missing no more than {{missing}}%",
+        "At least {{assets}} {{assetsNoun}}, {{years}} years of data, missing no more than {{missing}}%",
       ),
       coverageWithFloor: copy("{{current}}；底线 {{floor}}", "{{current}}; floor {{floor}}"),
       universe: copy("{{market}} · {{asset}}", "{{market}} · {{asset}}"),
