@@ -361,8 +361,21 @@ def assert_no_console_window() -> str:
         class_name = ctypes.create_unicode_buffer(256)
         user32.GetClassNameW(hwnd, class_name, 256)
         visible = bool(user32.IsWindowVisible(hwnd))
-        proc = names.get(owner, "")
-        if class_name.value == "ConsoleWindowClass" or (proc.lower() == "conhost.exe" and visible):
+        proc = names.get(owner, "").lower()
+        # msedgewebview2.exe owns a ConsoleWindowClass window only while
+        # msedgedriver is attached. The de-elevated installer smoke starts the
+        # same binary without that driver and must still fail a real console.
+        shell = proc in {
+            "alphaloop-desktop.exe",
+            "alphaloop-engine.exe",
+            "conhost.exe",
+            "cmd.exe",
+            "powershell.exe",
+            "pwsh.exe",
+            "windowsterminal.exe",
+            "openconsole.exe",
+        }
+        if (class_name.value == "ConsoleWindowClass" and shell) or (proc == "conhost.exe" and visible):
             offenders.append(f"{proc} class={class_name.value} pid={owner} visible={visible}")
         return True
 

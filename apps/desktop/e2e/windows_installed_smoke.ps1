@@ -78,7 +78,11 @@ public static class AlphaloopConsoles {
       string name = "";
       try { name = Process.GetProcessById((int)pid).ProcessName; } catch {}
       bool visible = IsWindowVisible(h);
-      if (cls.ToString() == "ConsoleWindowClass" || (name.Equals("conhost", StringComparison.OrdinalIgnoreCase) && visible)) {
+      string lower = name.ToLowerInvariant();
+      bool shell = lower == "alphaloop-desktop" || lower == "alphaloop-engine" || lower == "conhost"
+        || lower == "cmd" || lower == "powershell" || lower == "pwsh"
+        || lower == "windowsterminal" || lower == "openconsole";
+      if ((cls.ToString() == "ConsoleWindowClass" && shell) || (lower == "conhost" && visible)) {
         bad.Add(name + " class=" + cls + " pid=" + pid + " visible=" + visible);
       }
       return true;
@@ -86,7 +90,7 @@ public static class AlphaloopConsoles {
     return string.Join("; ", bad);
   }
 }
-"@ -ErrorAction SilentlyContinue
+"@
     $ids = New-Object int[] $tree.Count
     $tree.CopyTo($ids)
     $found = [AlphaloopConsoles]::Find($ids)
