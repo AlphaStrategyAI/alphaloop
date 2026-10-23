@@ -116,8 +116,9 @@ function messages(lang: "zh" | "en") {
       },
       later: {
         body: copy(
-          "这一页随后续的设置功能接入。界面语言在「通用」。",
-          "This page arrives with the later settings work. Interface language is under General.",
+          "本地文件导入将在 M2 提供。",
+          "Local file import arrives in M2.",
+          true,
         ),
       },
     },
@@ -198,6 +199,7 @@ export type MessageCatalog = typeof zhCatalog;
 /** English leaves that are product-final or identical tokens, not placeholders. */
 export const FINAL_MESSAGE_KEYS = [
   "ui.confirm.recognized",
+  "settings.later.body",
   "settings.kicker",
   "settings.routeLabel",
   "settings.general.optionZh",
