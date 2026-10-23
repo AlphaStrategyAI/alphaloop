@@ -267,6 +267,18 @@ jobs:
             icacls $cargoBin /grant "Everyone:(OI)(CI)RX" /T /C | Out-Null
           }
 
+      - name: De-elevated installer smoke
+        timeout-minutes: 15
+        shell: pwsh
+        env:
+          ALPHALOOP_OFFLINE_MARKET_DATA: "1"
+        run: |
+          $version = "${{ steps.ver.outputs.version }}"
+          $installer = Join-Path (Get-Location) "installer/alphaloop_${version}_windows_x64-setup.exe"
+          if (-not (Test-Path $installer)) { throw "installer missing: $installer" }
+          gsudo --integrity Medium pwsh -NoProfile -File "apps/desktop/e2e/windows_installed_smoke.ps1" -Installer $installer
+          exit $LASTEXITCODE
+
       - name: Windows GUI end-to-end
         timeout-minutes: 20
         shell: pwsh
