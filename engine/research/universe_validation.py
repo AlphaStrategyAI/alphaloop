@@ -16,8 +16,8 @@ from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT, pool_for_mar
 from engine.research.universe_pool import materialize_default_pool
 from engine.research.user_errors import UserFacingError
 
-_UNRESOLVED = "无法确认「{token}」的交易所。请选择或输入完整代码。"
-_NO_DATA = "所选数据源没有 {symbol} 的行情，无法开跑。"
+_UNRESOLVED = "无法确认「{token}」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。"
+_NO_DATA = "所选数据源没有 {symbol} 的行情，无法开跑。请改代码或换数据源。"
 
 
 def _named_symbol_label(symbols: tuple[str, ...]) -> str:

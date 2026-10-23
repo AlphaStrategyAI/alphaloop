@@ -179,12 +179,16 @@ function messages(lang: "zh" | "en") {
           "Quote request timed out in the shell. Try again.",
         ),
         SYMBOL_UNRESOLVED: copy(
-          "无法确认「{{token}}」的交易所。请选择或输入完整代码。",
-          "The exchange for “{{token}}” is not certain. Pick one or enter the full code.",
+          "无法确认「{{token}}」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。",
+          "Can't tell which exchange “{{token}}” trades on. Pick an exchange or enter the full code with its suffix.",
         ),
         SYMBOL_NO_DATA: copy(
-          "所选数据源没有 {{symbol}} 的行情，无法开跑。",
-          "The selected data source has no data for {{symbol}}. Run stays blocked.",
+          "所选数据源没有 {{symbol}} 的行情，无法开跑。请改代码或换数据源。",
+          "The selected data source has no data for {{symbol}}, so the run can't start. Change the symbol or the data source.",
+        ),
+        SYMBOL_EDIT_NOT_DRAFT: copy(
+          "只有草稿上的确认卡可以改标的。",
+          "Only a draft's confirm card can change the symbol.",
         ),
       },
     },

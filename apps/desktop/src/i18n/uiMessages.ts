@@ -98,12 +98,12 @@ export function buildUiMessages(copy: Copy) {
       footnote: copy("确认开跑前锁定清单版本与数据区间。", "The list version and the data window lock before you confirm the run."),
       recognized: copy("已识别为 {{symbol}}", "Recognized as {{symbol}}", true),
       unresolved: copy(
-        "无法确认「{{token}}」的交易所。请选择或输入完整代码。",
-        "The exchange for “{{token}}” is not certain. Pick one or enter the full code.",
+        "无法确认「{{token}}」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。",
+        "Can't tell which exchange “{{token}}” trades on. Pick an exchange or enter the full code with its suffix.",
       ),
       noData: copy(
-        "所选数据源没有 {{symbol}} 的行情，无法开跑。",
-        "The selected data source has no data for {{symbol}}. Run stays blocked.",
+        "所选数据源没有 {{symbol}} 的行情，无法开跑。请改代码或换数据源。",
+        "The selected data source has no data for {{symbol}}, so the run can't start. Change the symbol or the data source.",
       ),
       symbolEdit: copy("标的代码", "Symbol"),
       pickExchange: copy("选择交易所", "Pick an exchange"),

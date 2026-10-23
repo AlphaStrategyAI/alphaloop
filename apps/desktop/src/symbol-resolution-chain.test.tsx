@@ -116,7 +116,7 @@ describe("symbol resolution call chain", () => {
     };
     const zh = renderCard(ZH, blocked);
     expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
-      "无法确认「900901」的交易所。请选择或输入完整代码。",
+      "无法确认「900901」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。",
     );
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
     fireEvent.click(screen.getByTestId("confirm-run-start"));
@@ -132,7 +132,7 @@ describe("symbol resolution call chain", () => {
 
     renderCard(EN, blocked);
     expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
-      "The exchange for “900901” is not certain. Pick one or enter the full code.",
+      "Can't tell which exchange “900901” trades on. Pick an exchange or enter the full code with its suffix.",
     );
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
   });
@@ -150,7 +150,7 @@ describe("symbol resolution call chain", () => {
     const zh = renderCard(ZH, missing);
     expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("已识别为 609999.SH");
     expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
-      "所选数据源没有 609999.SH 的行情，无法开跑。",
+      "所选数据源没有 609999.SH 的行情，无法开跑。请改代码或换数据源。",
     );
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
     fireEvent.click(screen.getByTestId("confirm-run-start"));
@@ -160,7 +160,7 @@ describe("symbol resolution call chain", () => {
     renderCard(EN, missing);
     expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("Recognized as 609999.SH");
     expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
-      "The selected data source has no data for 609999.SH. Run stays blocked.",
+      "The selected data source has no data for 609999.SH, so the run can't start. Change the symbol or the data source.",
     );
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
   });

@@ -153,6 +153,9 @@ def test_uncertain_code_names_the_token_and_confirm_run_rejects_it(tmp_path: Pat
         service.handle({"type": "confirm_run", "research_id": research_id})
     assert exc.value.code == "SYMBOL_UNRESOLVED"
     assert exc.value.params["token"] == "900901"
+    assert exc.value.message == (
+        "无法确认「900901」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。"
+    )
     assert service.store.load(research_id).brief.universe.value.symbols == ()
 
 
@@ -174,7 +177,23 @@ def test_resolved_symbol_with_no_bars_blocks_confirm_run(tmp_path: Path) -> None
         service.handle({"type": "confirm_run", "research_id": research_id})
     assert exc.value.code == "SYMBOL_NO_DATA"
     assert exc.value.params["symbol"] == "609999.SH"
+    assert exc.value.message == (
+        "所选数据源没有 609999.SH 的行情，无法开跑。请改代码或换数据源。"
+    )
     assert service.store.load(research_id).brief.universe.value.symbols == ("609999.SH",)
+
+
+def test_symbol_edit_on_a_running_research_is_refused() -> None:
+    from dataclasses import replace
+
+    from engine.research.models import ResearchStatus
+    from engine.research.universe_validation import apply_symbol_edit
+
+    research = replace(new_research("r-running", datetime(2026, 8, 28, 12, tzinfo=UTC)), status=ResearchStatus.RUNNING)
+    with pytest.raises(UserFacingError) as exc:
+        apply_symbol_edit(research, "600519.SH", datetime(2026, 8, 28, 12, tzinfo=UTC))
+    assert exc.value.code == "SYMBOL_EDIT_NOT_DRAFT"
+    assert exc.value.message == "只有草稿上的确认卡可以改标的。"
 
 
 def test_description_with_no_symbol_still_uses_the_default_pool(tmp_path: Path) -> None:

@@ -41,10 +41,14 @@
   },
   "SYMBOL_UNRESOLVED": {
     "params": ["token"],
-    "legacyZh": "无法确认「{{token}}」的交易所。请选择或输入完整代码。"
+    "legacyZh": "无法确认「{{token}}」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。"
   },
   "SYMBOL_NO_DATA": {
     "params": ["symbol"],
-    "legacyZh": "所选数据源没有 {{symbol}} 的行情，无法开跑。"
+    "legacyZh": "所选数据源没有 {{symbol}} 的行情，无法开跑。请改代码或换数据源。"
+  },
+  "SYMBOL_EDIT_NOT_DRAFT": {
+    "params": [],
+    "legacyZh": "只有草稿上的确认卡可以改标的。"
   }
 }

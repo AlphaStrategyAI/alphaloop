@@ -47,6 +47,27 @@ describe("error codes", () => {
     expect(localized.detail).toBe("error sending request for url…");
   });
 
+  it("renders the symbol errors in zh and en", () => {
+    expect(localizeError("zh", {code: "SYMBOL_UNRESOLVED", params: {token: "900901"}}).summary).toBe(
+      "无法确认「900901」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。",
+    );
+    expect(localizeError("en", {code: "SYMBOL_UNRESOLVED", params: {token: "900901"}}).summary).toBe(
+      "Can't tell which exchange “900901” trades on. Pick an exchange or enter the full code with its suffix.",
+    );
+    expect(localizeError("zh", {code: "SYMBOL_NO_DATA", params: {symbol: "609999.SH"}}).summary).toBe(
+      "所选数据源没有 609999.SH 的行情，无法开跑。请改代码或换数据源。",
+    );
+    expect(localizeError("en", {code: "SYMBOL_NO_DATA", params: {symbol: "609999.SH"}}).summary).toBe(
+      "The selected data source has no data for 609999.SH, so the run can't start. Change the symbol or the data source.",
+    );
+    expect(localizeError("zh", {code: "SYMBOL_EDIT_NOT_DRAFT"}).summary).toBe(
+      "只有草稿上的确认卡可以改标的。",
+    );
+    expect(localizeError("en", {code: "SYMBOL_EDIT_NOT_DRAFT"}).summary).toBe(
+      "Only a draft's confirm card can change the symbol.",
+    );
+  });
+
   it("leaves a legacy message without a code unchanged", () => {
     const localized = localizeError("en", {message: "UNIQUE constraint failed"});
     expect(localized.summary).toBe("UNIQUE constraint failed");
