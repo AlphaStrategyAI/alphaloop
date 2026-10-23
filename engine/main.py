@@ -26,14 +26,22 @@ from engine.dialogue.pool_errors import (
     record_transient_confirm_notice,
     reopen_after_pool_failure,
 )
-from engine.research.confirm_view import confirm_data_notice, symbol_selection_payload
+from engine.research.confirm_view import (
+    confirm_data_notice,
+    symbol_resolution_payload,
+    symbol_selection_payload,
+)
 from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
 from engine.research.universe_pool import (
     materialize_default_pool,
     pin_draft_data_source,
     pool_resolvable,
 )
-from engine.research.universe_validation import ensure_runnable_universe
+from engine.research.universe_validation import (
+    apply_symbol_edit,
+    ensure_runnable_universe,
+    refresh_symbol_probe,
+)
 from engine.i18n.errors import build_error_envelope, redact_technical_detail
 from engine.i18n.locale import (
     normalize_request_locale,
@@ -678,22 +686,37 @@ class ResearchCommandService:
         research = self.store.load(research_id)
         if research.status.value == "draft":
             materialized = pin_draft_data_source(materialize_default_pool(research))
+            if all_slots_locked(materialized.brief):
+                materialized = refresh_symbol_probe(materialized)
             if (
                 materialized.brief != research.brief
                 or materialized.data_source_id != research.data_source_id
+                or materialized.symbol_probe_symbols != research.symbol_probe_symbols
+                or materialized.symbol_probe_missing != research.symbol_probe_missing
+                or materialized.symbol_probe_unavailable != research.symbol_probe_unavailable
             ):
                 self.store.save(materialized, research.updated_at)
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
+            universe = research.brief.universe.value
+            named_symbols = universe is not None and (
+                universe.user_symbols_override or bool(universe.unresolved_tokens)
+            )
+            chat_enabled = view_kind == "draft" or not pool_resolvable(research)
+            if view_kind == "confirm_run" and named_symbols:
+                chat_enabled = False
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
                 "dialogue": [dialogue_turn_view(turn) for turn in research.dialogue],
                 "settings": self._settings(research),
-                "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
+                "chatEnabled": chat_enabled,
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
+                resolution = symbol_resolution_payload(research)
+                if resolution is not None:
+                    body["symbolResolution"] = resolution
                 fetch_notice = confirm_data_notice(research)
                 if fetch_notice:
                     body["confirmDataNotice"] = fetch_notice["text"]
@@ -1009,6 +1032,10 @@ class ResearchCommandService:
             return {"revision_hash": updated_method.revision_hash}
         if kind == "confirm_run":
             return self._confirm_run(str(request["research_id"]), now)
+        if kind == "set_research_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = apply_symbol_edit(research, str(request["symbol"]), now)
+            return self._save(research, updated)
 
         research = self.store.load(request["research_id"])
         if kind == "delete_research":

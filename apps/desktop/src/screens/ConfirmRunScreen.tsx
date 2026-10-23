@@ -165,7 +165,23 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
 }
 
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
-  const {t} = useI18n();
+  const {t, resolved} = useI18n();
+  const resolution = view.symbolResolution ?? null;
+  const seeded = resolution
+    ? resolution.symbols.length
+      ? resolution.symbols.join("、")
+      : (resolution.token ?? "")
+    : "";
+  const [symbolDraft, setSymbolDraft] = useState(seeded);
+  useEffect(() => {
+    setSymbolDraft(seeded);
+  }, [seeded, view.researchId]);
+  const commitSymbol = (value: string) => {
+    const text = value.trim();
+    if (!text || text === seeded) return;
+    void api.setResearchSymbol(view.researchId, text);
+  };
+  const exchangeDigits = resolution?.token?.match(/\d{6}/)?.[0];
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const editSlot = (slot: BriefSlotName) => {
     void api.unlockBrief(view.researchId, slot).then(() => {
@@ -187,7 +203,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     void api.unlockBrief(view.researchId);
   };
   const startRun = () => {
-    if (startingRef.current) return;
+    if (startingRef.current || resolution?.blocked) return;
     startingRef.current = true;
     setStarting(true);
     void api
@@ -233,6 +249,51 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             params={view.confirmDataNoticeParams}
           />
         </p>
+      )}
+      {resolution?.editable && (
+        <section className="confirm-data-panel" data-testid="symbol-resolution">
+          {resolution.inferred.length > 0 && (
+            <p data-testid="symbol-recognition">
+              {t("ui.confirm.recognized", {
+                symbol: resolution.inferred
+                  .map((item) => item.symbol)
+                  .join(resolved === "zh" ? "、" : ", "),
+              })}
+            </p>
+          )}
+          {resolution.blocked && (
+            <p className="confirm-data-notice" data-testid="symbol-block-error" role="alert">
+              {resolution.code === "SYMBOL_NO_DATA"
+                ? t("ui.confirm.noData", {symbol: resolution.symbol ?? ""})
+                : t("ui.confirm.unresolved", {token: resolution.token ?? ""})}
+            </p>
+          )}
+          <label>
+            {t("ui.confirm.symbolEdit")}
+            <input
+              data-testid="symbol-edit"
+              value={symbolDraft}
+              aria-label={t("ui.confirm.symbolEdit")}
+              onChange={(event) => setSymbolDraft(event.target.value)}
+              onBlur={() => commitSymbol(symbolDraft)}
+            />
+          </label>
+          {resolution.blocked && resolution.code === "SYMBOL_UNRESOLVED" && exchangeDigits && (
+            <div role="group" aria-label={t("ui.confirm.pickExchange")}>
+              {(["SH", "SZ", "BJ"] as const).map((suffix) => (
+                <button
+                  key={suffix}
+                  type="button"
+                  className="text-button"
+                  data-testid={`symbol-pick-${suffix}`}
+                  onClick={() => api.setResearchSymbol(view.researchId, `${exchangeDigits}.${suffix}`)}
+                >
+                  .{suffix}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
       )}
       {sel && (
         <section className="confirm-data-panel" data-testid="symbol-selection">
@@ -287,7 +348,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         <button
           className="cyan-button"
           data-testid="confirm-run-start"
-          disabled={starting}
+          disabled={starting || Boolean(resolution?.blocked)}
           aria-busy={starting}
           onClick={startRun}
         >

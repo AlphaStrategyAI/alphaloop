@@ -177,6 +177,14 @@ function messages(lang: "zh" | "en") {
           "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）",
           "Quote request timed out in the shell. Try again.",
         ),
+        SYMBOL_UNRESOLVED: copy(
+          "无法确认「{{token}}」的交易所。请选择或输入完整代码。",
+          "The exchange for “{{token}}” is not certain. Pick one or enter the full code.",
+        ),
+        SYMBOL_NO_DATA: copy(
+          "所选数据源没有 {{symbol}} 的行情，无法开跑。",
+          "The selected data source has no data for {{symbol}}. Run stays blocked.",
+        ),
       },
     },
     glossary: glossaryMessages(lang),
@@ -189,6 +197,7 @@ export type MessageCatalog = typeof zhCatalog;
 
 /** English leaves that are product-final or identical tokens, not placeholders. */
 export const FINAL_MESSAGE_KEYS = [
+  "ui.confirm.recognized",
   "settings.kicker",
   "settings.routeLabel",
   "settings.general.optionZh",

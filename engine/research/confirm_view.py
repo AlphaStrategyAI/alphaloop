@@ -68,10 +68,51 @@ def _card_data_source_id(
     return research.data_source_id
 
 
+def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
+    """Inference and block state for the confirm card. None when no symbol was named."""
+    universe = research.brief.universe.value
+    if universe is None:
+        return None
+    named = bool(
+        universe.user_symbols_override or universe.unresolved_tokens or universe.inferred_symbols
+    )
+    if not named:
+        return None
+    code: str | None = None
+    blocked = False
+    token = "、".join(universe.unresolved_tokens) if universe.unresolved_tokens else None
+    symbol = universe.symbols[0] if universe.symbols else None
+    if universe.unresolved_tokens or (universe.user_symbols_override and not universe.symbols):
+        blocked = True
+        code = "SYMBOL_UNRESOLVED"
+    elif (
+        research.symbol_probe_symbols == universe.symbols
+        and research.symbol_probe_missing
+        and set(research.symbol_probe_missing) >= set(universe.symbols)
+    ):
+        blocked = True
+        code = "SYMBOL_NO_DATA"
+        symbol = "、".join(research.symbol_probe_missing)
+    return {
+        "blocked": blocked,
+        "code": code,
+        "token": token,
+        "symbol": symbol,
+        "symbols": list(universe.symbols),
+        "inferred": [
+            {"raw": raw, "symbol": canonical}
+            for raw, canonical in universe.inferred_symbols
+        ],
+        "editable": True,
+    }
+
+
 def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
     research = materialize_default_pool(research)
     universe = research.brief.universe.value
     if universe is None:
+        return None
+    if (universe.user_symbols_override or universe.unresolved_tokens) and not universe.symbols:
         return None
     start, end = planned_data_window()
     if research.data_window_start is not None:

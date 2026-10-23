@@ -397,6 +397,17 @@ class SQLiteStore:
         data = json.loads(payload)
         if isinstance(data, dict):
             data.setdefault("pending_non_mr_thesis", None)
+            data.setdefault("symbol_probe_symbols", [])
+            data.setdefault("symbol_probe_missing", [])
+            data.setdefault("symbol_probe_unavailable", False)
+            universe = (
+                data.get("brief", {}).get("universe", {}).get("value")
+                if isinstance(data.get("brief"), dict)
+                else None
+            )
+            if isinstance(universe, dict):
+                universe.setdefault("unresolved_tokens", [])
+                universe.setdefault("inferred_symbols", [])
         return CONVERTER.structure(data, Research)
 
     def create(self, research: Research) -> None:

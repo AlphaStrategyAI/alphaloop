@@ -108,6 +108,8 @@ class Universe:
     symbols: tuple[str, ...]
     symbol_list_version: str | None = None
     user_symbols_override: bool = False
+    unresolved_tokens: tuple[str, ...] = ()
+    inferred_symbols: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         if self.asset_class is not AssetClass.FUND and self.underlying_asset_class is not self.asset_class:
@@ -505,6 +507,9 @@ class Research:
     pending_non_mr_thesis: str | None = None
     required_secret_ids: tuple[str, ...] = ()
     construction_schedule: str = "legacy_zero"
+    symbol_probe_symbols: tuple[str, ...] = ()
+    symbol_probe_missing: tuple[str, ...] = ()
+    symbol_probe_unavailable: bool = False
 
 
 def new_research(research_id: str, now: datetime) -> Research:

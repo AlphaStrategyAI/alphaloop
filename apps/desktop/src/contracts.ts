@@ -37,6 +37,16 @@ export type BriefSlotName =
   | "round1_methods"
   | "coverage_floor";
 
+export interface SymbolResolution {
+  blocked: boolean;
+  code?: "SYMBOL_UNRESOLVED" | "SYMBOL_NO_DATA" | null;
+  token?: string | null;
+  symbol?: string | null;
+  symbols: readonly string[];
+  inferred: readonly {raw: string; symbol: string}[];
+  editable: boolean;
+}
+
 export interface SymbolSelectionSummary {
   count: number;
   listName: string;
@@ -119,6 +129,7 @@ type ViewBody =
       settings: BriefSettings;
       chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
+      symbolResolution?: SymbolResolution | null;
       confirmDataNotice?: string | null;
       confirmDataNoticeCode?: string | null;
       confirmDataNoticeParams?: Record<string, string | number> | null;
@@ -260,6 +271,8 @@ export interface DesktopApi {
   }>;
   createDraft(): Promise<string>;
   confirmRun(researchId: string): Promise<void>;
+  /** Confirm-card symbol edit. Both arguments are required; the engine rejects a bare id. */
+  setResearchSymbol(researchId: string, symbol: string): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

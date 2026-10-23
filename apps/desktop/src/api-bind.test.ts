@@ -13,6 +13,7 @@ describe("bindDesktopApi", () => {
       fetchView,
       createDraft: vi.fn(),
       confirmRun: vi.fn(),
+      setResearchSymbol: vi.fn(),
       unlockBrief,
       sendDialogue: vi.fn(),
       pauseResearch: vi.fn(),

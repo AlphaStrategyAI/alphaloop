@@ -42,6 +42,7 @@ function makeApi(fetchView: DesktopApi["fetchView"]): DesktopApi {
     fetchView,
     createDraft: vi.fn(async () => "r-new"),
     confirmRun: vi.fn(async () => undefined),
+    setResearchSymbol: vi.fn(async () => undefined),
     unlockBrief: vi.fn(async () => undefined),
     sendDialogue: vi.fn(async () => undefined),
     pauseResearch: vi.fn(async () => undefined),

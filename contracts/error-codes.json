@@ -38,5 +38,13 @@
   "MARKET_DATA_SHELL_TIMEOUT": {
     "params": [],
     "legacyZh": "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）"
+  },
+  "SYMBOL_UNRESOLVED": {
+    "params": ["token"],
+    "legacyZh": "无法确认「{{token}}」的交易所。请选择或输入完整代码。"
+  },
+  "SYMBOL_NO_DATA": {
+    "params": ["symbol"],
+    "legacyZh": "所选数据源没有 {{symbol}} 的行情，无法开跑。"
   }
 }

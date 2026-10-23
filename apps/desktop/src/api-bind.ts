@@ -27,6 +27,8 @@ export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
     fetchView: (route) => api.fetchView(route),
     createDraft: () => runMutation(() => api.createDraft(), deps),
     confirmRun: (researchId) => runMutation(() => api.confirmRun(researchId), deps),
+    setResearchSymbol: (researchId, symbol) =>
+      runMutation(() => api.setResearchSymbol(researchId, symbol), deps),
     unlockBrief: (researchId, slot) =>
       runMutation(() => api.unlockBrief(researchId, slot), deps),
     sendDialogue: (researchId, message) =>

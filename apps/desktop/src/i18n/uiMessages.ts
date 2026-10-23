@@ -96,6 +96,17 @@ export function buildUiMessages(copy: Copy) {
         "Data {{start}} → {{end}} · daily · source: {{source}}",
       ),
       footnote: copy("确认开跑前锁定清单版本与数据区间。", "The list version and the data window lock before you confirm the run."),
+      recognized: copy("已识别为 {{symbol}}", "Recognized as {{symbol}}", true),
+      unresolved: copy(
+        "无法确认「{{token}}」的交易所。请选择或输入完整代码。",
+        "The exchange for “{{token}}” is not certain. Pick one or enter the full code.",
+      ),
+      noData: copy(
+        "所选数据源没有 {{symbol}} 的行情，无法开跑。",
+        "The selected data source has no data for {{symbol}}. Run stays blocked.",
+      ),
+      symbolEdit: copy("标的代码", "Symbol"),
+      pickExchange: copy("选择交易所", "Pick an exchange"),
       listVersion: copy("版本 {{version}}", "Version {{version}}"),
       starting: copy("开跑中…", "Starting…"),
       editAgain: copy("再修改", "Edit again"),

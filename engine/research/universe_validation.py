@@ -3,15 +3,99 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, date, datetime
 
+from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
 from engine.research.models import Research, Slot, Universe
 from engine.research.planned_data_window import (
     data_source_id_for_symbols,
     planned_data_window,
 )
-from engine.research.pool_data_shrink import shrink_pool_to_available_data
-from engine.research.universe_pool import materialize_default_pool
+from engine.research.pool_data_shrink import missing_named_symbols, shrink_pool_to_available_data
+from engine.research.symbol_identity import parse_symbol_field
+from engine.research.symbol_mentions import universe_with_mentions
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT, pool_for_market
+from engine.research.universe_pool import materialize_default_pool
 from engine.research.user_errors import UserFacingError
+
+_UNRESOLVED = "无法确认「{token}」的交易所。请选择或输入完整代码。"
+_NO_DATA = "所选数据源没有 {symbol} 的行情，无法开跑。"
+
+
+def _named_symbol_label(symbols: tuple[str, ...]) -> str:
+    return "、".join(symbols)
+
+
+def reject_unresolved_symbols(research: Research) -> None:
+    universe = research.brief.universe.value
+    if universe is None:
+        return
+    if not universe.unresolved_tokens and not (universe.user_symbols_override and not universe.symbols):
+        return
+    token = _named_symbol_label(universe.unresolved_tokens)
+    raise UserFacingError(
+        "SYMBOL_UNRESOLVED",
+        _UNRESOLVED.format(token=token),
+        params={"token": token},
+    )
+
+
+def refresh_symbol_probe(research: Research) -> Research:
+    """Record whether a named symbol has bars, once per symbol list."""
+    universe = research.brief.universe.value
+    if (
+        universe is None
+        or universe.unresolved_tokens
+        or not universe.user_symbols_override
+        or not universe.symbols
+    ):
+        return research
+    if research.symbol_probe_symbols == universe.symbols:
+        return research
+    start, end = planned_data_window()
+    try:
+        missing = missing_named_symbols(universe.symbols, start, end)
+    except UserFacingError as error:
+        if error.code in MARKET_DATA_FAILURE_CODES:
+            return replace(
+                research,
+                symbol_probe_symbols=universe.symbols,
+                symbol_probe_missing=(),
+                symbol_probe_unavailable=True,
+            )
+        raise
+    return replace(
+        research,
+        symbol_probe_symbols=universe.symbols,
+        symbol_probe_missing=missing,
+        symbol_probe_unavailable=False,
+    )
+
+
+def apply_symbol_edit(research: Research, symbol: str, now: datetime) -> Research:
+    """Replace the confirm-card symbol. An uncertain code stays unresolved."""
+    from engine.research.models import ResearchStatus
+
+    if research.status is not ResearchStatus.DRAFT:
+        raise UserFacingError("SYMBOL_EDIT_NOT_DRAFT", "只有草稿上的确认卡可以改标的。")
+    universe = research.brief.universe.value
+    if universe is None:
+        raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    mentions = parse_symbol_field(symbol)
+    if not mentions:
+        raise UserFacingError(
+            "SYMBOL_UNRESOLVED",
+            _UNRESOLVED.format(token=symbol.strip()),
+            params={"token": symbol.strip()},
+        )
+    updated = universe_with_mentions(universe, mentions)
+    brief = replace(research.brief, universe=Slot(updated, research.brief.universe.locked))
+    return replace(
+        research,
+        brief=brief,
+        symbol_probe_symbols=(),
+        symbol_probe_missing=(),
+        symbol_probe_unavailable=False,
+        updated_at=now,
+    )
 
 
 def resolve_universe_symbols(research: Research, now: datetime) -> Research:
@@ -20,6 +104,9 @@ def resolve_universe_symbols(research: Research, now: datetime) -> Research:
     universe = research.brief.universe.value
     if universe is None:
         raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    reject_unresolved_symbols(research)
+    universe = research.brief.universe.value
+    assert universe is not None
     floor = research.brief.coverage_floor.value
     min_assets = floor.min_assets if floor is not None else 0
 
@@ -28,6 +115,16 @@ def resolve_universe_symbols(research: Research, now: datetime) -> Research:
             raise UserFacingError(
                 "UNIVERSE_TOO_FEW_SYMBOLS",
                 f"当前仅 {len(universe.symbols)} 个标的，低于最低覆盖要求的 {min_assets} 个。",
+            )
+        start, end = planned_data_window(now)
+        missing = missing_named_symbols(universe.symbols, start, end)
+        kept = tuple(symbol for symbol in universe.symbols if symbol not in set(missing))
+        if missing and not kept:
+            symbol = _named_symbol_label(missing)
+            raise UserFacingError(
+                "SYMBOL_NO_DATA",
+                _NO_DATA.format(symbol=symbol),
+                params={"symbol": symbol},
             )
         return _pin_window(research, universe, now)
 

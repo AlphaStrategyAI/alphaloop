@@ -6,6 +6,7 @@ from enum import StrEnum
 from typing import Any
 
 from engine.dialogue.prompts import QUESTIONS, SlotName
+from engine.research.coverage_parse import merge_coverage_floor
 from engine.research.models import (
     AssetClass,
     CoverageFloor,
@@ -14,7 +15,8 @@ from engine.research.models import (
     Research,
     Universe,
 )
-from engine.research.coverage_parse import merge_coverage_floor, parse_coverage_parts
+from engine.research.symbol_identity import extract_symbol_mentions
+from engine.research.symbol_mentions import universe_with_mentions
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT
 
 
@@ -44,15 +46,12 @@ METHOD_WORDS = {
 }
 
 
-def _extract_tickers(text: str) -> tuple[str, ...]:
-    found: list[str] = []
-    for token in re.split(r"[、,，\s]+", text):
-        token = token.strip().upper()
-        if re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z])?", token):
-            found.append(token)
-        elif re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", token):
-            found.append(token)
-    return tuple(dict.fromkeys(found))
+def _cn_mention(mention: object) -> bool:
+    raw = getattr(mention, "raw", "")
+    canonical = getattr(mention, "canonical", None) or ""
+    if re.fullmatch(r"\d{6}(?:\.[A-Za-z]{2})?", raw):
+        return True
+    return canonical.endswith((".SH", ".SZ", ".BJ"))
 
 
 def _parse_universe(message: str) -> Universe | None:
@@ -70,18 +69,20 @@ def _parse_universe(message: str) -> Universe | None:
     else:
         asset = None
         underlying = None
+    mentions = extract_symbol_mentions(message)
+    if market is None and any(_cn_mention(mention) for mention in mentions):
+        market = Market.CN
+    if market is None and any(mention.canonical and not _cn_mention(mention) for mention in mentions):
+        market = Market.US
+    if asset is None and mentions:
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
     if market is None or asset is None or underlying is None:
         return None
-    tickers = _extract_tickers(message)
-    if tickers:
-        return Universe(
-            market,
-            asset,
-            underlying,
-            tickers,
-            user_symbols_override=True,
-        )
-    return Universe(market, asset, underlying, ())
+    blank = Universe(market, asset, underlying, ())
+    if mentions:
+        return universe_with_mentions(blank, mentions)
+    return blank
 
 
 def _parse_hours(message: str) -> float | None:

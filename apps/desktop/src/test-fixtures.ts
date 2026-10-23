@@ -11,6 +11,7 @@ export function minimalDesktopApi(overrides: Partial<DesktopApi> = {}): DesktopA
     fetchView: async () => emptyResearchListView,
     createDraft: async () => "r-test",
     confirmRun: async () => undefined,
+    setResearchSymbol: async () => undefined,
     unlockBrief: async () => undefined,
     sendDialogue: async () => undefined,
     pauseResearch: async () => undefined,

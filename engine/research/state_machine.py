@@ -32,6 +32,9 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
     )
     if not all(slot.value is not None for slot in slots):
         return False
+    universe = brief.universe.value
+    if universe is not None and (universe.user_symbols_override or universe.unresolved_tokens):
+        return True
     return pool_resolvable_brief(brief)
 
 

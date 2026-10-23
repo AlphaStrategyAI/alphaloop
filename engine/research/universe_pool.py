@@ -6,13 +6,24 @@ from dataclasses import replace
 
 from engine.research.models import Research, ResearchBrief, ResearchStatus, Slot, Universe
 from engine.research.planned_data_window import data_source_id_for_symbols
+from engine.research.symbol_mentions import apply_described_symbols
 from engine.research.symbol_pool import pool_for_market
 
 
 def materialize_default_pool(research: Research) -> Research:
-    """Fill empty universe.symbols from the versioned default pool when applicable."""
+    """Fill empty universe.symbols from the versioned default pool when applicable.
+
+    A description that names a symbol never receives this pool, even when the
+    symbol could not be given an exchange suffix.
+    """
+    research = apply_described_symbols(research)
     universe = research.brief.universe.value
-    if universe is None or universe.user_symbols_override or universe.symbols:
+    if (
+        universe is None
+        or universe.user_symbols_override
+        or universe.symbols
+        or universe.unresolved_tokens
+    ):
         return research
     pool = pool_for_market(
         universe.market,
@@ -58,6 +69,10 @@ def pool_resolvable_brief(brief: ResearchBrief) -> bool:
     universe = brief.universe.value
     if universe is None:
         return False
+    if universe.unresolved_tokens:
+        return False
+    if universe.user_symbols_override:
+        return bool(universe.symbols)
     if universe.symbols:
         return True
     pool = pool_for_market(

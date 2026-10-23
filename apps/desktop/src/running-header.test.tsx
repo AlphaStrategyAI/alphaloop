@@ -19,6 +19,7 @@ const api: DesktopApi = {
   fetchView: vi.fn(async () => runningView),
   createDraft: vi.fn(),
   confirmRun: vi.fn(),
+  setResearchSymbol: vi.fn(async () => undefined),
   unlockBrief: vi.fn(),
   sendDialogue: vi.fn(),
   pauseResearch: vi.fn(),

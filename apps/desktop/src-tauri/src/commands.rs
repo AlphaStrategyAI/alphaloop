@@ -250,6 +250,30 @@ pub async fn create_draft(connection: State<'_, EngineConnection>) -> Result<Str
         .ok_or("create_draft response omitted research_id".into())
 }
 
+pub(crate) fn set_research_symbol_request(research_id: &str, symbol: &str) -> Value {
+    json!({
+        "type": "set_research_symbol",
+        "research_id": research_id,
+        "symbol": symbol,
+    })
+}
+
+#[tauri::command]
+pub async fn set_research_symbol(
+    research_id: String,
+    symbol: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        set_research_symbol_request(&research_id, &symbol),
+    )
+    .await
+    .map(|_| ())
+}
+
 #[tauri::command]
 pub async fn confirm_run(
     research_id: String,
@@ -658,7 +682,7 @@ pub async fn secret_failure_preview(
 mod tests {
     use super::{
         EngineConnection, command_timeout_secs, notification_title, notify_kinds,
-        parse_engine_error_body,
+        parse_engine_error_body, set_research_symbol_request,
     };
     use serde_json::json;
 
@@ -692,6 +716,14 @@ mod tests {
         assert!(command_timeout_secs(None, 60) > 13 * 60);
         assert_eq!(command_timeout_secs(Some(120), 60), 240);
         assert!(command_timeout_secs(Some(120), 60) > 120);
+    }
+
+    #[test]
+    fn set_research_symbol_request_keeps_the_research_id_and_the_symbol() {
+        let body = set_research_symbol_request("r-1", "600519.SH");
+        assert_eq!(body["type"], "set_research_symbol");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["symbol"], "600519.SH");
     }
 
     #[test]

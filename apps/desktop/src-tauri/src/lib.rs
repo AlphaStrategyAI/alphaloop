@@ -178,6 +178,7 @@ pub fn run() {
             commands::market_data_progress,
             commands::create_draft,
             commands::confirm_run,
+            commands::set_research_symbol,
             commands::unlock_brief,
             commands::send_dialogue,
             commands::pause_research,
