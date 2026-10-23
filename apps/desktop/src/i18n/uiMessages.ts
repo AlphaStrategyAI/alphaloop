@@ -371,6 +371,7 @@ export function buildUiMessages(copy: Copy) {
       cnLarge: copy(
         "A 股大市值池 · {{count}} 只 · 名单日 {{date}}",
         "China A-share large-cap universe · {{count}} names · list date {{date}}",
+        true,
       ),
       usLargeNote: copy(
         "取自标普 500 在名单日的成分，非时点成分",
@@ -378,7 +379,13 @@ export function buildUiMessages(copy: Copy) {
       ),
       cnLargeNote: copy(
         "取自沪深 300 在名单日的成分，非时点成分",
-        "Taken from CSI 300 membership on the list date; not point-in-time.",
+        "Based on CSI 300 membership on the list date; not point-in-time.",
+        true,
+      ),
+      survivorshipHint: copy(
+        "股票池是名单日的成分，回看更早的历史含幸存者偏差。",
+        "Uses list-date members; earlier history has survivorship bias.",
+        true,
       ),
       v1Line: copy(
         "{{count}} 只 · {{listName}} · 版本 {{version}} · {{date}} · {{tail}}",

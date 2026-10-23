@@ -152,5 +152,89 @@ describe("I2 smoke follow-ups", () => {
     );
     expect(screen.getByTestId("completed-symbol-selection-summary").textContent).not.toMatch(/[\u4e00-\u9fff]/);
   });
+
+  it("shows CSI 300 only in the A-share fine print on the confirm card and conclusion page", () => {
+    const poolName = "China A-share large-cap universe · 300 names · list date 2026-10-19";
+    const finePrint = "Based on CSI 300 membership on the list date; not point-in-time.";
+    const selection = {
+      count: 300,
+      listName: "A 股大市值池 · 300 只 · 名单日 2026-10-19",
+      listVersion: "2",
+      summaryLine: "A 股大市值池 · 300 只 · 名单日 2026-10-19",
+      listNote: "取自沪深 300 在名单日的成分，非时点成分",
+      generatedDate: "2026-10-19",
+      symbols: ["600519.SH"],
+      source: "default_pool" as const,
+      isDefaultPool: true,
+      dataStart: "2016-10-20",
+      dataEnd: "2026-10-19",
+      dataCutoff: "2026-10-19",
+      dataSource: "AkShare 日线（新浪优先）",
+    };
+    const assertPool = (summaryId: string) => {
+      const summary = screen.getByTestId(summaryId).textContent ?? "";
+      const note = screen.getByTestId("symbol-selection-note").textContent ?? "";
+      expect(summary).toBe(poolName);
+      expect(note).toBe(finePrint);
+      expect(summary).not.toContain("CSI 300");
+      const page = document.body.textContent ?? "";
+      expect(page.match(/CSI 300/g)).toEqual(["CSI 300"]);
+      expect(note).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+      expect(summary).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+      expect(screen.getByTestId(summaryId).querySelector("[data-i18n-placeholder]")).toBeNull();
+      expect(screen.getByTestId("symbol-selection-note").querySelector("[data-i18n-placeholder]")).toBeNull();
+    };
+
+    const {unmount} = render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard
+          api={api()}
+          view={{
+            kind: "confirm_run",
+            researchId: "r-cn",
+            dialogue: [],
+            chatEnabled: false,
+            settings: {
+              thesis: "关注低波动",
+              universe: "A股 · 股票",
+              universe_symbols: selection.summaryLine,
+              max_effective_hours: "4 小时",
+              round1_methods: "分段稳健性检验",
+              coverage_floor: "至少 25 个标的",
+            },
+            symbolSelection: selection,
+          }}
+        />
+      </I18nProvider>,
+    );
+    assertPool("symbol-selection-summary");
+    expect(screen.getByTestId("universe-symbols")).toHaveTextContent(poolName);
+    unmount();
+
+    render(
+      <I18nProvider initial={EN}>
+        <CompletedScreen
+          api={api()}
+          view={{
+            kind: "completed",
+            researchId: "r-cn",
+            status: "completed",
+            title: "A股均值回归",
+            selectedRoundId: "round-1",
+            selectedMethodId: "m-1",
+            eligibility: {
+              allMethodsPassed: false,
+              noPendingConfirm: true,
+              reverifiesPassed: true,
+              pitExecutedAndPassed: false,
+            },
+            symbolSelection: selection,
+          }}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("completed-symbol-selection-summary")).toHaveTextContent(poolName);
+    assertPool("completed-symbol-selection-summary");
+  });
 });
 

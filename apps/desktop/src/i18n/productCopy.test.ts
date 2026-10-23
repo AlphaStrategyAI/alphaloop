@@ -1,10 +1,21 @@
 import {describe, expect, it} from "vitest";
 
+import {enCatalog, isFinalMessageKey} from "./catalog";
 import {localizeKnownCopy} from "./productCopy";
 import {translate} from "./translate";
 
 const zh = (text: string) => localizeKnownCopy(text, (key, params) => translate("zh", key, params));
 const en = (text: string) => localizeKnownCopy(text, (key, params) => translate("en", key, params));
+
+function leaves(value: unknown, prefix = ""): Array<[string, string]> {
+  if (typeof value === "string") return [[prefix, value]];
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
+      leaves(child, prefix ? `${prefix}.${key}` : key),
+    );
+  }
+  return [];
+}
 
 const EXHAUSTED =
   "本窗口所有研究累计 1 轮；轮数越多，偶然通过的可能性越高。未通过门禁：市场计分卡。只能导出研究记录包。可点「继续迭代」追加预算后再跑（阈值不变）。";
@@ -28,10 +39,29 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
     expect(en(US_LIST)).toBe("US large-cap universe · 503 names · list date 2026-10-16");
     expect(zh(CN_LIST)).toBe(CN_LIST);
     expect(en(CN_LIST)).toBe("China A-share large-cap universe · 300 names · list date 2026-10-19");
+    expect(enCatalog.ui.copy.cnLarge).toBe(
+      enCatalog.ui.copy.usLarge.replace("US large-cap", "China A-share large-cap"),
+    );
     expect(zh("取自标普 500 在名单日的成分，非时点成分")).toBe("取自标普 500 在名单日的成分，非时点成分");
     expect(en("取自沪深 300 在名单日的成分，非时点成分")).toBe(
-      "Taken from CSI 300 membership on the list date; not point-in-time.",
+      "Based on CSI 300 membership on the list date; not point-in-time.",
     );
+    const survivorshipZh = "股票池是名单日的成分，回看更早的历史含幸存者偏差。";
+    expect(zh(survivorshipZh)).toBe(survivorshipZh);
+    expect(en(survivorshipZh)).toBe("Uses list-date members; earlier history has survivorship bias.");
+    expect(translate("en", "ui.copy.cnLarge", {count: 300, date: "2026-10-19"})).toBe(
+      "China A-share large-cap universe · 300 names · list date 2026-10-19",
+    );
+    for (const key of ["ui.copy.cnLarge", "ui.copy.cnLargeNote", "ui.copy.survivorshipHint"] as const) {
+      expect(isFinalMessageKey(key), key).toBe(true);
+      const text = translate("en", key, {count: 300, date: "2026-10-19"});
+      expect(text, key).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+      expect(text, key).not.toMatch(/[。，、；：！？「」『』（）‘’]/);
+    }
+    const csiKeys = leaves(enCatalog)
+      .filter(([, text]) => text.includes("CSI 300"))
+      .map(([key]) => key);
+    expect(csiKeys).toEqual(["ui.copy.cnLargeNote"]);
     expect(zh(V1_LINE)).toBe(V1_LINE);
     expect(en(V1_LINE)).toBe("40 names · US large-cap · version 1 · 2026-10-17 · default universe");
     expect(zh(EXHAUSTED)).toBe(EXHAUSTED);

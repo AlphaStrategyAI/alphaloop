@@ -17,7 +17,7 @@ _V2_COPY: dict[str, dict[str, str]] = {
         "zh": "A 股大市值池 · {count} 只 · 名单日 {date}",
         "en": "China A-share large-cap universe · {count} names · list date {date}",
         "zh_note": "取自沪深 300 在名单日的成分，非时点成分",
-        "en_note": "Taken from CSI 300 membership on the list date; not point-in-time.",
+        "en_note": "Based on CSI 300 membership on the list date; not point-in-time.",
     },
 }
 

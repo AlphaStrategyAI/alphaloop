@@ -195,6 +195,9 @@ export const FINAL_MESSAGE_KEYS = [
   "settings.general.optionEn",
   "format.datePattern",
   "format.dateTimePattern",
+  "ui.copy.cnLarge",
+  "ui.copy.cnLargeNote",
+  "ui.copy.survivorshipHint",
 ] as const;
 
 export function isFinalMessageKey(key: string): boolean {

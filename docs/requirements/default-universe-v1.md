@@ -50,7 +50,8 @@
 
 **英文说明行**
 
-Taken from S&P 500 / CSI 300 membership on the list date; not point-in-time.
+- Taken from S&P 500 membership on the list date; not point-in-time.
+- Based on CSI 300 membership on the list date; not point-in-time.
 
 美股用 S&P 500，A 股用 CSI 300。
 
@@ -66,7 +67,7 @@ Taken from S&P 500 / CSI 300 membership on the list date; not point-in-time.
 
 **英文**
 
-Universe uses the membership on the list date; earlier history carries survivorship bias.
+Uses list-date members; earlier history has survivorship bias.
 
 提示放在三处：
 
