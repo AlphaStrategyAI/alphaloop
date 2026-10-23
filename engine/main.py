@@ -38,9 +38,11 @@ from engine.research.universe_pool import (
     pool_resolvable,
 )
 from engine.research.universe_validation import (
+    answer_symbol_ask,
     apply_symbol_edit,
     ensure_runnable_universe,
     refresh_symbol_probe,
+    use_hinted_symbol,
 )
 from engine.i18n.errors import build_error_envelope, redact_technical_detail
 from engine.i18n.locale import (
@@ -1035,6 +1037,19 @@ class ResearchCommandService:
         if kind == "set_research_symbol":
             research = self.store.load(str(request["research_id"]))
             updated = apply_symbol_edit(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "answer_symbol_ask":
+            research = self.store.load(str(request["research_id"]))
+            updated = answer_symbol_ask(
+                research,
+                str(request["token"]),
+                bool(request["accept"]),
+                now,
+            )
+            return self._save(research, updated)
+        if kind == "use_hinted_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = use_hinted_symbol(research, str(request["symbol"]), now)
             return self._save(research, updated)
 
         research = self.store.load(request["research_id"])

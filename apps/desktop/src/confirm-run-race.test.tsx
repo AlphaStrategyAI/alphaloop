@@ -45,6 +45,8 @@ function makeApi(overrides: Partial<DesktopApi>): DesktopApi {
     createMethod: vi.fn(),
     ...overrides,
     setResearchSymbol: overrides.setResearchSymbol ?? vi.fn(async () => undefined),
+    answerSymbolAsk: overrides.answerSymbolAsk ?? vi.fn(async () => undefined),
+    useHintedSymbol: overrides.useHintedSymbol ?? vi.fn(async () => undefined),
   };
 }
 

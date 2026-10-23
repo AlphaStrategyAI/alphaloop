@@ -3,7 +3,7 @@
  * A dropped argument here is how a green unit test still shipped a dead button.
  */
 import "@testing-library/jest-dom/vitest";
-import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {bindDesktopApi} from "./api-bind";
@@ -285,5 +285,235 @@ describe("symbol resolution call chain", () => {
     cleanup();
     renderCard(ZH, pair);
     expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("已识别为 SPY、QQQ");
+  });
+
+  it("asks about COST both ways through the same invoke chain", async () => {
+    const asked = {
+      blocked: true,
+      code: "SYMBOL_ASK_PENDING" as const,
+      token: null,
+      symbol: null,
+      symbols: [] as string[],
+      inferred: [],
+      editable: true,
+      asks: [{token: "COST", symbol: "COST"}],
+    };
+    const zh = renderCard(ZH, asked);
+    expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
+      "「COST」是美股代码 COST，也是常见英文单词。要把它当作标的吗？",
+    );
+    expect(screen.getByTestId("symbol-ask-yes-COST")).toHaveTextContent("当作标的");
+    expect(screen.getByTestId("symbol-ask-no-COST")).toHaveTextContent("只是文字");
+    expect(screen.getByTestId("symbol-ask-block-hint")).toHaveTextContent("先确认上面的代码再开跑。");
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("confirm-run-start"));
+    expect(zh.invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
+    fireEvent.click(screen.getByTestId("symbol-ask-yes-COST"));
+    await waitFor(() =>
+      expect(zh.invoke).toHaveBeenCalledWith("answer_symbol_ask", {
+        researchId: "r-symbol",
+        token: "COST",
+        accept: true,
+      }),
+    );
+    cleanup();
+
+    const en = renderCard(EN, asked);
+    expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
+      '"COST" is the US ticker COST and also a common English word. Use it as a symbol?',
+    );
+    expect(screen.getByTestId("symbol-ask-yes-COST")).toHaveTextContent("Use as symbol");
+    expect(screen.getByTestId("symbol-ask-no-COST")).toHaveTextContent("Just text");
+    expect(screen.getByTestId("symbol-ask-block-hint")).toHaveTextContent(
+      "Confirm the symbols above before running.",
+    );
+    fireEvent.click(screen.getByTestId("symbol-ask-no-COST"));
+    await waitFor(() =>
+      expect(en.invoke).toHaveBeenCalledWith("answer_symbol_ask", {
+        researchId: "r-symbol",
+        token: "COST",
+        accept: false,
+      }),
+    );
+  });
+
+  it("shows $spy as a recognized symbol", () => {
+    const marked = {
+      blocked: false,
+      code: null,
+      token: "$spy",
+      symbol: "SPY",
+      symbols: ["SPY"],
+      inferred: [{raw: "$spy", symbol: "SPY"}],
+      editable: true,
+    };
+    renderCard(ZH, marked);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("已识别为 SPY");
+    expect((screen.getByTestId("symbol-edit") as HTMLInputElement).value).toBe("SPY");
+    expect(screen.getByTestId("confirm-run-start")).toBeEnabled();
+    cleanup();
+    renderCard(EN, marked);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("Recognized as SPY");
+  });
+
+  it("offers the lowercase spy hint and sends the one-click symbol", async () => {
+    const hint = {
+      blocked: false,
+      code: null,
+      token: null,
+      symbol: null,
+      symbols: [] as string[],
+      inferred: [],
+      editable: true,
+      hints: [{token: "spy", symbol: "SPY"}],
+      poolCount: 503,
+    };
+    const zh = renderCard(ZH, hint);
+    expect(screen.getByTestId("symbol-pool-hint")).toHaveTextContent(
+      "没有识别到标的，将使用默认池（503 只）。你是指 SPY 吗？",
+    );
+    expect(screen.getByTestId("symbol-hint-use")).toHaveTextContent("设为标的");
+    expect(screen.getByTestId("confirm-run-start")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("symbol-hint-use"));
+    await waitFor(() =>
+      expect(zh.invoke).toHaveBeenCalledWith("use_hinted_symbol", {
+        researchId: "r-symbol",
+        symbol: "SPY",
+      }),
+    );
+    cleanup();
+
+    const one = renderCard(EN, {...hint, poolCount: 1});
+    expect(screen.getByTestId("symbol-pool-hint")).toHaveTextContent(
+      "No symbol recognized, so the run will use the default pool (1 name). Did you mean SPY?",
+    );
+    expect(screen.getByTestId("symbol-pool-hint").textContent).not.toContain("1 names");
+    cleanup();
+    renderCard(EN, hint);
+    expect(screen.getByTestId("symbol-pool-hint")).toHaveTextContent(
+      "No symbol recognized, so the run will use the default pool (503 names). Did you mean SPY?",
+    );
+    expect(screen.getByTestId("symbol-hint-use")).toHaveTextContent("Use as symbol");
+  });
+
+  it("blocks a mix of China A-shares and US stocks in zh and en", () => {
+    const mixed = {
+      blocked: true,
+      code: "SYMBOL_MIXED_MARKETS" as const,
+      token: null,
+      symbol: null,
+      symbols: ["600519.SH", "SPY"],
+      inferred: [
+        {raw: "600519", symbol: "600519.SH"},
+        {raw: "SPY", symbol: "SPY"},
+      ],
+      editable: true,
+      cnSymbols: "600519.SH",
+      usSymbols: "SPY",
+    };
+    const zh = renderCard(ZH, mixed);
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "一次研究只能用同一个市场的标的，这里既有 A 股（600519.SH），也有美股（SPY）。请删掉其中一边。",
+    );
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("confirm-run-start"));
+    expect(zh.invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
+    cleanup();
+    renderCard(EN, mixed);
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "A study can only use symbols from one market, but this has both China A-shares (600519.SH) and US stocks (SPY). Remove one side.",
+    );
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+  });
+
+  it("saves a dirty symbol before confirm_run, and waits for that save", async () => {
+    let releaseSave: () => void = () => undefined;
+    const invoke = vi.fn((command: string) => {
+      if (command === "set_research_symbol") {
+        return new Promise<void>((resolve) => {
+          releaseSave = resolve;
+        });
+      }
+      return Promise.resolve();
+    });
+    const bound = bindDesktopApi(createTauriDesktopApi(invoke as unknown as DesktopInvoke), {
+      onError: vi.fn(),
+      refresh: vi.fn(async () => undefined),
+    });
+    const blocked = {
+      blocked: true,
+      code: "SYMBOL_UNRESOLVED" as const,
+      token: "900901",
+      symbol: null,
+      symbols: [] as string[],
+      inferred: [],
+      editable: true,
+    };
+    render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard api={bound} view={viewWith(blocked)} />
+      </I18nProvider>,
+    );
+    fireEvent.change(screen.getByTestId("symbol-edit"), {target: {value: "600519.SH"}});
+    const button = screen.getByTestId("confirm-run-start");
+    expect(button).toBeEnabled();
+    fireEvent.mouseDown(button);
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_research_symbol", {
+        researchId: "r-symbol",
+        symbol: "600519.SH",
+      }),
+    );
+    expect(invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
+    await act(async () => {
+      releaseSave();
+    });
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("confirm_run", {researchId: "r-symbol"}),
+    );
+    const names = invoke.mock.calls.map((call) => call[0]);
+    expect(names.indexOf("set_research_symbol")).toBeLessThan(names.indexOf("confirm_run"));
+  });
+
+  it("submits the symbol field on Enter and does not start the run", async () => {
+    const {invoke} = renderCard(ZH, {
+      blocked: false,
+      code: null,
+      token: "600519",
+      symbol: "600519.SH",
+      symbols: ["600519.SH"],
+      inferred: [{raw: "600519", symbol: "600519.SH"}],
+      editable: true,
+    });
+    const input = screen.getByTestId("symbol-edit");
+    fireEvent.change(input, {target: {value: "000001.SZ"}});
+    fireEvent.keyDown(input, {key: "Enter"});
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_research_symbol", {
+        researchId: "r-symbol",
+        symbol: "000001.SZ",
+      }),
+    );
+    expect(invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
+  });
+
+  it("removes a recognized symbol from the card", async () => {
+    const {invoke} = renderCard(ZH, {
+      blocked: false,
+      code: null,
+      token: "SPY",
+      symbol: "SPY",
+      symbols: ["SPY"],
+      inferred: [{raw: "SPY", symbol: "SPY"}],
+      editable: true,
+    });
+    fireEvent.click(screen.getByTestId("symbol-remove-SPY"));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("set_research_symbol", {
+        researchId: "r-symbol",
+        symbol: "",
+      }),
+    );
   });
 });

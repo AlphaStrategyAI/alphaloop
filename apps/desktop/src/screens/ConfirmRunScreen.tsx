@@ -176,13 +176,21 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       : localeList(resolution.token)
     : "";
   const [symbolDraft, setSymbolDraft] = useState(seeded);
+  const [saving, setSaving] = useState(false);
+  const saveChain = useRef(Promise.resolve());
   useEffect(() => {
     setSymbolDraft(seeded);
   }, [seeded, view.researchId]);
   const commitSymbol = (value: string) => {
     const text = value.trim();
-    if (!text || text === seeded) return;
-    void api.setResearchSymbol(view.researchId, text);
+    if (text === seeded.trim()) return Promise.resolve();
+    setSaving(true);
+    const job = saveChain.current.then(() => api.setResearchSymbol(view.researchId, text));
+    saveChain.current = job.then(
+      () => undefined,
+      () => undefined,
+    );
+    return job.finally(() => setSaving(false));
   };
   const exchangeDigits = resolution?.token?.match(/\d{6}/)?.[0];
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
@@ -205,19 +213,48 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const returnToDraft = () => {
     void api.unlockBrief(view.researchId);
   };
+  const dirty = symbolDraft.trim() !== seeded.trim();
+  const runBlocked = Boolean(resolution?.blocked) && !dirty;
   const startRun = () => {
-    if (startingRef.current || resolution?.blocked) return;
+    if (startingRef.current || runBlocked) return;
     startingRef.current = true;
     setStarting(true);
-    void api
-      .confirmRun(view.researchId)
-      .catch(() => {
+    void (async () => {
+      try {
+        if (symbolDraft.trim() !== seeded.trim()) {
+          await commitSymbol(symbolDraft);
+        }
+        await api.confirmRun(view.researchId);
+      } catch {
         /* bindDesktopApi already recorded the message */
-      })
-      .finally(() => {
+      } finally {
         startingRef.current = false;
         setStarting(false);
+      }
+    })();
+  };
+  const blockMessage = () => {
+    if (!resolution?.blocked) return null;
+    if (resolution.code === "SYMBOL_NO_DATA") {
+      return t("ui.confirm.noData", {symbol: localeList(resolution.symbol)});
+    }
+    if (resolution.code === "SYMBOL_ETF_UNSUPPORTED") {
+      return t("ui.confirm.etfUnsupported", {symbol: localeList(resolution.symbol)});
+    }
+    if (resolution.code === "SYMBOL_MIXED_MARKETS") {
+      return t("ui.confirm.mixedMarkets", {
+        cn_symbols: localeList(resolution.cnSymbols),
+        us_symbols: localeList(resolution.usSymbols),
       });
+    }
+    if (resolution.code === "SYMBOL_ASK_PENDING") return null;
+    return t("ui.confirm.unresolved", {token: localeList(resolution.token)});
+  };
+  const asks = resolution?.asks ?? [];
+  const hints = resolution?.hints ?? [];
+  const removeRecognized = (symbol: string) => {
+    const rest = (resolution?.symbols ?? []).filter((item) => item !== symbol);
+    void api.setResearchSymbol(view.researchId, rest.join(listSep));
   };
   return (
     <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
@@ -260,15 +297,65 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               {t("ui.confirm.recognized", {
                 symbol: resolution.inferred.map((item) => item.symbol).join(listSep),
               })}
+              {resolution.inferred.map((item) => (
+                <button
+                  key={item.symbol}
+                  type="button"
+                  className="text-button symbol-remove"
+                  data-testid={`symbol-remove-${item.symbol}`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => removeRecognized(item.symbol)}
+                >
+                  {t("ui.confirm.removeSymbol")}
+                </button>
+              ))}
             </p>
           )}
-          {resolution.blocked && (
+          {asks.map((ask) => (
+            <div key={ask.token} className="symbol-ask" data-testid="symbol-ask">
+              <p>{t("ui.confirm.symbolAsk", {token: ask.token, symbol: ask.symbol})}</p>
+              <button
+                type="button"
+                className="text-button"
+                data-testid={`symbol-ask-yes-${ask.token}`}
+                onClick={() => api.answerSymbolAsk(view.researchId, ask.token, true)}
+              >
+                {t("ui.confirm.useAsSymbol")}
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                data-testid={`symbol-ask-no-${ask.token}`}
+                onClick={() => api.answerSymbolAsk(view.researchId, ask.token, false)}
+              >
+                {t("ui.confirm.justText")}
+              </button>
+            </div>
+          ))}
+          {hints.map((hint) => {
+            const count = resolution.poolCount ?? 0;
+            return (
+              <div key={hint.token} className="symbol-pool-hint" data-testid="symbol-pool-hint">
+                <p>
+                  {t(count === 1 ? "ui.confirm.poolHintOne" : "ui.confirm.poolHint", {
+                    n: count,
+                    symbol: hint.symbol,
+                  })}
+                </p>
+                <button
+                  type="button"
+                  className="text-button"
+                  data-testid="symbol-hint-use"
+                  onClick={() => api.useHintedSymbol(view.researchId, hint.symbol)}
+                >
+                  {t("ui.confirm.setAsSymbol")}
+                </button>
+              </div>
+            );
+          })}
+          {blockMessage() && (
             <p className="confirm-data-notice" data-testid="symbol-block-error" role="alert">
-              {resolution.code === "SYMBOL_NO_DATA"
-                ? t("ui.confirm.noData", {symbol: localeList(resolution.symbol)})
-                : resolution.code === "SYMBOL_ETF_UNSUPPORTED"
-                  ? t("ui.confirm.etfUnsupported", {symbol: localeList(resolution.symbol)})
-                  : t("ui.confirm.unresolved", {token: localeList(resolution.token)})}
+              {blockMessage()}
             </p>
           )}
           <label className="symbol-edit-label">
@@ -278,7 +365,15 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               value={symbolDraft}
               aria-label={t("ui.confirm.symbolEdit")}
               onChange={(event) => setSymbolDraft(event.target.value)}
-              onBlur={() => commitSymbol(symbolDraft)}
+              onBlur={() => {
+                void commitSymbol(symbolDraft);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void commitSymbol(symbolDraft);
+                }
+              }}
             />
           </label>
           {resolution.blocked && resolution.code === "SYMBOL_UNRESOLVED" && exchangeDigits && (
@@ -348,11 +443,17 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       )}
       <Settings values={view.settings} onEditSlot={editSlot} />
       <div className="actions confirm-actions">
+        {asks.length > 0 && (
+          <p className="confirm-data-notice" data-testid="symbol-ask-block-hint">
+            {t("ui.confirm.askBeforeRun")}
+          </p>
+        )}
         <button
           className="cyan-button"
           data-testid="confirm-run-start"
-          disabled={starting || Boolean(resolution?.blocked)}
-          aria-busy={starting}
+          disabled={starting || saving || runBlocked}
+          aria-busy={starting || saving}
+          onMouseDown={(event) => event.preventDefault()}
           onClick={startRun}
         >
           {starting ? t("ui.confirm.starting") : t("glossary.run")}

@@ -246,6 +246,15 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   min-width: 16em;
   padding: 8px 10px;
 }
+.symbol-ask,
+.symbol-pool-hint {
+  margin-top: 10px;
+}
+.symbol-ask button,
+.symbol-pool-hint button,
+.symbol-remove {
+  margin-left: 8px;
+}
 .confirm-card, .awaiting-card {
   border: 1px solid var(--cyan);
   border-radius: var(--radius-card);

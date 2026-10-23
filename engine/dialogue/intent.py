@@ -56,7 +56,7 @@ def _cn_mention(mention: object) -> bool:
 
 def _parse_universe(message: str) -> Universe | None:
     market = Market.US if re.search(r"美股|美国|US", message, re.IGNORECASE) else None
-    market = Market.CN if re.search(r"A股|中国|沪深|CN", message, re.IGNORECASE) else market
+    market = Market.CN if re.search(r"A\s*股|中国|沪深|CN", message, re.IGNORECASE) else market
     if re.search(r"基金|ETF", message, re.IGNORECASE):
         asset = AssetClass.FUND
         underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
@@ -120,7 +120,7 @@ def _parse_methods(message: str) -> tuple[MethodRef, ...]:
 _STRATEGY_HINT = re.compile(
     r"均值|回归|动量|套利|波动|多空|轮动|价值|成长|利差|收缩|修复|量价"
 )
-_MARKET_HINT = re.compile(r"美股|美国|A股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
+_MARKET_HINT = re.compile(r"美股|美国|A\s*股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
 
 
 def _thesis_acceptable(message: str) -> bool:

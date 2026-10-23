@@ -110,6 +110,9 @@ class Universe:
     user_symbols_override: bool = False
     unresolved_tokens: tuple[str, ...] = ()
     inferred_symbols: tuple[tuple[str, str], ...] = ()
+    symbol_asks: tuple[tuple[str, str], ...] = ()
+    ticker_hints: tuple[tuple[str, str], ...] = ()
+    recognition_hidden: bool = False
 
     def __post_init__(self) -> None:
         if self.asset_class is not AssetClass.FUND and self.underlying_asset_class is not self.asset_class:
@@ -510,6 +513,7 @@ class Research:
     symbol_probe_symbols: tuple[str, ...] = ()
     symbol_probe_missing: tuple[str, ...] = ()
     symbol_probe_unavailable: bool = False
+    dismissed_symbol_tokens: tuple[str, ...] = ()
 
 
 def new_research(research_id: str, now: datetime) -> Research:

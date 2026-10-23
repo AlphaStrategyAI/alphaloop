@@ -212,11 +212,15 @@ def test_indicators_and_all_caps_prose_are_not_a_fake_universe(tmp_path: Path) -
     service = _service(tmp_path)
     research_id = _draft(service)
     view = _fill(service, research_id, "A股股票 RSI MACD FIND CAPS TECH 均值回归", FLOOR_MANY)
-    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
-    assert pool is not None
-    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
-    resolution = view.get("symbolResolution")
-    assert resolution is None or resolution["blocked"] is False
+    resolution = view["symbolResolution"]
+    assert resolution["blocked"] is True
+    assert resolution["code"] == "SYMBOL_ASK_PENDING"
+    assert resolution["asks"] == [{"token": "TECH", "symbol": "TECH"}]
+    assert resolution["symbols"] == []
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_ASK_PENDING"
+    assert service.store.load(research_id).brief.universe.value.symbols == ()
 
 
 def test_spy_is_recognized_and_can_run(tmp_path: Path) -> None:
@@ -303,11 +307,13 @@ def test_ordinary_english_and_chinese_do_not_block_the_default_pool(tmp_path: Pa
         "A股股票的均值回归 mean reversion daily THE LOW CAP",
         FLOOR_MANY,
     )
-    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
-    assert pool is not None
-    assert view["symbolSelection"]["count"] == len(pool.symbols)
-    resolution = view.get("symbolResolution")
-    assert resolution is None or resolution["blocked"] is False
+    resolution = view["symbolResolution"]
+    assert resolution["blocked"] is True
+    assert resolution["asks"] == [{"token": "LOW", "symbol": "LOW"}]
+    assert "CAP" not in [ask["token"] for ask in resolution["asks"]]
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_ASK_PENDING"
 
 
 def test_editing_the_symbol_on_the_card_replaces_the_unresolved_token(tmp_path: Path) -> None:
@@ -346,9 +352,208 @@ def test_saved_research_without_resolution_fields_still_loads(tmp_path: Path) ->
     universe = raw["brief"]["universe"]["value"]
     universe.pop("unresolved_tokens", None)
     universe.pop("inferred_symbols", None)
-    for key in ("symbol_probe_symbols", "symbol_probe_missing", "symbol_probe_unavailable"):
+    universe.pop("symbol_asks", None)
+    universe.pop("ticker_hints", None)
+    universe.pop("recognition_hidden", None)
+    for key in (
+        "symbol_probe_symbols",
+        "symbol_probe_missing",
+        "symbol_probe_unavailable",
+        "dismissed_symbol_tokens",
+    ):
         raw.pop(key, None)
     loaded = SQLiteStore._decode(json.dumps(raw))
+    assert loaded.brief.universe.value is not None
     assert loaded.brief.universe.value.unresolved_tokens == ()
     assert loaded.brief.universe.value.inferred_symbols == ()
+    assert loaded.brief.universe.value.symbol_asks == ()
+    assert loaded.brief.universe.value.ticker_hints == ()
+    assert loaded.brief.universe.value.recognition_hidden is False
     assert loaded.symbol_probe_symbols == ()
+    assert loaded.dismissed_symbol_tokens == ()
+
+
+def test_share_price_keeps_the_code_and_a_real_quantity_is_named(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股 600519股价均值回归", FLOOR_ONE)
+    assert view["symbolSelection"]["symbols"] == ["600519.SH"]
+    assert view["symbolResolution"]["inferred"] == [{"raw": "600519", "symbol": "600519.SH"}]
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == ("600519.SH",)
+
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股 600519股票均值回归", FLOOR_ONE)
+    assert view["symbolSelection"]["symbols"] == ["600519.SH"]
+
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股 买入 1000 股 均值回归", FLOOR_MANY)
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["count"] == len(pool.symbols)
+    assert view.get("symbolResolution") is None
+
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股 准备 600519元 均值回归", FLOOR_ONE)
+    assert view["symbolResolution"]["blocked"] is True
+    assert view["symbolResolution"]["code"] == "SYMBOL_UNRESOLVED"
+    assert "600519" in view["symbolResolution"]["token"]
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_UNRESOLVED"
+    assert service.store.load(research_id).brief.universe.value.symbols == ()
+
+
+def test_cost_ask_accepts_or_rejects_through_the_engine(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 COST 的均值回归", FLOOR_ONE)
+    assert view["symbolResolution"]["blocked"] is True
+    assert view["symbolResolution"]["code"] == "SYMBOL_ASK_PENDING"
+    assert view["symbolResolution"]["asks"] == [{"token": "COST", "symbol": "COST"}]
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_ASK_PENDING"
+    assert exc.value.message == "先确认上面的代码再开跑。"
+
+    service.handle(
+        {
+            "type": "answer_symbol_ask",
+            "research_id": research_id,
+            "token": "COST",
+            "accept": True,
+        }
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolResolution"]["blocked"] is False
+    assert view["symbolResolution"]["asks"] == []
+    assert view["symbolSelection"]["symbols"] == ["COST"]
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == ("COST",)
+
+    research_id = _draft(service)
+    _fill(service, research_id, "美股股票 COST 的均值回归", FLOOR_MANY)
+    service.handle(
+        {
+            "type": "answer_symbol_ask",
+            "research_id": research_id,
+            "token": "COST",
+            "accept": False,
+        }
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    assert view.get("symbolResolution") in (None,) or view["symbolResolution"]["blocked"] is False
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
+
+
+def test_dollar_spy_is_recognized_in_any_case(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 $spy 的均值回归", FLOOR_ONE)
+    assert view["symbolResolution"]["blocked"] is False
+    assert view["symbolResolution"]["inferred"] == [{"raw": "$spy", "symbol": "SPY"}]
+    assert view["symbolSelection"]["symbols"] == ["SPY"]
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == ("SPY",)
+
+
+def test_lowercase_spy_hints_and_one_click_sets_the_symbol(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 spy 的均值回归", FLOOR_MANY)
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    resolution = view["symbolResolution"]
+    assert resolution["blocked"] is False
+    assert resolution["hints"] == [{"token": "spy", "symbol": "SPY"}]
+    assert resolution["poolCount"] == len(pool.symbols)
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
+
+    research_id = _draft(service)
+    _fill(service, research_id, "美股股票 spy 的均值回归", FLOOR_ONE)
+    service.handle(
+        {"type": "use_hinted_symbol", "research_id": research_id, "symbol": "SPY"}
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolSelection"]["symbols"] == ["SPY"]
+    assert view["symbolResolution"]["inferred"] == []
+    assert view["symbolResolution"]["hints"] == []
+    assert view["symbolResolution"]["blocked"] is False
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == ("SPY",)
+
+
+def test_mixed_markets_block_before_any_benchmark(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "600519 和 SPY 的均值回归", FLOOR_ONE)
+    resolution = view["symbolResolution"]
+    assert resolution["blocked"] is True
+    assert resolution["code"] == "SYMBOL_MIXED_MARKETS"
+    assert resolution["cnSymbols"] == "600519.SH"
+    assert resolution["usSymbols"] == "SPY"
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_MIXED_MARKETS"
+    assert exc.value.message == (
+        "一次研究只能用同一个市场的标的，这里既有 A 股（600519.SH），也有美股（SPY）。请删掉其中一边。"
+    )
+    assert "000300" not in exc.value.message
+    symbols = service.store.load(research_id).brief.universe.value.symbols
+    assert symbols == ("600519.SH", "SPY")
+
+
+def test_share_class_dot_and_hyphen_both_store_yahoo_form(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    for text in ("美股股票 BRK.B 的均值回归", "美股股票 BRK-B 的均值回归"):
+        research_id = _draft(service)
+        view = _fill(service, research_id, text, FLOOR_ONE)
+        assert view["symbolSelection"]["symbols"] == ["BRK-B"]
+        assert view["symbolResolution"]["inferred"][0]["symbol"] == "BRK-B"
+        service.handle({"type": "confirm_run", "research_id": research_id})
+        assert service.store.load(research_id).brief.universe.value.symbols == ("BRK-B",)
+
+
+def test_spaced_a_share_is_the_china_market(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A 股股票的均值回归", FLOOR_MANY)
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    assert view.get("symbolResolution") is None
+    assert "A" not in view["symbolSelection"]["symbols"]
+
+
+def test_manual_edit_hides_recognition_and_clearing_does_not_restore_it(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    _fill(service, research_id, "美股股票 SPY 的均值回归", FLOOR_ONE)
+    service.handle(
+        {"type": "set_research_symbol", "research_id": research_id, "symbol": "AAPL"}
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolSelection"]["symbols"] == ["AAPL"]
+    assert view["symbolResolution"]["inferred"] == []
+    service.handle({"type": "set_research_symbol", "research_id": research_id, "symbol": ""})
+    view = service.view_for(f"#/research/{research_id}")
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    assert view.get("symbolResolution") is None
+
+
+def test_held_out_prose_uses_the_pool(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 I THINK THE MARKET IS UP 均值回归", FLOOR_MANY)
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    assert view.get("symbolResolution") is None

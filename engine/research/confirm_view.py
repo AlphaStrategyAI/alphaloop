@@ -8,10 +8,10 @@ from engine.research.display_names import data_source_label
 from engine.research.models import Research, ResearchStatus
 from engine.research.planned_data_window import data_source_id_for_symbols, planned_data_window
 from engine.research.pool_data_shrink import pool_shrink_disclosure
-from engine.research.symbol_pool import pool_for_universe
+from engine.research.symbol_pool import pool_for_market, pool_for_universe
 from engine.research.symbol_selection_display import symbol_selection_summary_fields
 from engine.research.universe_pool import materialize_default_pool
-from engine.research.universe_validation import akshare_etf_symbols
+from engine.research.universe_validation import akshare_etf_symbols, market_symbol_sides
 
 
 def _resolved_symbols(research: Research) -> tuple[str, ...] | None:
@@ -70,46 +70,81 @@ def _card_data_source_id(
 
 
 def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
-    """Inference and block state for the confirm card. None when no symbol was named."""
+    """Inference, asks, hints, and block state for the confirm card."""
     universe = research.brief.universe.value
     if universe is None:
         return None
+    cn, us = market_symbol_sides(tuple(universe.symbols))
+    mixed = bool(cn and us)
+    asks = tuple(universe.symbol_asks)
+    default_pool = not universe.user_symbols_override and not asks and not universe.unresolved_tokens
+    hints = tuple(universe.ticker_hints) if default_pool else ()
     named = bool(
-        universe.user_symbols_override or universe.unresolved_tokens or universe.inferred_symbols
+        universe.user_symbols_override
+        or universe.unresolved_tokens
+        or universe.inferred_symbols
+        or asks
+        or hints
+        or mixed
     )
     if not named:
         return None
     code: str | None = None
     blocked = False
     token = "、".join(universe.unresolved_tokens) if universe.unresolved_tokens else None
-    symbol = universe.symbols[0] if universe.symbols else None
+    symbol = universe.symbols[0] if universe.user_symbols_override and universe.symbols else None
     etfs = akshare_etf_symbols(tuple(universe.symbols))
-    if universe.unresolved_tokens or (universe.user_symbols_override and not universe.symbols):
+    if universe.unresolved_tokens or (
+        universe.user_symbols_override and not universe.symbols and not asks
+    ):
         blocked = True
         code = "SYMBOL_UNRESOLVED"
+    elif asks:
+        blocked = True
+        code = "SYMBOL_ASK_PENDING"
+    elif mixed:
+        blocked = True
+        code = "SYMBOL_MIXED_MARKETS"
+        symbol = None
     elif etfs:
         blocked = True
         code = "SYMBOL_ETF_UNSUPPORTED"
         symbol = "、".join(etfs)
     elif (
-        research.symbol_probe_symbols == universe.symbols
+        universe.user_symbols_override
+        and research.symbol_probe_symbols == universe.symbols
         and research.symbol_probe_missing
         and set(research.symbol_probe_missing) >= set(universe.symbols)
     ):
         blocked = True
         code = "SYMBOL_NO_DATA"
         symbol = "、".join(research.symbol_probe_missing)
+    pool_count = None
+    if hints:
+        pool = pool_for_market(
+            universe.market,
+            universe.asset_class,
+            universe.underlying_asset_class,
+        )
+        pool_count = len(pool.symbols) if pool is not None else len(universe.symbols)
+    visible_symbols = list(universe.symbols) if universe.user_symbols_override else []
+    inferred = [] if universe.recognition_hidden else [
+        {"raw": raw, "symbol": canonical}
+        for raw, canonical in universe.inferred_symbols
+    ]
     return {
         "blocked": blocked,
         "code": code,
         "token": token,
         "symbol": symbol,
-        "symbols": list(universe.symbols),
-        "inferred": [
-            {"raw": raw, "symbol": canonical}
-            for raw, canonical in universe.inferred_symbols
-        ],
+        "symbols": visible_symbols,
+        "inferred": inferred,
         "editable": True,
+        "asks": [{"token": raw, "symbol": canonical} for raw, canonical in asks],
+        "hints": [{"token": raw, "symbol": canonical} for raw, canonical in hints],
+        "poolCount": pool_count,
+        "cnSymbols": "、".join(cn) if mixed else None,
+        "usSymbols": "、".join(us) if mixed else None,
     }
 
 

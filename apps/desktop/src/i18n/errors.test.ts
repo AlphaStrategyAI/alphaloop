@@ -72,6 +72,24 @@ describe("error codes", () => {
     expect(localizeError("en", {code: "SYMBOL_ETF_UNSUPPORTED", params: {symbol: "510300.SH"}}).summary).toBe(
       "The selected data source doesn't support China A-share ETF prices yet (510300.SH), so the run can't start.",
     );
+    expect(localizeError("zh", {code: "SYMBOL_ASK_PENDING"}).summary).toBe("先确认上面的代码再开跑。");
+    expect(localizeError("en", {code: "SYMBOL_ASK_PENDING"}).summary).toBe(
+      "Confirm the symbols above before running.",
+    );
+    expect(
+      localizeError("zh", {
+        code: "SYMBOL_MIXED_MARKETS",
+        params: {cn_symbols: "600519.SH", us_symbols: "SPY"},
+      }).summary,
+    ).toBe("一次研究只能用同一个市场的标的，这里既有 A 股（600519.SH），也有美股（SPY）。请删掉其中一边。");
+    expect(
+      localizeError("en", {
+        code: "SYMBOL_MIXED_MARKETS",
+        params: {cn_symbols: "600519.SH", us_symbols: "SPY"},
+      }).summary,
+    ).toBe(
+      "A study can only use symbols from one market, but this has both China A-shares (600519.SH) and US stocks (SPY). Remove one side.",
+    );
   });
 
   it("leaves a legacy message without a code unchanged", () => {

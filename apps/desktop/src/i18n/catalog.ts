@@ -194,6 +194,16 @@ function messages(lang: "zh" | "en") {
           "只有草稿上的确认卡可以改标的。",
           "Only a draft's confirm card can change the symbol.",
         ),
+        SYMBOL_ASK_PENDING: copy(
+          "先确认上面的代码再开跑。",
+          "Confirm the symbols above before running.",
+          true,
+        ),
+        SYMBOL_MIXED_MARKETS: copy(
+          "一次研究只能用同一个市场的标的，这里既有 A 股（{{cn_symbols}}），也有美股（{{us_symbols}}）。请删掉其中一边。",
+          "A study can only use symbols from one market, but this has both China A-shares ({{cn_symbols}}) and US stocks ({{us_symbols}}). Remove one side.",
+          true,
+        ),
       },
     },
     glossary: glossaryMessages(lang),
@@ -207,6 +217,16 @@ export type MessageCatalog = typeof zhCatalog;
 /** English leaves that are product-final or identical tokens, not placeholders. */
 export const FINAL_MESSAGE_KEYS = [
   "ui.confirm.recognized",
+  "ui.confirm.symbolAsk",
+  "ui.confirm.useAsSymbol",
+  "ui.confirm.justText",
+  "ui.confirm.askBeforeRun",
+  "ui.confirm.poolHint",
+  "ui.confirm.poolHintOne",
+  "ui.confirm.setAsSymbol",
+  "ui.confirm.mixedMarkets",
+  "errors.codes.SYMBOL_ASK_PENDING",
+  "errors.codes.SYMBOL_MIXED_MARKETS",
   "settings.later.body",
   "settings.kicker",
   "settings.routeLabel",

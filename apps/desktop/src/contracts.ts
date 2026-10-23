@@ -39,12 +39,23 @@ export type BriefSlotName =
 
 export interface SymbolResolution {
   blocked: boolean;
-  code?: "SYMBOL_UNRESOLVED" | "SYMBOL_NO_DATA" | "SYMBOL_ETF_UNSUPPORTED" | null;
+  code?:
+    | "SYMBOL_UNRESOLVED"
+    | "SYMBOL_NO_DATA"
+    | "SYMBOL_ETF_UNSUPPORTED"
+    | "SYMBOL_ASK_PENDING"
+    | "SYMBOL_MIXED_MARKETS"
+    | null;
   token?: string | null;
   symbol?: string | null;
   symbols: readonly string[];
   inferred: readonly {raw: string; symbol: string}[];
   editable: boolean;
+  asks?: readonly {token: string; symbol: string}[];
+  hints?: readonly {token: string; symbol: string}[];
+  poolCount?: number | null;
+  cnSymbols?: string | null;
+  usSymbols?: string | null;
 }
 
 export interface SymbolSelectionSummary {
@@ -273,6 +284,10 @@ export interface DesktopApi {
   confirmRun(researchId: string): Promise<void>;
   /** Confirm-card symbol edit. Both arguments are required; the engine rejects a bare id. */
   setResearchSymbol(researchId: string, symbol: string): Promise<void>;
+  /** Answer one ambiguous all-caps ticker. `accept` false keeps it as prose. */
+  answerSymbolAsk(researchId: string, token: string, accept: boolean): Promise<void>;
+  /** One click on the default-pool hint. Sets that ticker as the symbol. */
+  useHintedSymbol(researchId: string, symbol: string): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

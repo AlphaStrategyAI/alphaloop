@@ -1,28 +1,42 @@
 """Resolve a security identifier only when the text actually names one.
 
-Six-digit numbers are codes only inside a real listing range, and never when they
-are a quantity (a unit, a decimal, or a thousands separator). A bare US token is
-a ticker only when a symbol directory, a ``$`` marker, or a non-word ticker shape
-says so. Indicators and English words stay prose. Every accepted US ticker is
-marked inferred so the confirm card can show it for editing.
+Six-digit numbers are codes only inside a real listing range. A real listing that
+is skipped because it sits next to a quantity is still named, so the card can ask
+instead of dropping it. A ``$`` marker is always a symbol. An all-caps real US
+listing is a symbol, unless it is also a common English word, in which case the
+card asks. A lowercase or mixed-case listing is a non-blocking hint. Indicators
+and other English words stay prose.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 _CN_CODE = re.compile(r"(?<!\d)(\d{6})(?:\.([A-Za-z]{2}))?(?!\d)")
-_US_TICKER = re.compile(r"(?<![A-Za-z0-9$])([A-Z]{2,5}(?:\.[A-Z])?)(?![A-Za-z])")
-_MARKED_TICKER = re.compile(r"(?<![A-Za-z0-9])\$([A-Za-z]{1,5}(?:\.[A-Za-z])?)(?![A-Za-z])")
+# 1–5 letters so Ford's "F" is visible. A CJK neighbor is "A股", not a ticker.
+_US_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9$])(?<![\u4e00-\u9fff])"
+    r"([A-Za-z]{1,5}(?:[.\-][A-Za-z])?)"
+    r"(?![A-Za-z])(?![\u4e00-\u9fff])"
+)
+_MARKED_TICKER = re.compile(
+    r"(?<![A-Za-z0-9])\$([A-Za-z]{1,5}(?:[.\-][A-Za-z])?)(?![A-Za-z])"
+)
 _DECIMAL_TAIL = re.compile(r"[.．]\d")
+# 股 is a share-count only when it is not the start of 股价, 股票, 股息, 股东, …
 _QUANTITY_UNIT = re.compile(
-    r"\s*(?:万元|亿美元|万美元|美元|美金|港币|港元|人民币|块钱|元|块|万|亿|手|份|股(?!票)|[%％]"
-    r"|USD\b|CNY\b|HKD\b|RMB\b|shares\b|share\b|dollars\b|dollar\b|yuan\b)",
+    r"\s*(?:万元|亿美元|万美元|美元|美金|港币|港元|人民币|块钱|元|块|万|亿|手|份|"
+    r"股(?![\u4e00-\u9fff])|[%％]|USD\b|CNY\b|HKD\b|RMB\b|shares\b|share\b|"
+    r"dollars\b|dollar\b|yuan\b)",
     re.IGNORECASE,
 )
 _FIELD_SPLIT = re.compile(r"[、,，\s]+")
-_ONE_FIELD_TOKEN = re.compile(r"(?:\d{6}(?:\.[A-Za-z]{2})?|[A-Za-z]{1,5}(?:\.[A-Za-z])?)")
+_ONE_FIELD_TOKEN = re.compile(
+    r"(?:\d{6}(?:\.[A-Za-z]{2})?|[A-Za-z]{1,5}(?:[.\-][A-Za-z])?)"
+)
 _LISTED_SUFFIXES = frozenset({"SH", "SZ", "BJ"})
 
 # First two digits → venue, when that prefix determines the exchange.
@@ -46,29 +60,12 @@ _INDICATORS = frozenset({
     "ADX", "STOCH", "ROC", "MFI", "DMI", "SAR", "PSY", "BIAS", "TRIX", "DMA", "EMV",
 })
 
-# Index products the dialogue already invites, even when they are not S&P members.
-_OFFERED_US = frozenset({"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI"})
-
-# English words of 2–5 letters. A bare token here is prose unless `$` marks it
-# or the symbol directory lists it (SPY is a word and a listed product).
-_ENGLISH_WORDS = frozenset(
-    """
-    a an the and or of to in on for at by as is it be we he if do go no so up my
-    me us am ok hi all any are was has had its our you can may out off per via
-    not but from this that with into over only data cost year years more when
-    will what about who than them some could time these then two first such like
-    even most made after also many before must back where much your way well
-    down each just those how too good very make world still own see men work long
-    here both life being under never day same know while last might great old
-    come since take three used right etf fund bond mean daily low high cap large
-    stock price prices usd cny gdp cpi ipo otc nav aum ytd eps roe roi vol pit
-    api lof reit qdii nyse szse hkex sse sh sz bj hk cn uk eu jp us
-    find caps tech spy use look make need want word open close fast slow best next
-    last same each both few once upon info note idea plan risk cash size time
-    week name type kind form line list item part side area base case fact hand
-    head home live move play read real seem show tell turn walk ways
-    """.split()  # noqa: SIM905 — English lexicon, not a per-bug ticker blocklist
-)
+# Real listings that are not S&P 500 constituents. The dialogue already names these.
+_INDEX_ETFS = frozenset({"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI"})
+_DATA_DIR = Path(__file__).resolve().parent / "data"
+_COMMON_WORDS_PATH = _DATA_DIR / "en_common_words.txt"
+_ENGLISH_WORDS_PATH = _DATA_DIR / "en_wordfreq_words.txt"
+_A_SHARE = re.compile(r"\s*股")
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +73,8 @@ class SymbolMention:
     raw: str
     canonical: str | None
     inferred: bool
+    # symbol: use it. ask: real listing that is also a common word. hint: lowercase listing.
+    kind: str = "symbol"
 
 
 def suffix_for_listed_code(code: str) -> str | None:
@@ -114,17 +113,19 @@ def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[Sy
     found: list[SymbolMention] = []
     occupied: list[tuple[int, int]] = []
     for match in _MARKED_TICKER.finditer(text):
-        canonical = match.group(1).upper()
-        found.append(SymbolMention(match.group(0), canonical, True))
+        found.append(SymbolMention(match.group(0), _yahoo(match.group(1)), True))
         occupied.append(match.span())
     for match in _CN_CODE.finditer(text):
         if _overlaps(match.span(), occupied):
             continue
-        if _is_quantity(text, match.end()):
-            continue
         raw = match.group(0)
         code = match.group(1)
         suffix = match.group(2)
+        if _is_quantity(text, match.end()):
+            if listing_disposition(code) is not None:
+                found.append(SymbolMention(raw, None, False))
+                occupied.append(match.span())
+            continue
         if suffix is not None:
             suffix_up = suffix.upper()
             if suffix_up in _LISTED_SUFFIXES:
@@ -142,13 +143,13 @@ def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[Sy
         else:
             found.append(SymbolMention(raw, None, False))
         occupied.append(match.span())
-    for match in _US_TICKER.finditer(text):
+    for match in _US_TOKEN.finditer(text):
         if _overlaps(match.span(), occupied):
             continue
-        token = match.group(1)
-        if not _accept_bare_us(token, prose_filter=prose_filter):
+        mention = _us_mention(text, match, prose_filter=prose_filter)
+        if mention is None:
             continue
-        found.append(SymbolMention(token, token, True))
+        found.append(mention)
         occupied.append(match.span())
     return _dedupe(found)
 
@@ -160,21 +161,78 @@ def _is_quantity(text: str, end: int) -> bool:
     return _QUANTITY_UNIT.match(rest) is not None
 
 
-def _accept_bare_us(token: str, *, prose_filter: bool) -> bool:
-    """Bare US tokens: ``$`` and non-words count; English words do not.
+def _yahoo(token: str) -> str:
+    """Yahoo class-share form: ``BRK.B`` and ``BRK-B`` both store ``BRK-B``."""
+    return token.upper().replace(".", "-")
 
-    The S&P directory is not enough on its own. LOW and TECH are both listings
-    and ordinary words, so a directory hit must not rescue all-caps prose.
-    Index products the dialogue already names (SPY, QQQ) are the exception.
-    """
+
+def _word_key(token: str) -> str:
+    return re.split(r"[.\-]", token, maxsplit=1)[0].lower()
+
+
+def _all_caps(token: str) -> bool:
+    letters = [char for char in token if char.isalpha()]
+    return bool(letters) and all(char.isupper() for char in letters)
+
+
+def _is_indicator(token: str) -> bool:
+    base = _word_key(token).upper()
+    return base in _INDICATORS or token.upper() in _INDICATORS
+
+
+@lru_cache(maxsize=1)
+def common_english_words() -> frozenset[str]:
+    """Zipf >= 4.5 alphabetic words. See ``en_common_words.SOURCE.md``."""
+    return _load_word_file(_COMMON_WORDS_PATH)
+
+
+@lru_cache(maxsize=1)
+def english_words() -> frozenset[str]:
+    """Every alphabetic word in the wordfreq best list. See the source note."""
+    return _load_word_file(_ENGLISH_WORDS_PATH)
+
+
+def _load_word_file(path: Path) -> frozenset[str]:
+    words: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        word = line.strip().lower()
+        if word and not word.startswith("#"):
+            words.add(word)
+    return frozenset(words)
+
+
+@lru_cache(maxsize=1)
+def us_listings() -> frozenset[str]:
+    """S&P pool in Yahoo form, plus the index ETFs the dialogue already names."""
+    from engine.research.models import AssetClass, Market
+    from engine.research.symbol_pool import pool_for_market
+
+    symbols = set(_INDEX_ETFS)
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    if pool is not None:
+        symbols.update(_yahoo(symbol) for symbol in pool.symbols)
+    return frozenset(symbols)
+
+
+def _us_mention(text: str, match: re.Match[str], *, prose_filter: bool) -> SymbolMention | None:
+    token = match.group(1)
+    if _is_indicator(token):
+        return None
+    if token.upper() == "A" and _A_SHARE.match(text[match.end():]):
+        return None
+    canonical = _yahoo(token)
     if not prose_filter:
-        return True
-    base = token.split(".", 1)[0].upper()
-    if base in _INDICATORS or token.upper() in _INDICATORS:
-        return False
-    if base in _OFFERED_US:
-        return True
-    return not (base.lower() in _ENGLISH_WORDS or token.lower() in _ENGLISH_WORDS)
+        return SymbolMention(token, canonical, True)
+    listed = canonical in us_listings()
+    if _all_caps(token):
+        if listed and _word_key(token) in common_english_words():
+            return SymbolMention(token, canonical, False, "ask")
+        if listed or _word_key(token) not in english_words():
+            return SymbolMention(token, canonical, True)
+        return None
+    if listed:
+        return SymbolMention(token, canonical, False, "hint")
+    return None
 
 
 def parse_symbol_field(text: str) -> tuple[SymbolMention, ...]:

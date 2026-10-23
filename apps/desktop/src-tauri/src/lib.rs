@@ -179,6 +179,8 @@ pub fn run() {
             commands::create_draft,
             commands::confirm_run,
             commands::set_research_symbol,
+            commands::answer_symbol_ask,
+            commands::use_hinted_symbol,
             commands::unlock_brief,
             commands::send_dialogue,
             commands::pause_research,

@@ -54,5 +54,13 @@
   "SYMBOL_EDIT_NOT_DRAFT": {
     "params": [],
     "legacyZh": "只有草稿上的确认卡可以改标的。"
+  },
+  "SYMBOL_ASK_PENDING": {
+    "params": [],
+    "legacyZh": "先确认上面的代码再开跑。"
+  },
+  "SYMBOL_MIXED_MARKETS": {
+    "params": ["cn_symbols", "us_symbols"],
+    "legacyZh": "一次研究只能用同一个市场的标的，这里既有 A 股（{{cn_symbols}}），也有美股（{{us_symbols}}）。请删掉其中一边。"
   }
 }

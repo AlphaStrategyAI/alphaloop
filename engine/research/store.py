@@ -400,6 +400,7 @@ class SQLiteStore:
             data.setdefault("symbol_probe_symbols", [])
             data.setdefault("symbol_probe_missing", [])
             data.setdefault("symbol_probe_unavailable", False)
+            data.setdefault("dismissed_symbol_tokens", [])
             universe = (
                 data.get("brief", {}).get("universe", {}).get("value")
                 if isinstance(data.get("brief"), dict)
@@ -408,6 +409,9 @@ class SQLiteStore:
             if isinstance(universe, dict):
                 universe.setdefault("unresolved_tokens", [])
                 universe.setdefault("inferred_symbols", [])
+                universe.setdefault("symbol_asks", [])
+                universe.setdefault("ticker_hints", [])
+                universe.setdefault("recognition_hidden", False)
         return CONVERTER.structure(data, Research)
 
     def create(self, research: Research) -> None:

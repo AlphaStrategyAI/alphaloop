@@ -274,6 +274,56 @@ pub async fn set_research_symbol(
     .map(|_| ())
 }
 
+pub(crate) fn answer_symbol_ask_request(research_id: &str, token: &str, accept: bool) -> Value {
+    json!({
+        "type": "answer_symbol_ask",
+        "research_id": research_id,
+        "token": token,
+        "accept": accept,
+    })
+}
+
+#[tauri::command]
+pub async fn answer_symbol_ask(
+    research_id: String,
+    token: String,
+    accept: bool,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        answer_symbol_ask_request(&research_id, &token, accept),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn use_hinted_symbol_request(research_id: &str, symbol: &str) -> Value {
+    json!({
+        "type": "use_hinted_symbol",
+        "research_id": research_id,
+        "symbol": symbol,
+    })
+}
+
+#[tauri::command]
+pub async fn use_hinted_symbol(
+    research_id: String,
+    symbol: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        use_hinted_symbol_request(&research_id, &symbol),
+    )
+    .await
+    .map(|_| ())
+}
+
 #[tauri::command]
 pub async fn confirm_run(
     research_id: String,
@@ -682,7 +732,8 @@ pub async fn secret_failure_preview(
 mod tests {
     use super::{
         EngineConnection, command_timeout_secs, notification_title, notify_kinds,
-        parse_engine_error_body, set_research_symbol_request,
+        answer_symbol_ask_request, parse_engine_error_body, set_research_symbol_request,
+        use_hinted_symbol_request,
     };
     use serde_json::json;
 
@@ -724,6 +775,25 @@ mod tests {
         assert_eq!(body["type"], "set_research_symbol");
         assert_eq!(body["research_id"], "r-1");
         assert_eq!(body["symbol"], "600519.SH");
+    }
+
+    #[test]
+    fn answer_symbol_ask_request_keeps_the_token_and_the_answer() {
+        let yes = answer_symbol_ask_request("r-1", "COST", true);
+        assert_eq!(yes["type"], "answer_symbol_ask");
+        assert_eq!(yes["research_id"], "r-1");
+        assert_eq!(yes["token"], "COST");
+        assert_eq!(yes["accept"], true);
+        let no = answer_symbol_ask_request("r-1", "COST", false);
+        assert_eq!(no["accept"], false);
+    }
+
+    #[test]
+    fn use_hinted_symbol_request_keeps_the_symbol() {
+        let body = use_hinted_symbol_request("r-1", "SPY");
+        assert_eq!(body["type"], "use_hinted_symbol");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["symbol"], "SPY");
     }
 
     #[test]

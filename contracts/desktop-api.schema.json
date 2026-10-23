@@ -179,6 +179,29 @@
       "properties": {
         "type": {"const": "set_research_symbol"},
         "research_id": {"type": "string", "minLength": 1},
+        "symbol": {"type": "string", "minLength": 0},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "token", "accept"],
+      "properties": {
+        "type": {"const": "answer_symbol_ask"},
+        "research_id": {"type": "string", "minLength": 1},
+        "token": {"type": "string", "minLength": 1},
+        "accept": {"type": "boolean"},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "research_id", "symbol"],
+      "properties": {
+        "type": {"const": "use_hinted_symbol"},
+        "research_id": {"type": "string", "minLength": 1},
         "symbol": {"type": "string", "minLength": 1},
         "locale": {"type": "string", "enum": ["zh", "en"]}
       }

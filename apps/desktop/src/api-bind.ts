@@ -29,6 +29,10 @@ export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
     confirmRun: (researchId) => runMutation(() => api.confirmRun(researchId), deps),
     setResearchSymbol: (researchId, symbol) =>
       runMutation(() => api.setResearchSymbol(researchId, symbol), deps),
+    answerSymbolAsk: (researchId, token, accept) =>
+      runMutation(() => api.answerSymbolAsk(researchId, token, accept), deps),
+    useHintedSymbol: (researchId, symbol) =>
+      runMutation(() => api.useHintedSymbol(researchId, symbol), deps),
     unlockBrief: (researchId, slot) =>
       runMutation(() => api.unlockBrief(researchId, slot), deps),
     sendDialogue: (researchId, message) =>
