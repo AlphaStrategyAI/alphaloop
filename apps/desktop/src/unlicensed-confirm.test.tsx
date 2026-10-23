@@ -61,8 +61,29 @@ const confirmView: Extract<DesktopView, {kind: "confirm_run"}> = {
     offeredDataSource: "雅虎日线",
     unlicensedAcknowledgedAt: null,
     unlicensedAcknowledgementRequired: false,
+    priceSources: [
+      {id: "yahoo_daily", label: "雅虎日线", unlicensed: true, acknowledgedAt: null},
+    ],
   },
 };
+
+describe("unlicensed tag", () => {
+  it("renders Unlicensed in English and 未经许可 in Chinese", () => {
+    const {unmount} = render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={api()} view={confirmView} />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("unlicensed-tag").textContent).toBe("Unlicensed");
+    unmount();
+    render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard api={api()} view={confirmView} />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("unlicensed-tag").textContent).toBe("未经许可");
+  });
+});
 
 describe("unlicensed confirm card", () => {
   it("does not preselect Yahoo and blocks Run until the personal-research box is ticked", () => {
@@ -72,7 +93,7 @@ describe("unlicensed confirm card", () => {
         <ConfirmRunCard api={desktop} view={confirmView} />
       </I18nProvider>,
     );
-    const choice = screen.getByTestId("unlicensed-source-choice") as HTMLInputElement;
+    const choice = screen.getByTestId("price-source-yahoo_daily") as HTMLInputElement;
     expect(choice.checked).toBe(false);
     expect(screen.queryByTestId("unlicensed-ack")).toBeNull();
     const run = screen.getByTestId("confirm-run-start") as HTMLButtonElement;

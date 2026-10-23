@@ -189,12 +189,19 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     void api.unlockBrief(view.researchId);
   };
   const offeredId = sel?.offeredDataSourceId ?? "";
+  const catalog = sel?.priceSources ?? [];
+  const catalogMode = catalog.length > 0;
+  // Preselection is dataSourcePending / dataSourceId from the engine. This
+  // screen does not re-decide it, and it does not remember a previous pick.
   const selectedId = pickedSource || (sel?.dataSourcePending ? "" : sel?.dataSourceId || "");
+  const selectedChoice = catalog.find((item) => item.id === selectedId);
   const unlicensedIds = new Set(["yahoo_daily", "akshare_sina_daily"]);
   const alreadyAcked = Boolean(sel?.unlicensedAcknowledgedAt);
-  const ackRequired = unlicensedIds.has(selectedId) && !alreadyAcked;
-  const sourceGate = sel?.dataSourcePending === true || sel?.unlicensedAcknowledgementRequired === true;
-  const canRun = !sourceGate || (Boolean(selectedId) && (!ackRequired || acked));
+  const ackRequired = catalogMode
+    ? Boolean(selectedChoice?.unlicensed && !selectedChoice.acknowledgedAt)
+    : unlicensedIds.has(selectedId) && !alreadyAcked;
+  const mustPick = catalogMode || sel?.dataSourcePending === true || sel?.unlicensedAcknowledgementRequired === true;
+  const canRun = (!mustPick || Boolean(selectedId)) && (!ackRequired || acked);
   const startRun = () => {
     if (startingRef.current || !canRun) return;
     startingRef.current = true;
@@ -281,7 +288,36 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <p className="confirm-data-meta">
             {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: copyText(sel.dataSource)})}
           </p>
-          {sel.dataSourcePending && offeredId && (
+          {catalogMode && (
+            <div className="confirm-source-choice" data-testid="price-source-picker">
+              {catalog.some((item) => item.unlicensed) && (
+                <p className="confirm-data-footnote" data-testid="unlicensed-notice">
+                  {t("ui.confirm.unlicensedNotice")}
+                </p>
+              )}
+              {catalog.map((item) => (
+                <label className="confirm-source-option" key={item.id}>
+                  <input
+                    type="radio"
+                    name={`price-source-${view.researchId}`}
+                    data-testid={`price-source-${item.id}`}
+                    checked={selectedId === item.id}
+                    onChange={() => {
+                      setPickedSource(item.id);
+                      setAcked(false);
+                    }}
+                  />
+                  <span>{copyText(item.label)}</span>
+                  {item.unlicensed && (
+                    <span className="unlicensed-tag" data-testid="unlicensed-tag">
+                      {t("glossary.unlicensed")}
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+          {!catalogMode && sel.dataSourcePending && offeredId && (
             <div className="confirm-source-choice" data-testid="unlicensed-source-choice-row">
               <p className="confirm-data-footnote" data-testid="unlicensed-notice">
                 {t("ui.confirm.unlicensedNotice")}

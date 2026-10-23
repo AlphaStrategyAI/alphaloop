@@ -454,17 +454,15 @@ class ResearchCommandService:
             fields["remainingSeconds"] = remaining
         return fields
 
-    def _attach_unlicensed_choice(self, selection: dict[str, Any]) -> None:
-        from engine.research.source_acknowledgement import acknowledged_at, is_unlicensed_source
+    def _attach_unlicensed_choice(self, selection: dict[str, Any], research: Research) -> None:
+        from engine.research.price_source_choice import apply_price_source_choice
 
-        path = self.paths.data.settings_file
-        offered = str(selection.get("offeredDataSourceId") or "")
-        selected = str(selection.get("dataSourceId") or "")
-        offered_ack = acknowledged_at(offered, path) if is_unlicensed_source(offered) else None
-        selected_ack = acknowledged_at(selected, path) if is_unlicensed_source(selected) else None
-        selection["unlicensedAcknowledgedAt"] = selected_ack or offered_ack
-        selection["unlicensedAcknowledgementRequired"] = bool(
-            is_unlicensed_source(selected) and not selected_ack
+        universe = research.brief.universe.value
+        apply_price_source_choice(
+            selection,
+            market=universe.market if universe is not None else None,
+            explicit_source_id=research.data_source_id,
+            settings_path=self.paths.data.settings_file,
         )
 
     @staticmethod
@@ -752,7 +750,7 @@ class ResearchCommandService:
                     body["constructionNotice"] = construction
                 selection = body.get("symbolSelection")
                 if isinstance(selection, dict):
-                    self._attach_unlicensed_choice(selection)
+                    self._attach_unlicensed_choice(selection, research)
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -954,6 +952,19 @@ class ResearchCommandService:
             source = requested or research.data_source_id
             # A draft that still has no symbols keeps the existing pool question.
             # The source gate applies once there is something to price.
+            # Preselection is the same rule as the confirm card: one licensed
+            # configured source, never Yahoo or AkShare, never the last pick.
+            if pool_resolvable(research) and not source:
+                from engine.research.price_source_choice import (
+                    available_price_sources,
+                    preselect_price_source,
+                )
+
+                universe = research.brief.universe.value
+                if universe is not None:
+                    source = preselect_price_source(
+                        available_price_sources(universe.market, self.paths.data.settings_file)
+                    ) or ""
             if pool_resolvable(research) and not source:
                 raise UserFacingError("DATA_SOURCE_UNBOUND", DATA_SOURCE_UNBOUND)
             if source and is_unlicensed_source(source):

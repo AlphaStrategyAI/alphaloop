@@ -37,6 +37,13 @@ export type BriefSlotName =
   | "round1_methods"
   | "coverage_floor";
 
+export interface PriceSourceChoice {
+  id: string;
+  label: string;
+  unlicensed: boolean;
+  acknowledgedAt?: string | null;
+}
+
 export interface SymbolSelectionSummary {
   count: number;
   listName: string;
@@ -55,6 +62,8 @@ export interface SymbolSelectionSummary {
   dataSource: string;
   dataSourceId?: string | null;
   dataSourcePending?: boolean;
+  /** Engine-owned list. The card does not decide which row is preselected. */
+  priceSources?: readonly PriceSourceChoice[];
   offeredDataSourceId?: string;
   offeredDataSource?: string;
   unlicensedAcknowledgedAt?: string | null;
