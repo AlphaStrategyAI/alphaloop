@@ -678,6 +678,62 @@ def submit_dialogue(driver, message: str) -> None:
     WebDriverWait(driver, 45).until(ready)
 
 
+def element_in_viewport(driver, css: str) -> bool:
+    return bool(
+        driver.execute_script(
+            """
+            const el = document.querySelector(arguments[0]);
+            if (!el) return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0 && rect.top >= -2 && rect.bottom <= window.innerHeight + 2;
+            """,
+            css,
+        )
+    )
+
+
+def fit_confirm_card(driver) -> None:
+    """Fit the whole confirm card in the webview: title, symbol box, and Run."""
+    try:
+        driver.set_window_rect(x=20, y=20, width=1400, height=1600)
+    except Exception:
+        pass
+    driver.execute_script(
+        """
+        document.documentElement.style.zoom = "1";
+        const card = document.querySelector("[data-testid=confirm-run-card]");
+        if (!card) return;
+        card.scrollIntoView({block: "start"});
+        const margin = 16;
+        const needed = card.getBoundingClientRect().height;
+        const view = window.innerHeight;
+        if (needed > view - margin) {
+          document.documentElement.style.zoom = String((view - margin) / needed);
+          card.scrollIntoView({block: "start"});
+        }
+        """
+    )
+    missing = [
+        css
+        for css in (
+            "[data-testid=confirm-run-card] h1",
+            "[data-testid=symbol-selection]",
+            "[data-testid=confirm-run-start]",
+        )
+        if not element_in_viewport(driver, css)
+    ]
+    if missing:
+        raise AssertionError("confirm card is still cropped; outside the viewport: " + ", ".join(missing))
+
+
+def reset_page_zoom(driver) -> None:
+    driver.execute_script("document.documentElement.style.zoom = '1'")
+    try:
+        driver.set_window_rect(x=40, y=40, width=1280, height=800)
+    except Exception:
+        pass
+
+
 def create_until_confirm(driver, messages: tuple[str, ...]) -> str:
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.common.by import By
@@ -787,10 +843,11 @@ def main() -> int:
     seen_shots: dict[str, str] = {}
     step_shots: list[str] = []
 
-    def shoot(name: str) -> str:
+    def shoot(name: str, *, filename: str | None = None) -> str:
         nonlocal shot_index
-        shot_index += 1
-        filename = f"{shot_index:02d}-{name}.png"
+        if filename is None:
+            shot_index += 1
+            filename = f"{shot_index:02d}-{name}.png"
         path = SHOTS / filename
         if session is None:
             return ""
@@ -965,6 +1022,7 @@ def main() -> int:
             lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=secret-vault]").get_attribute("data-locked")
             == "false"
         )
+        shoot("secrets-unlocked")
         click(session.driver, "[data-testid=secret-vault-close]")
         return "restart locked the passphrase file; unlock cleared it"
 
@@ -1001,7 +1059,11 @@ def main() -> int:
             """,
             "AAPL",
         )
-        shoot("confirms-us")
+        try:
+            fit_confirm_card(session.driver)
+            shoot("confirms-us")
+        finally:
+            reset_page_zoom(session.driver)
         us_text = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
         if "AAPL" not in us_text:
             raise AssertionError(f"US confirm card did not mention AAPL: {us_text[:300]}")
@@ -1021,7 +1083,11 @@ def main() -> int:
             """,
             "600519",
         )
-        shoot("confirms-cn")
+        try:
+            fit_confirm_card(session.driver)
+            shoot("confirms-cn")
+        finally:
+            reset_page_zoom(session.driver)
         cn_text = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
         if "600519" not in cn_text:
             raise AssertionError(f"A-share confirm card did not mention 600519: {cn_text[:300]}")
@@ -1070,6 +1136,22 @@ def main() -> int:
         )
         rid = research_ids["cn"]
         go(session.driver, "#/research")
+        running_row = WebDriverWait(session.driver, 20).until(
+            lambda d: d.find_element(
+                By.CSS_SELECTOR,
+                f"[data-testid=research-row][data-research-id='{rid}'][data-status=running]",
+            )
+        )
+        pill = running_row.find_element(By.CSS_SELECTOR, "[data-testid=list-status-pill]")
+        if pill.text.strip() != "Running":
+            raise AssertionError(f"running row status is {pill.text!r}, expected Running")
+        if "+08:00" not in running_row.text:
+            raise AssertionError(f"expected local offset +08:00 on the running row, saw {running_row.text}")
+        session.driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'});",
+            running_row,
+        )
+        shoot("before-delete-running", filename="11a-before-delete-running.png")
         click(
             session.driver,
             f"[data-testid=research-row][data-research-id='{rid}'][data-status=running] [data-testid=delete-research]",

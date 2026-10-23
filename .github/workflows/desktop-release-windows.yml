@@ -278,6 +278,16 @@ jobs:
             icacls $cargoBin /grant "Everyone:(OI)(CI)RX" /T /C | Out-Null
           }
 
+      - name: Show the Windows time zone, then use China Standard Time
+        shell: pwsh
+        run: |
+          Write-Host "tzutil before: $(tzutil /g)"
+          Write-Host "dotnet before: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
+          tzutil /s "China Standard Time"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "tzutil after: $(tzutil /g)"
+          Write-Host "dotnet after: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
+
       - name: De-elevated installer smoke
         timeout-minutes: 15
         shell: pwsh
