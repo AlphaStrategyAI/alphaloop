@@ -181,17 +181,29 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   };
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [pickedSource, setPickedSource] = useState("");
+  const [acked, setAcked] = useState(false);
   const startingRef = useRef(false);
   const sel = view.symbolSelection;
   const returnToDraft = () => {
     void api.unlockBrief(view.researchId);
   };
+  const offeredId = sel?.offeredDataSourceId ?? "";
+  const selectedId = pickedSource || (sel?.dataSourcePending ? "" : sel?.dataSourceId || "");
+  const unlicensedIds = new Set(["yahoo_daily", "akshare_sina_daily"]);
+  const alreadyAcked = Boolean(sel?.unlicensedAcknowledgedAt);
+  const ackRequired = unlicensedIds.has(selectedId) && !alreadyAcked;
+  const sourceGate = sel?.dataSourcePending === true || sel?.unlicensedAcknowledgementRequired === true;
+  const canRun = !sourceGate || (Boolean(selectedId) && (!ackRequired || acked));
   const startRun = () => {
-    if (startingRef.current) return;
+    if (startingRef.current || !canRun) return;
     startingRef.current = true;
     setStarting(true);
     void api
-      .confirmRun(view.researchId)
+      .confirmRun(view.researchId, {
+        dataSourceId: selectedId || undefined,
+        unlicensedAcknowledged: ackRequired ? acked : undefined,
+      })
       .catch(() => {
         /* bindDesktopApi already recorded the message */
       })
@@ -269,6 +281,45 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <p className="confirm-data-meta">
             {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: copyText(sel.dataSource)})}
           </p>
+          {sel.dataSourcePending && offeredId && (
+            <div className="confirm-source-choice" data-testid="unlicensed-source-choice-row">
+              <p className="confirm-data-footnote" data-testid="unlicensed-notice">
+                {t("ui.confirm.unlicensedNotice")}
+              </p>
+              <label className="confirm-source-option">
+                <input
+                  type="checkbox"
+                  data-testid="unlicensed-source-choice"
+                  checked={pickedSource === offeredId}
+                  onChange={(event) => {
+                    setPickedSource(event.target.checked ? offeredId : "");
+                    setAcked(false);
+                  }}
+                />
+                <span>
+                  {t("ui.confirm.chooseSource", {source: copyText(sel.offeredDataSource || offeredId)})}
+                  {" · "}
+                  {t("glossary.unlicensed")}
+                </span>
+              </label>
+            </div>
+          )}
+          {ackRequired && (
+            <label className="confirm-source-option" data-testid="unlicensed-ack-row">
+              <input
+                type="checkbox"
+                data-testid="unlicensed-ack"
+                checked={acked}
+                onChange={(event) => setAcked(event.target.checked)}
+              />
+              <span>{t("ui.confirm.unlicensedAck")}</span>
+            </label>
+          )}
+          {alreadyAcked && selectedId && (
+            <p className="confirm-data-footnote" data-testid="unlicensed-ack-done">
+              {t("ui.confirm.unlicensedAcked", {date: sel.unlicensedAcknowledgedAt || ""})}
+            </p>
+          )}
           <p className="confirm-data-footnote">{t("ui.confirm.footnote")}</p>
           {sel.shrinkNote && (
             <p className="pool-shrink-note" data-testid="pool-shrink-note">{copyText(sel.shrinkNote)}</p>
@@ -287,7 +338,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         <button
           className="cyan-button"
           data-testid="confirm-run-start"
-          disabled={starting}
+          disabled={starting || !canRun}
           aria-busy={starting}
           onClick={startRun}
         >

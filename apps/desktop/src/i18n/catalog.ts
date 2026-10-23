@@ -177,6 +177,14 @@ function messages(lang: "zh" | "en") {
           "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）",
           "Quote request timed out in the shell. Try again.",
         ),
+        DATA_SOURCE_UNBOUND: copy(
+          "这项研究还没有可用的数据来源。",
+          "This research does not have a data source yet.",
+        ),
+        UNLICENSED_SOURCE_UNACKNOWLEDGED: copy(
+          "使用未经许可的数据前，请确认仅用于个人研究。",
+          "Before using an unlicensed source, confirm it is for personal research only.",
+        ),
       },
     },
     glossary: glossaryMessages(lang),

@@ -21,6 +21,8 @@ const EXACT: Record<string, MessageKey> = {
   "时点一致性未执行，暂不能导出策略包": "ui.copy.blockPitMissing",
   "公开资料与本机材料": "ui.running.sourcesFallback",
   "公开资料已落成本机材料": "ui.copy.sourcesSaved",
+  "未找到相关资料": "ui.copy.noRelevantMaterials",
+  "待选择": "ui.confirm.sourcePending",
   "有效研究时间计入「运行中」状态下的采集、建模与验证执行；暂停、等待确认与列表轮询间隔不计入。": "ui.copy.effectiveHint",
   "未锁定": "ui.list.unlocked",
   "查资料": "ui.copy.actionGather",
@@ -211,6 +213,14 @@ const RULES: Rule[] = [
   {
     re: /^(\d+(?:\.\d+)?) 小时$/,
     render: (m, t) => t("ui.copy.hours", {n: m[1]}),
+  },
+  {
+    re: /^(\d+) 秒$/,
+    render: (m, t) => t("ui.copy.durationSeconds", {n: m[1]}),
+  },
+  {
+    re: /^(\d+) 分 (\d+) 秒$/,
+    render: (m, t) => t("ui.copy.durationMinutes", {minutes: m[1], seconds: m[2]}),
   },
   {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%；底线 (.+)$/,

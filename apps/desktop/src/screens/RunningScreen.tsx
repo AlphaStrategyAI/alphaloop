@@ -7,6 +7,7 @@ import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
+import {formatDuration} from "../duration";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
 import {listRowStatusKey} from "../listStatusDisplay";
@@ -31,7 +32,18 @@ export function RunningScreen({
 }) {
   const {t} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
-  const quota = parseEffectiveQuotaFromView(view.effective, view.remaining);
+  const parsedQuota = parseEffectiveQuotaFromView(view.effective, view.remaining);
+  const quota = view.effectiveSeconds != null && view.remainingSeconds != null
+    && view.effectiveSeconds + view.remainingSeconds > 0
+    ? {
+        usedLabel: formatDuration(view.effectiveSeconds, t),
+        totalLabel: formatDuration(view.remainingSeconds + view.effectiveSeconds, t),
+        ratio: Math.min(1, Math.max(0, view.effectiveSeconds / (view.effectiveSeconds + view.remainingSeconds))),
+      }
+    : parsedQuota;
+  const effectiveLabel = view.effectiveSeconds != null
+    ? formatDuration(view.effectiveSeconds, t)
+    : copyText(view.effective);
   const stageLabel =
     view.currentAction && view.currentAction !== "idle" ? copyText(view.currentAction) : null;
   return (
@@ -89,7 +101,7 @@ export function RunningScreen({
         {view.currentAction && view.currentAction !== "idle"
           ? ` ${copyText(view.currentAction)} · `
           : " "}
-        {t("ui.running.header", {version: view.version, effective: copyText(view.effective)})}
+        {t("ui.running.header", {version: view.version, effective: effectiveLabel})}
         {view.remaining ? ` · ${t("ui.running.remaining", {remaining: copyText(view.remaining)})}` : ""}
         {" · "}{copyText(view.coverage)}
         {view.workbenchHeaderSummary ? ` · ${copyText(view.workbenchHeaderSummary)}` : ""}

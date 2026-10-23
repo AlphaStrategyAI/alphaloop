@@ -18,7 +18,13 @@ const desktopApi: DesktopApi = {
   async fetchView(route) { return invoke<DesktopView>("fetch_view", {route}); },
   async pollMarketDataProgress() { return invoke("market_data_progress"); },
   async createDraft() { return invoke<string>("create_draft"); },
-  async confirmRun(researchId) { await invoke("confirm_run", {researchId}); },
+  async confirmRun(researchId, options) {
+    await invoke("confirm_run", {
+      researchId,
+      dataSourceId: options?.dataSourceId,
+      unlicensedAcknowledged: options?.unlicensedAcknowledged,
+    });
+  },
   async unlockBrief(researchId, slot) { await invoke("unlock_brief", {researchId, slot}); },
   async sendDialogue(researchId, message) { await invoke("send_dialogue", {researchId, message}); },
   async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },

@@ -8,6 +8,7 @@ import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
+import {formatDuration} from "../duration";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
 import {listRowStatusKey} from "../listStatusDisplay";
@@ -249,6 +250,20 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         {view.honestStopHint && (
           <p className="honest-stop-hint" data-testid="honest-stop-hint">{copyText(view.honestStopHint)}</p>
         )}
+        {view.stopReason === "round_cap" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">
+            {t("ui.copy.stopRoundCap", {
+              used: view.trialBudget?.used ?? 0,
+              budget: view.trialBudget?.budget ?? 0,
+            })}
+          </p>
+        )}
+        {view.stopReason === "time_budget" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">{t("ui.copy.stopTimeBudget")}</p>
+        )}
+        {view.stopReason === "early_stop" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">{t("ui.copy.stopEarly")}</p>
+        )}
         <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
           {checks.map(([label, passed]) => (
             <span className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`} key={label}>
@@ -271,6 +286,11 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             ) : null}
           </p>
         )}
+        {view.sources && (
+          <p className="materials-note" data-testid="completed-sources">
+            {t("ui.running.sources", {sources: copyText(view.sources)})}
+          </p>
+        )}
         <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
           {t("ui.running.version", {version: view.version ?? 1})}
           {view.researchCumulativeLabel ? ` · ${copyText(view.researchCumulativeLabel)}` : ""}
@@ -278,8 +298,20 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {view.windowCumulativeLabel && view.windowCumulativeLabel !== view.workbenchHeaderSummary
             ? ` · ${copyText(view.windowCumulativeLabel)}`
             : ""}
-          {view.effective ? ` · ${t("ui.running.effectiveOnly", {effective: copyText(view.effective)})}` : ""}
-          {view.remaining ? ` · ${t("ui.running.remaining", {remaining: copyText(view.remaining)})}` : ""}
+          {view.effective || view.effectiveSeconds != null
+            ? ` · ${t("ui.running.effectiveOnly", {
+                effective: view.effectiveSeconds != null
+                  ? formatDuration(view.effectiveSeconds, t)
+                  : copyText(view.effective),
+              })}`
+            : ""}
+          {view.remaining || view.remainingSeconds != null
+            ? ` · ${t("ui.running.remaining", {
+                remaining: view.remainingSeconds != null
+                  ? formatDuration(view.remainingSeconds, t)
+                  : copyText(view.remaining),
+              })}`
+            : ""}
         </p>
         {showFailedGateLine && (
           <p className="failed-gates-line" data-testid="failed-gates-line">

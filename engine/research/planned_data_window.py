@@ -15,6 +15,8 @@ def planned_data_window(
     return start, today
 
 
+# Built-in source ids. These name the adapter a person may choose.
+# They are not a default selection: a research stays unbound until the user picks one.
 DEFAULT_DATA_SOURCE_ID = "yahoo_daily"
 AKSHARE_SINA_DATA_SOURCE_ID = "akshare_sina_daily"
 _CN_LISTING_SUFFIXES = (".SH", ".SZ", ".BJ")

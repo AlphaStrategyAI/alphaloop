@@ -125,7 +125,7 @@ def test_threading_server_list_responds_while_confirm_blocks_on_market_io(
                 _post(
                     endpoint,
                     token,
-                    {"type": "confirm_run", "research_id": "r-http"},
+                    {"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True},
                 ),
                 strict=True,
             )
@@ -190,7 +190,7 @@ def test_progress_stays_visible_while_confirm_holds_the_research(
         target=lambda: _post(
             endpoint,
             token,
-            {"type": "confirm_run", "research_id": "r-http"},
+            {"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True},
         ),
         name="confirm-progress",
     )
@@ -236,7 +236,7 @@ def test_confirm_run_transient_within_market_deadline(
 
     started = time.monotonic()
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": "r-http"})
+        service.handle({"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True})
     elapsed = time.monotonic() - started
     set_pool_data_loader(None)
 
@@ -267,7 +267,7 @@ def test_overlapping_confirm_run_returns_success_and_starts_once(tmp_path: Path)
                 _post(
                     endpoint,
                     "test-token",
-                    {"type": "confirm_run", "research_id": "r-http"},
+                    {"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True},
                 )
             )
         except BaseException as exc:  # noqa: BLE001
