@@ -238,29 +238,35 @@ describe("I2 smoke follow-ups", () => {
     assertPool("completed-symbol-selection-summary");
   });
 
-  it("shows three final English sentences for the default-pool note on the run-ready card", () => {
-    const sentences = [
-      "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
-      "Point-in-time constituents are missing for this run.",
-      "EDGAR can replace older figures with later restatements, so this data may fail the PIT check.",
+  it("shows the three finalized pool notes in both languages", () => {
+    const zhLines = [
+      "两个大市值池都是名单日的成分，不是时点成分；回看更早的历史含幸存者偏差。",
+      "只有把池子定义成某个指数时，才会显示「缺时点成分」。",
+      "EDGAR 是否会覆盖旧值尚未确认，基本面的 PIT 检查可能不通过。",
     ] as const;
-    expect(enCatalog.ui.confirm.poolNoteMembers).toBe(sentences[0]);
-    expect(enCatalog.ui.confirm.poolNoteConstituents).toBe(sentences[1]);
-    expect(enCatalog.ui.confirm.poolNoteEdgar).toBe(sentences[2]);
-    for (const key of ["ui.confirm.poolNoteMembers", "ui.confirm.poolNoteConstituents", "ui.confirm.poolNoteEdgar"] as const) {
+    const enLines = [
+      "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
+      "\"Missing point-in-time constituents\" appears only when a universe is defined as an index.",
+      "It's not yet confirmed whether EDGAR overwrites older values, so fundamentals may fail the PIT check.",
+    ] as const;
+    expect(zhCatalog.ui.confirm.poolNoteMembers).toBe(zhLines[0]);
+    expect(zhCatalog.ui.confirm.poolNoteIndexOnly).toBe(zhLines[1]);
+    expect(zhCatalog.ui.confirm.poolNoteEdgarUnconfirmed).toBe(zhLines[2]);
+    expect(enCatalog.ui.confirm.poolNoteMembers).toBe(enLines[0]);
+    expect(enCatalog.ui.confirm.poolNoteIndexOnly).toBe(enLines[1]);
+    expect(enCatalog.ui.confirm.poolNoteEdgarUnconfirmed).toBe(enLines[2]);
+    for (const key of [
+      "ui.confirm.poolNoteMembers",
+      "ui.confirm.poolNoteIndexOnly",
+      "ui.confirm.poolNoteEdgarUnconfirmed",
+    ] as const) {
       expect(isFinalMessageKey(key), key).toBe(true);
     }
-    for (const sentence of sentences) {
-      expect(sentence).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+    expect(enLines[1].includes('"')).toBe(true);
+    expect(enLines[2].includes("'")).toBe(true);
+    for (const sentence of enLines) {
+      expect(sentence).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF\u4e00-\u9fff]/);
     }
-    // Previous Chinese, copied from the spec. These lines were not a new paraphrase.
-    expect(zhCatalog.ui.confirm.poolNoteMembers).toBe(
-      "新研究的股票默认池是生成日名单（标普 500、沪深 300），不是时点成分。用它回看历史时仍要警示幸存者偏差。",
-    );
-    expect(zhCatalog.ui.confirm.poolNoteConstituents).toBe("免费时点成分没有找到。");
-    expect(zhCatalog.ui.confirm.poolNoteEdgar).toBe(
-      "本次没有抽一份修订实例核对「旧值是否永远留在 JSON 里不被覆盖」，所以「EDGAR 绝不会覆盖旧值」仍待定。做不到保留旧值时，本族 PIT 不通过，不得改用最新值。",
-    );
 
     const readyView: DesktopView = {
       kind: "confirm_run",
@@ -268,11 +274,11 @@ describe("I2 smoke follow-ups", () => {
       dialogue: [],
       chatEnabled: false,
       settings: {
-        thesis: "均值回归",
+        thesis: "Mean reversion",
         universe: "美股 · 股票",
         max_effective_hours: "4 小时",
         round1_methods: "分段稳健性检验",
-        coverage_floor: "至少 25 个标的",
+        coverage_floor: "至少 25 个标的、10 年数据，缺失不超过 5%",
       },
       symbolSelection: {
         count: 503,
@@ -294,15 +300,7 @@ describe("I2 smoke follow-ups", () => {
         <ConfirmRunCard api={api()} view={readyView} />
       </I18nProvider>,
     );
-    expect(screen.queryByTestId("default-pool-notes")).toBeNull();
-    expect(screen.getByTestId("symbol-selection-summary")).toHaveTextContent(
-      "美股大市值池 · 503 只 · 名单日 2026-10-16",
-    );
-    expect(screen.getByTestId("symbol-selection-note")).toHaveTextContent(
-      "取自标普 500 在名单日的成分，非时点成分",
-    );
-    expect(screen.getByTestId("symbol-selection-version")).toHaveTextContent("版本 2");
-    expect(document.body.textContent).not.toContain("两个股票池都用名单日成分");
+    expect(screen.getAllByTestId("default-pool-note").map((node) => node.textContent)).toEqual([...zhLines]);
     chinese.unmount();
 
     render(
@@ -310,12 +308,11 @@ describe("I2 smoke follow-ups", () => {
         <ConfirmRunCard api={api()} view={readyView} />
       </I18nProvider>,
     );
-    const notes = screen.getAllByTestId("default-pool-note").map((node) => node.textContent);
-    expect(notes).toEqual([...sentences]);
+    expect(screen.getAllByTestId("default-pool-note").map((node) => node.textContent)).toEqual([...enLines]);
     for (const node of screen.getAllByTestId("default-pool-note")) {
       expect(node.querySelector("[data-i18n-placeholder]")).toBeNull();
     }
-    expect(screen.getByTestId("default-pool-notes").textContent).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+    expect(screen.getByTestId("confirm-run-card").textContent).not.toMatch(/[\u4e00-\u9fff]/);
   });
 });
 

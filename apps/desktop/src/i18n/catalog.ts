@@ -199,8 +199,8 @@ export const FINAL_MESSAGE_KEYS = [
   "ui.copy.cnLargeNote",
   "ui.copy.survivorshipHint",
   "ui.confirm.poolNoteMembers",
-  "ui.confirm.poolNoteConstituents",
-  "ui.confirm.poolNoteEdgar",
+  "ui.confirm.poolNoteIndexOnly",
+  "ui.confirm.poolNoteEdgarUnconfirmed",
 ] as const;
 
 export function isFinalMessageKey(key: string): boolean {
