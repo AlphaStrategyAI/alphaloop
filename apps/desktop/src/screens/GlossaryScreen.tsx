@@ -4,6 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -15,12 +16,14 @@ import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 export function GlossaryScreen({view}: {view: Extract<DesktopView, {kind: "glossary"}>}) {
+  const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   return (
     <div className="glossary-page" data-testid="glossary-page">
-      <p className="confirm-lead">{view.intro}</p>
+      <p className="confirm-lead">{copyText(view.intro)}</p>
       {view.entries.map((entry) => (
         <details key={entry.id} className="tech-pulse-card glossary-entry" open>
-          <summary>{entry.term}</summary>
+          <summary>{copyText(entry.term)}</summary>
           <p>{entry.body}</p>
         </details>
       ))}

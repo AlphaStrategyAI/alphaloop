@@ -77,7 +77,12 @@ impl SecretVault {
 
     pub fn status(&self) -> VaultStatus {
         let mode = *self.mode.lock().expect("vault mode");
-        let locked = mode == VaultMode::Passphrase && self.passphrase.lock().expect("passphrase").is_none();
+        // Locked means an encrypted file is on disk and this process has not
+        // unlocked it. Choosing passphrase storage before any file exists is
+        // not a lock.
+        let locked = mode == VaultMode::Passphrase
+            && vault_path(&self.directory).is_file()
+            && self.passphrase.lock().expect("passphrase").is_none();
         let backend = match mode {
             VaultMode::Keyring => "keyring",
             VaultMode::Memory => "memory",
@@ -615,6 +620,28 @@ mod tests {
         assert_eq!(vault.export_map().get("ci-probe").map(String::as_str), Some(secret));
         vault.delete("ci-probe").unwrap();
         assert!(!vault.is_set("ci-probe").unwrap());
+    }
+
+    #[test]
+    fn choosing_passphrase_without_a_file_is_not_locked() {
+        let (dir, vault) = temp_vault(VaultMode::NeedsChoice);
+        vault.choose_fallback("passphrase").unwrap();
+        let status = vault.status();
+        assert_eq!(status.backend, "passphrase");
+        assert!(
+            !status.locked,
+            "a missing passphrase file must not claim the vault is locked"
+        );
+        assert!(!vault_path(dir.path()).is_file());
+        assert!(vault.set("vendor-demo", "alphaloop-test-secret-9f3a", Some("correct horse")).is_ok());
+        assert!(!vault.status().locked);
+        assert!(vault_path(dir.path()).is_file());
+
+        let (dir2, locked) = temp_vault(VaultMode::Passphrase);
+        fs::copy(vault_path(dir.path()), vault_path(dir2.path())).unwrap();
+        assert!(locked.status().locked);
+        locked.unlock("correct horse").unwrap();
+        assert!(!locked.status().locked);
     }
 
     #[test]

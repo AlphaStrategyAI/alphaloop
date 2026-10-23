@@ -647,3 +647,7 @@ a:hover {
   grid-auto-flow: column;
   justify-content: start;
 }
+
+.secret-vault-actions button {
+  white-space: nowrap;
+}

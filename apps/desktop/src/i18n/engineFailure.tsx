@@ -1,5 +1,6 @@
 import {localizeError, type ErrorInput} from "./errors";
 import {useI18n} from "./I18nProvider";
+import {localizeKnownCopy} from "./productCopy";
 import type {DialogueTurnView} from "../contracts";
 
 export function parseEngineFailure(raw: string): ErrorInput {
@@ -59,9 +60,10 @@ export function EngineFailureText({raw}: {raw: string}) {
 export function DialogueTurnBody({turn}: {turn: DialogueTurnView}) {
   const {resolved, t} = useI18n();
   if (!turn.errorCode) {
+    const text = turn.role === "assistant" ? localizeKnownCopy(turn.text, t) : turn.text;
     return (
       <p className={`message ${turn.role}`} data-testid="dialogue-turn">
-        {turn.text}
+        {text}
       </p>
     );
   }
