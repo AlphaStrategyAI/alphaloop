@@ -14,6 +14,7 @@ export function buildUiMessages(copy: Copy) {
       restart: copy("重启引擎", "Restart engine"),
       loading: copy("加载中…", "Loading…"),
       retry: copy("重试", "Try again"),
+      testData: copy("测试数据", "Test data"),
     },
     status: {
       draft: copy("草稿", "Draft"),

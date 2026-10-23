@@ -8,21 +8,29 @@ on:
   workflow_dispatch:
   workflow_call:
 
-permissions:
-  contents: read
-  actions: write
+permissions: {}
 
 jobs:
   build-macos-bundle:
-    # macos-14 is an Apple Silicon runner. Signing stays off on purpose.
+    permissions:
+      contents: read
+    # macos-14 is an Apple Silicon runner. The bundle is ad-hoc signed and not notarized.
     runs-on: macos-14
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         with:
           python-version: "3.12"
           cache: pip
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          python-version: "3.12"
 
       - name: Check desktop version declarations
         id: ver
@@ -33,18 +41,26 @@ jobs:
       - name: Require an arm64 host
         run: uname -m | grep -qx arm64
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           targets: aarch64-apple-darwin
 
       - name: Confirm the Rust host is Apple Silicon
         run: "rustc -vV | grep -q 'host: aarch64-apple-darwin'"
+
+      - name: Record version and git sha
+        run: ALPHALOOP_GIT_SHA="${GITHUB_SHA}" python3 scripts/write_build_info.py
 
       - name: Build engine sidecar (PyInstaller onedir)
         run: bash scripts/build_sidecar.sh
@@ -58,14 +74,15 @@ jobs:
           python3 scripts/verify_engine_resource_layout.py \
             --staged apps/desktop/src-tauri/resources/engine/alphaloop-engine
 
-      - name: Build unsigned arm64 Tauri bundle
+      - name: Build ad-hoc signed arm64 bundle
         working-directory: apps/desktop
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
         run: |
           npm ci
-          # No Apple signing identity and no notarization. The .app is unsigned.
           npm run tauri -- build --target aarch64-apple-darwin
 
-      - name: Package arm64 DMG and app archive
+      - name: Verify arm64 ad-hoc signature and package
         run: |
           VERSION="${{ steps.ver.outputs.version }}"
           OUT="release-artifacts"
@@ -75,9 +92,15 @@ jobs:
             find apps/desktop/src-tauri/target -path '*bundle/macos/*.app' -maxdepth 8 || true
             exit 1
           fi
-          BIN="$APP/Contents/MacOS/alphaloop"
-          file "$BIN"
-          file "$BIN" | grep -q arm64
+          BIN="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")"
+          ENGINE="$APP/Contents/Resources/engine/alphaloop-engine/alphaloop-engine"
+          test -x "$BIN"
+          test -x "$ENGINE"
+          echo "app binary: $BIN"
+          lipo -archs "$BIN" | grep -qx arm64
+          lipo -archs "$ENGINE" | grep -qx arm64
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --verify --deep --strict --verbose=2 "$ENGINE"
           tar -czf "$OUT/alphaloop_${VERSION}_macos_arm64.app.tar.gz" -C "$(dirname "$APP")" "$(basename "$APP")"
           DMG=$(find apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -maxdepth 1 2>/dev/null | head -1 || true)
           if [[ -n "$DMG" && -f "$DMG" ]]; then
@@ -86,18 +109,46 @@ jobs:
             hdiutil create -volname alphaloop -srcfolder "$APP" -ov -format UDZO \
               "$OUT/alphaloop_${VERSION}_macos_arm64.dmg"
           fi
+          python3 - "$OUT" "$VERSION" <<'PY'
+          import hashlib, pathlib, sys
+          out = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          for name in (
+              f"alphaloop_{version}_macos_arm64.dmg",
+              f"alphaloop_{version}_macos_arm64.app.tar.gz",
+          ):
+              path = out / name
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              sidecar = out / f"{name}.sha256"
+              sidecar.write_text(f"{digest}  {name}\n", encoding="utf-8")
+              print(sidecar.read_text(), end="")
+          PY
           ls -la "$OUT"
 
       - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg
           path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg
           if-no-files-found: error
 
+      - name: Upload macOS DMG hash
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg.sha256
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg.sha256
+          if-no-files-found: error
+
       - name: Upload macOS app archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
           path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
+          if-no-files-found: error
+
+      - name: Upload macOS app archive hash
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz.sha256
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz.sha256
           if-no-files-found: error

@@ -7,21 +7,34 @@ on:
     branches: [main, "cursor/**"]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      run_e2e:
+        description: Install and drive the NSIS setup from this build
+        type: boolean
+        default: false
 
-permissions:
-  contents: read
-  actions: write
+permissions: {}
 
 jobs:
   build-windows-installer:
-    runs-on: windows-latest
+    permissions:
+      contents: read
+    runs-on: windows-2025
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         with:
           python-version: "3.12"
           cache: pip
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          python-version: "3.12"
 
       - name: Check desktop version declarations
         id: ver
@@ -30,13 +43,22 @@ jobs:
           python scripts/check_app_version.py --check
           echo "version=$(python scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+
+      - name: Record version and git sha
+        shell: bash
+        run: ALPHALOOP_GIT_SHA="${GITHUB_SHA}" python scripts/write_build_info.py
 
       - name: Build engine sidecar (PyInstaller onedir)
         shell: bash
@@ -52,13 +74,13 @@ jobs:
           python scripts/verify_engine_resource_layout.py \
             --staged apps/desktop/src-tauri/resources/engine/alphaloop-engine
 
-      - name: Build unsigned Tauri desktop bundle
+      - name: Build unsigned NSIS setup
         working-directory: apps/desktop
         run: |
           npm ci
-          npm run tauri -- build
+          npm run tauri -- build --bundles nsis
 
-      - name: Collect bundle artifacts
+      - name: Collect the NSIS setup
         shell: bash
         run: |
           VERSION="${{ steps.ver.outputs.version }}"
@@ -73,35 +95,63 @@ jobs:
             find apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f || true
             exit 1
           fi
-          cp "$exe" "release-artifacts/alphaloop_${VERSION}_windows_x64-setup.exe"
-          msi=(apps/desktop/src-tauri/target/release/bundle/msi/*.msi)
-          if (( ${#msi[@]} > 0 )); then
-            cp "${msi[0]}" "release-artifacts/alphaloop_${VERSION}_windows_x64.msi"
+          main=""
+          for f in apps/desktop/src-tauri/target/release/*.exe; do
+            base="$(basename "$f")"
+            case "$base" in
+              *-setup.exe) ;;
+              *) main="$base" ;;
+            esac
+          done
+          if [[ -z "$main" ]]; then
+            echo "release binary not found"
+            exit 1
           fi
+          if ! grep -R -q "$main" apps/desktop/src-tauri/target/release/nsis; then
+            echo "NSIS output does not reference $main"
+            grep -R -n "exe" apps/desktop/src-tauri/target/release/nsis || true
+            exit 1
+          fi
+          echo "NSIS installs $main"
+          cp "$exe" "release-artifacts/alphaloop_${VERSION}_windows_x64-setup.exe"
+          python - "$VERSION" <<'PY'
+          import hashlib, pathlib, sys
+          version = sys.argv[1]
+          path = pathlib.Path("release-artifacts") / f"alphaloop_{version}_windows_x64-setup.exe"
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          sidecar = path.with_name(path.name + ".sha256")
+          sidecar.write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+          print(sidecar.read_text(), end="")
+          PY
           ls -la release-artifacts
 
       - name: Upload Windows setup exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe
           path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe
           if-no-files-found: error
 
-      - name: Upload Windows msi
-        uses: actions/upload-artifact@v4
+      - name: Upload Windows setup hash
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64.msi
-          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows_x64.msi
+          name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe.sha256
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe.sha256
           if-no-files-found: error
 
   windows-e2e:
     needs: build-windows-installer
-    if: github.event_name == 'pull_request'
-    runs-on: windows-latest
+    if: github.event_name == 'pull_request' || inputs.run_e2e
+    permissions:
+      contents: read
+    runs-on: windows-2025
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -111,15 +161,15 @@ jobs:
         run: echo "version=$(python scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
 
       - name: Download Windows setup
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe
           path: installer
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
 
-      - name: Install tauri-driver
-        run: cargo install tauri-driver --locked
+      - name: Install tauri-driver 2.1.0
+        run: cargo install tauri-driver --version 2.1.0 --locked
 
       - name: Install msedgedriver matching Edge
         shell: pwsh
@@ -134,25 +184,33 @@ jobs:
           $zip = Join-Path $env:RUNNER_TEMP "edgedriver.zip"
           $dest = Join-Path $env:RUNNER_TEMP "msedgedriver"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $url = "https://msedgedriver.azureedge.net/$edge/edgedriver_win64.zip"
+          $primary = "https://msedgedriver.microsoft.com/$edge/edgedriver_win64.zip"
           try {
-            Invoke-WebRequest -Uri $url -OutFile $zip
+            Invoke-WebRequest -Uri $primary -OutFile $zip
           } catch {
             $major = $edge.Split('.')[0]
-            $latest = (Invoke-WebRequest -Uri "https://msedgedriver.azureedge.net/LATEST_RELEASE_$major").Content.Trim()
-            Invoke-WebRequest -Uri "https://msedgedriver.azureedge.net/$latest/edgedriver_win64.zip" -OutFile $zip
+            $latestFile = Join-Path $env:RUNNER_TEMP "latest-edge.txt"
+            Invoke-WebRequest -Uri "https://msedgedriver.microsoft.com/LATEST_RELEASE_${major}_WINDOWS" -OutFile $latestFile
+            $bytes = [System.IO.File]::ReadAllBytes($latestFile)
+            if ($bytes.Length -ge 2 -and ($bytes[1] -eq 0 -or ($bytes[0] -eq 255 -and $bytes[1] -eq 254))) {
+              $latest = [System.Text.Encoding]::Unicode.GetString($bytes)
+            } else {
+              $latest = [System.Text.Encoding]::UTF8.GetString($bytes)
+            }
+            $latest = $latest.Trim([char]0).Trim()
+            Write-Host "fallback driver $latest"
+            Invoke-WebRequest -Uri "https://msedgedriver.microsoft.com/$latest/edgedriver_win64.zip" -OutFile $zip
           }
           Expand-Archive -Path $zip -DestinationPath $dest -Force
           echo $dest >> $env:GITHUB_PATH
 
-      - name: Install Selenium
-        run: python -m pip install selenium
+      - name: Install Selenium 4.51.0
+        run: python -m pip install selenium==4.51.0
 
       - name: Windows GUI end-to-end
         shell: bash
         env:
           ALPHALOOP_OFFLINE_MARKET_DATA: "1"
-          ALPHALOOP_SECRETS_BACKEND: passphrase
           ALPHALOOP_MAX_TRIALS: "1"
           ALPHALOOP_E2E_HOLD_RUNNING_SEC: "45"
           ALPHALOOP_REVIEWER: deterministic
@@ -170,7 +228,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-e2e-screenshots
           path: e2e-artifacts/screenshots
@@ -178,7 +236,7 @@ jobs:
 
       - name: Upload app and engine logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-e2e-logs
           path: e2e-artifacts/logs

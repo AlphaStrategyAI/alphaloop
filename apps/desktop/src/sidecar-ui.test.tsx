@@ -53,4 +53,12 @@ describe("sidecar supervision UI", () => {
     fireEvent.click(screen.getByRole("button", {name: "重启引擎"}));
     expect(restartSidecar).toHaveBeenCalled();
   });
+
+  it("shows a test-data badge only when the engine marks synthetic prices", () => {
+    const {unmount} = render(<App api={api} initialView={{...listView, testData: true}} />);
+    expect(screen.getByTestId("test-data-badge")).toHaveTextContent("测试数据");
+    unmount();
+    render(<App api={api} initialView={listView} />);
+    expect(screen.queryByTestId("test-data-badge")).not.toBeInTheDocument();
+  });
 });

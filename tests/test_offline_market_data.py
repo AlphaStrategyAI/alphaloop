@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -43,6 +44,20 @@ def test_offline_flag_returns_local_bars_without_yahoo(monkeypatch: pytest.Monke
     assert bool(frame.notna().all().all())
     again = port.load_daily(("AAPL",), date(2014, 1, 1), date(2024, 1, 1))
     assert frame["AAPL"].equals(again["AAPL"])
+
+
+def test_offline_flag_marks_desktop_views(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from engine.main import ResearchCommandService
+    from engine.research.runtime import EnginePaths
+    from engine.research.store import SQLiteStore
+
+    monkeypatch.setenv("ALPHALOOP_OFFLINE_MARKET_DATA", "1")
+    service = ResearchCommandService(
+        SQLiteStore(tmp_path / "view.db"),
+        EnginePaths.for_colocated_root(tmp_path),
+    )
+    view = service.view_for("#/research")
+    assert view["testData"] is True
 
 
 def test_e2e_hold_defaults_off_and_caps(monkeypatch: pytest.MonkeyPatch) -> None:

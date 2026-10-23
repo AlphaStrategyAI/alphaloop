@@ -1,5 +1,6 @@
 import type {ReactNode} from "react";
 
+import {appVersion, gitSha} from "../buildInfo";
 import {I18nText} from "../i18n/I18nText";
 import {languageFromSystemLocale, languageName} from "../i18n/locale";
 import {useI18n} from "../i18n/I18nProvider";
@@ -76,6 +77,11 @@ export function SettingsPage({route}: {route: string}) {
             <p><I18nText k="settings.general.ruleSystem" /></p>
             <p><I18nText k="settings.general.ruleManual" /></p>
             <p><I18nText k="settings.general.stored" /></p>
+          </section>
+          <section className="settings-card" aria-labelledby="about-title" data-testid="about-card">
+            <h2 id="about-title"><I18nText k="settings.about.title" /></h2>
+            <p data-testid="about-version">{t("settings.about.version", {version: appVersion})}</p>
+            <p data-testid="about-sha">{t("settings.about.commit", {sha: gitSha})}</p>
           </section>
           <section className="settings-card" aria-labelledby="ui-language-scope">
             <h2 id="ui-language-scope"><I18nText k="settings.scope.title" /></h2>

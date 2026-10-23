@@ -247,6 +247,8 @@ export type DesktopView = ViewBody & {
   hostStatus?: HostStatus;
   thesisChangeHint?: string;
   marketDataProgress?: {done: number; total: number; source?: string} | null;
+  /** Set when ALPHALOOP_OFFLINE_MARKET_DATA=1. Absent for a normal launch. */
+  testData?: boolean;
 };
 
 export type MarketDataProgress = {done: number; total: number; source?: string};

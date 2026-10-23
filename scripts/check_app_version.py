@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Fail when the desktop app version declarations disagree.
 
-The Python package version in pyproject.toml is not part of this set: the
-desktop UI and about box do not display it. Included declarations:
+Included declarations:
 
 - apps/desktop/src-tauri/tauri.conf.json
 - apps/desktop/src-tauri/Cargo.toml
 - apps/desktop/src-tauri/Cargo.lock (package alphaloop-desktop only)
 - apps/desktop/package.json
 - apps/desktop/package-lock.json (root and the "" package entry)
+- pyproject.toml (shown on the settings about line and in engine.log)
+- apps/desktop/src/buildInfo.ts
+- engine/research/build_info.json
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,12 +48,21 @@ def declared_versions(root: Path = ROOT) -> dict[str, str]:
         raise SystemExit("Cargo.lock is missing package alphaloop-desktop")
     if lock.get("version") != lock.get("packages", {}).get("", {}).get("version"):
         raise SystemExit("package-lock.json root version and packages[''] version disagree")
+    project = tomllib.loads(_read(root / "pyproject.toml"))
+    ui = _read(root / "apps" / "desktop" / "src" / "buildInfo.ts")
+    ui_version = re.search(r'export const appVersion = "([^"]+)"', ui)
+    if ui_version is None:
+        raise SystemExit("apps/desktop/src/buildInfo.ts is missing appVersion")
+    baked = json.loads(_read(root / "engine" / "research" / "build_info.json"))
     return {
         "tauri.conf.json": str(tauri["version"]),
         "Cargo.toml": cargo_version.group(1),
         "Cargo.lock": lock_version.group(1),
         "package.json": str(package["version"]),
         "package-lock.json": str(lock["version"]),
+        "pyproject.toml": str(project["project"]["version"]),
+        "buildInfo.ts": ui_version.group(1),
+        "build_info.json": str(baked["version"]),
     }
 
 

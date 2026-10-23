@@ -1,40 +1,48 @@
 name: desktop-release
 
 # Cuts a draft prerelease when a v* tag is pushed. workflow_dispatch builds the
-# installers and does not create a release. This workflow does not push tags.
+# installers, runs the Windows test, and does not create a release.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
 jobs:
   linux:
     permissions:
       contents: read
-      actions: write
     uses: ./.github/workflows/desktop-release-linux.yml
   macos:
     permissions:
       contents: read
-      actions: write
     uses: ./.github/workflows/desktop-release-macos.yml
   windows:
     permissions:
       contents: read
-      actions: write
     uses: ./.github/workflows/desktop-release-windows.yml
+    with:
+      run_e2e: true
 
   publish:
     needs: [linux, macos, windows]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
-      actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
 
-      - name: Require the tag to match tauri.conf.json
+      - name: Require the tag to match tauri.conf.json and to be on main
         id: ver
         run: |
           python3 scripts/check_app_version.py --check
@@ -44,9 +52,11 @@ jobs:
             echo "tag ${GITHUB_REF_NAME} does not match tauri.conf.json version ${VERSION}"
             exit 1
           fi
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
 
       - name: Download installers
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: alphaloop_*
           path: dist
@@ -58,13 +68,27 @@ jobs:
             "${{ steps.ver.outputs.version }}" \
             "${{ github.sha }}"
 
-      - name: Create draft prerelease
+      - name: Create or update the draft prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/* \
-            --repo "${GITHUB_REPOSITORY}" \
-            --draft \
-            --prerelease \
-            --title "alphaloop ${{ steps.ver.outputs.version }}" \
-            --notes-file release-notes.md
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            draft="$(gh release view "$tag" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq .isDraft)"
+            if [[ "$draft" != "true" ]]; then
+              echo "release $tag exists and is not a draft"
+              exit 1
+            fi
+            gh release upload "$tag" dist/* --repo "${GITHUB_REPOSITORY}" --clobber
+            gh release edit "$tag" --repo "${GITHUB_REPOSITORY}" \
+              --draft --prerelease \
+              --title "alphaloop ${{ steps.ver.outputs.version }}" \
+              --notes-file release-notes.md
+          else
+            gh release create "$tag" dist/* \
+              --repo "${GITHUB_REPOSITORY}" \
+              --draft \
+              --prerelease \
+              --title "alphaloop ${{ steps.ver.outputs.version }}" \
+              --notes-file release-notes.md
+          fi

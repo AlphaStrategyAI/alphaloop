@@ -25,6 +25,10 @@ analysis = Analysis(
             os.path.join(ROOT, "engine", "research", "symbol_pools"),
             "engine/research/symbol_pools",
         ),
+        (
+            os.path.join(ROOT, "engine", "research", "build_info.json"),
+            "engine/research",
+        ),
     ]
     + akshare_datas,
     hiddenimports=hidden,

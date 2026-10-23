@@ -69,7 +69,7 @@ def prepare_env() -> tuple[Path, Path]:
     os.environ["ALPHALOOP_DATA_ROOT"] = str(data)
     os.environ["ALPHALOOP_RUNTIME_ROOT"] = str(runtime)
     os.environ.setdefault("ALPHALOOP_OFFLINE_MARKET_DATA", "1")
-    os.environ.setdefault("ALPHALOOP_SECRETS_BACKEND", "passphrase")
+    os.environ.pop("ALPHALOOP_SECRETS_BACKEND", None)
     os.environ.setdefault("ALPHALOOP_MAX_TRIALS", "1")
     os.environ.setdefault("ALPHALOOP_E2E_HOLD_RUNNING_SEC", "45")
     os.environ.setdefault("ALPHALOOP_REVIEWER", "deterministic")
@@ -86,8 +86,14 @@ def process_running(image: str) -> bool:
     return image.lower() in (completed.stdout or "").lower()
 
 
+INSTALLED_EXE: Path | None = None
+
+
 def kill_app() -> None:
-    for image in ("alphaloop.exe", "alphaloop-engine.exe"):
+    images = ["alphaloop-engine.exe"]
+    if INSTALLED_EXE is not None:
+        images.append(INSTALLED_EXE.name)
+    for image in images:
         subprocess.run(["taskkill", "/F", "/T", "/IM", image], check=False, capture_output=True)
 
 
@@ -102,21 +108,68 @@ def wait_port(port: int, timeout: float) -> None:
     raise TimeoutError(f"127.0.0.1:{port} did not open")
 
 
-def find_installed_exe() -> Path | None:
+def _registry_install_hints() -> list[str]:
+    script = r"""
+$paths = @(
+  'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+  'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+  'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+)
+Get-ItemProperty $paths -ErrorAction SilentlyContinue | ForEach-Object {
+  if ([string]$_.DisplayName -notmatch 'alphaloop') { return }
+  if ($_.DisplayIcon) { Write-Output ([string]$_.DisplayIcon) }
+  if ($_.InstallLocation) { Write-Output ([string]$_.InstallLocation) }
+}
+"""
+    completed = subprocess.run(
+        ["powershell", "-NoProfile", "-Command", script],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    hints: list[str] = []
+    for line in (completed.stdout or "").splitlines():
+        text = line.strip().strip('"')
+        if "," in text:
+            text = text.split(",", 1)[0].strip().strip('"')
+        if text:
+            hints.append(text)
+    return hints
+
+
+def _exe_candidates() -> list[Path]:
+    found: list[Path] = []
+
+    def add(path: Path) -> None:
+        if path.is_file() and path.suffix.lower() == ".exe" and "uninstall" not in path.name.lower():
+            if path not in found:
+                found.append(path)
+
+    for hint in _registry_install_hints():
+        path = Path(hint)
+        if path.is_dir():
+            for child in path.glob("*.exe"):
+                add(child)
+        else:
+            add(path)
     local = Path(os.environ.get("LOCALAPPDATA", ""))
-    direct = [
-        local / "alphaloop" / "alphaloop.exe",
-        local / "Programs" / "alphaloop" / "alphaloop.exe",
-    ]
-    for path in direct:
-        if path.is_file():
-            return path
-    if not local.is_dir():
+    folders: list[Path] = []
+    if local.is_dir():
+        folders.extend(path for path in local.glob("alphaloop*") if path.is_dir())
+        programs = local / "Programs"
+        if programs.is_dir():
+            folders.extend(path for path in programs.glob("alphaloop*") if path.is_dir())
+    for folder in folders:
+        for child in folder.glob("*.exe"):
+            add(child)
+    return found
+
+
+def find_installed_exe() -> Path | None:
+    candidates = _exe_candidates()
+    if not candidates:
         return None
-    for path in local.rglob("alphaloop.exe"):
-        if path.is_file() and "uninstall" not in path.name.lower():
-            return path
-    return None
+    return candidates[0]
 
 
 def install_silent(installer: Path) -> Path:
@@ -135,13 +188,15 @@ def install_silent(installer: Path) -> Path:
             raise RuntimeError(
                 f"NSIS installer exited {completed.returncode}: {completed.stdout} {completed.stderr}"
             )
+    global INSTALLED_EXE
     deadline = time.time() + 120
     while time.time() < deadline:
         found = find_installed_exe()
         if found is not None:
+            INSTALLED_EXE = found
             return found
         time.sleep(1)
-    raise RuntimeError("installer finished but alphaloop.exe was not found under LOCALAPPDATA")
+    raise RuntimeError("installer finished but no alphaloop executable was found from the uninstall registry or LocalAppData")
 
 
 def uninstall_silent(exe: Path | None) -> None:
@@ -165,7 +220,7 @@ def uninstall_silent(exe: Path | None) -> None:
         if find_installed_exe() is None:
             return
         time.sleep(1)
-    raise RuntimeError("uninstaller returned but alphaloop.exe is still present")
+    raise RuntimeError("uninstaller returned but the installed executable is still present")
 
 
 def log_has_traceback(data_root: Path) -> str | None:
@@ -307,10 +362,12 @@ def wait_engine(driver, timeout: float = 90) -> None:
     )
     deadline = time.time() + 30
     while time.time() < deadline:
-        if process_running("alphaloop-engine.exe"):
+        engine_up = process_running("alphaloop-engine.exe")
+        app_up = INSTALLED_EXE is None or process_running(INSTALLED_EXE.name)
+        if engine_up and app_up:
             return
         time.sleep(0.4)
-    raise AssertionError("UI reports the engine running but alphaloop-engine.exe is not in the process list")
+    raise AssertionError("UI reports the engine running but the sidecar or installed executable is not in the process list")
 
 
 def chrome_text(driver, css: str) -> str:
@@ -559,7 +616,41 @@ def main() -> int:
         assert_no_cjk(session.driver, "[data-testid=rail]", "rail")
         return "switched zh then en; rail chrome has no CJK"
 
+    def step_keyring() -> str:
+        assert session is not None
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        def vault(d):
+            return d.find_element(By.CSS_SELECTOR, "[data-testid=secret-vault]")
+
+        click(session.driver, "[data-testid=secret-vault-open]")
+        wait_css(session.driver, "[data-testid=secret-vault]")
+        WebDriverWait(session.driver, 20).until(lambda d: vault(d).get_attribute("data-backend") == "keyring")
+        if vault(session.driver).get_attribute("data-locked") != "false":
+            raise AssertionError("Windows credential manager reported the vault locked")
+        if session.driver.find_elements(By.CSS_SELECTOR, "[data-testid=secret-passphrase]"):
+            raise AssertionError("credential-manager mode showed a passphrase field")
+        set_input(session.driver, "[data-testid=secret-alias]", "ci-keyring")
+        set_input(session.driver, "[data-testid=secret-value]", "alphaloop-e2e-keyring")
+        click(session.driver, "[data-testid=secret-save]")
+        WebDriverWait(session.driver, 20).until(lambda d: "Saved." in (vault(d).text or ""))
+        click(session.driver, "[data-testid=secret-vault-close]")
+        return "default credential-manager backend stored a secret and was not locked"
+
+    def relaunch_passphrase() -> None:
+        nonlocal session
+        assert installed is not None
+        if session is not None:
+            session.close()
+        kill_app()
+        os.environ["ALPHALOOP_SECRETS_BACKEND"] = "passphrase"
+        session = Session(installed, driver_log)
+        wait_engine(session.driver)
+        assert_no_banner(session.driver, data_root)
+
     def step_secrets_create() -> str:
+        relaunch_passphrase()
         assert session is not None
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
@@ -729,6 +820,7 @@ def main() -> int:
         run_step("install silently", "install", step_install)
         run_step("first launch, engine healthy, no traceback", "launch", step_launch)
         run_step("switch zh then en; English rail has no CJK", "language", step_language)
+        run_step("secrets: Windows credential manager is not locked", "secrets-keyring", step_keyring)
         run_step("secrets: no file is not locked; create passphrase", "secrets-create", step_secrets_create)
         run_step("restart and unlock passphrase", "secrets-unlock", step_secrets_unlock)
         run_step("US and A-share confirm cards open their own research", "confirms", step_two_confirms)

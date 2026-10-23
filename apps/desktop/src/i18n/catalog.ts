@@ -79,6 +79,11 @@ function messages(lang: "zh" | "en") {
           "Stored in local preferences · not written into the research record · does not change decisions, gates, or versions",
         ),
       },
+      about: {
+        title: copy("关于", "About"),
+        version: copy("版本 {{version}}", "Version {{version}}"),
+        commit: copy("提交 {{sha}}", "Commit {{sha}}"),
+      },
       scope: {
         title: copy("切换范围", "What switches"),
         switchesLabel: copy("会切换", "Switches"),

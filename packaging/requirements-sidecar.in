@@ -1,0 +1,17 @@
+# Third-party packages for the PyInstaller sidecar.
+# The alphaloop tree itself is installed with --no-deps from this repo.
+# Regenerate with:
+#   python3 -m piptools compile --generate-hashes --resolver=backtracking \
+#     --output-file packaging/requirements-sidecar.txt packaging/requirements-sidecar.in
+akshare
+cattrs
+httpx
+jsonschema
+numpy
+pandas
+platformdirs
+portalocker
+yfinance
+pyinstaller
+setuptools
+wheel

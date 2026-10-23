@@ -125,6 +125,11 @@ export function NightShell({
             })}
           </p>
         ) : null}
+        {view.testData ? (
+          <p className="test-data-badge" data-testid="test-data-badge" role="status">
+            {t("ui.shell.testData")}
+          </p>
+        ) : null}
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}
         {children}
       </section>

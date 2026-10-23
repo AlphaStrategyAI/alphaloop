@@ -10,7 +10,7 @@ The file names use the version in `apps/desktop/src-tauri/tauri.conf.json`.
 |----------|--------|----------------|
 | `desktop-release-linux.yml` | `ubuntu-22.04` | `alphaloop_<version>_linux_amd64.deb` |
 | `desktop-release-macos.yml` | `macos-14` (arm64) | `alphaloop_<version>_macos_arm64.dmg` and `alphaloop_<version>_macos_arm64.app.tar.gz` |
-| `desktop-release-windows.yml` | `windows-latest` | `alphaloop_<version>_windows_x64-setup.exe` and `alphaloop_<version>_windows_x64.msi` |
+| `desktop-release-windows.yml` | `windows-2025` | `alphaloop_<version>_windows_x64-setup.exe` |
 
 Pull requests also run the Windows GUI end-to-end job. Screenshots are `windows-e2e-screenshots`. App and engine logs are `windows-e2e-logs`.
 
@@ -20,7 +20,7 @@ Tag pushes of `v*` run `desktop-release.yml`, which rebuilds the three platforms
 
 ## Signing
 
-Signing and notarization are off. macOS builds have no Apple signing identity. Windows builds have no Authenticode certificate.
+macOS builds are ad-hoc signed (`signingIdentity` `-`) and not notarized. Gatekeeper still warns. Windows builds have no Authenticode certificate. The Linux package is not signed by a distribution key.
 
 ## Local parity
 

@@ -1,19 +1,25 @@
 # Cutting an alphaloop desktop release
 
-The desktop app version is the single value shared by:
+The desktop version is one value, checked by `scripts/check_app_version.py`:
 
 - `apps/desktop/src-tauri/tauri.conf.json`
 - `apps/desktop/src-tauri/Cargo.toml` and the `alphaloop-desktop` entry in `Cargo.lock`
 - `apps/desktop/package.json` and `package-lock.json`
+- `pyproject.toml`
+- `apps/desktop/src/buildInfo.ts` and `engine/research/build_info.json`
 
-`scripts/check_app_version.py` fails when those declarations disagree. The Python package version in `pyproject.toml` is not part of that set; the desktop UI does not display it.
+`scripts/write_build_info.py` rewrites the last two from that version and from `ALPHALOOP_GIT_SHA` or `git rev-parse HEAD`. Packaged builds show them on Settings → About and on the first line of `engine.log`.
 
-Builds are **unsigned** on purpose. The release workflow does not sign or notarize them.
+## System requirements
+
+- **macOS:** Apple Silicon only. The build is ad-hoc signed and not notarized.
+- **Windows:** Windows 10 or Windows 11, x64, with the WebView2 runtime.
+- **Linux:** Ubuntu 22.04 or newer (the `.deb` is built on `ubuntu-22.04`).
 
 ## Cut a release
 
-1. Bump the declarations above to the same `X.Y.Z` and merge that change to `main`. Do not push a tag from a pull request.
-2. On `main`, at the commit you want to ship, push a tag that matches the version exactly:
+1. Bump the declarations above together, update `CHANGELOG.md`, and merge to `main`. Do not push a tag from a pull request.
+2. The tagged commit must already be on `origin/main`. From `main`:
 
    ```bash
    git checkout main
@@ -22,50 +28,65 @@ Builds are **unsigned** on purpose. The release workflow does not sign or notari
    git push origin vX.Y.Z
    ```
 
-   `vX.Y.Z` must equal the `version` in `tauri.conf.json` with a `v` prefix. Any other tag fails the release job before it creates a GitHub Release.
+   `vX.Y.Z` must equal the `version` in `tauri.conf.json` with a `v` prefix. The release job rejects any other tag, and it rejects a tag that is not an ancestor of `origin/main`.
 
-3. The `desktop-release` workflow runs on that tag. It builds the Linux `.deb`, the macOS arm64 `.dmg` and `.app.tar.gz`, and the Windows NSIS setup (and MSI). It checks the tag, writes `SHA256SUMS.txt`, and opens a **draft** GitHub Release marked **prerelease**. It does not publish the release.
-4. Open the draft. Confirm the installers and `SHA256SUMS.txt` are attached. Replace the placeholder per-platform test section with the real results (Windows CI summary, plus the Linux and macOS checklist below).
-5. Publish the draft only after those checks look right. Publishing is a separate, manual step.
+3. `desktop-release` builds Linux, macOS, and Windows once. The Windows GUI test installs that same NSIS setup. Only after it passes does the workflow open a **draft** GitHub Release marked **prerelease**, with the installers and `SHA256SUMS.txt`. It does not publish the release.
+4. Download the DMG in a browser from the draft so macOS applies quarantine. Confirm the checksums with `sha256sum -c SHA256SUMS.txt`. Replace the placeholder test-results table with the real Windows CI result and the Linux and macOS checklist below.
+5. Publish the draft only after that review. Publishing is a separate manual step.
 
-`workflow_dispatch` on `desktop-release` builds the three installers and skips creating a release. Use that to rehearse the build. It still does not push a tag.
+`workflow_dispatch` on `desktop-release` builds the installers, runs the Windows test, and does not create a release.
 
-Installer names come from `tauri.conf.json`, not from a hardcoded version:
+Installer names come from `tauri.conf.json`:
 
 - `alphaloop_<version>_linux_amd64.deb`
 - `alphaloop_<version>_macos_arm64.dmg`
 - `alphaloop_<version>_macos_arm64.app.tar.gz`
 - `alphaloop_<version>_windows_x64-setup.exe`
-- `alphaloop_<version>_windows_x64.msi`
 
-Linux packages are built on `ubuntu-22.04` so the `.deb` links against that glibc. macOS packages are arm64 (Apple Silicon) from `macos-14`.
+Linux: `sudo apt install ./alphaloop_<version>_linux_amd64.deb`
 
-## Unsigned installs
+## Signing
 
-- **macOS:** Right-click the app and choose Open, or after mounting the disk image run `xattr -dr com.apple.quarantine` on the `.app`.
-- **Windows:** If SmartScreen appears, choose More info → Run anyway.
-- **Linux:** install the `.deb` with your package manager. The package is not signed by a distribution key.
+macOS is ad-hoc signed (`APPLE_SIGNING_IDENTITY=-` and `bundle.macOS.signingIdentity` `-`) and not notarized. `codesign --verify --deep --strict` runs in CI on the `.app` and on the bundled engine. Gatekeeper still warns. On macOS 15 and later, right-click → Open does not bypass that warning.
+
+1. Download the DMG in a browser from the draft release (quarantine is set only for a browser download).
+2. Drag the app to Applications.
+3. Open it once and let Gatekeeper block it.
+4. System Settings → Privacy & Security → Open Anyway.
+
+After the app is in Applications, the alternative is:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/alphaloop.app
+```
+
+Do not run `xattr` on the copy inside the mounted DMG. That volume is read-only.
+
+Windows is not Authenticode-signed. If SmartScreen appears, choose More info → Run anyway.
+
+The Linux package is not signed by a distribution key.
 
 ## Windows CI
 
-Pull requests run `desktop-release-windows` / `windows-e2e`. That job installs the setup executable silently, drives the GUI with `tauri-driver` and `msedgedriver`, and uploads:
+Pull requests, and the tag release run, execute `windows-e2e` against the NSIS setup from that same workflow. Screenshots are the artifact `windows-e2e-screenshots`. App and engine logs are `windows-e2e-logs`. The job summary lists each step. A skip is not a pass.
 
-- `windows-e2e-screenshots`
-- `windows-e2e-logs` (app `desktop.log`, engine `engine.log`, and the driver log)
-
-The job summary lists each step as pass, fail, or skipped. A skip means an earlier step failed, or a step could not be automated; a skip is not a pass. The test process sets `ALPHALOOP_OFFLINE_MARKET_DATA=1` and `ALPHALOOP_SECRETS_BACKEND=passphrase`. Both default off in a normal launch, so the installed app still uses Yahoo/Sina and the OS keyring unless those variables are set.
+The job uses synthetic prices (`ALPHALOOP_OFFLINE_MARKET_DATA=1`). One step uses the default Windows credential manager. A later step sets `ALPHALOOP_SECRETS_BACKEND=passphrase`, which defaults off.
 
 ## Manual checklist (Linux and macOS)
 
-Repeat this on a clean user account. On Windows, prefer the CI job above; use this list only when you are checking a machine by hand.
-
-1. Install the package. Launch alphaloop. The engine sidecar starts and the window shows no traceback and no error banner.
-2. Switch the interface language Chinese → English, then English → Chinese, and back to English. On the English UI, the rail, secrets panel, confirm card, and conclusion page chrome contain no CJK characters. Text you typed yourself can still be Chinese.
-3. Open the secrets panel with no passphrase file. It is not locked. Create a passphrase, quit, launch again, and unlock.
-4. Start a research from natural language for one US stock and one A-share (`600519`). Each reaches its own confirm card. With several confirm cards on the list, opening one opens that research and not the other.
+1. Install the package. Launch alphaloop. The engine sidecar starts, and the window shows no traceback and no error banner. Settings → About shows the version and commit.
+2. Switch the interface language Chinese → English → Chinese → English. On the English UI, the rail, secrets panel, confirm card, and conclusion page chrome contain no CJK characters. Text you typed can still be Chinese.
+3. Open secrets with no passphrase file. It is not locked. Create a passphrase, quit, launch again, and unlock. On Windows, also confirm the credential manager path before forcing the passphrase file.
+4. Start a research from natural language for one US stock and for A-share `600519`. Each reaches its own confirm card. Opening one card opens that research.
 5. Confirm a run and let it finish. The conclusion page renders. Export writes a file.
 6. Delete a research while it is running. The engine process stays up.
-7. Quit and launch again. The research you kept is still there. The one you deleted is not.
-8. Uninstall silently (or with the platform uninstaller) and confirm the app is gone.
+7. Quit and launch again. The research you kept is still there. The deleted one is not.
+8. Uninstall and confirm the app is gone.
 
-Market data in CI is synthetic. A manual pass on Linux or macOS can use the same `ALPHALOOP_OFFLINE_MARKET_DATA=1` switch when you do not want the machine to call Yahoo or Sina.
+`ALPHALOOP_OFFLINE_MARKET_DATA=1` shows a Test data badge and keeps the run off Yahoo and Sina. Leave it unset for a real data check.
+
+## Known limitations
+
+- Windows is tested only by cloud automation.
+- That automation uses synthetic market data.
+- macOS is ad-hoc signed and not notarized. Linux and Windows builds are unsigned.

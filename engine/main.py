@@ -405,6 +405,10 @@ class ResearchCommandService:
             payload["marketDataProgress"] = progress
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
+        from engine.research.offline_market_data import offline_market_data_enabled
+
+        if offline_market_data_enabled():
+            payload["testData"] = True
         return self._attach_notify(payload)
 
     @staticmethod
@@ -1441,18 +1445,27 @@ def advance_running_research(
 
 def configure_engine_file_log(path: Path) -> logging.Handler:
     """Append engine logs to the contracted ``engine.log``. Returns the handler."""
+    from engine.research.build_info import read_build_info
+
     path.parent.mkdir(parents=True, exist_ok=True)
     handler = logging.FileHandler(path, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     root.addHandler(handler)
-    logging.getLogger("alphaloop.engine").info("engine log opened at %s", path)
+    version, sha = read_build_info()
+    logging.getLogger("alphaloop.engine").info("alphaloop %s %s", version, sha)
     return handler
 
 
 def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     configure_engine_file_log(paths.data.engine_log)
+    from engine.research.offline_market_data import offline_market_data_enabled
+
+    if offline_market_data_enabled():
+        logging.getLogger("alphaloop.engine").warning(
+            "ALPHALOOP_OFFLINE_MARKET_DATA=1: synthetic market data is on; not for a release"
+        )
     try:
         lock = EngineLock.acquire(paths.runtime, owner_kind)
     except RuntimeError:
