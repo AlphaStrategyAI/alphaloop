@@ -291,9 +291,10 @@ class Session:
         self.webdriver = webdriver
         self.app = app
         self.driver_log = driver_log
+        native = os.environ["MSEDGEDRIVER"]
         self.proc = subprocess.Popen(
-            ["tauri-driver"],
-            stdout=driver_log.open("w", encoding="utf-8", buffering=1),
+            ["tauri-driver", "--native-driver", native],
+            stdout=driver_log.open("a", encoding="utf-8", buffering=1),
             stderr=subprocess.STDOUT,
             env=os.environ.copy(),
         )
@@ -631,15 +632,24 @@ def main() -> int:
     if not installer.is_file():
         print(f"installer not found: {installer}", file=sys.stderr)
         return 2
-    for tool in ("tauri-driver", "msedgedriver"):
-        if shutil.which(tool) is None:
-            print(f"{tool} is not on PATH", file=sys.stderr)
-            return 2
+    if shutil.which("tauri-driver") is None:
+        print("tauri-driver is not on PATH", file=sys.stderr)
+        return 2
+    native_driver = os.environ.get("MSEDGEDRIVER", "")
+    if not native_driver or not Path(native_driver).is_file():
+        print("MSEDGEDRIVER must be the msedgedriver.exe that matches the WebView2 Runtime", file=sys.stderr)
+        return 2
 
     SHOTS.mkdir(parents=True, exist_ok=True)
     LOGS.mkdir(parents=True, exist_ok=True)
     data_root, _runtime = prepare_env()
     driver_log = LOGS / "tauri-driver.log"
+    driver_log.write_text(
+        "tauri-driver --native-driver "
+        f"{native_driver}\n"
+        "msedgedriver stdout is discarded by tauri-driver; this file captures tauri-driver stderr.\n",
+        encoding="utf-8",
+    )
     results: list[StepResult] = []
     session: Session | None = None
     installed: Path | None = None

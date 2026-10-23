@@ -18,8 +18,7 @@
         "height": 900,
         "minWidth": 1180,
         "minHeight": 720,
-        "maximized": true,
-        "devtools": true
+        "maximized": true
       }
     ],
     "security": {"csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost"}

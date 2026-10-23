@@ -33,7 +33,3 @@ apple-native-keyring-store = { version = "1.0.2", features = ["keychain"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-native-keyring-store = { version = "1.1.0", default-features = false }
-# Release WebView2 leaves the page target silent unless AreDevToolsEnabled is
-# set. That flag is compiled in only with this feature, and the Windows GUI
-# run drives the same installer the release publishes.
-tauri = { version = "2", features = ["devtools"] }

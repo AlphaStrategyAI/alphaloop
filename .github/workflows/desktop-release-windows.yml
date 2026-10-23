@@ -175,25 +175,51 @@ jobs:
       - name: Install tauri-driver 2.1.0
         run: cargo install tauri-driver --version 2.1.0 --locked
 
-      - name: Install msedgedriver matching Edge
+      - name: Install msedgedriver matching the WebView2 Runtime
         shell: pwsh
         run: |
+          # The installed app loads Evergreen WebView2, not msedge.exe. Tauri's
+          # manual WebDriver guide says a driver/runtime mismatch hangs while
+          # connecting. The runtime client id is the EdgeUpdate WebView2 GUID.
+          $guid = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = @(
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$guid",
+            "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$guid"
+          )
+          $runtime = $null
+          foreach ($key in $keys) {
+            $runtime = (Get-ItemProperty -Path $key -ErrorAction SilentlyContinue).pv
+            if ($runtime) { break }
+          }
+          if (-not $runtime) {
+            $roots = @(
+              "${env:ProgramFiles(x86)}\Microsoft\EdgeWebView\Application",
+              "$env:ProgramFiles\Microsoft\EdgeWebView\Application"
+            )
+            $exe = Get-ChildItem -Path $roots -Filter msedgewebview2.exe -Recurse -ErrorAction SilentlyContinue |
+              Sort-Object { [version]$_.VersionInfo.ProductVersion } -Descending |
+              Select-Object -First 1
+            if (-not $exe) { throw "WebView2 Runtime was not found" }
+            $runtime = $exe.VersionInfo.ProductVersion
+          }
           $edgePath = @(
             "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
           ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $edgePath) { throw "Microsoft Edge was not found" }
-          $edge = (Get-Item $edgePath).VersionInfo.ProductVersion
-          Write-Host "Edge $edge at $edgePath"
+          if ($edgePath) {
+            $edge = (Get-Item $edgePath).VersionInfo.ProductVersion
+            Write-Host "Edge browser $edge (not used for the driver)"
+          }
+          Write-Host "WebView2 Runtime $runtime"
           $zip = Join-Path $env:RUNNER_TEMP "edgedriver.zip"
           $dest = Join-Path $env:RUNNER_TEMP "msedgedriver"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $primary = "https://msedgedriver.microsoft.com/$edge/edgedriver_win64.zip"
+          $primary = "https://msedgedriver.microsoft.com/$runtime/edgedriver_win64.zip"
           try {
             Invoke-WebRequest -Uri $primary -OutFile $zip
           } catch {
-            $major = $edge.Split('.')[0]
-            $latestFile = Join-Path $env:RUNNER_TEMP "latest-edge.txt"
+            $major = $runtime.Split('.')[0]
+            $latestFile = Join-Path $env:RUNNER_TEMP "latest-webview.txt"
             Invoke-WebRequest -Uri "https://msedgedriver.microsoft.com/LATEST_RELEASE_${major}_WINDOWS" -OutFile $latestFile
             $bytes = [System.IO.File]::ReadAllBytes($latestFile)
             if ($bytes.Length -ge 2 -and ($bytes[1] -eq 0 -or ($bytes[0] -eq 255 -and $bytes[1] -eq 254))) {
@@ -202,11 +228,15 @@ jobs:
               $latest = [System.Text.Encoding]::UTF8.GetString($bytes)
             }
             $latest = $latest.Trim([char]0).Trim()
-            Write-Host "fallback driver $latest"
+            Write-Host "fallback driver $latest for WebView2 major $major"
             Invoke-WebRequest -Uri "https://msedgedriver.microsoft.com/$latest/edgedriver_win64.zip" -OutFile $zip
           }
           Expand-Archive -Path $zip -DestinationPath $dest -Force
-          echo $dest >> $env:GITHUB_PATH
+          $driver = Join-Path $dest "msedgedriver.exe"
+          if (-not (Test-Path $driver)) { throw "msedgedriver.exe missing after extract" }
+          & $driver --version
+          Add-Content -Path $env:GITHUB_ENV -Value "MSEDGEDRIVER=$driver"
+          Add-Content -Path $env:GITHUB_PATH -Value $dest
 
       - name: Install Selenium 4.51.0
         run: python -m pip install selenium==4.51.0
@@ -238,6 +268,7 @@ jobs:
           }
 
       - name: Windows GUI end-to-end
+        timeout-minutes: 20
         shell: pwsh
         env:
           ALPHALOOP_OFFLINE_MARKET_DATA: "1"
