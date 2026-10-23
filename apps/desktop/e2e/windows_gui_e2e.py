@@ -784,12 +784,11 @@ def main() -> int:
     installed: Path | None = None
     blocked: str | None = None
     shot_index = 0
-    last_digest: str | None = None
-    last_name = ""
+    seen_shots: dict[str, str] = {}
     step_shots: list[str] = []
 
     def shoot(name: str) -> str:
-        nonlocal shot_index, last_digest, last_name
+        nonlocal shot_index
         shot_index += 1
         filename = f"{shot_index:02d}-{name}.png"
         path = SHOTS / filename
@@ -801,12 +800,12 @@ def main() -> int:
             (LOGS / f"{filename}.error.txt").write_text(redact_text(str(error)), encoding="utf-8")
             raise
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        if last_digest is not None and digest == last_digest:
+        earlier = seen_shots.get(digest)
+        if earlier is not None:
             raise AssertionError(
-                f"screenshot {filename} sha256 {digest} equals the previous shot {last_name}"
+                f"screenshot {filename} sha256 {digest} equals earlier shot {earlier}"
             )
-        last_digest = digest
-        last_name = filename
+        seen_shots[digest] = filename
         with (LOGS / "screenshot-sha256.txt").open("a", encoding="utf-8") as handle:
             handle.write(f"{digest}  {filename}\n")
         step_shots.append(filename)
@@ -1045,10 +1044,11 @@ def main() -> int:
         WebDriverWait(session.driver, 240).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid=completed-screen]"))
         )
-        shoot("conclusion")
         assert_no_banner(session.driver, data_root)
         assert_no_cjk(session.driver, "[data-testid=completed-screen]", "conclusion page")
         export_research_record(session.driver)
+        wait_css(session.driver, "[data-testid=export-success]")
+        shoot("conclusion")
         exports = list((data_root / "exports").glob("*"))
         if not exports:
             raise AssertionError("export reported success but exports/ is empty")
@@ -1065,7 +1065,6 @@ def main() -> int:
             lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=night-shell]").get_attribute("data-view")
             == "running"
         )
-        shoot("delete-running")
         rid = research_ids["cn"]
         go(session.driver, "#/research")
         click(
@@ -1085,6 +1084,18 @@ def main() -> int:
         if not process_running("alphaloop-engine.exe"):
             raise AssertionError("alphaloop-engine.exe exited when a running research was deleted")
         assert_no_banner(session.driver, data_root)
+        us_id = research_ids["us"]
+        WebDriverWait(session.driver, 20).until(
+            lambda d: d.find_elements(By.CSS_SELECTOR, f"[data-testid=research-row][data-research-id='{us_id}']")
+        )
+        session.driver.execute_script(
+            """
+            const row = document.querySelector(arguments[0]);
+            row?.scrollIntoView({block: 'center'});
+            """,
+            f"[data-testid=research-row][data-research-id='{us_id}']",
+        )
+        shoot("delete-running")
         return "deleted the running A-share research; engine process stayed up"
 
     def step_persist() -> str:
