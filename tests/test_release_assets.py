@@ -20,11 +20,14 @@ def _hash_sidecar(path: Path) -> None:
 def test_assemble_release_assets_writes_sums_and_unsigned_notes(tmp_path: Path) -> None:
     deb = tmp_path / "alphaloop_0.9.0_linux_amd64.deb"
     dmg = tmp_path / "alphaloop_0.9.0_macos_arm64.dmg"
+    bundle = tmp_path / "alphaloop_0.9.0_macos_arm64.app.tar.gz"
     exe = tmp_path / "alphaloop_0.9.0_windows_x64-setup.exe"
     deb.write_bytes(b"deb")
     dmg.write_bytes(b"dmg")
+    bundle.write_bytes(b"app")
     exe.write_bytes(b"exe")
-    for path in (deb, dmg, exe):
+    (tmp_path / "alphaloop_0.9.0_linux.embedded-sha").write_text("abc123\n", encoding="utf-8")
+    for path in (deb, dmg, bundle, exe):
         _hash_sidecar(path)
     (tmp_path / "notes.txt").write_text("skip", encoding="utf-8")
     notes = tmp_path / "release-notes.md"
@@ -42,9 +45,12 @@ def test_assemble_release_assets_writes_sums_and_unsigned_notes(tmp_path: Path) 
     sums = (tmp_path / "SHA256SUMS.txt").read_text(encoding="utf-8")
     assert "alphaloop_0.9.0_linux_amd64.deb" in sums
     assert "alphaloop_0.9.0_macos_arm64.dmg" in sums
+    assert "alphaloop_0.9.0_macos_arm64.app.tar.gz" in sums
     assert "alphaloop_0.9.0_windows_x64-setup.exe" in sums
+    assert "embedded-sha" not in sums
     assert "notes.txt" not in sums
     body = notes.read_text(encoding="utf-8")
+    assert "git rev-parse HEAD^{commit}" in body
     assert "alphaloop 0.9.0" in body
     assert "`abc123`" in body
     assert "ad-hoc signed" in body

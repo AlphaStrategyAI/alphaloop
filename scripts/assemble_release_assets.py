@@ -47,6 +47,8 @@ def release_notes(version: str, sha: str) -> str:
 
 Commit: `{sha}`
 
+Derived on a tag build as `git rev-parse HEAD^{{commit}}` after checkout of the tag, so an annotated tag object is not what Settings → About stores. Pull-request builds keep `GITHUB_SHA`, which is GitHub's merge commit for that pull request.
+
 ## System requirements
 
 - macOS: Apple Silicon only. The build is ad-hoc signed and not notarized.
@@ -96,6 +98,9 @@ def main() -> int:
         return 1
     if not any(name.endswith(".dmg") for name in names):
         print(f"missing .dmg in {names}", file=sys.stderr)
+        return 1
+    if not any(name.endswith(".tar.gz") for name in names):
+        print(f"missing macOS app bundle .tar.gz in {names}", file=sys.stderr)
         return 1
     if not any(name.endswith("-setup.exe") for name in names):
         print(f"missing Windows NSIS setup in {names}", file=sys.stderr)

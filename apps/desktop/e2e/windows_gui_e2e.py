@@ -13,6 +13,7 @@ step passed because a later check was too hard.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -25,6 +26,8 @@ from pathlib import Path
 from typing import Callable
 
 CJK = re.compile(r"[\u3400-\u9fff]")
+AUTH_TOKEN_RE = re.compile(r'("auth_token"\s*:\s*")[^"]*"')
+TEST_SECRETS = ("alphaloop-e2e-keyring", "alphaloop-e2e-secret", "correct horse")
 ROOT = Path(__file__).resolve().parents[3]
 ARTIFACTS = ROOT / "e2e-artifacts"
 SHOTS = ARTIFACTS / "screenshots"
@@ -259,6 +262,115 @@ def log_has_traceback(data_root: Path) -> str | None:
         if "Traceback (most recent call last)" in text or "panicked at" in text:
             return f"{name} contains a traceback or panic"
     return None
+
+
+def redact_text(text: str, secrets: tuple[str, ...] = TEST_SECRETS) -> str:
+    text = AUTH_TOKEN_RE.sub(r'\1[redacted]"', text)
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "[redacted]")
+    return text
+
+
+def assert_no_secret_leaks(root: Path, secrets: tuple[str, ...] = TEST_SECRETS) -> None:
+    leaked: list[str] = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() == ".png":
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if re.search(r'"auth_token"\s*:\s*"(?!\[redacted\])', text):
+            leaked.append(f"{path.name} still has auth_token")
+        for secret in secrets:
+            if secret and secret in text:
+                leaked.append(f"{path.name} still has a test secret")
+                break
+    if leaked:
+        raise AssertionError("redaction failed: " + "; ".join(leaked))
+
+
+def redact_tree(root: Path) -> None:
+    if not root.exists():
+        return
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() == ".png":
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        redacted = redact_text(text)
+        if redacted != text:
+            path.write_text(redacted, encoding="utf-8")
+    assert_no_secret_leaks(root)
+
+
+def assert_no_console_window() -> str:
+    """Fail when the installed app or engine owns a console window."""
+    if os.name != "nt":
+        raise AssertionError("console window check only runs on Windows")
+    import csv
+    import ctypes
+    from ctypes import wintypes
+
+    completed = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name | ConvertTo-Csv -NoTypeInformation",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    rows = list(csv.DictReader(completed.stdout.splitlines()))
+    names: dict[int, str] = {}
+    children: dict[int, list[int]] = {}
+    parents: dict[int, int] = {}
+    for row in rows:
+        pid = int(row["ProcessId"])
+        parent = int(row["ParentProcessId"])
+        names[pid] = row["Name"]
+        parents[pid] = parent
+        children.setdefault(parent, []).append(pid)
+    roots = [
+        pid
+        for pid, name in names.items()
+        if name.lower() in {"alphaloop-desktop.exe", "alphaloop-engine.exe"}
+    ]
+    if not roots:
+        raise AssertionError("alphaloop-desktop.exe is not running")
+    tree: set[int] = set()
+    stack = list(roots)
+    while stack:
+        pid = stack.pop()
+        if pid in tree:
+            continue
+        tree.add(pid)
+        stack.extend(children.get(pid, []))
+    for pid, name in names.items():
+        if name.lower() == "conhost.exe" and parents.get(pid) in tree:
+            tree.add(pid)
+
+    user32 = ctypes.windll.user32
+    offenders: list[str] = []
+
+    def visit(hwnd, _lparam):
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        owner = int(pid.value)
+        if owner not in tree:
+            return True
+        class_name = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, class_name, 256)
+        visible = bool(user32.IsWindowVisible(hwnd))
+        proc = names.get(owner, "")
+        if class_name.value == "ConsoleWindowClass" or (proc.lower() == "conhost.exe" and visible):
+            offenders.append(f"{proc} class={class_name.value} pid={owner} visible={visible}")
+        return True
+
+    callback = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(visit)
+    user32.EnumWindows(callback, 0)
+    if offenders:
+        raise AssertionError("console window open: " + "; ".join(offenders))
+    return "no console window"
 
 
 def copy_logs(data_root: Path, driver_log: Path) -> None:
@@ -659,9 +771,12 @@ def main() -> int:
     installed: Path | None = None
     blocked: str | None = None
     shot_index = 0
+    last_digest: str | None = None
+    last_name = ""
+    step_shots: list[str] = []
 
     def shoot(name: str) -> str:
-        nonlocal shot_index
+        nonlocal shot_index, last_digest, last_name
         shot_index += 1
         filename = f"{shot_index:02d}-{name}.png"
         path = SHOTS / filename
@@ -670,12 +785,23 @@ def main() -> int:
         try:
             session.driver.save_screenshot(str(path))
         except Exception as error:
-            (LOGS / f"{filename}.error.txt").write_text(str(error), encoding="utf-8")
+            (LOGS / f"{filename}.error.txt").write_text(redact_text(str(error)), encoding="utf-8")
             raise
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if last_digest is not None and digest == last_digest:
+            raise AssertionError(
+                f"screenshot {filename} sha256 {digest} equals the previous shot {last_name}"
+            )
+        last_digest = digest
+        last_name = filename
+        with (LOGS / "screenshot-sha256.txt").open("a", encoding="utf-8") as handle:
+            handle.write(f"{digest}  {filename}\n")
+        step_shots.append(filename)
         return filename
 
     def run_step(name: str, slug: str, action: Callable[[], str]) -> None:
         nonlocal blocked
+        step_shots.clear()
         if blocked:
             results.append(StepResult(name, "SKIPPED", "", f"blocked by earlier failure: {blocked}"))
             write_summary(results)
@@ -683,29 +809,31 @@ def main() -> int:
         try:
             notes = action()
         except Exception as error:
-            filename = ""
-            if session is not None:
+            filename = step_shots[-1] if step_shots else ""
+            if session is not None and not step_shots:
                 try:
                     filename = shoot(slug)
                 except Exception as shot_error:
                     error = RuntimeError(f"{error}; screenshot failed: {shot_error}")
-            detail = f"{error}"
-            (LOGS / f"{slug}.txt").write_text(traceback.format_exc(), encoding="utf-8")
+            detail = redact_text(f"{error}")
+            (LOGS / f"{slug}.txt").write_text(redact_text(traceback.format_exc()), encoding="utf-8")
             if session is not None:
                 try:
-                    (LOGS / f"{slug}-shell.txt").write_text(shell_text(session.driver), encoding="utf-8")
+                    (LOGS / f"{slug}-shell.txt").write_text(redact_text(shell_text(session.driver)), encoding="utf-8")
                 except Exception:
                     pass
             results.append(StepResult(name, "FAIL", filename, detail[:500]))
             blocked = name
         else:
-            filename = ""
-            if session is not None:
+            filename = step_shots[-1] if step_shots else ""
+            if session is not None and not step_shots:
                 try:
                     filename = shoot(slug)
                 except Exception as shot_error:
                     notes = f"{notes}; screenshot failed: {shot_error}"
-            results.append(StepResult(name, "PASS", filename, notes))
+            if len(step_shots) > 1:
+                notes = f"{notes}; shots {', '.join(step_shots)}"
+            results.append(StepResult(name, "PASS", filename, redact_text(notes)))
         write_summary(results)
 
     def step_install() -> str:
@@ -721,14 +849,17 @@ def main() -> int:
         assert_no_banner(session.driver, data_root)
         if not (data_root / "engine.log").is_file():
             raise AssertionError("engine did not write engine.log")
-        return "engine process is running and the shell has no error banner"
+        console = assert_no_console_window()
+        shoot("launch")
+        return f"engine process is running and the shell has no error banner; {console}"
 
     def step_language() -> str:
         assert session is not None
         set_language(session.driver, "zh", "研究")
+        shoot("language-zh")
         set_language(session.driver, "en", "Research")
         assert_no_cjk(session.driver, "[data-testid=rail]", "rail")
-        return "switched zh then en; rail chrome has no CJK"
+        return "switched zh then en; rail chrome has no CJK; zh UI shot taken while Chinese was showing"
 
     def step_keyring() -> str:
         assert session is not None
@@ -749,6 +880,7 @@ def main() -> int:
         set_input(session.driver, "[data-testid=secret-value]", "alphaloop-e2e-keyring")
         click(session.driver, "[data-testid=secret-save]")
         WebDriverWait(session.driver, 20).until(lambda d: "Saved." in (vault(d).text or ""))
+        shoot("secrets-keyring")
         click(session.driver, "[data-testid=secret-vault-close]")
         return "default credential-manager backend stored a secret and was not locked"
 
@@ -793,6 +925,7 @@ def main() -> int:
         set_input(session.driver, "[data-testid=secret-alias]", "vendor-demo")
         set_input(session.driver, "[data-testid=secret-value]", "alphaloop-e2e-secret")
         set_input(session.driver, "[data-testid=secret-passphrase]", "correct horse")
+        shoot("secrets-create")
         click(session.driver, "[data-testid=secret-save]")
         WebDriverWait(session.driver, 20).until(
             lambda d: (data_root / "secret-vault.bin").is_file() and vault(d).get_attribute("data-locked") == "false"
@@ -813,6 +946,7 @@ def main() -> int:
             lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=secret-vault]").get_attribute("data-locked")
             == "true"
         )
+        shoot("secrets-unlock")
         set_input(session.driver, "[data-testid=secret-passphrase]", "correct horse")
         click(session.driver, "[data-testid=secret-unlock]")
         WebDriverWait(session.driver, 20).until(
@@ -837,14 +971,17 @@ def main() -> int:
         WebDriverWait(session.driver, 20).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-pinned-card]")) >= 2
         )
+        shoot("confirms-both")
         if research_ids["us"] == research_ids["cn"]:
             raise AssertionError("both dialogues wrote the same research id")
         open_confirm_card(session.driver, research_ids["us"])
+        shoot("confirms-us")
         us_text = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
         if "AAPL" not in us_text:
             raise AssertionError(f"US confirm card did not mention AAPL: {us_text[:300]}")
         assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "US confirm card")
         open_confirm_card(session.driver, research_ids["cn"])
+        shoot("confirms-cn")
         cn_text = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
         if "600519" not in cn_text:
             raise AssertionError(f"A-share confirm card did not mention 600519: {cn_text[:300]}")
@@ -859,9 +996,15 @@ def main() -> int:
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
 
+        WebDriverWait(session.driver, 30).until(
+            lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=night-shell]").get_attribute("data-view")
+            == "running"
+        )
+        shoot("running")
         WebDriverWait(session.driver, 240).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid=completed-screen]"))
         )
+        shoot("conclusion")
         assert_no_banner(session.driver, data_root)
         assert_no_cjk(session.driver, "[data-testid=completed-screen]", "conclusion page")
         export_research_record(session.driver)
@@ -881,6 +1024,7 @@ def main() -> int:
             lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=night-shell]").get_attribute("data-view")
             == "running"
         )
+        shoot("delete-running")
         rid = research_ids["cn"]
         go(session.driver, "#/research")
         click(
@@ -918,17 +1062,30 @@ def main() -> int:
         )
         if session.driver.find_elements(By.CSS_SELECTOR, f"[data-research-id='{cn_id}']"):
             raise AssertionError("deleted research reappeared after restart")
+        click(session.driver, f"[data-testid=research-row][data-research-id='{us_id}'] a")
+        wait_css(session.driver, "[data-testid=completed-screen]")
+        shoot("persist")
         return "completed US research is still listed after restart"
 
     def step_uninstall() -> str:
-        if session is not None:
-            try:
-                session.driver.quit()
-            except Exception:
-                pass
-        kill_app()
-        uninstall_silent(installed)
-        return "silent uninstall removed the installed executable"
+        console = ""
+        try:
+            if session is not None:
+                console = assert_no_console_window()
+                click(session.driver, "[data-testid=rail-settings]")
+                wait_css(session.driver, "[data-testid=about-card]")
+                shoot("before-uninstall")
+                try:
+                    session.driver.quit()
+                except Exception:
+                    pass
+        finally:
+            kill_app()
+            uninstall_silent(installed)
+        note = "silent uninstall removed the installed executable"
+        if console:
+            note = f"{note}; {console}"
+        return note
 
     try:
         run_step("install silently", "install", step_install)
@@ -954,9 +1111,10 @@ def main() -> int:
         kill_app()
         copy_logs(data_root, driver_log)
         write_summary(results)
+        redact_tree(ARTIFACTS)
 
     failed = [item for item in results if item.status == "FAIL"]
-    print((ARTIFACTS / "summary.md").read_text(encoding="utf-8"))
+    print(redact_text((ARTIFACTS / "summary.md").read_text(encoding="utf-8")))
     return 1 if failed else 0
 
 

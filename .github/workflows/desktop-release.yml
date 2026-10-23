@@ -64,9 +64,43 @@ jobs:
 
       - name: Write SHA256SUMS.txt and release notes
         run: |
-          python3 scripts/assemble_release_assets.py dist \
-            "${{ steps.ver.outputs.version }}" \
-            "${{ github.sha }}"
+          VERSION="${{ steps.ver.outputs.version }}"
+          SHA=$(python3 scripts/resolve_embedded_sha.py)
+          echo "tagged commit $SHA (github.sha=$GITHUB_SHA ref=$GITHUB_REF)"
+          shopt -s nullglob
+          files=(dist/*.embedded-sha)
+          if [[ ${#files[@]} -lt 3 ]]; then
+            echo "expected embedded commit files from linux, macos, and windows, found ${#files[@]}"
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            got=$(tr -d '[:space:]' < "$file")
+            if [[ "$got" != "$SHA" ]]; then
+              echo "$file embeds $got; tagged commit is $SHA"
+              exit 1
+            fi
+          done
+          rm -f dist/*.embedded-sha
+          python3 scripts/assemble_release_assets.py dist "$VERSION" "$SHA"
+          for name in \
+            "alphaloop_${VERSION}_linux_amd64.deb" \
+            "alphaloop_${VERSION}_macos_arm64.dmg" \
+            "alphaloop_${VERSION}_macos_arm64.app.tar.gz" \
+            "alphaloop_${VERSION}_windows_x64-setup.exe"
+          do
+            grep -q "  ${name}\$" dist/SHA256SUMS.txt || {
+              echo "SHA256SUMS.txt is missing ${name}"
+              exit 1
+            }
+          done
+          echo "SHA256SUMS.txt"
+          cat dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: SHA256SUMS.txt
+          path: dist/SHA256SUMS.txt
+          if-no-files-found: error
 
       - name: Create or update the draft prerelease
         env:

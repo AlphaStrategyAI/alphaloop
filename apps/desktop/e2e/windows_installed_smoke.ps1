@@ -26,6 +26,93 @@ function Read-Shared([string]$Path) {
     }
 }
 
+function Assert-NoConsoleWindow {
+    $procs = Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name
+    $children = @{}
+    foreach ($proc in $procs) {
+        $parent = [int]$proc.ParentProcessId
+        if (-not $children.ContainsKey($parent)) { $children[$parent] = @() }
+        $children[$parent] += [int]$proc.ProcessId
+    }
+    $tree = New-Object System.Collections.Generic.HashSet[int]
+    $stack = New-Object System.Collections.Generic.Stack[int]
+    foreach ($proc in $procs) {
+        if ($proc.Name -in @("alphaloop-desktop.exe", "alphaloop-engine.exe")) {
+            $stack.Push([int]$proc.ProcessId)
+        }
+    }
+    while ($stack.Count -gt 0) {
+        $id = $stack.Pop()
+        if (-not $tree.Add($id)) { continue }
+        if ($children.ContainsKey($id)) {
+            foreach ($child in $children[$id]) { $stack.Push([int]$child) }
+        }
+    }
+    foreach ($proc in $procs) {
+        if ($proc.Name -eq "conhost.exe" -and $tree.Contains([int]$proc.ParentProcessId)) {
+            [void]$tree.Add([int]$proc.ProcessId)
+        }
+    }
+    if ($tree.Count -eq 0) { throw "alphaloop-desktop.exe is not running" }
+    Add-Type @"
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class AlphaloopConsoles {
+  delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc lpEnumFunc, IntPtr lParam);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr hWnd, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
+  public static string Find(int[] pids) {
+    var set = new HashSet<int>(pids);
+    var bad = new List<string>();
+    EnumWindows((h, l) => {
+      uint pid;
+      GetWindowThreadProcessId(h, out pid);
+      if (!set.Contains((int)pid)) return true;
+      var cls = new StringBuilder(256);
+      GetClassName(h, cls, cls.Capacity);
+      string name = "";
+      try { name = Process.GetProcessById((int)pid).ProcessName; } catch {}
+      bool visible = IsWindowVisible(h);
+      if (cls.ToString() == "ConsoleWindowClass" || (name.Equals("conhost", StringComparison.OrdinalIgnoreCase) && visible)) {
+        bad.Add(name + " class=" + cls + " pid=" + pid + " visible=" + visible);
+      }
+      return true;
+    }, IntPtr.Zero);
+    return string.Join("; ", bad);
+  }
+}
+"@ -ErrorAction SilentlyContinue
+    $ids = New-Object int[] $tree.Count
+    $tree.CopyTo($ids)
+    $found = [AlphaloopConsoles]::Find($ids)
+    if ($found) { throw "console window open: $found" }
+    Write-Probe "no console window"
+}
+
+function Protect-Logs([string]$Token) {
+    $secrets = @($Token) | Where-Object { $_ -and $_.Length -ge 6 }
+    $files = Get-ChildItem -Path $logs, $shots -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -ne ".png" }
+    foreach ($file in $files) {
+        $text = [System.IO.File]::ReadAllText($file.FullName)
+        $updated = [regex]::Replace($text, '"auth_token"\s*:\s*"[^"]*"', '"auth_token": "[redacted]"')
+        foreach ($secret in $secrets) { $updated = $updated.Replace($secret, "[redacted]") }
+        if ($updated -ne $text) { [System.IO.File]::WriteAllText($file.FullName, $updated) }
+    }
+    if ($Token) {
+        $hit = @()
+        foreach ($file in $files) {
+            if ([System.IO.File]::ReadAllText($file.FullName).Contains($Token)) { $hit += $file.Name }
+        }
+        if ($hit.Count -gt 0) { throw "auth_token still present in $($hit -join ', ')" }
+    }
+}
+
 function Write-Probe([string]$Message) {
     Write-Host $Message
     Add-Content -Path (Join-Path $logs "engine-probe.txt") -Value $Message
@@ -52,6 +139,7 @@ function Uninstall-Alphaloop([string]$DesktopExe) {
 }
 
 $desktop = $null
+$script:authToken = ""
 try {
     if (-not (Test-Path $Installer)) { throw "installer missing: $Installer" }
     Unblock-File -Path $Installer -ErrorAction SilentlyContinue
@@ -108,8 +196,10 @@ try {
         [void]$direct.WaitForExit()
     }
     $exitCode = $direct.ExitCode
-    # Stop-Process reports -1. Format as unsigned so a loader NTSTATUS still prints.
-    $exitHex = if ($null -eq $exitCode) { "unknown" } else { "{0:X8}" -f ($exitCode -band 0xFFFFFFFF) }
+    $exitHex = "unknown"
+    if ($null -ne $exitCode) {
+        try { $exitHex = "{0:X8}" -f $exitCode } catch { $exitHex = [string]$exitCode }
+    }
     Write-Probe "direct engine exit $exitCode hex $exitHex handshake=$sawHandshake"
     if (Test-Path $stderr) {
         $errText = Get-Content -LiteralPath $stderr -Raw -ErrorAction SilentlyContinue
@@ -147,6 +237,9 @@ try {
         if ($named) { $handle = $named.MainWindowHandle }
     }
     if ($handle -eq [IntPtr]::Zero) { throw "alphaloop window was not created" }
+    Assert-NoConsoleWindow
+    $rawHandshake = Read-Shared $stdout
+    if ($rawHandshake -match '"auth_token"\s*:\s*"([^"]+)"') { $script:authToken = $Matches[1] }
     Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -181,4 +274,5 @@ public static class AlphaloopWindow {
 finally {
     Stop-Alphaloop
     if ($desktop -and (Test-Path $desktop)) { Uninstall-Alphaloop $desktop }
+    Protect-Logs $script:authToken
 }

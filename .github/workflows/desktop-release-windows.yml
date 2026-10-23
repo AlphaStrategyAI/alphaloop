@@ -60,7 +60,12 @@ jobs:
 
       - name: Record version and git sha
         shell: bash
-        run: ALPHALOOP_GIT_SHA="${GITHUB_SHA}" python scripts/write_build_info.py
+        run: |
+          SHA=$(python scripts/resolve_embedded_sha.py)
+          echo "embedding commit $SHA"
+          ALPHALOOP_GIT_SHA="$SHA" python scripts/write_build_info.py
+          mkdir -p release-artifacts
+          printf '%s\n' "$SHA" > "release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows.embedded-sha"
 
       - name: Build engine sidecar (PyInstaller onedir)
         shell: bash
@@ -139,6 +144,12 @@ jobs:
         with:
           name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe.sha256
           path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_windows.embedded-sha
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows.embedded-sha
           if-no-files-found: error
 
   windows-e2e:

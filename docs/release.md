@@ -8,7 +8,7 @@ The desktop version is one value, checked by `scripts/check_app_version.py`:
 - `pyproject.toml`
 - `apps/desktop/src/buildInfo.ts` and `engine/research/build_info.json`
 
-`scripts/write_build_info.py` rewrites the last two from that version and from `ALPHALOOP_GIT_SHA` or `git rev-parse HEAD`. Packaged builds show them on Settings → About and on the first line of `engine.log`.
+`scripts/write_build_info.py` rewrites the last two from that version and from `ALPHALOOP_GIT_SHA`. `scripts/resolve_embedded_sha.py` chooses that sha. A tag build checks out the tag and embeds `git rev-parse HEAD^{commit}` (the tagged commit). If `github.sha` is an annotated tag object and that object is in the checkout, it is peeled and must match `HEAD`. A pull-request build embeds `GITHUB_SHA`, which is GitHub's merge commit for the pull request, so About on a PR installer is not the branch head. Packaged builds show the value on Settings → About and on the first line of `engine.log`. The release job refuses to open the draft unless the Linux, macOS, and Windows artifacts all embedded that same tagged commit.
 
 ## System requirements
 
