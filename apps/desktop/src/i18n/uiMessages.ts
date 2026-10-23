@@ -105,6 +105,10 @@ export function buildUiMessages(copy: Copy) {
         "所选数据源没有 {{symbol}} 的行情，无法开跑。请改代码或换数据源。",
         "The selected data source has no data for {{symbol}}, so the run can't start. Change the symbol or the data source.",
       ),
+      etfUnsupported: copy(
+        "所选数据源暂不支持 A 股 ETF 行情（{{symbol}}），无法开跑。",
+        "The selected data source doesn't support China A-share ETF prices yet ({{symbol}}), so the run can't start.",
+      ),
       symbolEdit: copy("标的代码", "Symbol"),
       pickExchange: copy("选择交易所", "Pick an exchange"),
       listVersion: copy("版本 {{version}}", "Version {{version}}"),

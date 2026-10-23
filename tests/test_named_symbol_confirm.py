@@ -114,7 +114,6 @@ def test_bare_code_confirm_card_shows_the_inference_and_not_the_pool(tmp_path: P
     ("thesis", "symbol"),
     [
         ("A股股票 000001 均值回归", "000001.SZ"),
-        ("A股基金 510300 的均值回归", "510300.SH"),
         ("A股股票 600519.SH 均值回归", "600519.SH"),
     ],
 )
@@ -194,6 +193,92 @@ def test_symbol_edit_on_a_running_research_is_refused() -> None:
         apply_symbol_edit(research, "600519.SH", datetime(2026, 8, 28, 12, tzinfo=UTC))
     assert exc.value.code == "SYMBOL_EDIT_NOT_DRAFT"
     assert exc.value.message == "只有草稿上的确认卡可以改标的。"
+
+
+def test_amount_with_a_unit_stays_on_the_default_pool(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "用 100000 元本金做A股股票的均值回归", FLOOR_MANY)
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["count"] == len(pool.symbols)
+    resolution = view.get("symbolResolution")
+    assert resolution is None or resolution["blocked"] is False
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
+
+
+def test_indicators_and_all_caps_prose_are_not_a_fake_universe(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股股票 RSI MACD FIND CAPS TECH 均值回归", FLOOR_MANY)
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    resolution = view.get("symbolResolution")
+    assert resolution is None or resolution["blocked"] is False
+
+
+def test_spy_is_recognized_and_can_run(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 SPY 的均值回归", FLOOR_ONE)
+    assert view["symbolSelection"]["symbols"] == ["SPY"]
+    assert view["symbolResolution"]["blocked"] is False
+    assert view["symbolResolution"]["inferred"] == [{"raw": "SPY", "symbol": "SPY"}]
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).brief.universe.value.symbols == ("SPY",)
+
+
+def test_fake_us_ticker_with_no_bars_blocks_confirm_run(tmp_path: Path) -> None:
+    set_pool_data_loader(_NoBars(frozenset({"ZZZZQ"})))
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 ZZZZQ 的均值回归", FLOOR_ONE)
+    resolution = view["symbolResolution"]
+    assert resolution["blocked"] is True
+    assert resolution["code"] == "SYMBOL_NO_DATA"
+    assert resolution["symbol"] == "ZZZZQ"
+    assert resolution["inferred"] == [{"raw": "ZZZZQ", "symbol": "ZZZZQ"}]
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_NO_DATA"
+    assert exc.value.params["symbol"] == "ZZZZQ"
+    assert exc.value.message == "所选数据源没有 ZZZZQ 的行情，无法开跑。请改代码或换数据源。"
+    assert service.store.load(research_id).brief.universe.value.symbols == ("ZZZZQ",)
+
+
+def test_empty_price_frame_for_a_named_ticker_is_no_data_not_an_outage(tmp_path: Path) -> None:
+    class _Empty:
+        def load_daily(self, symbols: tuple[str, ...], start: date, end: date) -> pd.DataFrame:
+            return pd.DataFrame()
+
+    set_pool_data_loader(_Empty())
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 ZZZZQ 的均值回归", FLOOR_ONE)
+    assert view["symbolResolution"]["blocked"] is True
+    assert view["symbolResolution"]["code"] == "SYMBOL_NO_DATA"
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_NO_DATA"
+
+
+def test_china_etf_on_akshare_blocks_without_calling_it_no_data(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股基金 510300 的均值回归", FLOOR_ONE)
+    resolution = view["symbolResolution"]
+    assert resolution["blocked"] is True
+    assert resolution["code"] == "SYMBOL_ETF_UNSUPPORTED"
+    assert resolution["symbol"] == "510300.SH"
+    assert resolution["inferred"] == [{"raw": "510300", "symbol": "510300.SH"}]
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_ETF_UNSUPPORTED"
+    assert exc.value.params["symbol"] == "510300.SH"
+    assert exc.value.message == "所选数据源暂不支持 A 股 ETF 行情（510300.SH），无法开跑。"
+    assert service.store.load(research_id).brief.universe.value.symbols == ("510300.SH",)
 
 
 def test_description_with_no_symbol_still_uses_the_default_pool(tmp_path: Path) -> None:

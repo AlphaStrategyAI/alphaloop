@@ -164,4 +164,126 @@ describe("symbol resolution call chain", () => {
     );
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
   });
+
+  it("does not block Run for an amount or for indicator and prose words", async () => {
+    const open: Extract<DesktopView, {kind: "confirm_run"}> = {
+      kind: "confirm_run",
+      researchId: "r-prose",
+      dialogue: [],
+      chatEnabled: false,
+      settings: {
+        thesis: "用 100000 元本金做A股股票 RSI MACD FIND CAPS TECH 均值回归",
+        universe: "A股 · 股票",
+        max_effective_hours: "12 小时",
+        round1_methods: "走样检验",
+        coverage_floor: "至少 25 个标的",
+      },
+      symbolSelection: {
+        count: 300,
+        listName: "A股大市值",
+        listVersion: "2",
+        symbols: ["600519.SH"],
+        source: "default_pool",
+        dataStart: "2014-10-19",
+        dataEnd: "2026-10-19",
+        dataCutoff: "2026-10-19",
+        dataSource: "AkShare 日线（新浪优先）",
+        isDefaultPool: true,
+      },
+    };
+    for (const language of [ZH, EN]) {
+      const invoke = vi.fn(async () => undefined);
+      const bound = bindDesktopApi(createTauriDesktopApi(invoke as unknown as DesktopInvoke), {
+        onError: vi.fn(),
+        refresh: vi.fn(async () => undefined),
+      });
+      render(
+        <I18nProvider initial={language}>
+          <ConfirmRunCard api={bound} view={open} />
+        </I18nProvider>,
+      );
+      expect(screen.queryByTestId("symbol-block-error")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("symbol-recognition")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId("confirm-run-start"));
+      await waitFor(() =>
+        expect(invoke).toHaveBeenCalledWith("confirm_run", {researchId: "r-prose"}),
+      );
+      cleanup();
+    }
+  });
+
+  it("blocks a fake US ticker with no data, in zh and en", () => {
+    const fake = {
+      blocked: true,
+      code: "SYMBOL_NO_DATA" as const,
+      token: "ZZZZQ",
+      symbol: "ZZZZQ",
+      symbols: ["ZZZZQ"],
+      inferred: [{raw: "ZZZZQ", symbol: "ZZZZQ"}],
+      editable: true,
+    };
+    renderCard(ZH, fake);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("已识别为 ZZZZQ");
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "所选数据源没有 ZZZZQ 的行情，无法开跑。请改代码或换数据源。",
+    );
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    cleanup();
+    renderCard(EN, fake);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("Recognized as ZZZZQ");
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "The selected data source has no data for ZZZZQ, so the run can't start. Change the symbol or the data source.",
+    );
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+  });
+
+  it("blocks 510300 on AkShare as an unsupported ETF, in zh and en", () => {
+    const etf = {
+      blocked: true,
+      code: "SYMBOL_ETF_UNSUPPORTED" as const,
+      token: "510300",
+      symbol: "510300.SH",
+      symbols: ["510300.SH"],
+      inferred: [{raw: "510300", symbol: "510300.SH"}],
+      editable: true,
+    };
+    renderCard(ZH, etf);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("已识别为 510300.SH");
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "所选数据源暂不支持 A 股 ETF 行情（510300.SH），无法开跑。",
+    );
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    cleanup();
+    renderCard(EN, etf);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("Recognized as 510300.SH");
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "The selected data source doesn't support China A-share ETF prices yet (510300.SH), so the run can't start.",
+    );
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+  });
+
+  it("joins several recognized symbols with a comma in English and keeps the label off the input", () => {
+    const pair = {
+      blocked: false,
+      code: null,
+      token: null,
+      symbol: "SPY",
+      symbols: ["SPY", "QQQ"],
+      inferred: [
+        {raw: "SPY", symbol: "SPY"},
+        {raw: "QQQ", symbol: "QQQ"},
+      ],
+      editable: true,
+    };
+    renderCard(EN, pair);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("Recognized as SPY, QQQ");
+    expect(screen.getByTestId("symbol-recognition").textContent).not.toContain("、");
+    expect((screen.getByTestId("symbol-edit") as HTMLInputElement).value).toBe("SPY, QQQ");
+    const label = screen.getByTestId("symbol-edit").closest(".symbol-edit-label");
+    expect(label).not.toBeNull();
+    expect(screen.getByTestId("symbol-resolution")).toHaveClass("symbol-resolution");
+    cleanup();
+    renderCard(ZH, pair);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("已识别为 SPY、QQQ");
+  });
 });

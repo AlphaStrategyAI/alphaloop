@@ -167,10 +167,13 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
   const {t, resolved} = useI18n();
   const resolution = view.symbolResolution ?? null;
+  const listSep = resolved === "zh" ? "、" : ", ";
+  const localeList = (value: string | null | undefined) =>
+    (value ?? "").split("、").filter(Boolean).join(listSep);
   const seeded = resolution
     ? resolution.symbols.length
-      ? resolution.symbols.join("、")
-      : (resolution.token ?? "")
+      ? resolution.symbols.join(listSep)
+      : localeList(resolution.token)
     : "";
   const [symbolDraft, setSymbolDraft] = useState(seeded);
   useEffect(() => {
@@ -251,25 +254,25 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         </p>
       )}
       {resolution?.editable && (
-        <section className="confirm-data-panel" data-testid="symbol-resolution">
+        <section className="confirm-data-panel symbol-resolution" data-testid="symbol-resolution">
           {resolution.inferred.length > 0 && (
             <p data-testid="symbol-recognition">
               {t("ui.confirm.recognized", {
-                symbol: resolution.inferred
-                  .map((item) => item.symbol)
-                  .join(resolved === "zh" ? "、" : ", "),
+                symbol: resolution.inferred.map((item) => item.symbol).join(listSep),
               })}
             </p>
           )}
           {resolution.blocked && (
             <p className="confirm-data-notice" data-testid="symbol-block-error" role="alert">
               {resolution.code === "SYMBOL_NO_DATA"
-                ? t("ui.confirm.noData", {symbol: resolution.symbol ?? ""})
-                : t("ui.confirm.unresolved", {token: resolution.token ?? ""})}
+                ? t("ui.confirm.noData", {symbol: localeList(resolution.symbol)})
+                : resolution.code === "SYMBOL_ETF_UNSUPPORTED"
+                  ? t("ui.confirm.etfUnsupported", {symbol: localeList(resolution.symbol)})
+                  : t("ui.confirm.unresolved", {token: localeList(resolution.token)})}
             </p>
           )}
-          <label>
-            {t("ui.confirm.symbolEdit")}
+          <label className="symbol-edit-label">
+            <span>{t("ui.confirm.symbolEdit")}</span>
             <input
               data-testid="symbol-edit"
               value={symbolDraft}

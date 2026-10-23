@@ -66,6 +66,12 @@ describe("error codes", () => {
     expect(localizeError("en", {code: "SYMBOL_EDIT_NOT_DRAFT"}).summary).toBe(
       "Only a draft's confirm card can change the symbol.",
     );
+    expect(localizeError("zh", {code: "SYMBOL_ETF_UNSUPPORTED", params: {symbol: "510300.SH"}}).summary).toBe(
+      "所选数据源暂不支持 A 股 ETF 行情（510300.SH），无法开跑。",
+    );
+    expect(localizeError("en", {code: "SYMBOL_ETF_UNSUPPORTED", params: {symbol: "510300.SH"}}).summary).toBe(
+      "The selected data source doesn't support China A-share ETF prices yet (510300.SH), so the run can't start.",
+    );
   });
 
   it("leaves a legacy message without a code unchanged", () => {

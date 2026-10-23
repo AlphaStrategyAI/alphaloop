@@ -186,6 +186,10 @@ function messages(lang: "zh" | "en") {
           "所选数据源没有 {{symbol}} 的行情，无法开跑。请改代码或换数据源。",
           "The selected data source has no data for {{symbol}}, so the run can't start. Change the symbol or the data source.",
         ),
+        SYMBOL_ETF_UNSUPPORTED: copy(
+          "所选数据源暂不支持 A 股 ETF 行情（{{symbol}}），无法开跑。",
+          "The selected data source doesn't support China A-share ETF prices yet ({{symbol}}), so the run can't start.",
+        ),
         SYMBOL_EDIT_NOT_DRAFT: copy(
           "只有草稿上的确认卡可以改标的。",
           "Only a draft's confirm card can change the symbol.",

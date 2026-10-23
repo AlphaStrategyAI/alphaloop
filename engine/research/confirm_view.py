@@ -11,6 +11,7 @@ from engine.research.pool_data_shrink import pool_shrink_disclosure
 from engine.research.symbol_pool import pool_for_universe
 from engine.research.symbol_selection_display import symbol_selection_summary_fields
 from engine.research.universe_pool import materialize_default_pool
+from engine.research.universe_validation import akshare_etf_symbols
 
 
 def _resolved_symbols(research: Research) -> tuple[str, ...] | None:
@@ -82,9 +83,14 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
     blocked = False
     token = "、".join(universe.unresolved_tokens) if universe.unresolved_tokens else None
     symbol = universe.symbols[0] if universe.symbols else None
+    etfs = akshare_etf_symbols(tuple(universe.symbols))
     if universe.unresolved_tokens or (universe.user_symbols_override and not universe.symbols):
         blocked = True
         code = "SYMBOL_UNRESOLVED"
+    elif etfs:
+        blocked = True
+        code = "SYMBOL_ETF_UNSUPPORTED"
+        symbol = "、".join(etfs)
     elif (
         research.symbol_probe_symbols == universe.symbols
         and research.symbol_probe_missing

@@ -9,12 +9,10 @@ from typing import TYPE_CHECKING, Protocol
 import pandas as pd
 
 from engine.research.data_availability import (
-    _EMPTY_FRAME_DETAIL,
     classify_load_failure,
     market_data_timeout,
     raise_if_total_source_outage,
     symbols_with_any_bars,
-    transient_data_error,
 )
 from engine.research.market_data_timeouts import load_deadline_seconds, run_with_deadline
 from engine.research.planned_data_window import is_cn_listed_symbol
@@ -79,10 +77,11 @@ def missing_named_symbols(
     end: date,
     loader: SymbolDataLoader | None = None,
 ) -> tuple[str, ...]:
-    """Named symbols whose source answered without usable bars.
+    """Named symbols with no usable bars.
 
-    An empty frame or a transport failure stays a source outage. A column of
-    missing prices, or a one-symbol fetch that failed by name, is not an outage.
+    Timeouts, rate limits, and connection failures stay source outages. An empty
+    frame, a missing column, or a one-symbol fetch failure is no data: a fake
+    ticker must not leave Run enabled.
     """
     if not symbols:
         return ()
@@ -101,18 +100,7 @@ def missing_named_symbols(
             raise classified from error
         raise
     kept = set(symbols_with_any_bars(frame, symbols))
-    missing = tuple(symbol for symbol in symbols if symbol not in kept)
-    if not missing:
-        return ()
-    answered = frame is not None and not frame.empty and any(
-        symbol in getattr(frame, "columns", ()) for symbol in symbols
-    )
-    if answered:
-        return missing
-    raise transient_data_error(
-        _EMPTY_FRAME_DETAIL,
-        params={"symbols": len(symbols)},
-    )
+    return tuple(symbol for symbol in symbols if symbol not in kept)
 
 
 def symbols_with_daily_data(

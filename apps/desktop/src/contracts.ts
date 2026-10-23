@@ -39,7 +39,7 @@ export type BriefSlotName =
 
 export interface SymbolResolution {
   blocked: boolean;
-  code?: "SYMBOL_UNRESOLVED" | "SYMBOL_NO_DATA" | null;
+  code?: "SYMBOL_UNRESOLVED" | "SYMBOL_NO_DATA" | "SYMBOL_ETF_UNSUPPORTED" | null;
   token?: string | null;
   symbol?: string | null;
   symbols: readonly string[];

@@ -6,11 +6,13 @@ from datetime import UTC, date, datetime
 from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
 from engine.research.models import Research, Slot, Universe
 from engine.research.planned_data_window import (
+    AKSHARE_SINA_DATA_SOURCE_ID,
+    data_source_id_for_symbol,
     data_source_id_for_symbols,
     planned_data_window,
 )
 from engine.research.pool_data_shrink import missing_named_symbols, shrink_pool_to_available_data
-from engine.research.symbol_identity import parse_symbol_field
+from engine.research.symbol_identity import is_cn_etf_symbol, parse_symbol_field
 from engine.research.symbol_mentions import universe_with_mentions
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT, pool_for_market
 from engine.research.universe_pool import materialize_default_pool
@@ -18,10 +20,21 @@ from engine.research.user_errors import UserFacingError
 
 _UNRESOLVED = "无法确认「{token}」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。"
 _NO_DATA = "所选数据源没有 {symbol} 的行情，无法开跑。请改代码或换数据源。"
+_ETF_UNSUPPORTED = "所选数据源暂不支持 A 股 ETF 行情（{symbol}），无法开跑。"
 
 
 def _named_symbol_label(symbols: tuple[str, ...]) -> str:
     return "、".join(symbols)
+
+
+def akshare_etf_symbols(symbols: tuple[str, ...]) -> tuple[str, ...]:
+    """ETF listings whose selected source is AkShare, which has no ETF prices."""
+    return tuple(
+        symbol
+        for symbol in symbols
+        if is_cn_etf_symbol(symbol)
+        and data_source_id_for_symbol(symbol) == AKSHARE_SINA_DATA_SOURCE_ID
+    )
 
 
 def reject_unresolved_symbols(research: Research) -> None:
@@ -46,6 +59,7 @@ def refresh_symbol_probe(research: Research) -> Research:
         or universe.unresolved_tokens
         or not universe.user_symbols_override
         or not universe.symbols
+        or akshare_etf_symbols(universe.symbols)
     ):
         return research
     if research.symbol_probe_symbols == universe.symbols:
@@ -107,6 +121,14 @@ def resolve_universe_symbols(research: Research, now: datetime) -> Research:
     reject_unresolved_symbols(research)
     universe = research.brief.universe.value
     assert universe is not None
+    etfs = akshare_etf_symbols(universe.symbols)
+    if etfs:
+        symbol = _named_symbol_label(etfs)
+        raise UserFacingError(
+            "SYMBOL_ETF_UNSUPPORTED",
+            _ETF_UNSUPPORTED.format(symbol=symbol),
+            params={"symbol": symbol},
+        )
     floor = research.brief.coverage_floor.value
     min_assets = floor.min_assets if floor is not None else 0
 
