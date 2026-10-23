@@ -267,6 +267,8 @@ class Session:
         self.driver = self._connect()
 
     def _connect(self):
+        from selenium.webdriver.common.options import ArgOptions
+
         options = ArgOptions()
         options.set_capability("browserName", "wry")
         options.set_capability("tauri:options", {"application": str(self.app)})
