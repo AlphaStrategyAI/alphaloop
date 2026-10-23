@@ -272,11 +272,6 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           </p>
           <p className="confirm-data-footnote">{t("ui.confirm.footnote")}</p>
           {sel.isDefaultPool || sel.source === "default_pool" ? (
-            <p className="confirm-data-meta" data-testid="survivorship-hint">
-              <I18nText k="ui.copy.survivorshipHint" />
-            </p>
-          ) : null}
-          {sel.isDefaultPool || sel.source === "default_pool" ? (
             <div data-testid="default-pool-notes">
               <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteMembers" /></p>
               <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteIndexOnly" /></p>

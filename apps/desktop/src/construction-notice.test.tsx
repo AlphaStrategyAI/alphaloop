@@ -107,8 +107,19 @@ function defaultPoolSelection(source: "default_pool" | "user_override") {
   };
 }
 
+const NOTE_ZH = [
+  "两个大市值池都是名单日的成分，不是时点成分；回看更早的历史含幸存者偏差。",
+  "只有把池子定义成某个指数时，才会显示「缺时点成分」。",
+  "EDGAR 是否会覆盖旧值尚未确认，基本面的 PIT 检查可能不通过。",
+] as const;
+const NOTE_EN = [
+  "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
+  "\"Missing point-in-time constituents\" appears only when a universe is defined as an index.",
+  "It's not yet confirmed whether EDGAR overwrites older values, so fundamentals may fail the PIT check.",
+] as const;
+
 describe("survivorship hint on list-date default pools", () => {
-  it("renders the hint in the confirm data block and on the conclusion page, in Chinese and English", () => {
+  it("shows the three run-ready notes on the confirm card and not the short hint, in Chinese and English", () => {
     const api = {unlockBrief: vi.fn(), confirmRun: vi.fn()} as unknown as DesktopApi;
     const confirm: DesktopView = {
       kind: "confirm_run",
@@ -129,8 +140,9 @@ describe("survivorship hint on list-date default pools", () => {
         <ConfirmRunCard api={api} view={confirm} />
       </I18nProvider>,
     );
-    const zhConfirm = screen.getByTestId("symbol-selection");
-    expect(within(zhConfirm).getByTestId("survivorship-hint")).toHaveTextContent(HINT_ZH);
+    expect(within(screen.getByTestId("symbol-selection")).getAllByTestId("default-pool-note").map((node) => node.textContent)).toEqual([...NOTE_ZH]);
+    expect(screen.queryByTestId("survivorship-hint")).toBeNull();
+    expect(screen.queryByText(HINT_ZH)).toBeNull();
     unmount();
 
     render(
@@ -138,7 +150,9 @@ describe("survivorship hint on list-date default pools", () => {
         <ConfirmRunCard api={api} view={confirm} />
       </I18nProvider>,
     );
-    expect(within(screen.getByTestId("symbol-selection")).getByTestId("survivorship-hint")).toHaveTextContent(HINT_EN);
+    expect(within(screen.getByTestId("symbol-selection")).getAllByTestId("default-pool-note").map((node) => node.textContent)).toEqual([...NOTE_EN]);
+    expect(screen.queryByTestId("survivorship-hint")).toBeNull();
+    expect(screen.queryByText(HINT_EN)).toBeNull();
   });
 
   it("renders the same hint in the conclusion data block and hides it for a custom list", () => {
@@ -199,6 +213,7 @@ describe("survivorship hint on list-date default pools", () => {
       </I18nProvider>,
     );
     expect(screen.queryByTestId("survivorship-hint")).toBeNull();
+    expect(screen.queryByTestId("default-pool-notes")).toBeNull();
     unmount();
     render(
       <I18nProvider initial={ZH}>
