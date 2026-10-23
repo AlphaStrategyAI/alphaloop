@@ -250,7 +250,24 @@ fn schedule_sidecar_restart(
     );
 }
 
+#[cfg(windows)]
+fn detach_inherited_console() {
+    // msedgedriver is a console process. WebView2 keeps that console as a
+    // visible ConsoleWindowClass window. A double-clicked app has none;
+    // detaching is a no-op in that case.
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn FreeConsole() -> i32;
+    }
+    unsafe {
+        FreeConsole();
+    }
+}
+
 pub fn run() {
+    #[cfg(windows)]
+    detach_inherited_console();
+
     let supervisor = Arc::new(EngineSupervisor::default());
     let vault = Arc::new(SecretVault::open_default());
     let connection = EngineConnection::with_redactor({
