@@ -1048,6 +1048,9 @@ def main() -> int:
         assert_no_cjk(session.driver, "[data-testid=completed-screen]", "conclusion page")
         export_research_record(session.driver)
         wait_css(session.driver, "[data-testid=export-success]")
+        session.driver.execute_script(
+            "document.querySelector('[data-testid=export-success]')?.scrollIntoView({block:'center'})"
+        )
         shoot("conclusion")
         exports = list((data_root / "exports").glob("*"))
         if not exports:
