@@ -262,13 +262,6 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           {sel.listNote ? (
             <p className="confirm-data-meta" data-testid="symbol-selection-note">{copyText(sel.listNote)}</p>
           ) : null}
-          {sel.isDefaultPool || sel.source === "default_pool" ? (
-            <div data-testid="default-pool-notes">
-              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteMembers" /></p>
-              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteConstituents" /></p>
-              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteEdgar" /></p>
-            </div>
-          ) : null}
           {sel.listNote && sel.listVersion ? (
             <p className="confirm-data-footnote" data-testid="symbol-selection-version">
               {t("ui.confirm.listVersion", {version: sel.listVersion})}
@@ -278,6 +271,13 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: copyText(sel.dataSource)})}
           </p>
           <p className="confirm-data-footnote">{t("ui.confirm.footnote")}</p>
+          {sel.isDefaultPool || sel.source === "default_pool" ? (
+            <div data-testid="default-pool-notes">
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteMembers" /></p>
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteConstituents" /></p>
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteEdgar" /></p>
+            </div>
+          ) : null}
           {sel.shrinkNote && (
             <p className="pool-shrink-note" data-testid="pool-shrink-note">{copyText(sel.shrinkNote)}</p>
           )}
