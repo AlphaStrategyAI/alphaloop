@@ -52,7 +52,7 @@ GitHub 仓库描述写的是 “AI-automated quant research loop”。默认配�
 
 ## 6. 费用、许可、支持
 
-- 软件许可证：MIT。版权行 `Copyright (c) 2026 OpenStrategy Team`，与组织名 AlphaStrategyAI 不一致。
+- 软件许可证：MIT。版权行 `Copyright (c) 2026 AlphaStrategyAI`，与 GitHub 组织名一致。2026-10-23 起由维护者把原来的 `OpenStrategy Team` 改成这个名字。许可类型和年份没有改。
 - 没有 PyPI 发布（该 URL 404），没有 GitHub Release。桌面打包只在 CI 里上传 artifact，不构成公开发布的安装包。
 - 没有价格、没有支持合同、没有招聘页面。
 - `npm audit`：全部依赖 2 moderate + 2 high；`--omit=dev` 为 0。未逐条打开公告。
@@ -76,7 +76,7 @@ GitHub 仓库描述写的是 “AI-automated quant research loop”。默认配�
 | 默认池只数 | `apps/desktop/docs/tech-pulse-ui.md` 仍写确认卡展示 40+40 | v2 池文件分别是 503 与 300。v1 仍是 40，只给旧研究 |
 | 数据源是否默认 | 规格：不是默认选中 | `pin_draft_data_source` 在草稿上写入源 id |
 | 仓库标语 | GitHub description 强调 AI automated loop | 默认评审器是确定性的 |
-| 版权名 | 组织 AlphaStrategyAI | LICENSE 写 OpenStrategy Team |
+| 版权名 | 曾写 OpenStrategy Team | 2026-10-23 维护者决定统一为 AlphaStrategyAI，`LICENSE` 已改。不再是未关闭缺口 |
 | 英文族名 | 规格：显示名按当前语言渲染 | 非中文 locale 返回 id 字符串 |
 
 ## 9. 影响决策的限制

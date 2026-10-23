@@ -1,3 +1,5 @@
+English | [简体中文](README.zh-CN.md)
+
 # alphaloop
 
 AlphaLoop 0.2.0 runs one daily equity mean-reversion study on your own machine and writes the gate results into a file you can take away. Automatic iteration defaults to at most 5 rounds. That cap can be changed, and after it is spent you can confirm more rounds. It does not send orders, and it does not decide whether you should use the strategy.
@@ -8,7 +10,7 @@ It is for someone who already runs daily backtests and wants those rounds and th
 
 There is no installer, no hosted service, and no paid plan. The CLI only shows that the engine process is up. A study runs in the desktop app, and the desktop app needs a packaged engine first.
 
-The Chinese README is [README.md](./README.md). The two files were edited together. Nothing checks them against each other automatically. The English UI shows strategy-family ids as stored, for example `mean_reversion`.
+The English UI shows strategy-family ids as stored, for example `mean_reversion`. The same page in Chinese is [README.zh-CN.md](README.zh-CN.md). The two files are edited together. Nothing checks them against each other automatically.
 
 ## One concrete job
 
@@ -72,13 +74,29 @@ npm ci
 npm run tauri dev
 ```
 
-Use `--target macos` or `--target windows` on those systems. On 2026-10-23, after `python3.12-venv` was installed, that build finished and `smoke_sidecar.sh` printed `engine handshake ok: ready`. No window was opened and no study was created.
+Use `--target macos` or `--target windows` on those systems. On 2026-10-23, after `python3.12-venv` was installed, that build finished and `smoke_sidecar.sh` printed `engine handshake ok: ready`.
 
 If the CLI was already started, stop that pid before the desktop app. They share the same runtime lock by default.
 
-In the app, create a study under Research. The dialogue asks for the five settings. The examples in those questions are: thesis "美股大市值股票的均值回归"; universe "美股股票"; effective time "12 小时"; first-round methods "分段稳健性检验、样本外稳定、集中度、换手成本"; coverage "至少 25 个、10 年、缺失不超过 5%". These are not recommended investment parameters, and this session did not type them into the GUI. For A-shares, change the thesis and the universe to A-share equity mean reversion. Starting the run downloads daily bars and needs a network. With no tickers typed, the default pool is 503 or 300 names, and the planned window is 12×365 days back from today's UTC date. If the download fails or coverage falls through the floor you accepted, the study stops and says why. It does not switch to a price file that is not in the repository. When the five settings are locked, the confirm card appears.
+In the app, create a study under Research. The dialogue asks for the five settings. One message can fill more than one of them. With no tickers typed, the default pool is 503 or 300 names, and the planned window is 12×365 days back from today's UTC date. Starting the run downloads daily bars and needs a network. If the download fails or coverage falls through the floor you accepted, the study stops and says why. It does not switch to a price file that is not in the repository.
 
-On the completed screen, a failed gate exports a research record only. The strategy pack stays unavailable and the screen names the missing check. All five checks have to pass before a strategy pack is exported.
+### One desktop run, 2026-10-23
+
+This was a maintainer test on Linux, not a customer result and not a license from Yahoo. The window text was English. The UI had no 「未经许可」 checkbox to tick. The code still pinned Yahoo daily and the test clicked Run. The export path on the last screenshot is `/tmp/alphaloop-readme-demo/exports/…`. That directory was `ALPHALOOP_DATA_ROOT` for this process, not the default `~/.local/share` path.
+
+The dialogue message was: `美股股票 SPY 的均值回归。有效研究时间 12 小时。分段稳健性检验、样本外稳定、集中度、换手成本。至少 1 个、1 年、缺失不超过 20%。` The confirm card showed one name, SPY, replacing the default universe, source `Yahoo daily`, 2014-10-26 to 2026-10-23, and cost 5 bp. The message said 股票, so the card classified it as US equities and used the 5 bp equity rate, not the 1 bp fund rate. The shell clock at the click was 15:06:47Z. The research row's `updated_at` was 15:06:54Z. The completed screen shows effective research time `0.00` hours because those seconds do not fill a hundredth of an hour. The zip name ends in `20261023-231120`, which is 15:11:20Z shown in UTC+8, the export click, not the finish time. The completed screen shows five rounds on this window and a 5/5 budget. The stored study, which the screenshots do not print, ended at lookback 40 and kept entry z 1.0 and long-only.
+
+The completed screen said a gate did not pass. The empty circle beside "Every selected verification method passed" is the failed state. Market scorecard, out-of-sample stability, and turnover cost did not pass. The market scorecard was not one of the four methods in the dialogue; the screen still listed it. Subperiod robustness and concentration did pass. The green "Re-verification still holds" chip was lit even though this run stored no reverification; an empty list passes that check. Point-in-time consistency ran and passed. The on-screen scope line said the check only compares a source's publication date with the backtest cutoff, and does not cover the universe, adjustments, or financial revisions. The same screen said five materials had a publication date. The files written under `materials/` are Crossref hits titled, in short, an herbal-extraction paper, a switched-systems paper, two femoral-fracture papers, and a 1984 InSb-film paper. They are not a review of this strategy. The strategy pack stayed locked. Export wrote a research record. The zip's `manifest.json` has `live_handoff_eligible: false`. `why_not_live.json` lists `all_current_methods_passed`. Those two files are not visible in the screenshot; the screenshot shows the locked pack and the export path. These numbers are this one run. They are not a performance claim.
+
+![Research list before any study](docs/readme-assets/01-research-list.png)
+
+![Confirm card for the SPY study](docs/readme-assets/02-confirm-to-run.png)
+
+![Running, still gathering](docs/readme-assets/03-running.png)
+
+![Completed, with gates that failed](docs/readme-assets/04-completed-gates.png)
+
+![Research record exported, strategy pack locked](docs/readme-assets/05-export-record.png)
 
 Checks that do not hit the market:
 
@@ -95,7 +113,7 @@ On Linux, data defaults to `~/.local/share/ai.alphastrategy.alphaloop` (`researc
 
 What you can check is the repository, the license, and a local run. There is no third-party audit and no performance case study.
 
-The MIT copyright line is `Copyright (c) 2026 OpenStrategy Team`. The GitHub organization is AlphaStrategyAI. This page does not show that those two names are the same legal person. The MIT text in the file allows use, modification, and redistribution of this code, including commercial use, if the copyright and license notice are kept. It does not warranty the software, and it does not grant rights to market, filing, or index data. There is no contributor license agreement.
+The MIT copyright line is `Copyright (c) 2026 AlphaStrategyAI`. The MIT text allows use, modification, and redistribution of this code, including commercial use, if the copyright and license notice are kept. It does not warranty the software, and it does not grant rights to market, filing, or index data. There is no contributor license agreement.
 
 US daily bars go through [yfinance](https://github.com/ranaroussi/yfinance). That project's README says it is not affiliated with Yahoo, is meant for research and education, and tells you to read Yahoo's terms yourself. A-share daily bars go through [AkShare](https://github.com/akfamily/akshare), Sina first, Eastmoney if Sina fails. AkShare's README says the data is for academic research, is not investment advice, and that some interfaces may be removed. Either source can fail or change. The product spec wants both labeled unlicensed. As written above, the 0.2.0 UI does not do that yet.
 

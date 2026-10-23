@@ -17,7 +17,7 @@
 | 默认数据根字符串 | 实际运行 | `platformdirs` 打印出 Linux 路径 |
 | `scripts/build_sidecar.sh` | 实际运行 | 未安装 `python3.12-venv` 时退出码 1，原因是 ensurepip 不可用。安装该包并删掉失败的 `.venv-sidecar` 之后，构建退出码 0，PyInstaller 6.22.3，产物在 `dist/alphaloop-engine/`（已被 gitignore，不进提交） |
 | `scripts/smoke_sidecar.sh` | 实际运行 | 打印 `engine handshake ok: ready`，并确认打包进去的 AkShare `calendar.json` 存在。没有打开图形窗口，没有新建研究 |
-| `npm run tauri dev` 以及在界面里新建研究、确认、导出 | 未验证 | 没有在图形会话里点击。README 中的点击步骤来自界面代码和测试名，不是这次的屏幕录像 |
+| `npm run tauri dev` 与一次完整桌面研究 | 实际运行 | 2026-10-23，Xvfb `:99` 1600×1000，英文界面（区域 `C.utf8`）。新建研究 → 一条中文对话填满五项 → 确认卡 → Run → 完成页 → 导出研究记录。点 Run 的时间是 15:06:47Z，`researches.updated_at` 是 15:06:54Z。标的 SPY，`yahoo_daily`，窗口 2014-10-26 至 2026-10-23，5 轮，回看停在 40。市场计分卡、样本外稳定、换手成本未过；分段稳健性与集中度通过；时点一致性通过。策略包按钮保持锁定。导出 zip 的 `manifest.json` 为 `live_handoff_eligible: false`，`why_not_live.json` 的失败项是 `all_current_methods_passed`。截图在 `docs/readme-assets/`。没有「未经许可」勾选可点；这是维护者自己的测试，不是数据方许可。进程继承了 `ALPHALOOP_DATA_ROOT=/tmp/alphaloop-readme-demo`，不是默认数据根 |
 | 带网络的均值回归验收 `tests/test_v1_honest_path.py` | 未验证 | 需要 `ALPHALOOP_ACCEPTANCE_NETWORK=1`，本次未设 |
 | macOS / Windows 安装包 | 未验证 | 只读了对应 workflow。没有在那些系统上构建 |
 | Node 20 上的 `npm test` | 未验证 | 打包 workflow 写 Node 20，本次只用了 Node 22 |

@@ -7,7 +7,7 @@
 | 编号 | 主张 | 来源 | 版本或发布时间 | 发现 | 状态 | 可信度与局限 |
 | --- | --- | --- | --- | --- | --- | --- |
 | E01 | 包版本 0.2.0，Python ≥3.12，未钉死依赖 | `pyproject.toml`、`apps/desktop/package.json` | 仓库 main，2026-10-23 | 项目名 alphaloop，脚本 `alphaloop` 与 `alphaloop-engine` | 已核验产品事实 | 高。另一天安装会解析到不同的传递依赖 |
-| E02 | 许可证为 MIT；版权行是 OpenStrategy Team，不是组织名 | `LICENSE`；`gh repo view` | LICENSE 文件；仓库创建于 2026-02-08 | 允许使用、修改、再分发、出售代码副本，保留声明；无担保 | 已核验产品事实 | 高。MIT 不授予行情数据权利 |
+| E02 | 许可证为 MIT；版权持有人是 AlphaStrategyAI | `LICENSE` | 2026 年；2026-10-23 由维护者把原 `OpenStrategy Team` 改为 AlphaStrategyAI，许可类型与年份未改 | 允许使用、修改、再分发、出售代码副本，保留声明；无担保 | 已核验产品事实 | 高。MIT 不授予行情数据权利。改名是维护者决定，不是另一次法律意见 |
 | E03 | 无 Release、讨论区关闭、星标 0、分叉 0、开放 Issue 为空；仅一条已关闭 Issue #111 | `gh repo view`、`gh release list`、`gh issue list`、Discussions API | 查看于 2026-10-23 | API 对 discussions 返回 410。贡献者列表以 cursoragent 为主 | 已核验产品事实 | 高。星标不是质量指标，只说明没有可引用的公开采用 |
 | E04 | 引擎只跑 legacy 逐日 z 分数均值回归 | `engine/research/families.py`、`engine/research/loop.py`、`engine/research/a1_copy.py` | 当前 main | 其他族 id 存在；开跑错误文案「这一族还不能开跑。」动量提示「暂不支持」 | 已核验产品事实 | 高 |
 | E05 | 新池 503 与 300；旧池各 40 | `engine/research/symbol_pools/*.json`，当场 `len(symbols)` | 生成日 2026-10-16 / 2026-10-19 / v1 为 10-17 与 10-18 | v2 选择说明写明是生成日名单，不是时点成分，含幸存者偏差 | 已核验产品事实 | 高。名单来源是维基百科旧修订与中证指数当日文件，文件本身声明 URL 会被覆盖 |
@@ -50,4 +50,6 @@
 | E41 | 聚宽会员收费页抓取返回 403 | https://www.joinquant.com/view/vip/charge | 抓取于 2026-10-23 | WebFetch 状态码 403。首页 https://www.joinquant.com/ 同日 HEAD 为 200。E25 的 403 是另一条社区通知，金额仍不引用 | 已核验产品事实（对该次请求） | 高。页面可能对其他网络开放 |
 | E42 | 侧车能完成握手 | 本次 `scripts/build_sidecar.sh` 与 `scripts/smoke_sidecar.sh` | 2026-10-23，PyInstaller 6.22.3 | 缺 venv 包时构建失败；装上之后构建退出码 0，smoke 打印 `engine handshake ok: ready` | 已核验产品事实 | 高。不是图形界面里的一次研究 |
 
-不存在的证据，明确空着：用户访谈、付费意愿、节省时间的测量、业绩、认证、市场规模、本仓库的客服或销售对话。图形界面里点击新建研究并导出，本次没有做。
+| E43 | 2026-10-23 桌面里跑完一项 SPY 均值回归，门禁未全过，导出了研究记录 | 本次 `npm run tauri dev` 截图 `docs/readme-assets/`；SQLite `/tmp/alphaloop-readme-demo/research.db` 研究 `56026da0-bedd-4db8-b2d6-e4a36f617cff`；导出 zip 的 `manifest.json` 与 `why_not_live.json` | 点 Run 15:06:47Z，完成记录 15:06:54Z | 英文界面。确认卡：1 只 SPY、雅虎日线、2014-10-26 至 2026-10-23、成本 5 bp。5 轮，回看 40，入场 z 1.0，只做多。未过：市场计分卡、样本外稳定、换手成本。通过：分段稳健性、集中度、时点一致性。策略包锁定。没有未经许可勾选。数据根是环境变量覆盖，不是默认路径 | 已核验产品事实 | 高。一次维护者测试，不是业绩，也不是用户许可。截图未裁掉失败门禁 |
+
+不存在的证据，明确空着：用户访谈、付费意愿、节省时间的测量、业绩、认证、市场规模、本仓库的客服或销售对话。默认数据根上的桌面点击还没有做。
