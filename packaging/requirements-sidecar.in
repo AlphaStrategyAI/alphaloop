@@ -14,5 +14,10 @@ platformdirs
 portalocker
 yfinance
 pyinstaller
+# Platform-only dependencies of PyInstaller and akshare. Listed directly so
+# the hashed lock pins them on every OS, not only the OS that compiled it.
+macholib
+pefile
+pywin32-ctypes
 setuptools
 wheel
