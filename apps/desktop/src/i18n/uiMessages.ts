@@ -96,6 +96,21 @@ export function buildUiMessages(copy: Copy) {
         "Data {{start}} → {{end}} · daily · source: {{source}}",
       ),
       footnote: copy("确认开跑前锁定清单版本与数据区间。", "The list version and the data window lock before you confirm the run."),
+      poolNoteMembers: copy(
+        "两个股票池都用名单日成分，不是时点成分；回看更早的历史含有幸存者偏差。",
+        "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
+        true,
+      ),
+      poolNoteConstituents: copy(
+        "本次没有时点成分。",
+        "Point-in-time constituents are missing for this run.",
+        true,
+      ),
+      poolNoteEdgar: copy(
+        "EDGAR 可能用后来的重述替换旧数字，因此这些数据可能通不过时点检查。",
+        "EDGAR can replace older figures with later restatements, so this data may fail the PIT check.",
+        true,
+      ),
       listVersion: copy("版本 {{version}}", "Version {{version}}"),
       starting: copy("开跑中…", "Starting…"),
       editAgain: copy("再修改", "Edit again"),

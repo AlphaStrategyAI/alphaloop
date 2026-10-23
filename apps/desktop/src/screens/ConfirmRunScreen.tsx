@@ -1,6 +1,7 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
 import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import {I18nText} from "../i18n/I18nText";
 import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataCopy";
 import {DialogueTurnBody} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
@@ -260,6 +261,13 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           </p>
           {sel.listNote ? (
             <p className="confirm-data-meta" data-testid="symbol-selection-note">{copyText(sel.listNote)}</p>
+          ) : null}
+          {sel.isDefaultPool || sel.source === "default_pool" ? (
+            <div data-testid="default-pool-notes">
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteMembers" /></p>
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteConstituents" /></p>
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteEdgar" /></p>
+            </div>
           ) : null}
           {sel.listNote && sel.listVersion ? (
             <p className="confirm-data-footnote" data-testid="symbol-selection-version">

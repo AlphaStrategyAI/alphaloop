@@ -4,7 +4,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 
 import type {DesktopApi, DesktopView} from "../contracts";
 import {I18nProvider} from "./I18nProvider";
-import {enCatalog} from "./catalog";
+import {enCatalog, isFinalMessageKey, zhCatalog} from "./catalog";
 import {CompletedScreen} from "../screens/CompletedScreen";
 import {ConfirmRunCard} from "../screens/ConfirmRunScreen";
 
@@ -235,6 +235,71 @@ describe("I2 smoke follow-ups", () => {
     );
     expect(screen.getByTestId("completed-symbol-selection-summary")).toHaveTextContent(poolName);
     assertPool("completed-symbol-selection-summary");
+  });
+
+  it("shows three final English sentences for the default-pool note on the run-ready card", () => {
+    const sentences = [
+      "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
+      "Point-in-time constituents are missing for this run.",
+      "EDGAR can replace older figures with later restatements, so this data may fail the PIT check.",
+    ] as const;
+    expect(enCatalog.ui.confirm.poolNoteMembers).toBe(sentences[0]);
+    expect(enCatalog.ui.confirm.poolNoteConstituents).toBe(sentences[1]);
+    expect(enCatalog.ui.confirm.poolNoteEdgar).toBe(sentences[2]);
+    for (const key of ["ui.confirm.poolNoteMembers", "ui.confirm.poolNoteConstituents", "ui.confirm.poolNoteEdgar"] as const) {
+      expect(isFinalMessageKey(key), key).toBe(true);
+    }
+    for (const sentence of sentences) {
+      expect(sentence).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+    }
+    expect(zhCatalog.ui.confirm.poolNoteMembers).toBe(
+      "两个股票池都用名单日成分，不是时点成分；回看更早的历史含有幸存者偏差。",
+    );
+    expect(zhCatalog.ui.confirm.poolNoteConstituents).toBe("本次没有时点成分。");
+    expect(zhCatalog.ui.confirm.poolNoteEdgar).toBe(
+      "EDGAR 可能用后来的重述替换旧数字，因此这些数据可能通不过时点检查。",
+    );
+
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard
+          api={api()}
+          view={{
+            kind: "confirm_run",
+            researchId: "r-ready",
+            dialogue: [],
+            chatEnabled: false,
+            settings: {
+              thesis: "均值回归",
+              universe: "美股 · 股票",
+              max_effective_hours: "4 小时",
+              round1_methods: "分段稳健性检验",
+              coverage_floor: "至少 25 个标的",
+            },
+            symbolSelection: {
+              count: 503,
+              listName: "美股大市值池 · 503 只 · 名单日 2026-10-16",
+              listVersion: "2",
+              summaryLine: "美股大市值池 · 503 只 · 名单日 2026-10-16",
+              listNote: "取自标普 500 在名单日的成分，非时点成分",
+              symbols: ["AAPL"],
+              source: "default_pool",
+              isDefaultPool: true,
+              dataStart: "2016-10-20",
+              dataEnd: "2026-10-19",
+              dataCutoff: "2026-10-19",
+              dataSource: "雅虎日线",
+            },
+          }}
+        />
+      </I18nProvider>,
+    );
+    const notes = screen.getAllByTestId("default-pool-note").map((node) => node.textContent);
+    expect(notes).toEqual([...sentences]);
+    for (const node of screen.getAllByTestId("default-pool-note")) {
+      expect(node.querySelector("[data-i18n-placeholder]")).toBeNull();
+    }
+    expect(screen.getByTestId("default-pool-notes").textContent).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
   });
 });
 
