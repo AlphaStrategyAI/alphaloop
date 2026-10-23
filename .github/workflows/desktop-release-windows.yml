@@ -244,6 +244,7 @@ jobs:
           ALPHALOOP_MAX_TRIALS: "1"
           ALPHALOOP_E2E_HOLD_RUNNING_SEC: "45"
           ALPHALOOP_REVIEWER: deterministic
+          PYTHONUNBUFFERED: "1"
         run: |
           $version = "${{ steps.ver.outputs.version }}"
           $installer = Join-Path (Get-Location) "installer/alphaloop_${version}_windows_x64-setup.exe"

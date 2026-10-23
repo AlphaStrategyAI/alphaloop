@@ -293,7 +293,7 @@ class Session:
         self.driver_log = driver_log
         self.proc = subprocess.Popen(
             ["tauri-driver"],
-            stdout=driver_log.open("w", encoding="utf-8"),
+            stdout=driver_log.open("w", encoding="utf-8", buffering=1),
             stderr=subprocess.STDOUT,
             env=os.environ.copy(),
         )
@@ -314,7 +314,16 @@ class Session:
         # DOM call for its 300s renderer timeout.
         options.set_capability("pageLoadStrategy", "none")
         options.set_capability("tauri:options", {"application": str(self.app)})
-        driver = self.webdriver.Remote(command_executor="http://127.0.0.1:4444", options=options)
+        from selenium.webdriver.remote.client_config import ClientConfig
+
+        # A wedged WebView2 renderer must fail the step. The default client
+        # wait is long enough to burn the whole job with no traceback.
+        client = ClientConfig(remote_server_addr="http://127.0.0.1:4444", timeout=90)
+        driver = self.webdriver.Remote(
+            command_executor="http://127.0.0.1:4444",
+            options=options,
+            client_config=client,
+        )
         driver.implicitly_wait(0)
         driver.set_page_load_timeout(15)
         driver.set_script_timeout(30)
