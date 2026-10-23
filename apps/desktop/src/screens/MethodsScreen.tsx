@@ -4,6 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -16,6 +17,7 @@ import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 export function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}) {
   const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const [reviseOpen, setReviseOpen] = useState(false);
   const [reviseBody, setReviseBody] = useState(
     method.definitionDisplay ?? method.description,
@@ -25,7 +27,7 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
     ({gt: t("ui.methods.gt"), gte: t("ui.methods.gte"), eq: t("ui.methods.eq"), lt: t("ui.methods.lt"), lte: t("ui.methods.lte")} as const)[dim.comparison];
   return (
     <section className="method-detail">
-      <h1>{method.name}</h1>
+      <h1>{copyText(method.name)}</h1>
       {method.category && <span className="method-category-badge">{method.category}</span>}
       {method.description && !method.description.trim().startsWith("{") ? (
         <p>{method.description}</p>
@@ -103,6 +105,7 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
 
 export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "methods"}>}) {
   const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const selected = view.methods.find((item) => item.id === view.selected) ?? view.methods[0];
   const [name, setName] = useState("");
   const [definition, setDefinition] = useState("");
@@ -123,9 +126,9 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
             href={`#/methods/${encodeURIComponent(method.id)}`}
             key={method.id}
           >
-            {method.name}
+            {copyText(method.name)}
             <small className="revision-label">
-              {(method as {revisionLabel?: string}).revisionLabel ?? t("ui.methods.builtin")}
+              {copyText((method as {revisionLabel?: string}).revisionLabel) || t("ui.methods.builtin")}
             </small>
             {method.usageCount != null ? <small>{t("ui.methods.used", {count: method.usageCount})}</small> : null}
           </a>

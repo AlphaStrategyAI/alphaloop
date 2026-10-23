@@ -4,6 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -56,6 +57,7 @@ export function StatusPill({status}: {status: ResearchListDisplayStatus}) {
 
 export function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
   const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const deleteWarning = t("ui.list.deleteBody");
   const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
   const awaitingCards = [
@@ -116,7 +118,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
           <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
             <h2>{item.title}</h2>
             <p>
-              <span>{item.universeLabel ?? t("ui.list.unlocked")}</span>
+              <span>{item.universeLabel ? copyText(item.universeLabel) : t("ui.list.unlocked")}</span>
               {item.createdAt
                 ? ` · ${formatResearchTimestamp(item.createdAt)}`
                 : ""}
@@ -146,7 +148,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
           </div>
           <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
             <h2>{item.title}</h2>
-            <p>{item.universeLabel ?? t("ui.list.briefReady")}</p>
+            <p>{item.universeLabel ? copyText(item.universeLabel) : t("ui.list.briefReady")}</p>
           </OpenResearchLink>
           <div className="list-pinned-actions">
             <OpenResearchLink className="cyan-button list-open-confirm" researchId={item.id}>
@@ -165,7 +167,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             <div>
               <h3>{row.title}</h3>
               <p>
-                <span>{row.universeLabel ?? t("ui.list.unlocked")}</span>
+                <span>{row.universeLabel ? copyText(row.universeLabel) : t("ui.list.unlocked")}</span>
                 {row.createdAt ? ` · ${formatResearchTimestamp(row.createdAt)}` : ""}
                 {row.updatedAt ? ` · ${t("ui.list.updated", {time: formatResearchTimestamp(row.updatedAt)})}` : ""}
               </p>

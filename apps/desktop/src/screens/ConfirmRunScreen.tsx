@@ -5,6 +5,7 @@ import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataC
 import {DialogueTurnBody} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -23,6 +24,7 @@ function Settings({
   onEditSlot?: (slot: BriefSlotName) => void;
 }) {
   const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const settingLabels: readonly [BriefSlotName, string][] = [
     ["thesis", t("ui.brief.thesis")],
     ["universe", t("ui.brief.universe")],
@@ -44,7 +46,7 @@ function Settings({
               ? values.thesis
                 ? renderSettingsProse(values.thesis)
                 : t("ui.list.unlocked")
-              : values[key] || t("ui.list.unlocked")}
+              : copyText(values[key]) || t("ui.list.unlocked")}
             {key === "universe" && values.universe_symbol_chips && values.universe_symbol_chips.length > 0 ? (
               <span className="universe-symbol-chips" data-testid="universe-symbol-chips">
                 {values.universe_symbol_chips.map((symbol) => (
@@ -53,7 +55,7 @@ function Settings({
               </span>
             ) : key === "universe" && values.universe_symbols ? (
               <span className="universe-symbols" data-testid="universe-symbols">
-                {values.universe_symbols}
+                {copyText(values.universe_symbols)}
               </span>
             ) : null}
           </dd>
@@ -164,6 +166,7 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
 
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
   const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const editSlot = (slot: BriefSlotName) => {
     void api.unlockBrief(view.researchId, slot).then(() => {
       requestAnimationFrame(() => {
@@ -214,7 +217,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       </details>
       {view.meanReversionOnlyNotice && (
         <p className="confirm-lead" data-testid="mean-reversion-only-notice">
-          {view.meanReversionOnlyNotice}
+          {copyText(view.meanReversionOnlyNotice)}
         </p>
       )}
       {view.constructionNotice && (
@@ -245,18 +248,18 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             </button>
           </div>
           <p className="confirm-data-summary" data-testid="symbol-selection-summary">
-            {sel.summaryLine ??
+            {copyText(sel.summaryLine) ||
               t("ui.confirm.summary", {
                 count: sel.count,
-                listName: sel.listName,
+                listName: copyText(sel.listName),
                 listVersion: sel.listVersion,
                 pool: sel.isDefaultPool || sel.source === "default_pool"
                   ? t("ui.confirm.defaultPool")
-                  : t("ui.confirm.userPool", {note: sel.overrideNote ?? t("ui.confirm.userPoolFallback")}),
+                  : t("ui.confirm.userPool", {note: copyText(sel.overrideNote) || t("ui.confirm.userPoolFallback")}),
               })}
           </p>
           {sel.listNote ? (
-            <p className="confirm-data-meta" data-testid="symbol-selection-note">{sel.listNote}</p>
+            <p className="confirm-data-meta" data-testid="symbol-selection-note">{copyText(sel.listNote)}</p>
           ) : null}
           {sel.listNote && sel.listVersion ? (
             <p className="confirm-data-footnote" data-testid="symbol-selection-version">
@@ -264,11 +267,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             </p>
           ) : null}
           <p className="confirm-data-meta">
-            {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: sel.dataSource})}
+            {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: copyText(sel.dataSource)})}
           </p>
           <p className="confirm-data-footnote">{t("ui.confirm.footnote")}</p>
           {sel.shrinkNote && (
-            <p className="pool-shrink-note" data-testid="pool-shrink-note">{sel.shrinkNote}</p>
+            <p className="pool-shrink-note" data-testid="pool-shrink-note">{copyText(sel.shrinkNote)}</p>
           )}
           {symbolsOpen && (
             <ul className="symbol-ticker-list" data-testid="symbol-ticker-list">
