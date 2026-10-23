@@ -194,9 +194,34 @@ def install_silent(installer: Path) -> Path:
         found = find_installed_exe()
         if found is not None:
             INSTALLED_EXE = found
+            unblock_tree(found.parent)
             return found
         time.sleep(1)
     raise RuntimeError("installer finished but no alphaloop executable was found from the uninstall registry or LocalAppData")
+
+
+def unblock_tree(root: Path) -> None:
+    """Drop Mark-of-the-Web on the installed tree.
+
+    A medium-integrity WebView2 host with a zone identifier stays on a blank
+    document, and SmartScreen can hold the unsigned engine before handshake.
+    """
+    if os.name != "nt" or not root.exists():
+        return
+    completed = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-ChildItem -LiteralPath $args[0] -Recurse -Force -File | Unblock-File",
+            str(root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(f"Unblock-File failed for {root}: {completed.stderr}")
 
 
 def uninstall_silent(exe: Path | None) -> None:
@@ -243,6 +268,17 @@ def copy_logs(data_root: Path, driver_log: Path) -> None:
     destination = LOGS / "tauri-driver.log"
     if driver_log.is_file() and driver_log.resolve() != destination.resolve():
         shutil.copy2(driver_log, destination)
+    if (LOGS / "engine.log").is_file() and (LOGS / "desktop.log").is_file():
+        return
+    local = Path(os.environ.get("LOCALAPPDATA", ""))
+    if not local.is_dir():
+        return
+    for name in ("engine.log", "desktop.log"):
+        if (LOGS / name).is_file():
+            continue
+        for candidate in local.glob(f"alphaloop*/{name}"):
+            shutil.copy2(candidate, LOGS / name)
+            break
 
 
 class Session:
@@ -271,10 +307,19 @@ class Session:
 
         options = ArgOptions()
         options.set_capability("browserName", "wry")
+        # Do not wait for window.onload. The release shell keeps font and
+        # asset requests open, and msedgedriver otherwise blocks the first
+        # DOM call for its 300s renderer timeout.
+        options.set_capability("pageLoadStrategy", "none")
         options.set_capability("tauri:options", {"application": str(self.app)})
         driver = self.webdriver.Remote(command_executor="http://127.0.0.1:4444", options=options)
         driver.implicitly_wait(0)
-        driver.set_script_timeout(60)
+        driver.set_page_load_timeout(15)
+        driver.set_script_timeout(30)
+        try:
+            driver.set_window_rect(x=40, y=40, width=1280, height=800)
+        except Exception:
+            pass
         return driver
 
     def restart(self) -> None:
@@ -355,14 +400,51 @@ def assert_no_banner(driver, data_root: Path) -> None:
         raise AssertionError(problem)
 
 
-def wait_engine(driver, timeout: float = 90) -> None:
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
+def describe_page(driver) -> str:
+    try:
+        handles = driver.window_handles
+    except Exception as error:
+        handles = [f"unavailable: {error}"]
+    try:
+        details = driver.execute_script(
+            """
+            const body = document.body;
+            return JSON.stringify({
+              url: location.href,
+              ready: document.readyState,
+              title: document.title,
+              root: !!document.getElementById('root'),
+              shell: !!document.querySelector('[data-testid=night-shell]'),
+              text: (body && body.innerText || '').slice(0, 240)
+            });
+            """
+        )
+    except Exception as error:
+        details = f"script failed: {error}"
+    return f"handles={handles} page={details}"
 
-    WebDriverWait(driver, timeout).until(
-        lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=night-shell]").get_attribute("data-engine-phase")
-        == "running"
-    )
+
+def wait_engine(driver, timeout: float = 90) -> None:
+    from selenium.common.exceptions import TimeoutException, WebDriverException
+    from selenium.webdriver.common.by import By
+
+    deadline = time.time() + timeout
+    last_error = "night-shell did not report data-engine-phase=running"
+    while time.time() < deadline:
+        try:
+            phase = driver.find_element(By.CSS_SELECTOR, "[data-testid=night-shell]").get_attribute(
+                "data-engine-phase"
+            )
+            if phase == "running":
+                break
+            last_error = f"data-engine-phase={phase}"
+        except TimeoutException as error:
+            last_error = f"renderer timeout: {error.msg if getattr(error, 'msg', None) else error}"
+        except WebDriverException as error:
+            last_error = str(error).splitlines()[0][:300]
+        time.sleep(0.5)
+    else:
+        raise AssertionError(f"{last_error}; {describe_page(driver)}")
     deadline = time.time() + 30
     while time.time() < deadline:
         engine_up = process_running("alphaloop-engine.exe")
@@ -575,10 +657,6 @@ def main() -> int:
             return
         try:
             notes = action()
-            filename = ""
-            if session is not None:
-                filename = shoot(slug)
-            results.append(StepResult(name, "PASS", filename, notes))
         except Exception as error:
             filename = ""
             if session is not None:
@@ -595,6 +673,14 @@ def main() -> int:
                     pass
             results.append(StepResult(name, "FAIL", filename, detail[:500]))
             blocked = name
+        else:
+            filename = ""
+            if session is not None:
+                try:
+                    filename = shoot(slug)
+                except Exception as shot_error:
+                    notes = f"{notes}; screenshot failed: {shot_error}"
+            results.append(StepResult(name, "PASS", filename, notes))
         write_summary(results)
 
     def step_install() -> str:
