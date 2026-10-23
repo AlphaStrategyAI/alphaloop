@@ -19,5 +19,6 @@ pyinstaller
 macholib
 pefile
 pywin32-ctypes
+colorama
 setuptools
 wheel
