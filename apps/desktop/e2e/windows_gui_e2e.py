@@ -208,17 +208,19 @@ def unblock_tree(root: Path) -> None:
     """
     if os.name != "nt" or not root.exists():
         return
+    env = os.environ.copy()
+    env["ALPHALOOP_UNBLOCK_ROOT"] = str(root)
     completed = subprocess.run(
         [
             "powershell",
             "-NoProfile",
             "-Command",
-            "Get-ChildItem -LiteralPath $args[0] -Recurse -Force -File | Unblock-File",
-            str(root),
+            "Get-ChildItem -LiteralPath $env:ALPHALOOP_UNBLOCK_ROOT -Recurse -Force -File | Unblock-File",
         ],
         check=False,
         capture_output=True,
         text=True,
+        env=env,
     )
     if completed.returncode != 0:
         raise RuntimeError(f"Unblock-File failed for {root}: {completed.stderr}")
