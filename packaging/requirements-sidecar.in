@@ -4,6 +4,7 @@
 #   python3 -m piptools compile --generate-hashes --resolver=backtracking \
 #     --output-file packaging/requirements-sidecar.txt packaging/requirements-sidecar.in
 akshare
+mini-racer
 cattrs
 httpx
 jsonschema
