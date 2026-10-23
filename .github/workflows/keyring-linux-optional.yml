@@ -26,6 +26,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gnome-keyring dbus-x11 libwebkit2gtk-4.1-dev build-essential pkg-config libssl-dev
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
       - name: Stub engine bundle
         run: |
           mkdir -p resources/engine/alphaloop-engine/_internal
