@@ -81,9 +81,9 @@ GitHub 仓库描述写的是 “AI-automated quant research loop”。默认配�
 
 ## 9. 影响决策的限制
 
-- 生成日名单的幸存者偏差被标记为未检验，不是被排除。
+- 生成日名单的幸存者偏差写在池 JSON 的中文 `selection.survivorship` 里，界面注记是「非时点成分」（`engine/research/pool_display.py`）。规格里的字段 id `survivorship_bias_untested` 没有写入导出。它不是被排除，只是没有成为导出门禁。
 - A 股不模拟 T+1 和涨跌停。
-- 基准是价格指数，策略用价格涨跌。口径可能不一致。
+- 个股按复权价请求（yfinance `auto_adjust=True`，AkShare `qfq`），基准仍是价格指数（`SPX` 取 `^GSPC`，`000300.SH` 取指数日线）。口径不一致是这条路径的结果。
 - 窗口键含确认日，隔天重开是新窗口。
 - 时点检查范围窄，见第 2 节。
 - EDGAR 使用 `example.invalid` 邮箱，本次没有做真实 EDGAR 请求，不能声称该身份会被接受。

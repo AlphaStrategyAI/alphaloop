@@ -15,7 +15,8 @@
 | 池子只数 | 实际运行 | 503 / 300 / 40 / 40 |
 | PyPI 包名 | 实际运行 | HTTP 404 |
 | 默认数据根字符串 | 实际运行 | `platformdirs` 打印出 Linux 路径 |
-| `scripts/build_sidecar.sh`（未安装 python3-venv） | 实际运行 | 退出码 1。stderr：虚拟环境未创建成功，因为 ensurepip 不可用，并提示安装 `python3.12-venv`。已写入 README 的前置条件。安装该包后的重试见本节末尾 |
+| `scripts/build_sidecar.sh` | 实际运行 | 未安装 `python3.12-venv` 时退出码 1，原因是 ensurepip 不可用。安装该包并删掉失败的 `.venv-sidecar` 之后，构建退出码 0，PyInstaller 6.22.3，产物在 `dist/alphaloop-engine/`（已被 gitignore，不进提交） |
+| `scripts/smoke_sidecar.sh` | 实际运行 | 打印 `engine handshake ok: ready`，并确认打包进去的 AkShare `calendar.json` 存在。没有打开图形窗口，没有新建研究 |
 | `npm run tauri dev` 以及在界面里新建研究、确认、导出 | 未验证 | 没有在图形会话里点击。README 中的点击步骤来自界面代码和测试名，不是这次的屏幕录像 |
 | 带网络的均值回归验收 `tests/test_v1_honest_path.py` | 未验证 | 需要 `ALPHALOOP_ACCEPTANCE_NETWORK=1`，本次未设 |
 | macOS / Windows 安装包 | 未验证 | 只读了对应 workflow。没有在那些系统上构建 |

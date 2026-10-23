@@ -44,4 +44,10 @@
 | E36 | 没有 alphaloop 自己的用户原话 | Issue 列表 E03 | 2026-10-23 | 不能把 E16–E19 说成「alphaloop 用户这样说」 | 已核验产品事实 | 高 |
 | E37 | 成功 README 的可借鉴处与不可借鉴处 | Qlib、vectorbt、zipline-reloaded 的 README（E21、E22、E29） | 2026-10-23 | Qlib：首屏说清对象、一条安装、一条工作流、许可证；信任很大程度来自微软与论文，alphaloop 没有对等品牌。vectorbt：命令旁有输出；但输出依赖实时行情，且页面在卖 PRO。zipline：首屏写明维护范围和新项目该去哪。三者都不证明 README 本身带来付费 | 有依据推断 | 中。只读了 README，没有读它们的转化数据 |
 
-不存在的证据，明确空着：用户访谈、付费意愿、节省时间的测量、业绩、认证、市场规模、本仓库的客服或销售对话。
+| E38 | 导出里没有 `survivorship_bias_untested` 这个键 | 全库检索 `survivorship`；`engine/research/pool_display.py`；`docs/requirements/default-universe-v1.md` | 2026-10-23 | 池 JSON 有中文 survivorship 句子。界面注记是「非时点成分」。规格要求记录存该 id。引擎与桌面源码不写这个 id | 已核验产品事实 | 高。第一稿 README 把规格 id 写成了已落库字段，已改 |
+| E39 | 个股请求的是复权价，基准是价格指数 | `engine/research/gather.py` | 当前 main | yfinance `auto_adjust=True`；AkShare `adjust="qfq"`；`SPX` 换成 `^GSPC`；`000300.SH` 走指数日线 | 已核验产品事实 | 高 |
+| E40 | `docs/GLOSSARY.md` 不含「未经许可」 | 该文件与 `apps/desktop/src/i18n/locked-glossary.json` | 2026-10-23 | 词在 i18n 术语 JSON 和 `docs/requirements/i18n-glossary-v1.md` | 已核验产品事实 | 高 |
+| E41 | 聚宽会员收费页抓取返回 403 | https://www.joinquant.com/view/vip/charge | 抓取于 2026-10-23 | WebFetch 状态码 403。首页 https://www.joinquant.com/ 同日 HEAD 为 200。E25 的 403 是另一条社区通知，金额仍不引用 | 已核验产品事实（对该次请求） | 高。页面可能对其他网络开放 |
+| E42 | 侧车能完成握手 | 本次 `scripts/build_sidecar.sh` 与 `scripts/smoke_sidecar.sh` | 2026-10-23，PyInstaller 6.22.3 | 缺 venv 包时构建失败；装上之后构建退出码 0，smoke 打印 `engine handshake ok: ready` | 已核验产品事实 | 高。不是图形界面里的一次研究 |
+
+不存在的证据，明确空着：用户访谈、付费意愿、节省时间的测量、业绩、认证、市场规模、本仓库的客服或销售对话。图形界面里点击新建研究并导出，本次没有做。

@@ -10,7 +10,7 @@
 | [alternatives.md](./alternatives.md) | 替代方案比较 |
 | [tools.md](./tools.md) | 实际使用、建议使用、无法访问的工具 |
 | [verification.md](./verification.md) | 实际运行 / 静态检查 / 未验证 |
-| [review-log.md](./review-log.md) | 多角色评审与修改记录。第一轮开始前此文件不存在；评审结束后补上 |
+| [review-log.md](./review-log.md) | 多角色评审与修改记录。模拟，不是用户证言 |
 | [user-validation-plan.md](./user-validation-plan.md) | 尚未执行的小规模真人验证方案 |
 | [missing-materials.md](./missing-materials.md) | 最值得补齐的材料 |
 
