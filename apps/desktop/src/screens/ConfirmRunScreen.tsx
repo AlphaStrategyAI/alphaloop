@@ -268,11 +268,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         us_symbols: localeList(resolution.usSymbols),
       });
     }
-    if (resolution.code === "SYMBOL_ASK_PENDING") return null;
+    if (resolution.code === "SYMBOL_ASK_PENDING" || resolution.code === "SYMBOL_AMOUNT_LIKE") {
+      return null;
+    }
     return t("ui.confirm.unresolved", {token: localeList(resolution.token)});
   };
   const asks = resolution?.asks ?? [];
-  const hints = resolution?.hints ?? [];
+  const answers = resolution?.answers ?? [];
+  const hints = (resolution?.hints ?? []).slice(0, 3);
   const removeRecognized = (symbol: string) => {
     const rest = (resolution?.symbols ?? []).filter((item) => item !== symbol);
     void api.setResearchSymbol(view.researchId, rest.join(listSep));
@@ -333,8 +336,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             </p>
           )}
           {asks.map((ask) => (
-            <div key={ask.token} className="symbol-ask" data-testid="symbol-ask">
-              <p>{t("ui.confirm.symbolAsk", {token: ask.token, symbol: ask.symbol})}</p>
+            <div key={ask.token} className="symbol-ask" data-testid="symbol-ask" data-ask-kind={ask.kind ?? "ask"}>
+              <p>
+                {ask.kind === "amount"
+                  ? t("ui.confirm.amountAsk", {token: ask.token, symbol: ask.symbol})
+                  : ask.kind === "finance"
+                    ? t("ui.confirm.financeAsk", {token: ask.token, symbol: ask.symbol})
+                    : t("ui.confirm.symbolAsk", {token: ask.token, symbol: ask.symbol})}
+              </p>
               <button
                 type="button"
                 className="text-button"
@@ -353,27 +362,79 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               </button>
             </div>
           ))}
-          {hints.map((hint) => {
-            const count = resolution.poolCount ?? 0;
-            return (
-              <div key={hint.token} className="symbol-pool-hint" data-testid="symbol-pool-hint">
-                <p>
-                  {t(count === 1 ? "ui.confirm.poolHintOne" : "ui.confirm.poolHint", {
-                    n: count,
-                    symbol: hint.symbol,
-                  })}
-                </p>
+          {answers.map((answer) => (
+            <p key={answer.token} data-testid="symbol-ask-answered">
+              {answer.accept
+                ? t("ui.confirm.usedAsSymbol", {symbol: answer.symbol})
+                : t("ui.confirm.treatedAsText", {token: answer.token})}
+              <button
+                type="button"
+                className="text-button"
+                data-testid={`symbol-ask-change-${answer.token}`}
+                onClick={() => api.revertSymbolAsk(view.researchId, answer.token)}
+              >
+                {t("ui.confirm.changeAnswer")}
+              </button>
+            </p>
+          ))}
+          {hints.length === 1 && (
+            <div className="symbol-pool-hint" data-testid="symbol-pool-hint">
+              <p>
+                {t((resolution?.poolCount ?? 0) === 1 ? "ui.confirm.poolHintOne" : "ui.confirm.poolHint", {
+                  n: resolution?.poolCount ?? 0,
+                  symbol: hints[0].symbol,
+                })}
+              </p>
+              <button
+                type="button"
+                className="text-button"
+                data-testid="symbol-hint-use"
+                onClick={() => api.useHintedSymbol(view.researchId, hints[0].symbol)}
+              >
+                {t("ui.confirm.setAsSymbol")}
+              </button>
+            </div>
+          )}
+          {hints.length > 1 && (
+            <div className="symbol-pool-hint" data-testid="symbol-pool-hint">
+              <p>
+                {t((resolution?.poolCount ?? 0) === 1 ? "ui.confirm.poolHintManyOne" : "ui.confirm.poolHintMany", {
+                  n: resolution?.poolCount ?? 0,
+                })}
+              </p>
+              {hints.map((hint, index) => (
                 <button
+                  key={hint.token}
                   type="button"
                   className="text-button"
-                  data-testid="symbol-hint-use"
+                  data-testid={`symbol-hint-use-${index + 1}`}
                   onClick={() => api.useHintedSymbol(view.researchId, hint.symbol)}
                 >
-                  {t("ui.confirm.setAsSymbol")}
+                  {hint.symbol} {t("ui.confirm.setAsSymbol")}
                 </button>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
+          {resolution?.code === "SYMBOL_MIXED_MARKETS" && (
+            <div data-testid="symbol-mixed-actions">
+              <button
+                type="button"
+                className="text-button"
+                data-testid="symbol-remove-cn"
+                onClick={() => api.removeMarketSide(view.researchId, "cn")}
+              >
+                {t("ui.confirm.removeCn")}
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                data-testid="symbol-remove-us"
+                onClick={() => api.removeMarketSide(view.researchId, "us")}
+              >
+                {t("ui.confirm.removeUs")}
+              </button>
+            </div>
+          )}
           {blockMessage() && (
             <p className="confirm-data-notice" data-testid="symbol-block-error" role="alert">
               {blockMessage()}

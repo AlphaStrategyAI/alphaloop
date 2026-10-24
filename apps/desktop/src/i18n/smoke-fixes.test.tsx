@@ -22,6 +22,8 @@ function api(): DesktopApi {
     setResearchSymbol: vi.fn(async () => undefined),
   answerSymbolAsk: vi.fn(async () => undefined),
   useHintedSymbol: vi.fn(async () => undefined),
+  revertSymbolAsk: vi.fn(async () => undefined),
+  removeMarketSide: vi.fn(async () => undefined),
     unlockBrief: vi.fn(),
     sendDialogue: vi.fn(),
     pauseResearch: vi.fn(),

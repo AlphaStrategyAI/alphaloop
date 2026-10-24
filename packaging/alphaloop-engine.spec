@@ -26,7 +26,7 @@ analysis = Analysis(
             "engine/research/symbol_pools",
         ),
         (
-            os.path.join(ROOT, "engine", "research", "data", "en_common_words.txt"),
+            os.path.join(ROOT, "engine", "research", "data"),
             "engine/research/data",
         ),
     ]

@@ -16,6 +16,8 @@ describe("bindDesktopApi", () => {
       setResearchSymbol: vi.fn(),
       answerSymbolAsk: vi.fn(),
       useHintedSymbol: vi.fn(),
+      revertSymbolAsk: vi.fn(),
+      removeMarketSide: vi.fn(),
       unlockBrief,
       sendDialogue: vi.fn(),
       pauseResearch: vi.fn(),

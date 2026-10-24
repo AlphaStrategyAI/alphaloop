@@ -78,12 +78,13 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
     mixed = bool(cn and us)
     asks = tuple(universe.symbol_asks)
     default_pool = not universe.user_symbols_override and not asks and not universe.unresolved_tokens
-    hints = tuple(universe.ticker_hints) if default_pool else ()
+    hints = tuple(universe.ticker_hints)[:3] if default_pool else ()
     named = bool(
         universe.user_symbols_override
         or universe.unresolved_tokens
         or universe.inferred_symbols
         or asks
+        or universe.symbol_ask_answers
         or hints
         or mixed
     )
@@ -101,7 +102,11 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
         code = "SYMBOL_UNRESOLVED"
     elif asks:
         blocked = True
-        code = "SYMBOL_ASK_PENDING"
+        code = (
+            "SYMBOL_AMOUNT_LIKE"
+            if all(len(ask) > 2 and ask[2] == "amount" for ask in asks)
+            else "SYMBOL_ASK_PENDING"
+        )
     elif mixed:
         blocked = True
         code = "SYMBOL_MIXED_MARKETS"
@@ -140,7 +145,14 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
         "symbols": visible_symbols,
         "inferred": inferred,
         "editable": True,
-        "asks": [{"token": raw, "symbol": canonical} for raw, canonical in asks],
+        "asks": [
+            {"token": ask[0], "symbol": ask[1], "kind": ask[2] if len(ask) > 2 else "ask"}
+            for ask in asks
+        ],
+        "answers": [
+            {"token": token, "symbol": canonical, "kind": kind, "accept": accept}
+            for token, canonical, kind, accept in universe.symbol_ask_answers
+        ],
         "hints": [{"token": raw, "symbol": canonical} for raw, canonical in hints],
         "poolCount": pool_count,
         "cnSymbols": "、".join(cn) if mixed else None,

@@ -17,10 +17,12 @@ from pathlib import Path
 
 _CN_CODE = re.compile(r"(?<!\d)(\d{6})(?:\.([A-Za-z]{2}))?(?!\d)")
 # 1–5 letters so Ford's "F" is visible. A CJK neighbor is "A股", not a ticker.
+# ASCII boundaries only. CJK is not an ASCII word character, so 美股AAPL均值回归
+# still yields AAPL. The letter A in A股 is rejected later, not by this pattern.
 _US_TOKEN = re.compile(
-    r"(?<![A-Za-z0-9$])(?<![\u4e00-\u9fff])"
+    r"(?<![A-Za-z0-9$])"
     r"([A-Za-z]{1,5}(?:[.\-][A-Za-z])?)"
-    r"(?![A-Za-z])(?![\u4e00-\u9fff])"
+    r"(?![A-Za-z0-9])"
 )
 _MARKED_TICKER = re.compile(
     r"(?<![A-Za-z0-9])\$([A-Za-z]{1,5}(?:[.\-][A-Za-z])?)(?![A-Za-z])"
@@ -54,16 +56,25 @@ for _prefixes, _suffix in (
 _UNCERTAIN_PREFIX2 = frozenset({"11", "12", "13", "16", "18", "50", "52", "82", "88"})
 _UNCERTAIN_PREFIX3 = frozenset({"900", "200"})
 
-# Closed technical-analysis vocabulary. Not a list of English words.
+# Closed technical-analysis and finance vocabulary. Not a list of English words.
+# A member that is also a real listing is asked about; the others stay prose.
 _INDICATORS = frozenset({
     "RSI", "MACD", "KDJ", "BOLL", "ATR", "SMA", "EMA", "VWAP", "OBV", "CCI",
     "ADX", "STOCH", "ROC", "MFI", "DMI", "SAR", "PSY", "BIAS", "TRIX", "DMA", "EMV",
 })
+_FINANCE = frozenset({
+    "PE", "PB", "PS", "TTM", "EPS", "ROE", "ROA", "YOY", "QOQ", "EBITDA",
+    "ROIC", "CAGR", "NAV", "AUM", "IPO", "EBIT", "DPS", "BPS", "FCF", "WACC", "PEG",
+})
+_CN_MARKET = re.compile(r"A\s*股|沪|深|中国")
+_US_MARKET = re.compile(r"美股|美国")
+_SETTLEMENT = re.compile(r"\+\s*[0-2](?!\d)")
 
 # Real listings that are not S&P 500 constituents. The dialogue already names these.
 _INDEX_ETFS = frozenset({"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI"})
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 _COMMON_WORDS_PATH = _DATA_DIR / "en_common_words.txt"
+_US_LISTINGS_PATH = _DATA_DIR / "us_listings.txt"
 _A_SHARE = re.compile(r"\s*股")
 # A vowel keeps an ordinary all-caps word (ETF, CAPS) out of the ticker list.
 # The common-word file is only Zipf >= 4.5, so this is what still separates
@@ -125,8 +136,16 @@ def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[Sy
         code = match.group(1)
         suffix = match.group(2)
         if _is_quantity(text, match.end()):
-            if listing_disposition(code) is not None:
-                found.append(SymbolMention(raw, None, False))
+            if suffix is not None and suffix.upper() in _LISTED_SUFFIXES:
+                found.append(SymbolMention(raw, f"{code}.{suffix.upper()}", False, "amount"))
+                occupied.append(match.span())
+                continue
+            venue = suffix_for_listed_code(code)
+            if venue is not None:
+                found.append(SymbolMention(code, f"{code}.{venue}", False, "amount"))
+                occupied.append(match.span())
+            elif listing_disposition(code) is not None:
+                found.append(SymbolMention(code, None, False))
                 occupied.append(match.span())
             continue
         if suffix is not None:
@@ -186,13 +205,15 @@ def _is_indicator(token: str) -> bool:
 @lru_cache(maxsize=1)
 def common_english_words() -> frozenset[str]:
     """Zipf >= 4.5 alphabetic words. See the file header and NOTICE."""
-    return _load_word_file(_COMMON_WORDS_PATH)
+    return _load_word_file(_COMMON_WORDS_PATH, lower=True)
 
 
-def _load_word_file(path: Path) -> frozenset[str]:
+def _load_word_file(path: Path, *, lower: bool = True) -> frozenset[str]:
     words: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
-        word = line.strip().lower()
+        word = line.strip()
+        if lower:
+            word = word.lower()
         if word and not word.startswith("#"):
             words.add(word)
     return frozenset(words)
@@ -200,32 +221,50 @@ def _load_word_file(path: Path) -> frozenset[str]:
 
 @lru_cache(maxsize=1)
 def us_listings() -> frozenset[str]:
-    """S&P pool in Yahoo form, plus the index ETFs the dialogue already names."""
-    from engine.research.models import AssetClass, Market
-    from engine.research.symbol_pool import pool_for_market
-
+    """NASDAQ Trader directory in Yahoo form, plus the index ETFs already named."""
     symbols = set(_INDEX_ETFS)
-    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
-    if pool is not None:
-        symbols.update(_yahoo(symbol) for symbol in pool.symbols)
+    symbols.update(_load_word_file(_US_LISTINGS_PATH, lower=False))
     return frozenset(symbols)
+
+
+def _term(token: str) -> str | None:
+    base = _word_key(token).upper()
+    if base in _FINANCE or token.upper() in _FINANCE:
+        return "finance"
+    if base in _INDICATORS or token.upper() in _INDICATORS:
+        return "indicator"
+    return None
+
+
+def _cn_single_letter(text: str, token: str) -> bool:
+    if len(_word_key(token)) != 1 or _US_MARKET.search(text):
+        return False
+    return _CN_MARKET.search(text) is not None
 
 
 def _us_mention(text: str, match: re.Match[str], *, prose_filter: bool) -> SymbolMention | None:
     token = match.group(1)
-    if _is_indicator(token):
+    if token.upper() in {"USD", "CNY", "HKD", "RMB"} and re.search(r"\d\s*$", text[: match.start()]):
+        return None
+    if token.upper() == "T" and _SETTLEMENT.match(text[match.end():]):
         return None
     if token.upper() == "A" and _A_SHARE.match(text[match.end():]):
+        return None
+    if _cn_single_letter(text, token):
         return None
     canonical = _yahoo(token)
     if not prose_filter:
         return SymbolMention(token, canonical, True)
     listed = canonical in us_listings()
+    term = _term(token)
+    if term and not listed:
+        return None
     key = _word_key(token)
     if _all_caps(token):
         common = key in common_english_words()
-        if listed and common:
-            return SymbolMention(token, canonical, False, "ask")
+        if listed and (common or term):
+            kind = "finance" if term else "ask"
+            return SymbolMention(token, canonical, False, kind)
         if listed:
             return SymbolMention(token, canonical, True)
         if common or any(char in _VOWEL for char in key):

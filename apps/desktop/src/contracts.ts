@@ -44,6 +44,7 @@ export interface SymbolResolution {
     | "SYMBOL_NO_DATA"
     | "SYMBOL_ETF_UNSUPPORTED"
     | "SYMBOL_ASK_PENDING"
+    | "SYMBOL_AMOUNT_LIKE"
     | "SYMBOL_MIXED_MARKETS"
     | null;
   token?: string | null;
@@ -51,7 +52,8 @@ export interface SymbolResolution {
   symbols: readonly string[];
   inferred: readonly {raw: string; symbol: string}[];
   editable: boolean;
-  asks?: readonly {token: string; symbol: string}[];
+  asks?: readonly {token: string; symbol: string; kind?: "ask" | "finance" | "amount"}[];
+  answers?: readonly {token: string; symbol: string; kind?: string; accept: boolean}[];
   hints?: readonly {token: string; symbol: string}[];
   poolCount?: number | null;
   cnSymbols?: string | null;
@@ -312,6 +314,8 @@ export interface DesktopApi {
   answerSymbolAsk(researchId: string, token: string, accept: boolean): Promise<void>;
   /** One click on the default-pool hint. Sets that ticker as the symbol. */
   useHintedSymbol(researchId: string, symbol: string): Promise<void>;
+  revertSymbolAsk(researchId: string, token: string): Promise<void>;
+  removeMarketSide(researchId: string, side: "cn" | "us"): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

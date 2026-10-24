@@ -110,7 +110,8 @@ class Universe:
     user_symbols_override: bool = False
     unresolved_tokens: tuple[str, ...] = ()
     inferred_symbols: tuple[tuple[str, str], ...] = ()
-    symbol_asks: tuple[tuple[str, str], ...] = ()
+    symbol_asks: tuple[tuple[str, str, str], ...] = ()
+    symbol_ask_answers: tuple[tuple[str, str, str, bool], ...] = ()
     ticker_hints: tuple[tuple[str, str], ...] = ()
     recognition_hidden: bool = False
 

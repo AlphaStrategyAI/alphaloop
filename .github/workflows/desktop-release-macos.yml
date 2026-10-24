@@ -63,6 +63,11 @@ jobs:
               "$OUT/alphaloop-macos-${SHORT_SHA}.dmg"
           fi
           ls -la "$OUT"
+          if ! find "$APP" -name NOTICE | grep -q NOTICE; then
+            echo "NOTICE is missing from the macOS app bundle"
+            find "$APP" -maxdepth 4 -type d || true
+            exit 1
+          fi
 
       - name: Upload macOS bundles
         uses: actions/upload-artifact@v4

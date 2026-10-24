@@ -72,6 +72,12 @@ describe("error codes", () => {
     expect(localizeError("en", {code: "SYMBOL_ETF_UNSUPPORTED", params: {symbol: "510300.SH"}}).summary).toBe(
       "The selected data source doesn't support China A-share ETF prices yet (510300.SH), so the run can't start.",
     );
+    expect(localizeError("zh", {code: "SYMBOL_AMOUNT_LIKE", params: {token: "600519", symbol: "600519.SH"}}).summary).toBe(
+      "「600519」看起来像金额，也可能是代码 600519.SH。要把它当作标的吗？",
+    );
+    expect(localizeError("en", {code: "SYMBOL_AMOUNT_LIKE", params: {token: "600519", symbol: "600519.SH"}}).summary).toBe(
+      '"600519" looks like an amount, but it could also be the symbol 600519.SH. Use it as a symbol?',
+    );
     expect(localizeError("zh", {code: "SYMBOL_ASK_PENDING"}).summary).toBe("先确认上面的代码再开跑。");
     expect(localizeError("en", {code: "SYMBOL_ASK_PENDING"}).summary).toBe(
       "Confirm the symbols above before running.",

@@ -42,6 +42,8 @@ from engine.research.universe_validation import (
     apply_symbol_edit,
     ensure_runnable_universe,
     refresh_symbol_probe,
+    remove_market_side,
+    revert_symbol_ask,
     use_hinted_symbol,
 )
 from engine.i18n.errors import build_error_envelope, redact_technical_detail
@@ -1145,6 +1147,14 @@ class ResearchCommandService:
         if kind == "use_hinted_symbol":
             research = self.store.load(str(request["research_id"]))
             updated = use_hinted_symbol(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "revert_symbol_ask":
+            research = self.store.load(str(request["research_id"]))
+            updated = revert_symbol_ask(research, str(request["token"]), now)
+            return self._save(research, updated)
+        if kind == "remove_market_side":
+            research = self.store.load(str(request["research_id"]))
+            updated = remove_market_side(research, str(request["side"]), now)
             return self._save(research, updated)
 
         research = self.store.load(request["research_id"])

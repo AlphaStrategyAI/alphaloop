@@ -164,6 +164,30 @@ export function buildUiMessages(copy: Copy) {
         true,
       ),
       setAsSymbol: copy("设为标的", "Use as symbol", true),
+      amountAsk: copy(
+        "「{{token}}」看起来像金额，也可能是代码 {{symbol}}。要把它当作标的吗？",
+        '"{{token}}" looks like an amount, but it could also be the symbol {{symbol}}. Use it as a symbol?',
+        true,
+      ),
+      financeAsk: copy(
+        "「{{token}}」是美股代码 {{symbol}}，也是金融缩写。要把它当作标的吗？",
+        '"{{token}}" is the US ticker {{symbol}} and also a finance abbreviation. Use it as a symbol?',
+      ),
+      poolHintMany: copy(
+        "没有识别到标的，将使用默认池（{{n}} 只）。你是指下面的代码吗？",
+        "No symbol recognized, so the run will use the default pool ({{n}} names). Did you mean one of these?",
+        true,
+      ),
+      poolHintManyOne: copy(
+        "没有识别到标的，将使用默认池（{{n}} 只）。你是指下面的代码吗？",
+        "No symbol recognized, so the run will use the default pool ({{n}} name). Did you mean one of these?",
+        true,
+      ),
+      removeCn: copy("移除 A 股标的", "Remove A-share symbols", true),
+      removeUs: copy("移除美股标的", "Remove US symbols", true),
+      usedAsSymbol: copy("已当作标的：{{symbol}} · ", "Used as symbol: {{symbol}} · ", true),
+      treatedAsText: copy("「{{token}}」按文字处理 · ", '"{{token}}" treated as text · ', true),
+      changeAnswer: copy("更改", "Change", true),
       removeSymbol: copy("移除", "Remove"),
       mixedMarkets: copy(
         "一次研究只能用同一个市场的标的，这里既有 A 股（{{cn_symbols}}），也有美股（{{us_symbols}}）。请删掉其中一边。",

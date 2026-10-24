@@ -102,7 +102,7 @@ def test_quantities_and_non_listings_are_not_symbols(text: str) -> None:
 
 def test_a_real_code_next_to_a_unit_is_a_quantity() -> None:
     assert extract_symbol_mentions("准备 600519元") == (
-        SymbolMention(raw="600519", canonical=None, inferred=False),
+        SymbolMention(raw="600519", canonical="600519.SH", inferred=False, kind="amount"),
     )
     assert extract_symbol_mentions("关注600519的走势") == (
         SymbolMention(raw="600519", canonical="600519.SH", inferred=True),
@@ -117,8 +117,11 @@ def test_six_digits_inside_a_longer_number_are_not_a_symbol() -> None:
 def test_ordinary_english_is_not_read_as_tickers() -> None:
     text = "mean reversion on large cap US stocks with daily prices and an ETF sleeve"
     mentions = extract_symbol_mentions(text)
-    assert mentions == (SymbolMention(raw="on", canonical="ON", inferred=False, kind="hint"),)
-    assert all(mention.kind != "symbol" for mention in mentions)
+    assert mentions == (
+        SymbolMention(raw="on", canonical="ON", inferred=False, kind="hint"),
+        SymbolMention(raw="an", canonical="AN", inferred=False, kind="hint"),
+    )
+    assert all(mention.kind == "hint" for mention in mentions)
 
 
 def test_ordinary_chinese_is_not_read_as_tickers() -> None:
@@ -131,8 +134,10 @@ def test_uppercasing_prose_does_not_invent_tickers() -> None:
     text = "THE MEAN REVERSION ETF AND US STOCKS FOR A DAILY LOW CAP FUND"
     mentions = extract_symbol_mentions(text)
     assert [(mention.raw, mention.kind, mention.canonical) for mention in mentions] == [
+        ("FOR", "ask", "FOR"),
         ("A", "ask", "A"),
         ("LOW", "ask", "LOW"),
+        ("FUND", "ask", "FUND"),
     ]
 
 
@@ -177,13 +182,30 @@ def test_symbol_field_accepts_a_bare_code_and_a_lowercase_ticker() -> None:
     )
 
 
-@pytest.mark.parametrize("text", ["RSI", "MACD", "KDJ", "BOLL", "ATR", "SMA", "EMA", "VWAP"])
-def test_indicator_names_are_not_tickers(text: str) -> None:
-    assert extract_symbol_mentions(f"A股股票 {text} 均值回归") == ()
+@pytest.mark.parametrize(
+    ("text", "kind"),
+    [
+        ("RSI", "finance"),
+        ("MACD", None),
+        ("KDJ", None),
+        ("BOLL", None),
+        ("ATR", "finance"),
+        ("SMA", "finance"),
+        ("EMA", "finance"),
+        ("VWAP", None),
+    ],
+)
+def test_indicator_names_are_not_tickers(text: str, kind: str | None) -> None:
+    mentions = extract_symbol_mentions(f"A股股票 {text} 均值回归")
+    if kind is None:
+        assert mentions == ()
+    else:
+        assert mentions == (SymbolMention(raw=text, canonical=text, inferred=False, kind=kind),)
 
 
 def test_all_caps_prose_is_not_a_ticker() -> None:
     assert extract_symbol_mentions("A股股票 FIND CAPS TECH 均值回归") == (
+        SymbolMention(raw="CAPS", canonical="CAPS", inferred=True),
         SymbolMention(raw="TECH", canonical="TECH", inferred=False, kind="ask"),
     )
 
@@ -228,7 +250,9 @@ def test_held_out_listing_is_not_silently_dropped(token: str, kind: str) -> None
 
 
 def test_all_caps_prose_without_a_listing_is_not_a_ticker() -> None:
-    assert extract_symbol_mentions("I THINK THE MARKET IS UP") == ()
+    assert extract_symbol_mentions("I THINK THE MARKET IS UP") == (
+        SymbolMention(raw="UP", canonical="UP", inferred=False, kind="ask"),
+    )
 
 
 @pytest.mark.parametrize(
@@ -249,6 +273,56 @@ def test_dollar_marker_any_case_is_a_symbol() -> None:
         SymbolMention(raw="$spy", canonical="SPY", inferred=True),
         SymbolMention(raw="$COST", canonical="COST", inferred=True),
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("美股AAPL均值回归", (("AAPL", "AAPL", "symbol"),)),
+        ("用AAPL做均值回归", (("AAPL", "AAPL", "symbol"),)),
+        ("美股NVDA和TSLA", (("NVDA", "NVDA", "symbol"), ("TSLA", "TSLA", "symbol"))),
+        ("A股600519", (("600519", "600519.SH", "symbol"),)),
+        ("A股600519股价", (("600519", "600519.SH", "symbol"),)),
+    ],
+)
+def test_cjk_touching_a_token_is_still_a_boundary(text: str, expected: tuple[tuple[str, str, str], ...]) -> None:
+    mentions = extract_symbol_mentions(text)
+    assert tuple((item.raw, item.canonical, item.kind) for item in mentions) == expected
+
+
+@pytest.mark.parametrize(
+    ("token", "kind"),
+    [
+        ("BABA", "symbol"),
+        ("NIO", "symbol"),
+        ("SHOP", "ask"),
+        ("CAN", "ask"),
+        ("GO", "ask"),
+        ("OPEN", "ask"),
+        ("REAL", "ask"),
+        ("COST", "ask"),
+        ("ON", "ask"),
+        ("IT", "ask"),
+        ("LOW", "ask"),
+        ("F", "ask"),
+        ("TECH", "ask"),
+        ("NOW", "ask"),
+        ("META", "symbol"),
+        ("AAPL", "symbol"),
+        ("SPY", "symbol"),
+    ],
+)
+def test_nasdaq_held_out_listing_is_not_silently_dropped(token: str, kind: str) -> None:
+    mentions = extract_symbol_mentions(f"美股股票 {token} 的均值回归")
+    assert mentions == (
+        SymbolMention(raw=token, canonical=token, inferred=kind == "symbol", kind=kind),
+    )
+
+
+def test_settlement_notation_and_a_share_single_letter_stay_prose() -> None:
+    assert extract_symbol_mentions("A股 T+1") == ()
+    assert extract_symbol_mentions("A股 T+0 和 T+2") == ()
+    assert extract_symbol_mentions("A股股票 T 均值回归") == ()
 
 
 def test_spaced_a_share_is_not_the_agilent_ticker() -> None:
@@ -276,7 +350,9 @@ def test_common_word_list_comes_from_the_frequency_file() -> None:
     assert "spy" not in common and "meta" not in common and "aapl" not in common
     assert "zzzzq" not in common
     assert extract_symbol_mentions("ETF") == ()
-    assert extract_symbol_mentions("CAPS") == ()
+    assert extract_symbol_mentions("CAPS") == (
+        SymbolMention(raw="CAPS", canonical="CAPS", inferred=True),
+    )
     assert "CC-BY-SA 4.0" in notice
     assert "Apache License 2.0" in notice
     assert "share-alike" in notice

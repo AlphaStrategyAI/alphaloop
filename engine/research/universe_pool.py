@@ -40,7 +40,8 @@ def materialize_default_pool(research: Research) -> Research:
         symbol_list_version=pool.version_id,
         user_symbols_override=False,
         ticker_hints=universe.ticker_hints,
-        recognition_hidden=universe.recognition_hidden,
+        symbol_ask_answers=universe.symbol_ask_answers,
+        recognition_hidden=universe.recognition_hidden
     )
     brief = replace(research.brief, universe=Slot(updated, True))
     return replace(

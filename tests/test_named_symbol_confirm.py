@@ -42,6 +42,18 @@ def _draft(service: ResearchCommandService) -> str:
     return service.handle({"type": "create_draft"})["research_id"]
 
 
+def _confirm(service: ResearchCommandService, research_id: str) -> dict:
+    """Pass the source #151 requires so the symbol check is what confirm_run answers."""
+    return service.handle(
+        {
+            "type": "confirm_run",
+            "research_id": research_id,
+            "data_source_id": "yahoo_daily",
+            "unlicensed_acknowledged": True,
+        }
+    )
+
+
 class _NoBars:
     def __init__(self, missing: frozenset[str]) -> None:
         self.missing = missing
@@ -105,7 +117,7 @@ def test_bare_code_confirm_card_shows_the_inference_and_not_the_pool(tmp_path: P
     assert pool is not None
     assert selection["count"] != len(pool.symbols)
 
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     loaded = service.store.load(research_id)
     assert loaded.brief.universe.value.symbols == ("600519.SH",)
 
@@ -149,7 +161,7 @@ def test_uncertain_code_names_the_token_and_confirm_run_rejects_it(tmp_path: Pat
     assert stored.brief.universe.value.symbols != pool.symbols
 
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_UNRESOLVED"
     assert exc.value.params["token"] == "900901"
     assert exc.value.message == (
@@ -173,7 +185,7 @@ def test_resolved_symbol_with_no_bars_blocks_confirm_run(tmp_path: Path) -> None
     assert service.store.load(research_id).brief.universe.value.symbols != pool.symbols
 
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_NO_DATA"
     assert exc.value.params["symbol"] == "609999.SH"
     assert exc.value.message == (
@@ -204,7 +216,7 @@ def test_amount_with_a_unit_stays_on_the_default_pool(tmp_path: Path) -> None:
     assert view["symbolSelection"]["count"] == len(pool.symbols)
     resolution = view.get("symbolResolution")
     assert resolution is None or resolution["blocked"] is False
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
 
 
@@ -215,12 +227,15 @@ def test_indicators_and_all_caps_prose_are_not_a_fake_universe(tmp_path: Path) -
     resolution = view["symbolResolution"]
     assert resolution["blocked"] is True
     assert resolution["code"] == "SYMBOL_ASK_PENDING"
-    assert resolution["asks"] == [{"token": "TECH", "symbol": "TECH"}]
-    assert resolution["symbols"] == []
+    assert resolution["asks"] == [
+        {"token": "RSI", "symbol": "RSI", "kind": "finance"},
+        {"token": "TECH", "symbol": "TECH", "kind": "ask"},
+    ]
+    assert resolution["symbols"] == ["CAPS"]
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_ASK_PENDING"
-    assert service.store.load(research_id).brief.universe.value.symbols == ()
+    assert service.store.load(research_id).brief.universe.value.symbols == ("CAPS",)
 
 
 def test_spy_is_recognized_and_can_run(tmp_path: Path) -> None:
@@ -230,7 +245,7 @@ def test_spy_is_recognized_and_can_run(tmp_path: Path) -> None:
     assert view["symbolSelection"]["symbols"] == ["SPY"]
     assert view["symbolResolution"]["blocked"] is False
     assert view["symbolResolution"]["inferred"] == [{"raw": "SPY", "symbol": "SPY"}]
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == ("SPY",)
 
 
@@ -245,7 +260,7 @@ def test_fake_us_ticker_with_no_bars_blocks_confirm_run(tmp_path: Path) -> None:
     assert resolution["symbol"] == "ZZZZQ"
     assert resolution["inferred"] == [{"raw": "ZZZZQ", "symbol": "ZZZZQ"}]
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_NO_DATA"
     assert exc.value.params["symbol"] == "ZZZZQ"
     assert exc.value.message == "所选数据源没有 ZZZZQ 的行情，无法开跑。请改代码或换数据源。"
@@ -264,7 +279,7 @@ def test_empty_price_frame_for_a_named_ticker_is_no_data_not_an_outage(tmp_path:
     assert view["symbolResolution"]["blocked"] is True
     assert view["symbolResolution"]["code"] == "SYMBOL_NO_DATA"
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_NO_DATA"
 
 
@@ -278,7 +293,7 @@ def test_china_etf_on_akshare_blocks_without_calling_it_no_data(tmp_path: Path) 
     assert resolution["symbol"] == "510300.SH"
     assert resolution["inferred"] == [{"raw": "510300", "symbol": "510300.SH"}]
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_ETF_UNSUPPORTED"
     assert exc.value.params["symbol"] == "510300.SH"
     assert exc.value.message == "所选数据源暂不支持 A 股 ETF 行情（510300.SH），无法开跑。"
@@ -294,7 +309,7 @@ def test_description_with_no_symbol_still_uses_the_default_pool(tmp_path: Path) 
     assert view["symbolSelection"]["symbols"] == list(pool.symbols)
     assert view["symbolSelection"]["count"] == len(pool.symbols)
     assert view.get("symbolResolution") in (None, {"editable": False, "blocked": False})
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
 
 
@@ -309,10 +324,10 @@ def test_ordinary_english_and_chinese_do_not_block_the_default_pool(tmp_path: Pa
     )
     resolution = view["symbolResolution"]
     assert resolution["blocked"] is True
-    assert resolution["asks"] == [{"token": "LOW", "symbol": "LOW"}]
+    assert resolution["asks"] == [{"token": "LOW", "symbol": "LOW", "kind": "ask"}]
     assert "CAP" not in [ask["token"] for ask in resolution["asks"]]
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_ASK_PENDING"
 
 
@@ -330,7 +345,7 @@ def test_editing_the_symbol_on_the_card_replaces_the_unresolved_token(tmp_path: 
     view = service.view_for(f"#/research/{research_id}")
     assert view["symbolResolution"]["blocked"] is False
     assert view["symbolSelection"]["symbols"] == ["900901.SH"]
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == ("900901.SH",)
 
 
@@ -339,7 +354,7 @@ def test_named_symbol_below_the_floor_does_not_expand_to_the_pool(tmp_path: Path
     research_id = _draft(service)
     _fill(service, research_id, "A股股票 600519 均值回归", FLOOR_MANY)
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "UNIVERSE_TOO_FEW_SYMBOLS"
     assert service.store.load(research_id).brief.universe.value.symbols == ("600519.SH",)
 
@@ -379,7 +394,7 @@ def test_share_price_keeps_the_code_and_a_real_quantity_is_named(tmp_path: Path)
     view = _fill(service, research_id, "A股 600519股价均值回归", FLOOR_ONE)
     assert view["symbolSelection"]["symbols"] == ["600519.SH"]
     assert view["symbolResolution"]["inferred"] == [{"raw": "600519", "symbol": "600519.SH"}]
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == ("600519.SH",)
 
     research_id = _draft(service)
@@ -396,11 +411,14 @@ def test_share_price_keeps_the_code_and_a_real_quantity_is_named(tmp_path: Path)
     research_id = _draft(service)
     view = _fill(service, research_id, "A股 准备 600519元 均值回归", FLOOR_ONE)
     assert view["symbolResolution"]["blocked"] is True
-    assert view["symbolResolution"]["code"] == "SYMBOL_UNRESOLVED"
-    assert "600519" in view["symbolResolution"]["token"]
+    assert view["symbolResolution"]["code"] == "SYMBOL_AMOUNT_LIKE"
+    assert view["symbolResolution"]["asks"] == [
+        {"token": "600519", "symbol": "600519.SH", "kind": "amount"},
+    ]
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
-    assert exc.value.code == "SYMBOL_UNRESOLVED"
+        _confirm(service, research_id)
+    assert exc.value.code == "SYMBOL_AMOUNT_LIKE"
+    assert "交易所" not in exc.value.message
     assert service.store.load(research_id).brief.universe.value.symbols == ()
 
 
@@ -410,9 +428,9 @@ def test_cost_ask_accepts_or_rejects_through_the_engine(tmp_path: Path) -> None:
     view = _fill(service, research_id, "美股股票 COST 的均值回归", FLOOR_ONE)
     assert view["symbolResolution"]["blocked"] is True
     assert view["symbolResolution"]["code"] == "SYMBOL_ASK_PENDING"
-    assert view["symbolResolution"]["asks"] == [{"token": "COST", "symbol": "COST"}]
+    assert view["symbolResolution"]["asks"] == [{"token": "COST", "symbol": "COST", "kind": "ask"}]
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_ASK_PENDING"
     assert exc.value.message == "先确认上面的代码再开跑。"
 
@@ -428,7 +446,7 @@ def test_cost_ask_accepts_or_rejects_through_the_engine(tmp_path: Path) -> None:
     assert view["symbolResolution"]["blocked"] is False
     assert view["symbolResolution"]["asks"] == []
     assert view["symbolSelection"]["symbols"] == ["COST"]
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == ("COST",)
 
     research_id = _draft(service)
@@ -446,7 +464,7 @@ def test_cost_ask_accepts_or_rejects_through_the_engine(tmp_path: Path) -> None:
     assert pool is not None
     assert view["symbolSelection"]["symbols"] == list(pool.symbols)
     assert view.get("symbolResolution") in (None,) or view["symbolResolution"]["blocked"] is False
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
 
 
@@ -457,7 +475,7 @@ def test_dollar_spy_is_recognized_in_any_case(tmp_path: Path) -> None:
     assert view["symbolResolution"]["blocked"] is False
     assert view["symbolResolution"]["inferred"] == [{"raw": "$spy", "symbol": "SPY"}]
     assert view["symbolSelection"]["symbols"] == ["SPY"]
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == ("SPY",)
 
 
@@ -472,7 +490,7 @@ def test_lowercase_spy_hints_and_one_click_sets_the_symbol(tmp_path: Path) -> No
     assert resolution["hints"] == [{"token": "spy", "symbol": "SPY"}]
     assert resolution["poolCount"] == len(pool.symbols)
     assert view["symbolSelection"]["symbols"] == list(pool.symbols)
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
 
     research_id = _draft(service)
@@ -485,7 +503,7 @@ def test_lowercase_spy_hints_and_one_click_sets_the_symbol(tmp_path: Path) -> No
     assert view["symbolResolution"]["inferred"] == []
     assert view["symbolResolution"]["hints"] == []
     assert view["symbolResolution"]["blocked"] is False
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    _confirm(service, research_id)
     assert service.store.load(research_id).brief.universe.value.symbols == ("SPY",)
 
 
@@ -499,7 +517,7 @@ def test_mixed_markets_block_before_any_benchmark(tmp_path: Path) -> None:
     assert resolution["cnSymbols"] == "600519.SH"
     assert resolution["usSymbols"] == "SPY"
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
     assert exc.value.code == "SYMBOL_MIXED_MARKETS"
     assert exc.value.message == (
         "一次研究只能用同一个市场的标的，这里既有 A 股（600519.SH），也有美股（SPY）。请删掉其中一边。"
@@ -516,7 +534,7 @@ def test_share_class_dot_and_hyphen_both_store_yahoo_form(tmp_path: Path) -> Non
         view = _fill(service, research_id, text, FLOOR_ONE)
         assert view["symbolSelection"]["symbols"] == ["BRK-B"]
         assert view["symbolResolution"]["inferred"][0]["symbol"] == "BRK-B"
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        _confirm(service, research_id)
         assert service.store.load(research_id).brief.universe.value.symbols == ("BRK-B",)
 
 
@@ -549,11 +567,91 @@ def test_manual_edit_hides_recognition_and_clearing_does_not_restore_it(tmp_path
     assert view.get("symbolResolution") is None
 
 
+def test_glued_tickers_do_not_fall_through_to_the_pool(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股AAPL均值回归", FLOOR_ONE)
+    assert view["kind"] == "confirm_run"
+    assert view["symbolSelection"]["symbols"] == ["AAPL"]
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["count"] != len(pool.symbols)
+    _confirm(service, research_id)
+    assert service.store.load(research_id).brief.universe.value.symbols == ("AAPL",)
+
+    research_id = _draft(service)
+    view = _fill(service, research_id, "用AAPL做均值回归", FLOOR_ONE)
+    assert view["kind"] == "confirm_run"
+    assert view["symbolSelection"]["symbols"] == ["AAPL"]
+
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股NVDA和TSLA均值回归", FLOOR_ONE)
+    assert view["symbolSelection"]["symbols"] == ["NVDA", "TSLA"]
+
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股600519均值回归", FLOOR_ONE)
+    assert view["symbolSelection"]["symbols"] == ["600519.SH"]
+
+
+def test_baba_with_no_bars_is_symbol_no_data(tmp_path: Path) -> None:
+    set_pool_data_loader(_NoBars(frozenset({"BABA"})))
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "美股股票 BABA 的均值回归", FLOOR_ONE)
+    assert view["symbolResolution"]["inferred"] == [{"raw": "BABA", "symbol": "BABA"}]
+    assert view["symbolResolution"]["code"] == "SYMBOL_NO_DATA"
+    with pytest.raises(UserFacingError) as exc:
+        _confirm(service, research_id)
+    assert exc.value.code == "SYMBOL_NO_DATA"
+
+
+def test_amount_like_ask_answers_both_ways_and_can_change(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股 准备 600519元 均值回归", FLOOR_ONE)
+    assert view["symbolResolution"]["code"] == "SYMBOL_AMOUNT_LIKE"
+    service.handle(
+        {"type": "answer_symbol_ask", "research_id": research_id, "token": "600519", "accept": True}
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolSelection"]["symbols"] == ["600519.SH"]
+    assert view["symbolResolution"]["answers"] == [
+        {"token": "600519", "symbol": "600519.SH", "kind": "amount", "accept": True}
+    ]
+    service.handle({"type": "revert_symbol_ask", "research_id": research_id, "token": "600519"})
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolResolution"]["blocked"] is True
+    assert view["symbolResolution"]["asks"][0]["kind"] == "amount"
+    service.handle(
+        {"type": "answer_symbol_ask", "research_id": research_id, "token": "600519", "accept": False}
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    assert view["symbolResolution"]["answers"][0]["accept"] is False
+
+
+def test_removing_one_market_keeps_the_other_recognition(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    _fill(service, research_id, "600519 和 SPY 的均值回归", FLOOR_ONE)
+    service.handle({"type": "remove_market_side", "research_id": research_id, "side": "us"})
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolResolution"]["code"] != "SYMBOL_MIXED_MARKETS"
+    assert view["symbolResolution"]["inferred"] == [{"raw": "600519", "symbol": "600519.SH"}]
+    assert view["symbolSelection"]["symbols"] == ["600519.SH"]
+    research_id = _draft(service)
+    _fill(service, research_id, "600519 和 SPY 的均值回归", FLOOR_ONE)
+    service.handle({"type": "remove_market_side", "research_id": research_id, "side": "cn"})
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolResolution"]["inferred"] == [{"raw": "SPY", "symbol": "SPY"}]
+    assert view["symbolSelection"]["symbols"] == ["SPY"]
+
+
 def test_held_out_prose_uses_the_pool(tmp_path: Path) -> None:
     service = _service(tmp_path)
     research_id = _draft(service)
     view = _fill(service, research_id, "美股股票 I THINK THE MARKET IS UP 均值回归", FLOOR_MANY)
-    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
-    assert pool is not None
-    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
-    assert view.get("symbolResolution") is None
+    assert view["symbolResolution"]["asks"] == [{"token": "UP", "symbol": "UP", "kind": "ask"}]
+    assert view["symbolResolution"]["blocked"] is True

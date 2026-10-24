@@ -300,6 +300,54 @@ pub async fn answer_symbol_ask(
     .map(|_| ())
 }
 
+pub(crate) fn revert_symbol_ask_request(research_id: &str, token: &str) -> Value {
+    json!({
+        "type": "revert_symbol_ask",
+        "research_id": research_id,
+        "token": token,
+    })
+}
+
+#[tauri::command]
+pub async fn revert_symbol_ask(
+    research_id: String,
+    token: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        revert_symbol_ask_request(&research_id, &token),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn remove_market_side_request(research_id: &str, side: &str) -> Value {
+    json!({
+        "type": "remove_market_side",
+        "research_id": research_id,
+        "side": side,
+    })
+}
+
+#[tauri::command]
+pub async fn remove_market_side(
+    research_id: String,
+    side: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        remove_market_side_request(&research_id, &side),
+    )
+    .await
+    .map(|_| ())
+}
+
 pub(crate) fn use_hinted_symbol_request(research_id: &str, symbol: &str) -> Value {
     json!({
         "type": "use_hinted_symbol",
@@ -735,8 +783,8 @@ pub async fn secret_failure_preview(
 mod tests {
     use super::{
         EngineConnection, command_timeout_secs, notification_title, notify_kinds,
-        answer_symbol_ask_request, parse_engine_error_body, set_research_symbol_request,
-        use_hinted_symbol_request,
+        answer_symbol_ask_request, parse_engine_error_body, remove_market_side_request,
+        revert_symbol_ask_request, set_research_symbol_request, use_hinted_symbol_request,
     };
     use serde_json::json;
 

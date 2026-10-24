@@ -41,8 +41,8 @@ def universe_with_mentions(universe: Universe, mentions: tuple[SymbolMention, ..
         if mention.kind == "hint" and mention.canonical:
             hints.append((mention.raw, mention.canonical))
             continue
-        if mention.kind == "ask" and mention.canonical:
-            asks.append((mention.raw, mention.canonical))
+        if mention.kind in {"ask", "finance", "amount"} and mention.canonical:
+            asks.append((mention.raw, mention.canonical, mention.kind))
             continue
         if mention.canonical:
             if mention.canonical not in seen:

@@ -8,7 +8,6 @@ from engine.research.models import Research, Slot, Universe
 from engine.research.planned_data_window import (
     AKSHARE_SINA_DATA_SOURCE_ID,
     data_source_id_for_symbol,
-    data_source_id_for_symbols,
     planned_data_window,
 )
 from engine.research.pool_data_shrink import missing_named_symbols, shrink_pool_to_available_data
@@ -22,6 +21,7 @@ _UNRESOLVED = "无法确认「{token}」属于哪个交易所。请选择交易�
 _NO_DATA = "所选数据源没有 {symbol} 的行情，无法开跑。请改代码或换数据源。"
 _ETF_UNSUPPORTED = "所选数据源暂不支持 A 股 ETF 行情（{symbol}），无法开跑。"
 _ASK_PENDING = "先确认上面的代码再开跑。"
+_AMOUNT = "「{token}」看起来像金额，也可能是代码 {symbol}。要把它当作标的吗？"
 _MIXED = "一次研究只能用同一个市场的标的，这里既有 A 股（{cn_symbols}），也有美股（{us_symbols}）。请删掉其中一边。"
 
 
@@ -77,6 +77,13 @@ def reject_pending_symbol_asks(research: Research) -> None:
     universe = research.brief.universe.value
     if universe is None or not universe.symbol_asks:
         return
+    if all(len(ask) > 2 and ask[2] == "amount" for ask in universe.symbol_asks):
+        token, symbol, _kind = universe.symbol_asks[0]
+        raise UserFacingError(
+            "SYMBOL_AMOUNT_LIKE",
+            _AMOUNT.format(token=token, symbol=symbol),
+            params={"token": token, "symbol": symbol},
+        )
     raise UserFacingError("SYMBOL_ASK_PENDING", _ASK_PENDING)
 
 
@@ -176,6 +183,7 @@ def apply_symbol_edit(research: Research, symbol: str, now: datetime) -> Researc
             unresolved_tokens=(),
             inferred_symbols=(),
             symbol_asks=(),
+            symbol_ask_answers=(),
             ticker_hints=(),
             recognition_hidden=True,
         )
@@ -207,6 +215,10 @@ def apply_symbol_edit(research: Research, symbol: str, now: datetime) -> Researc
     )
 
 
+def _ask_kind(ask: tuple[str, ...]) -> str:
+    return ask[2] if len(ask) > 2 else "ask"
+
+
 def answer_symbol_ask(research: Research, token: str, accept: bool, now: datetime) -> Research:
     """Record one ambiguous-ticker answer. The run stays blocked until none remain."""
     _require_draft(research)
@@ -216,6 +228,7 @@ def answer_symbol_ask(research: Research, token: str, accept: bool, now: datetim
     match = next((ask for ask in universe.symbol_asks if ask[0] == token), None)
     if match is None:
         return research
+    kind = _ask_kind(match)
     remaining = tuple(ask for ask in universe.symbol_asks if ask[0] != token)
     symbols = list(universe.symbols)
     dismissed = research.dismissed_symbol_tokens
@@ -224,6 +237,8 @@ def answer_symbol_ask(research: Research, token: str, accept: bool, now: datetim
             symbols.append(match[1])
     else:
         dismissed = _dismissed_with(research, (token,))
+    answers = tuple(answer for answer in universe.symbol_ask_answers if answer[0] != token)
+    answers = (*answers, (token, match[1], kind, accept))
     claimed = bool(symbols or remaining or universe.unresolved_tokens)
     updated = replace(
         universe,
@@ -231,6 +246,7 @@ def answer_symbol_ask(research: Research, token: str, accept: bool, now: datetim
         symbol_list_version=None if claimed else universe.symbol_list_version,
         user_symbols_override=claimed,
         symbol_asks=remaining,
+        symbol_ask_answers=answers,
     )
     brief = replace(research.brief, universe=Slot(updated, research.brief.universe.locked))
     return _cleared_probe(
@@ -262,11 +278,79 @@ def use_hinted_symbol(research: Research, symbol: str, now: datetime) -> Researc
         unresolved_tokens=(),
         inferred_symbols=(),
         symbol_asks=(),
+        symbol_ask_answers=(),
         ticker_hints=(),
         recognition_hidden=True,
     )
     brief = replace(research.brief, universe=Slot(updated, research.brief.universe.locked))
     dismissed = _dismissed_with(research, tuple(raw for raw, _canonical in universe.ticker_hints))
+    return _cleared_probe(
+        research,
+        brief=brief,
+        dismissed_symbol_tokens=dismissed,
+        updated_at=now,
+    )
+
+
+def revert_symbol_ask(research: Research, token: str, now: datetime) -> Research:
+    """Put an answered row back into the ask state and block Run again."""
+    _require_draft(research)
+    universe = research.brief.universe.value
+    if universe is None:
+        raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    match = next((answer for answer in universe.symbol_ask_answers if answer[0] == token), None)
+    if match is None:
+        return research
+    raw, symbol, kind, accept = match
+    answers = tuple(answer for answer in universe.symbol_ask_answers if answer[0] != token)
+    asks = tuple(ask for ask in universe.symbol_asks if ask[0] != token)
+    asks = (*asks, (raw, symbol, kind))
+    symbols = [] if not universe.user_symbols_override else list(universe.symbols)
+    if accept and symbol in symbols:
+        symbols.remove(symbol)
+    dismissed = tuple(item for item in research.dismissed_symbol_tokens if item != raw)
+    updated = replace(
+        universe,
+        symbols=tuple(symbols),
+        symbol_list_version=None,
+        user_symbols_override=True,
+        symbol_asks=asks,
+        symbol_ask_answers=answers,
+    )
+    brief = replace(research.brief, universe=Slot(updated, research.brief.universe.locked))
+    return _cleared_probe(
+        research,
+        brief=brief,
+        dismissed_symbol_tokens=dismissed,
+        updated_at=now,
+    )
+
+
+def remove_market_side(research: Research, side: str, now: datetime) -> Research:
+    """Drop one market from a mixed card and keep the other side's recognition."""
+    _require_draft(research)
+    universe = research.brief.universe.value
+    if universe is None:
+        raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    cn, us = market_symbol_sides(universe.symbols)
+    drop = set(cn if side == "cn" else us)
+    keep = tuple(symbol for symbol in universe.symbols if symbol not in drop)
+    inferred = tuple(
+        pair for pair in universe.inferred_symbols if pair[1] not in drop
+    )
+    dismissed = _dismissed_with(
+        research,
+        tuple(raw for raw, symbol in universe.inferred_symbols if symbol in drop),
+    )
+    updated = replace(
+        universe,
+        symbols=keep,
+        symbol_list_version=None,
+        user_symbols_override=bool(keep or universe.unresolved_tokens or universe.symbol_asks),
+        inferred_symbols=inferred,
+        recognition_hidden=False,
+    )
+    brief = replace(research.brief, universe=Slot(updated, research.brief.universe.locked))
     return _cleared_probe(
         research,
         brief=brief,

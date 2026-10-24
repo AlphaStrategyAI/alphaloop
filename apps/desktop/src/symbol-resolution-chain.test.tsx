@@ -516,4 +516,128 @@ describe("symbol resolution call chain", () => {
       }),
     );
   });
+
+  it("asks about an amount-like code both ways, then change puts the ask back", async () => {
+    const amount = {
+      blocked: true,
+      code: "SYMBOL_AMOUNT_LIKE" as const,
+      token: "600519",
+      symbol: "600519.SH",
+      symbols: [] as string[],
+      inferred: [],
+      editable: true,
+      asks: [{token: "600519", symbol: "600519.SH", kind: "amount" as const}],
+    };
+    const zh = renderCard(ZH, amount);
+    expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
+      "「600519」看起来像金额，也可能是代码 600519.SH。要把它当作标的吗？",
+    );
+    expect(screen.queryByText(/交易所/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("symbol-ask-yes-600519"));
+    await waitFor(() =>
+      expect(zh.invoke).toHaveBeenCalledWith("answer_symbol_ask", {
+        researchId: "r-symbol",
+        token: "600519",
+        accept: true,
+      }),
+    );
+    cleanup();
+    const answered = renderCard(ZH, {
+      ...amount,
+      blocked: false,
+      asks: [],
+      symbols: ["600519.SH"],
+      answers: [{token: "600519", symbol: "600519.SH", kind: "amount", accept: true}],
+    });
+    expect(screen.getByTestId("symbol-ask-answered")).toHaveTextContent("已当作标的：600519.SH · 更改");
+    fireEvent.click(screen.getByTestId("symbol-ask-change-600519"));
+    await waitFor(() =>
+      expect(answered.invoke).toHaveBeenCalledWith("revert_symbol_ask", {
+        researchId: "r-symbol",
+        token: "600519",
+      }),
+    );
+    cleanup();
+    const en = renderCard(EN, amount);
+    expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
+      '"600519" looks like an amount, but it could also be the symbol 600519.SH. Use it as a symbol?',
+    );
+    fireEvent.click(screen.getByTestId("symbol-ask-no-600519"));
+    await waitFor(() =>
+      expect(en.invoke).toHaveBeenCalledWith("answer_symbol_ask", {
+        researchId: "r-symbol",
+        token: "600519",
+        accept: false,
+      }),
+    );
+  });
+
+  it("lists at most three hint candidates and the second button sets that symbol", async () => {
+    const {invoke} = renderCard(EN, {
+      blocked: false,
+      code: null,
+      token: null,
+      symbol: null,
+      symbols: [],
+      inferred: [],
+      editable: true,
+      hints: [
+        {token: "on", symbol: "ON"},
+        {token: "an", symbol: "AN"},
+        {token: "it", symbol: "IT"},
+        {token: "low", symbol: "LOW"},
+      ],
+      poolCount: 503,
+    });
+    expect(screen.getByTestId("symbol-pool-hint")).toHaveTextContent(
+      "No symbol recognized, so the run will use the default pool (503 names). Did you mean one of these?",
+    );
+    expect(screen.queryByTestId("symbol-hint-use-4")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("symbol-hint-use-2"));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("use_hinted_symbol", {
+        researchId: "r-symbol",
+        symbol: "AN",
+      }),
+    );
+  });
+
+  it("removes one mixed-market side without clearing the other recognition line", async () => {
+    const mixed = {
+      blocked: true,
+      code: "SYMBOL_MIXED_MARKETS" as const,
+      token: null,
+      symbol: null,
+      symbols: ["600519.SH", "SPY"],
+      inferred: [
+        {raw: "600519", symbol: "600519.SH"},
+        {raw: "SPY", symbol: "SPY"},
+      ],
+      editable: true,
+      cnSymbols: "600519.SH",
+      usSymbols: "SPY",
+    };
+    const zh = renderCard(ZH, mixed);
+    expect(screen.getByTestId("symbol-recognition")).toHaveTextContent("已识别为 600519.SH、SPY");
+    expect(screen.getByTestId("symbol-remove-cn")).toHaveTextContent("移除 A 股标的");
+    expect(screen.getByTestId("symbol-remove-us")).toHaveTextContent("移除美股标的");
+    fireEvent.click(screen.getByTestId("symbol-remove-us"));
+    await waitFor(() =>
+      expect(zh.invoke).toHaveBeenCalledWith("remove_market_side", {
+        researchId: "r-symbol",
+        side: "us",
+      }),
+    );
+    cleanup();
+    const en = renderCard(EN, mixed);
+    expect(screen.getByTestId("symbol-remove-cn")).toHaveTextContent("Remove A-share symbols");
+    expect(screen.getByTestId("symbol-remove-us")).toHaveTextContent("Remove US symbols");
+    fireEvent.click(screen.getByTestId("symbol-remove-cn"));
+    await waitFor(() =>
+      expect(en.invoke).toHaveBeenCalledWith("remove_market_side", {
+        researchId: "r-symbol",
+        side: "cn",
+      }),
+    );
+  });
 });

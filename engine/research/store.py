@@ -410,7 +410,16 @@ class SQLiteStore:
                 universe.setdefault("unresolved_tokens", [])
                 universe.setdefault("inferred_symbols", [])
                 universe.setdefault("symbol_asks", [])
+                universe.setdefault("symbol_ask_answers", [])
                 universe.setdefault("ticker_hints", [])
+                asks = universe.get("symbol_asks") or []
+                normalized = []
+                for item in asks:
+                    if isinstance(item, list) and len(item) == 2:
+                        normalized.append([item[0], item[1], "ask"])
+                    else:
+                        normalized.append(item)
+                universe["symbol_asks"] = normalized
                 universe.setdefault("recognition_hidden", False)
         return CONVERTER.structure(data, Research)
 
