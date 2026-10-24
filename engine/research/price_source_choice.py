@@ -178,25 +178,19 @@ def apply_price_source_choice(
         sources: tuple[PriceSource, ...] = ()
     else:
         sources = available_price_sources(market, settings_path)
+    available_ids = {source.source_id for source in sources}
     explicit = explicit_source_id.strip()
+    if explicit not in available_ids:
+        explicit = ""
     preselected = None if explicit else preselect_price_source(sources)
     selected = explicit or preselected or ""
     by_id = {source.source_id: source for source in sources}
-    if selected and selected not in by_id:
-        label = data_source_label(selected)
-        by_id[selected] = PriceSource(
-            source_id=selected,
-            label=label,
-            unlicensed=is_unlicensed_source(selected),
-            configured=True,
-            market=market or Market.US,
-        )
-        sources = tuple(by_id[source.source_id] for source in (*sources, by_id[selected]))
     selection["priceSources"] = [
         {
             "id": source.source_id,
             "label": source.label,
             "unlicensed": source.unlicensed,
+            "market": source.market.value,
             "acknowledgedAt": (
                 acknowledged_at(source.source_id, settings_path) if source.unlicensed else None
             ),

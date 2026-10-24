@@ -41,6 +41,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["冻结验证方法未全部通过", "ui.copy.gateMethods"],
   ["重新验证未全部通过", "ui.copy.gateReverify"],
   ["美股大市值（版本 1）", "ui.copy.usLargeV1"],
+  ["A 股大市值（版本 1）", "ui.copy.cnLargeV1"],
   ["A股大市值（版本 1）", "ui.copy.cnLargeV1"],
   ["分段稳健性检验", "ui.copy.walk"],
   ["研究状态未完成", "ui.copy.gateCompleted"],
@@ -51,6 +52,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["默认标的池", "ui.copy.defaultTail"],
   ["仍有待确认项", "ui.copy.gatePending"],
   ["美股大市值", "ui.copy.usLargeShort"],
+  ["A 股大市值", "ui.copy.cnLargeShort"],
   ["A股大市值", "ui.copy.cnLargeShort"],
   ["市场计分卡", "ui.copy.scorecard"],
   ["时点一致性", "ui.copy.pit"],
@@ -254,7 +256,7 @@ const RULES: Rule[] = [
     render: (m, t) => t("ui.copy.coverageFloorShort", {assets: m[1]}),
   },
   {
-    re: /^(美股|A股) · (股票|债券|基金)(?:（(.+)）)?$/,
+    re: /^(美股|A\s*股) · (股票|债券|基金)(?:（(.+)）)?$/,
     render: (m, t) => {
       const line = t("ui.copy.universe", {
         market: t(m[1] === "美股" ? "ui.copy.marketUs" : "ui.copy.marketCn"),

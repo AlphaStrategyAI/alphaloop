@@ -175,6 +175,10 @@ export function buildUiMessages(copy: Copy) {
         "「{{token}}」是美股代码 {{symbol}}，也是金融缩写。要把它当作标的吗？",
         '"{{token}}" is the US ticker {{symbol}} and also a finance abbreviation. Use it as a symbol?',
       ),
+      financeAskSame: copy(
+        "{{symbol}} 是美股代码，也是金融缩写。要把它当作标的吗？",
+        "{{symbol}} is a US ticker and also a finance abbreviation. Use it as a symbol?",
+      ),
       poolHintMany: copy(
         "没有识别到标的，将使用默认池（{{n}} 只）。你是指下面的代码吗？",
         "No symbol recognized, so the run will use the default pool ({{n}} names). Did you mean one of these?",
@@ -192,7 +196,7 @@ export function buildUiMessages(copy: Copy) {
       changeAnswer: copy("更改", "Change", true),
       removeSymbol: copy("移除 {{symbol}}", "Remove {{symbol}}", true),
       marketUs: copy("美股", "US stocks", true),
-      marketCn: copy("A股", "China A-shares", true),
+      marketCn: copy("A 股", "China A-shares", true),
       marketSwitched: copy(
         "已按剩下的标的切换到{{market}}，基准改为 {{benchmark}}。",
         "Switched to {{market}} to match the remaining symbols. The benchmark is now {{benchmark}}.",
@@ -537,9 +541,9 @@ export function buildUiMessages(copy: Copy) {
         "{{count, plural, one {# name} other {# names}}} · {{listName}} · version {{version}} · {{date}} · {{tail}}",
       ),
       usLargeShort: copy("美股大市值", "US large-cap"),
-      cnLargeShort: copy("A股大市值", "China A-share large-cap"),
+      cnLargeShort: copy("A 股大市值", "China A-share large-cap"),
       usLargeV1: copy("美股大市值（版本 1）", "US large-cap (version 1)"),
-      cnLargeV1: copy("A股大市值（版本 1）", "China A-share large-cap (version 1)"),
+      cnLargeV1: copy("A 股大市值（版本 1）", "China A-share large-cap (version 1)"),
       userSpecified: copy("用户指定标的", "User-specified symbols"),
       overrideDefault: copy("已覆盖默认的池", "Replaced the default universe"),
       userLine: copy(
@@ -636,7 +640,7 @@ export function buildUiMessages(copy: Copy) {
       universe: copy("{{market}} · {{asset}}", "{{market}} · {{asset}}"),
       universeSymbols: copy("{{line}}（{{symbols}}）", "{{line}} ({{symbols}})"),
       marketUs: copy("美股", "US"),
-      marketCn: copy("A股", "China A-shares"),
+      marketCn: copy("A 股", "China A-shares"),
       assetEquity: copy("股票", "equities"),
       assetBond: copy("债券", "bonds"),
       assetFund: copy("基金", "funds"),

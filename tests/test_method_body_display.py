@@ -26,4 +26,4 @@ def test_cost_body_hides_revision_token() -> None:
     body = json.dumps(dict(VERIFIER_REVISIONS["cost.turnover"]))
     text = format_method_body_display("cost.turnover", body)
     assert "cost-v1" not in text
-    assert "A股成本" in text
+    assert "A 股成本" in text

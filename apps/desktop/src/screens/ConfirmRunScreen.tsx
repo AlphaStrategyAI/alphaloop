@@ -1,6 +1,6 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
-import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, PriceSourceChoice, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
 import {I18nText} from "../i18n/I18nText";
 import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataCopy";
@@ -17,6 +17,27 @@ import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
+
+/** A stored pick counts only when this market's catalog still offers it. */
+export function selectedPriceSourceId(input: {
+  pickedSource: string;
+  catalog: readonly PriceSourceChoice[];
+  engineSourceId: string;
+  pending: boolean;
+  market: "CN" | "US" | null;
+}): string {
+  const covers = (id: string) => {
+    if (!id) return false;
+    const item = input.catalog.find((row) => row.id === id);
+    if (!item) return input.catalog.length === 0 && !input.pending;
+    if (item.market && input.market && item.market !== input.market) return false;
+    return true;
+  };
+  if (covers(input.pickedSource)) return input.pickedSource;
+  const engineId = input.pending ? "" : input.engineSourceId;
+  if (covers(engineId)) return engineId;
+  return "";
+}
 
 function Settings({
   values,
@@ -225,7 +246,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const offeredId = sel?.offeredDataSourceId ?? "";
   const catalog = sel?.priceSources ?? [];
   const catalogMode = catalog.length > 0;
-  const selectedId = pickedSource || (sel?.dataSourcePending ? "" : sel?.dataSourceId || "");
+  const cardMarket = view.kind === "confirm_run" ? view.market ?? null : null;
+  const selectedId = selectedPriceSourceId({
+    pickedSource,
+    catalog,
+    engineSourceId: sel?.dataSourceId || "",
+    pending: Boolean(sel?.dataSourcePending),
+    market: cardMarket,
+  });
   const selectedChoice = catalog.find((item) => item.id === selectedId);
   const unlicensedIds = new Set(["yahoo_daily", "akshare_sina_daily"]);
   const alreadyAcked = Boolean(sel?.unlicensedAcknowledgedAt);
@@ -387,7 +415,9 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                 {ask.kind === "amount"
                   ? t("ui.confirm.amountAsk", {token: ask.token, symbol: ask.symbol})
                   : ask.kind === "finance"
-                    ? t("ui.confirm.financeAsk", {token: ask.token, symbol: ask.symbol})
+                    ? ask.token.toUpperCase() === ask.symbol.toUpperCase()
+                      ? t("ui.confirm.financeAskSame", {symbol: ask.symbol})
+                      : t("ui.confirm.financeAsk", {token: ask.token, symbol: ask.symbol})
                     : ask.token.toUpperCase() === ask.symbol.toUpperCase()
                       ? t("ui.confirm.symbolAskSame", {symbol: ask.symbol})
                       : t("ui.confirm.symbolAsk", {token: ask.token, symbol: ask.symbol})}
@@ -688,11 +718,20 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             {t("ui.confirm.askBeforeRun")}
           </p>
         )}
+        {!canRun && (marketPending || (mustPick && !selectedId)) && (
+          <p id="confirm-run-blocked-reason" className="confirm-run-blocked-reason" data-testid="confirm-run-blocked-reason">
+            {marketPending ? t("ui.confirm.marketChoice") : t("ui.confirm.sourcePending")}
+          </p>
+        )}
         <button
-          className="cyan-button"
+          className={canRun ? "cyan-button" : "cyan-button is-disabled"}
           data-testid="confirm-run-start"
+          data-run-blocked={
+            marketPending ? "market" : mustPick && !selectedId ? "source" : resolution?.blocked ? "resolution" : undefined
+          }
           disabled={starting || saving || !canRun}
           aria-busy={starting || saving}
+          aria-describedby={!canRun && (marketPending || (mustPick && !selectedId)) ? "confirm-run-blocked-reason" : undefined}
           onMouseDown={(event) => event.preventDefault()}
           onClick={startRun}
         >

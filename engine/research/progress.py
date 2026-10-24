@@ -36,7 +36,7 @@ def list_row_status(research: Research) -> str:
     return research.status.value
 
 
-_MARKET = {Market.US: "美股", Market.CN: "A股"}
+_MARKET = {Market.US: "美股", Market.CN: "A 股"}
 _ASSET = {AssetClass.EQUITY: "股票", AssetClass.BOND: "债券", AssetClass.FUND: "基金"}
 
 

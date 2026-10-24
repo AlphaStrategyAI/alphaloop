@@ -781,6 +781,8 @@ class ResearchCommandService:
                 construction = construction_notice_for(research)
                 if construction:
                     body["constructionNotice"] = construction
+                if universe is not None and not universe.market_unspecified:
+                    body["market"] = universe.market.value
                 if research.market_switch_market:
                     body["marketSwitch"] = {
                         "market": research.market_switch_market,

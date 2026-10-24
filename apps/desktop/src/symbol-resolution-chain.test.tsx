@@ -702,7 +702,7 @@ describe("symbol resolution call chain", () => {
     };
     const zh = renderCard(ZH, mismatch);
     expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
-      "描述里的市场是A股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
+      "描述里的市场是A 股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
     );
     expect(screen.getByTestId("symbol-remove-mismatch-CAPS")).toHaveTextContent("移除 CAPS");
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
@@ -857,7 +857,7 @@ describe("symbol resolution call chain", () => {
       }),
     );
     cleanup();
-    renderCard(
+    const en = renderCard(
       EN,
       {
         blocked: true,
@@ -875,5 +875,142 @@ describe("symbol resolution call chain", () => {
     );
     expect(screen.getByTestId("market-choice-cn")).toHaveTextContent("China A-share large-cap (300 names)");
     expect(screen.getByTestId("market-choice-us")).toHaveTextContent("US large-cap (503 names)");
+    const run = screen.getByTestId("confirm-run-start");
+    expect(run).toBeDisabled();
+    expect(run).toHaveAttribute("data-run-blocked", "market");
+    expect(run.className).toContain("is-disabled");
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(
+      "The description doesn't name a market.",
+    );
+    fireEvent.click(run);
+    expect(en.invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
+  });
+
+  it("ignores a picked source that belongs to the other market and keeps Run disabled", async () => {
+    const invoke = vi.fn(async () => undefined);
+    const raw = createTauriDesktopApi(invoke as unknown as DesktopInvoke);
+    const bound = bindDesktopApi(raw, {
+      onError: vi.fn(),
+      refresh: vi.fn(async () => undefined),
+    });
+    const acknowledged = "2026-10-24T00:00:00+00:00";
+    const cnSelection = {
+      count: 1,
+      listName: "用户指定标的",
+      listVersion: "用户",
+      symbols: ["600519.SH", "SPY"],
+      source: "user_override" as const,
+      dataStart: "2014-10-19",
+      dataEnd: "2026-10-19",
+      dataCutoff: "2026-10-19",
+      dataSource: "待选择",
+      dataSourceId: null,
+      dataSourcePending: true,
+      priceSources: [
+        {
+          id: "akshare_sina_daily",
+          label: "AkShare 日线（新浪优先）",
+          unlicensed: true,
+          acknowledgedAt: acknowledged,
+          market: "CN" as const,
+        },
+      ],
+    };
+    const base = viewWith({
+      blocked: true,
+      code: "SYMBOL_MIXED_MARKETS",
+      token: null,
+      symbol: null,
+      symbols: ["600519.SH", "SPY"],
+      inferred: [
+        {raw: "600519", symbol: "600519.SH"},
+        {raw: "SPY", symbol: "SPY"},
+      ],
+      editable: true,
+      cnSymbols: "600519.SH",
+      usSymbols: "SPY",
+    });
+    const {rerender} = render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard api={bound} view={{...base, market: "CN", symbolSelection: cnSelection}} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByTestId("price-source-akshare_sina_daily"));
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("symbol-remove-cn"));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("remove_market_side", {
+        researchId: "r-symbol",
+        side: "cn",
+      }),
+    );
+    rerender(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard
+          api={bound}
+          view={{
+            ...base,
+            market: "US",
+            marketSwitch: {market: "US", benchmark: "S&P 500"},
+            settings: {...base.settings, universe: "美股 · 股票"},
+            symbolResolution: {
+              blocked: false,
+              code: null,
+              token: "SPY",
+              symbol: "SPY",
+              symbols: ["SPY"],
+              inferred: [{raw: "SPY", symbol: "SPY"}],
+              editable: true,
+            },
+            symbolSelection: {
+              ...cnSelection,
+              symbols: ["SPY"],
+              dataSource: "待选择",
+              dataSourceId: null,
+              dataSourcePending: true,
+              priceSources: [
+                {
+                  id: "akshare_sina_daily",
+                  label: "AkShare 日线（新浪优先）",
+                  unlicensed: true,
+                  acknowledgedAt: acknowledged,
+                  market: "CN",
+                },
+                {id: "yahoo_daily", label: "雅虎日线", unlicensed: true, market: "US"},
+              ],
+            },
+          }}
+        />
+      </I18nProvider>,
+    );
+    const run = screen.getByTestId("confirm-run-start");
+    expect(screen.getByTestId("price-source-akshare_sina_daily")).not.toBeChecked();
+    expect(run).toBeDisabled();
+    expect(run).toHaveAttribute("data-run-blocked", "source");
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent("待选择");
+    fireEvent.click(run);
+    expect(invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
+  });
+
+  it("names a finance acronym once when the token and the ticker are the same", () => {
+    const ask = {
+      blocked: true,
+      code: "SYMBOL_ASK_PENDING" as const,
+      token: "AI",
+      symbol: "AI",
+      symbols: [] as string[],
+      inferred: [],
+      editable: true,
+      asks: [{token: "AI", symbol: "AI", kind: "finance" as const}],
+    };
+    renderCard(ZH, ask);
+    const line = screen.getByTestId("symbol-ask").textContent ?? "";
+    expect(line).toContain("AI 是美股代码，也是金融缩写。要把它当作标的吗？");
+    expect(line).not.toContain("「AI」是美股代码 AI");
+    cleanup();
+    renderCard(EN, ask);
+    expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
+      "AI is a US ticker and also a finance abbreviation. Use it as a symbol?",
+    );
   });
 });

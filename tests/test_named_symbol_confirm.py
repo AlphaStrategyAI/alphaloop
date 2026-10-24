@@ -640,6 +640,8 @@ def test_removing_one_market_keeps_the_other_recognition(tmp_path: Path) -> None
     assert view["symbolResolution"]["code"] != "SYMBOL_MIXED_MARKETS"
     assert view["symbolResolution"]["inferred"] == [{"raw": "600519", "symbol": "600519.SH"}]
     assert view["symbolSelection"]["symbols"] == ["600519.SH"]
+    assert "marketSwitch" not in view
+    assert view["market"] == "CN"
     research_id = _draft(service)
     _fill(service, research_id, "600519 和 SPY 的均值回归", FLOOR_ONE)
     service.handle({"type": "remove_market_side", "research_id": research_id, "side": "cn"})
@@ -648,7 +650,9 @@ def test_removing_one_market_keeps_the_other_recognition(tmp_path: Path) -> None
     assert view["symbolSelection"]["symbols"] == ["SPY"]
     assert view["settings"]["universe"] == "美股 · 股票"
     assert view["marketSwitch"] == {"market": "US", "benchmark": "S&P 500"}
+    assert view["market"] == "US"
     assert view["symbolSelection"]["dataSourcePending"] is True
+    assert all(item["market"] == "US" for item in view["symbolSelection"]["priceSources"])
     assert view["symbolSelection"]["dataSourceId"] is None
     assert view["symbolSelection"]["dataSourceId"] not in {"yahoo_daily", "akshare_sina_daily"}
     stored = service.store.load(research_id)
@@ -690,6 +694,24 @@ def test_removing_one_market_keeps_the_other_recognition(tmp_path: Path) -> None
     assert "000300" not in (started.last_run_error or "")
 
 
+def test_stale_source_from_the_other_market_is_not_offered(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    _fill(service, research_id, "600519 和 SPY 的均值回归", FLOOR_ONE)
+    service.handle({"type": "remove_market_side", "research_id": research_id, "side": "cn"})
+    stored = service.store.load(research_id)
+    service.store.save(replace(stored, data_source_id="akshare_sina_daily"), stored.updated_at)
+    view = service.view_for(f"#/research/{research_id}")
+    ids = [item["id"] for item in view["symbolSelection"]["priceSources"]]
+    assert "akshare_sina_daily" not in ids
+    assert view["symbolSelection"]["dataSourcePending"] is True
+    assert view["symbolSelection"]["dataSourceId"] in ("", None)
+    assert view["market"] == "US"
+    assert all(item["market"] == "US" for item in view["symbolSelection"]["priceSources"])
+
+
 def test_held_out_prose_uses_the_pool(tmp_path: Path) -> None:
     service = _service(tmp_path)
     research_id = _draft(service)
@@ -713,7 +735,7 @@ def test_stated_market_mismatch_blocks_before_a_source_is_chosen(tmp_path: Path)
         service.handle({"type": "confirm_run", "research_id": research_id})
     assert exc.value.code == "SYMBOL_MARKET_MISMATCH"
     assert exc.value.message == (
-        "描述里的市场是A股，但 CAPS 不属于这个市场。请删掉这些代码，或改成对应的市场。"
+        "描述里的市场是A 股，但 CAPS 不属于这个市场。请删掉这些代码，或改成对应的市场。"
     )
     service.handle(
         {"type": "dismiss_mismatched_symbol", "research_id": research_id, "symbol": "CAPS"}

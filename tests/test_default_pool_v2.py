@@ -96,7 +96,7 @@ def test_new_research_defaults_to_single_market_pools_of_at_least_100() -> None:
     assert cn.version_id == CN_V2_ID
     assert us.market is Market.US and cn.market is Market.CN
     assert us.display_name == "美股大市值"
-    assert cn.display_name == "A股大市值"
+    assert cn.display_name == "A 股大市值"
     assert len(us.symbols) >= 100 and len(cn.symbols) >= 100
     assert len(us.symbols) == len(set(us.symbols))
     assert len(cn.symbols) == len(set(cn.symbols))

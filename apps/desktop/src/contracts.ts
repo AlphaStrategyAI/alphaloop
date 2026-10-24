@@ -70,6 +70,8 @@ export interface PriceSourceChoice {
   label: string;
   unlicensed: boolean;
   acknowledgedAt?: string | null;
+  /** Market this row covers. A pick for another market is not a selection. */
+  market?: "CN" | "US" | null;
 }
 
 export interface SymbolSelectionSummary {
@@ -168,6 +170,7 @@ type ViewBody =
       confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
       constructionNotice?: string | null;
+      market?: "CN" | "US" | null;
       marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
       marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
       benchmarkName?: string | null;
