@@ -10,6 +10,7 @@ const EXACT: Record<string, MessageKey> = {
   "当前冻结验证已全部通过（含时点第四关）。可导出策略包；alphaloop 不提供执行入口。": "ui.copy.summaryEligible",
   "取自标普 500 在名单日的成分，非时点成分": "ui.copy.usLargeNote",
   "取自沪深 300 在名单日的成分，非时点成分": "ui.copy.cnLargeNote",
+  "股票池是名单日的成分，回看更早的历史含幸存者偏差。": "ui.copy.survivorshipHint",
   "雅虎日线": "ui.copy.yahoo",
   "AkShare 日线（新浪优先）": "ui.copy.akshare",
   "未模拟 T+1 与涨跌停，实际成交可能更差": "ui.copy.cnExecution",

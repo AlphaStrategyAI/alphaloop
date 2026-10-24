@@ -4,6 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
+import {I18nText} from "../i18n/I18nText";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
@@ -490,6 +491,11 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           </p>
           {view.symbolSelection.listNote ? (
             <p data-testid="symbol-selection-note">{copyText(view.symbolSelection.listNote)}</p>
+          ) : null}
+          {view.symbolSelection.isDefaultPool || view.symbolSelection.source === "default_pool" ? (
+            <p data-testid="survivorship-hint">
+              <I18nText k="ui.copy.survivorshipHint" />
+            </p>
           ) : null}
           {view.symbolSelection.listNote && view.symbolSelection.listVersion ? (
             <p data-testid="symbol-selection-version">

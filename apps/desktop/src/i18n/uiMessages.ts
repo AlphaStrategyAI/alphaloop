@@ -86,7 +86,7 @@ export function buildUiMessages(copy: Copy) {
       expand: copy("展开看全表", "Show the full list"),
       summary: copy(
         "标的 {{count}} 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
-        "{{count}} symbols · list {{listName}} · version {{listVersion}}{{pool}}",
+        "{{count}} {{countSymbolNoun}} · list {{listName}} · version {{listVersion}}{{pool}}",
       ),
       summaryOne: copy(
         "标的 1 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
@@ -111,6 +111,21 @@ export function buildUiMessages(copy: Copy) {
         "I understand this data is unlicensed and is for personal research only.",
       ),
       unlicensedAcked: copy("已确认·{{date}}", "Acknowledged · {{date}}"),
+      poolNoteMembers: copy(
+        "两个大市值池都是名单日的成分，不是时点成分；回看更早的历史含幸存者偏差。",
+        "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
+        true,
+      ),
+      poolNoteIndexOnly: copy(
+        "只有把池子定义成某个指数时，才会显示「缺时点成分」。",
+        "\"Missing point-in-time constituents\" appears only when a universe is defined as an index.",
+        true,
+      ),
+      poolNoteEdgarUnconfirmed: copy(
+        "EDGAR 是否会覆盖旧值尚未确认，基本面的 PIT 检查可能不通过。",
+        "It's not yet confirmed whether EDGAR overwrites older values, so fundamentals may fail the PIT check.",
+        true,
+      ),
       listVersion: copy("版本 {{version}}", "Version {{version}}"),
       starting: copy("开跑中…", "Starting…"),
       editAgain: copy("再修改", "Edit again"),
@@ -242,7 +257,7 @@ export function buildUiMessages(copy: Copy) {
       windowEyebrow: copy("标的与数据窗口", "Symbols and the data window"),
       windowSummary: copy(
         "{{count}} 只 · {{listName}} · 版本 {{listVersion}}",
-        "{{count}} symbols · {{listName}} · version {{listVersion}}",
+        "{{count}} {{countSymbolNoun}} · {{listName}} · version {{listVersion}}",
       ),
       windowSummaryOne: copy(
         "1 只 · {{listName}} · 版本 {{listVersion}}",
@@ -349,7 +364,7 @@ export function buildUiMessages(copy: Copy) {
       gateJoiner: copy("、", ", "),
       shrink: copy(
         "因缺少行情数据，已从标的池剔除 {{dropped}} 只，剩余 {{remaining}} 只可用于本轮研究。",
-        "Missing prices removed {{dropped}} names from the universe. {{remaining}} names remain for this round.",
+        "Missing prices removed {{dropped}} {{droppedNoun}} from the universe. {{remaining}} {{remainingNoun}} {{remainingRemain}} for this round.",
       ),
       summaryEligible: copy(
         "当前冻结验证已全部通过（含时点第四关）。可导出策略包；alphaloop 不提供执行入口。",
@@ -393,11 +408,12 @@ export function buildUiMessages(copy: Copy) {
       hintRunningWindow: copy("{{base}} {{window}}。", "{{base}} {{window}}."),
       usLarge: copy(
         "美股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "US large-cap universe · {{count}} names · list date {{date}}",
+        "US large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
       ),
       cnLarge: copy(
         "A 股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "China A-share large-cap universe · {{count}} names · list date {{date}}",
+        "China A-share large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
+        true,
       ),
       usLargeNote: copy(
         "取自标普 500 在名单日的成分，非时点成分",
@@ -405,11 +421,17 @@ export function buildUiMessages(copy: Copy) {
       ),
       cnLargeNote: copy(
         "取自沪深 300 在名单日的成分，非时点成分",
-        "Taken from CSI 300 membership on the list date; not point-in-time.",
+        "Based on CSI 300 membership on the list date; not point-in-time.",
+        true,
+      ),
+      survivorshipHint: copy(
+        "股票池是名单日的成分，回看更早的历史含幸存者偏差。",
+        "Uses list-date members; earlier history has survivorship bias.",
+        true,
       ),
       v1Line: copy(
         "{{count}} 只 · {{listName}} · 版本 {{version}} · {{date}} · {{tail}}",
-        "{{count}} names · {{listName}} · version {{version}} · {{date}} · {{tail}}",
+        "{{count}} {{countNoun}} · {{listName}} · version {{version}} · {{date}} · {{tail}}",
       ),
       usLargeShort: copy("美股大市值", "US large-cap"),
       cnLargeShort: copy("A股大市值", "China A-share large-cap"),
@@ -419,7 +441,7 @@ export function buildUiMessages(copy: Copy) {
       overrideDefault: copy("已覆盖默认的池", "Replaced the default universe"),
       userLine: copy(
         "{{count}} 只 · {{listName}} · {{tail}}",
-        "{{count}} names · {{listName}} · {{tail}}",
+        "{{count}} {{countNoun}} · {{listName}} · {{tail}}",
       ),
       userLineOne: copy(
         "1 只 · {{listName}} · {{tail}}",
@@ -484,7 +506,7 @@ export function buildUiMessages(copy: Copy) {
       durationMinutes: copy("{{minutes}} 分 {{seconds}} 秒", "{{minutes}} minutes {{seconds}} seconds"),
       coverageNow: copy(
         "当前 {{assets}} 个标的、{{years}} 年数据，缺失 {{missing}}%",
-        "Now {{assets}} names, {{years}} years of data, {{missing}}% missing",
+        "Now {{assets}} {{assetsNoun}}, {{years}} years of data, {{missing}}% missing",
       ),
       coverageNowOne: copy(
         "当前 1 个标的、{{years}} 年数据，缺失 {{missing}}%",
@@ -500,7 +522,7 @@ export function buildUiMessages(copy: Copy) {
       ),
       coverageFloor: copy(
         "至少 {{assets}} 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
-        "At least {{assets}} names, {{years}} years of data, missing no more than {{missing}}%",
+        "At least {{assets}} {{assetsNoun}}, {{years}} years of data, missing no more than {{missing}}%",
       ),
       coverageFloorOne: copy(
         "至少 1 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
