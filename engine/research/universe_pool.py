@@ -24,6 +24,7 @@ def materialize_default_pool(research: Research) -> Research:
         or universe.unresolved_tokens
         or universe.symbol_asks
         or universe.market_mismatches
+        or universe.market_unspecified
     ):
         return research
     pool = pool_for_market(
@@ -67,7 +68,12 @@ def pool_resolvable_brief(brief: ResearchBrief) -> bool:
     universe = brief.universe.value
     if universe is None:
         return False
-    if universe.unresolved_tokens or universe.symbol_asks or universe.market_mismatches:
+    if (
+        universe.unresolved_tokens
+        or universe.symbol_asks
+        or universe.market_mismatches
+        or universe.market_unspecified
+    ):
         return False
     if universe.user_symbols_override:
         return bool(universe.symbols)

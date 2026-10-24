@@ -97,6 +97,8 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
         or mismatches
         or unrecognized
     )
+    if universe.market_unspecified:
+        named = True
     if not named:
         return None
     code: str | None = None
@@ -104,7 +106,11 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
     token = "、".join(universe.unresolved_tokens) if universe.unresolved_tokens else None
     symbol = universe.symbols[0] if universe.user_symbols_override and universe.symbols else None
     etfs = akshare_etf_symbols(tuple(universe.symbols))
-    if mismatches:
+    if universe.market_unspecified:
+        blocked = True
+        code = "MARKET_CHOICE_PENDING"
+        symbol = None
+    elif mismatches:
         blocked = True
         code = "SYMBOL_MARKET_MISMATCH"
         symbol = None
@@ -179,7 +185,7 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
 def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
     research = materialize_default_pool(research)
     universe = research.brief.universe.value
-    if universe is None:
+    if universe is None or universe.market_unspecified:
         return None
     if (universe.user_symbols_override or universe.unresolved_tokens) and not universe.symbols:
         return None

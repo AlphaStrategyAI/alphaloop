@@ -201,6 +201,21 @@ export function buildUiMessages(copy: Copy) {
         "Switched to {{market}} to match the remaining symbols. The benchmark is now {{benchmark}}.",
         true,
       ),
+      marketChoice: copy(
+        "描述里没有写市场。这次研究用哪个市场的默认池？",
+        "The description doesn't name a market. Which market's default pool should this study use?",
+        true,
+      ),
+      marketChoiceCn: copy(
+        "A 股大市值池（{{cn_count}} 只）",
+        "China A-share large-cap ({{cn_count}} names)",
+        true,
+      ),
+      marketChoiceUs: copy(
+        "美股大市值池（{{us_count}} 只）",
+        "US large-cap ({{us_count}} names)",
+        true,
+      ),
       marketMismatch: copy(
         "描述里的市场是{{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。",
         "The description says {{market}}, but {{symbols}} {{nIsnt}} in that market. Remove {{nIt}} or change the market.",

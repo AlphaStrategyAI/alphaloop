@@ -116,6 +116,7 @@ class Universe:
     market_mismatches: tuple[tuple[str, str], ...] = ()
     unrecognized_tokens: tuple[str, ...] = ()
     recognition_hidden: bool = False
+    market_unspecified: bool = False
 
     def __post_init__(self) -> None:
         if self.asset_class is not AssetClass.FUND and self.underlying_asset_class is not self.asset_class:

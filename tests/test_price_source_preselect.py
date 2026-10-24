@@ -161,4 +161,20 @@ def test_new_research_stays_not_selected_after_yahoo_was_acknowledged(
     assert selection["dataSourceId"] in ("", None)
     assert store.load("r-next").data_source_id == ""
     yahoo = next(item for item in selection["priceSources"] if item["id"] == "yahoo_daily")
-    assert yahoo["acknowledgedAt"]
+    assert yahoo["unlicensed"] is True
+    assert yahoo["acknowledgedAt"] == NOW.isoformat()
+    assert selection["dataSourceId"] != "yahoo_daily"
+
+    record_acknowledgement("akshare_sina_daily", NOW, paths.data.settings_file)
+    store.create(_confirm_draft("r-cn", Market.CN, ("600519.SH",)))
+    cn = service.view_for("#/research/r-cn")["symbolSelection"]
+    assert cn["dataSourcePending"] is True
+    assert cn["dataSourceId"] in ("", None)
+    akshare = next(item for item in cn["priceSources"] if item["id"] == "akshare_sina_daily")
+    assert akshare["unlicensed"] is True
+    assert akshare["acknowledgedAt"] == NOW.isoformat()
+    assert cn["dataSourceId"] != "akshare_sina_daily"
+    yahoo_again = service.view_for("#/research/r-next")["symbolSelection"]
+    yahoo_row = next(item for item in yahoo_again["priceSources"] if item["id"] == "yahoo_daily")
+    assert yahoo_row["acknowledgedAt"] == NOW.isoformat()
+    assert all(item["id"] != "akshare_sina_daily" or item.get("acknowledgedAt") for item in yahoo_again["priceSources"])

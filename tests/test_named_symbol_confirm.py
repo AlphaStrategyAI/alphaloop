@@ -668,6 +668,9 @@ def test_removing_one_market_keeps_the_other_recognition(tmp_path: Path) -> None
             }
         )
     assert mismatch.value.code == "SYMBOL_SOURCE_MISMATCH"
+    assert mismatch.value.message == (
+        "所选数据源 AkShare 日线（新浪优先） 不提供美股行情，和这些标的对不上，无法开跑。请换一个美股数据源。"
+    )
     assert "000300" not in mismatch.value.message
     with pytest.raises(UserFacingError) as unacked:
         service.handle(
@@ -745,3 +748,55 @@ def test_remove_side_preselects_one_licensed_source_and_never_yahoo(tmp_path: Pa
     assert service.store.load(research_id).data_source_id == ""
     service.handle({"type": "confirm_run", "research_id": research_id})
     assert service.store.load(research_id).data_source_id == "local-file-desk"
+
+
+def test_unnamed_market_asks_on_the_card_and_a_fresh_card_asks_again(tmp_path: Path) -> None:
+    from engine.research.price_source_choice import save_configured_licensed_source
+    from engine.research.source_acknowledgement import record_acknowledgement
+
+    service = _service(tmp_path)
+    save_configured_licensed_source(
+        service.paths.data.settings_file,
+        source_id="local-file-desk",
+        label="Desk CSV",
+        market=Market.US,
+    )
+    record_acknowledgement(
+        "yahoo_daily",
+        datetime(2026, 10, 23, 17, 57, 51, tzinfo=UTC),
+        service.paths.data.settings_file,
+    )
+    research_id = _draft(service)
+    view = _fill(service, research_id, "MACD 金叉 均值回归", FLOOR_MANY)
+    choice = view["marketChoice"]
+    assert choice["pending"] is True
+    cn_pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    us_pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert cn_pool is not None and us_pool is not None
+    assert choice["cnCount"] == len(cn_pool.symbols)
+    assert choice["usCount"] == len(us_pool.symbols)
+    assert view["symbolResolution"]["code"] == "MARKET_CHOICE_PENDING"
+    assert view["symbolResolution"]["blocked"] is True
+    assert "benchmarkName" not in view
+    with pytest.raises(UserFacingError) as pending:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert pending.value.code == "MARKET_CHOICE_PENDING"
+    service.handle(
+        {"type": "choose_default_market", "research_id": research_id, "market": "US"}
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    assert view.get("marketChoice") is None
+    assert view["benchmarkName"] == "S&P 500"
+    assert view["settings"]["universe"] == "美股 · 股票"
+    assert view["symbolSelection"]["dataSourceId"] == "local-file-desk"
+    assert view["symbolSelection"]["dataSourcePending"] is False
+    assert view["symbolSelection"]["symbols"] == list(us_pool.symbols)
+    yahoo = next(item for item in view["symbolSelection"]["priceSources"] if item["id"] == "yahoo_daily")
+    assert yahoo["unlicensed"] is True
+    assert yahoo["acknowledgedAt"]
+    assert view["symbolSelection"]["dataSourceId"] != "yahoo_daily"
+    fresh = _draft(service)
+    again = _fill(service, fresh, "MACD 金叉 均值回归", FLOOR_MANY)
+    assert again["marketChoice"]["pending"] is True
+    assert again["symbolResolution"]["code"] == "MARKET_CHOICE_PENDING"
+    assert again.get("symbolSelection") is None

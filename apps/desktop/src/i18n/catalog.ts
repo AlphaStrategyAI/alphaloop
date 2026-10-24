@@ -214,10 +214,15 @@ function messages(lang: "zh" | "en") {
           "The description says {{marketEn}}, but {{symbols}} {{nIsnt}} in that market. Remove {{nIt}} or change the market.",
           true,
         ),
-        // Not product-final. Do not add errors.codes.SYMBOL_SOURCE_MISMATCH to FINAL_MESSAGE_KEYS.
         SYMBOL_SOURCE_MISMATCH: copy(
-          "数据来源和标的市场不一致，请改成同一个市场再开跑。",
-          "The data source and the symbol market do not match. Change them to the same market before running.",
+          "所选数据源 {{source}} 不提供{{market}}行情，和这些标的对不上，无法开跑。请换一个{{market}}数据源。",
+          "The selected data source, {{sourceEn}}, doesn't cover {{marketEn}}, so it doesn't match these symbols and the run can't start. Pick a {{marketEn}} data source.",
+          true,
+        ),
+        MARKET_CHOICE_PENDING: copy(
+          "描述里没有写市场。这次研究用哪个市场的默认池？",
+          "The description doesn't name a market. Which market's default pool should this study use?",
+          true,
         ),
         DATA_SOURCE_UNBOUND: copy(
           "这项研究还没有可用的数据来源。",
@@ -258,6 +263,9 @@ export const FINAL_MESSAGE_KEYS = [
   "ui.confirm.marketUs",
   "ui.confirm.marketCn",
   "ui.confirm.marketSwitched",
+  "ui.confirm.marketChoice",
+  "ui.confirm.marketChoiceCn",
+  "ui.confirm.marketChoiceUs",
   "ui.confirm.marketMismatch",
   "ui.confirm.unrecognizedTicker",
   "ui.confirm.usedAsSymbol",
@@ -267,6 +275,8 @@ export const FINAL_MESSAGE_KEYS = [
   "errors.codes.SYMBOL_ASK_PENDING",
   "errors.codes.SYMBOL_MIXED_MARKETS",
   "errors.codes.SYMBOL_MARKET_MISMATCH",
+  "errors.codes.SYMBOL_SOURCE_MISMATCH",
+  "errors.codes.MARKET_CHOICE_PENDING",
   "settings.later.body",
   "settings.kicker",
   "settings.routeLabel",

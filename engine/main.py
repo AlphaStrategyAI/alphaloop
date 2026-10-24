@@ -40,6 +40,7 @@ from engine.research.universe_pool import (
 from engine.research.universe_validation import (
     answer_symbol_ask,
     apply_symbol_edit,
+    choose_default_market,
     dismiss_mismatched_symbol,
     ensure_runnable_universe,
     refresh_symbol_probe,
@@ -781,6 +782,21 @@ class ResearchCommandService:
                         "market": research.market_switch_market,
                         "benchmark": research.market_switch_benchmark,
                     }
+                if universe is not None and universe.market_unspecified:
+                    from engine.research.models import AssetClass, Market
+                    from engine.research.symbol_pool import pool_for_market
+
+                    cn_pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+                    us_pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+                    body["marketChoice"] = {
+                        "pending": True,
+                        "cnCount": len(cn_pool.symbols) if cn_pool is not None else 0,
+                        "usCount": len(us_pool.symbols) if us_pool is not None else 0,
+                    }
+                elif universe is not None:
+                    from engine.metrics import benchmark_for
+
+                    body["benchmarkName"] = benchmark_for(universe).name
                 selection = body.get("symbolSelection")
                 if isinstance(selection, dict):
                     self._attach_unlicensed_choice(selection, research)
@@ -985,10 +1001,12 @@ class ResearchCommandService:
                 reject_pending_symbol_asks,
                 reject_source_market_mismatch,
                 reject_unresolved_symbols,
+                reject_unspecified_market,
             )
 
             # Symbol identity wins over an unbound source. A mismatch must not
             # be reported as DATA_SOURCE_UNBOUND, and it must not reach the loop.
+            reject_unspecified_market(research)
             reject_market_mismatches(research)
             reject_unresolved_symbols(research)
             reject_pending_symbol_asks(research)
@@ -1179,6 +1197,10 @@ class ResearchCommandService:
         if kind == "dismiss_mismatched_symbol":
             research = self.store.load(str(request["research_id"]))
             updated = dismiss_mismatched_symbol(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "choose_default_market":
+            research = self.store.load(str(request["research_id"]))
+            updated = choose_default_market(research, str(request["market"]), now)
             return self._save(research, updated)
 
         research = self.store.load(request["research_id"])

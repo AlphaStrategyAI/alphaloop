@@ -24,8 +24,12 @@ _ASK_PENDING = "先确认上面的代码再开跑。"
 _AMOUNT = "「{token}」看起来像金额，也可能是代码 {symbol}。要把它当作标的吗？"
 _MIXED = "一次研究只能用同一个市场的标的，这里既有 A 股（{cn_symbols}），也有美股（{us_symbols}）。请删掉其中一边。"
 _MISMATCH = "描述里的市场是{market}，但 {symbols} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
-# Product has not written this sentence. The catalog key is not final.
-_SOURCE_MISMATCH = "数据来源和标的市场不一致，请改成同一个市场再开跑。"
+_SOURCE_MISMATCH = "所选数据源 {source} 不提供{market}行情，和这些标的对不上，无法开跑。请换一个{market}数据源。"
+_MARKET_CHOICE = "描述里没有写市场。这次研究用哪个市场的默认池？"
+_SOURCE_EN = {
+    "yahoo_daily": "Yahoo daily",
+    "akshare_sina_daily": "AkShare daily (Sina first)",
+}
 
 
 def _named_symbol_label(symbols: tuple[str, ...]) -> str:
@@ -162,11 +166,28 @@ def reject_source_market_mismatch(research: Research, source_id: str, settings_p
         disagrees = source in other_ids and source not in same_ids
     if not disagrees:
         return
+    from engine.research.display_names import data_source_label
+
+    market, market_en = _market_label(universe.market)
+    source_zh = data_source_label(source)
     raise UserFacingError(
         "SYMBOL_SOURCE_MISMATCH",
-        _SOURCE_MISMATCH,
-        params={"source": source, "market": universe.market.value},
+        _SOURCE_MISMATCH.format(source=source_zh, market=market),
+        params={
+            "source": source_zh,
+            "market": market,
+            "sourceEn": _SOURCE_EN.get(source, source_zh),
+            "marketEn": market_en,
+        },
     )
+
+
+def reject_unspecified_market(research: Research) -> None:
+    """A description with no market waits for an explicit pool choice."""
+    universe = research.brief.universe.value
+    if universe is None or not universe.market_unspecified:
+        return
+    raise UserFacingError("MARKET_CHOICE_PENDING", _MARKET_CHOICE)
 
 
 def reject_mixed_markets(research: Research) -> None:
@@ -508,12 +529,40 @@ def dismiss_mismatched_symbol(research: Research, symbol: str, now: datetime) ->
     )
 
 
+def choose_default_market(research: Research, market_name: str, now: datetime) -> Research:
+    """Pick the market for a description that named none.
+
+    Neither side is remembered. The benchmark follows the market, and the
+    data source is cleared so preselection runs again.
+    """
+    from engine.research.models import Market
+
+    _require_draft(research)
+    universe = research.brief.universe.value
+    if universe is None:
+        raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    if market_name not in {"CN", "US"}:
+        raise UserFacingError("MARKET_CHOICE_PENDING", _MARKET_CHOICE)
+    if not universe.market_unspecified:
+        return research
+    market = Market(market_name)
+    updated = replace(universe, market=market, market_unspecified=False)
+    brief = replace(research.brief, universe=Slot(updated, research.brief.universe.locked))
+    return _cleared_probe(
+        research,
+        brief=brief,
+        data_source_id="",
+        updated_at=now,
+    )
+
+
 def resolve_universe_symbols(research: Research, now: datetime) -> Research:
     """Apply versioned default pool or validate user symbols before confirm."""
     research = materialize_default_pool(research)
     universe = research.brief.universe.value
     if universe is None:
         raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    reject_unspecified_market(research)
     reject_market_mismatches(research)
     reject_unresolved_symbols(research)
     reject_pending_symbol_asks(research)

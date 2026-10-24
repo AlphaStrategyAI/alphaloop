@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 from engine.main import ResearchCommandService
-from engine.research.models import AssetClass, Market
+from engine.research.models import AssetClass
 from engine.research.pool_data_shrink import set_pool_data_loader
 from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
@@ -65,7 +65,7 @@ def _card(tmp_path: Path, description: str, missing: frozenset[str]) -> tuple[di
     view = service.view_for(f"#/research/{research_id}")
     universe = service.store.load(research_id).brief.universe.value
     assert universe is not None
-    return view, universe.market.value
+    return view, universe
 
 
 @pytest.mark.parametrize("row", _rows(), ids=lambda row: row["id"])
@@ -81,9 +81,13 @@ def test_symbol_regression_corpus(row: dict, tmp_path: Path) -> None:
         for mention in mentions
     ] == row["extract"]
 
-    view, market = _card(tmp_path, row["description"], frozenset(row.get("no_bars") or ()))
+    view, universe = _card(tmp_path, row["description"], frozenset(row.get("no_bars") or ()))
     assert view["kind"] == "confirm_run"
-    assert market == row["market"]
+    if row["market"] == "pending":
+        assert universe.market_unspecified
+    else:
+        assert universe.market_unspecified is False
+        assert universe.market.value == row["market"]
     resolution = view.get("symbolResolution")
     selection = view.get("symbolSelection")
     card = row["card"]
@@ -104,7 +108,7 @@ def test_symbol_regression_corpus(row: dict, tmp_path: Path) -> None:
         assert (resolution.get("mismatches") or []) == (card.get("mismatches") or [])
         assert (resolution.get("unrecognized") or []) == (card.get("unrecognized") or [])
     if card["default_pool"]:
-        pool = pool_for_market(Market(row["market"]), AssetClass.EQUITY, AssetClass.EQUITY)
+        pool = pool_for_market(universe.market, AssetClass.EQUITY, AssetClass.EQUITY)
         assert pool is not None
         assert selection is not None
         assert selection["source"] == "default_pool"
@@ -146,3 +150,20 @@ def test_corpus_expectation_edits_require_product_approval() -> None:
         return
     message = subprocess.check_output(["git", "log", "-1", "--format=%B"], text=True)
     assert "corpus-change-approved:" in message, changed
+
+
+_CONFIRMED_BY_PRODUCT = (
+    "rsi-macd",
+    "rsi",
+    "all-caps-prose-up",
+    "find-caps-tech",
+    "caps",
+    "zzzzq-no-bars",
+)
+
+
+def test_confirmed_corpus_rows_cite_the_product_signoff() -> None:
+    rows = {row["id"]: row for row in _rows()}
+    for row_id in _CONFIRMED_BY_PRODUCT:
+        assert rows[row_id]["change"] == "confirmed by 产品小马 2026-10-24"
+    assert rows["macd-golden-cross"]["change"] == "产品小马 2026-10-24"

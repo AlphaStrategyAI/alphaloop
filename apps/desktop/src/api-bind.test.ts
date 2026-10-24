@@ -19,6 +19,7 @@ describe("bindDesktopApi", () => {
       revertSymbolAsk: vi.fn(),
       removeMarketSide: vi.fn(),
       dismissMismatchedSymbol: vi.fn(),
+      chooseDefaultMarket: vi.fn(),
       unlockBrief,
       sendDialogue: vi.fn(),
       pauseResearch: vi.fn(),

@@ -5,459 +5,1596 @@
       "id": "cn-600519",
       "description": "A股股票 600519 均值回归",
       "market": "CN",
-      "extract": [{"raw": "600519", "canonical": "600519.SH", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["600519.SH"], "recognized": ["600519.SH"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "600519",
+          "canonical": "600519.SH",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "600519.SH"
+        ],
+        "recognized": [
+          "600519.SH"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "cn-000001",
       "description": "A股股票 000001 均值回归",
       "market": "CN",
-      "extract": [{"raw": "000001", "canonical": "000001.SZ", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["000001.SZ"], "recognized": ["000001.SZ"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "000001",
+          "canonical": "000001.SZ",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "000001.SZ"
+        ],
+        "recognized": [
+          "000001.SZ"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "cn-510300-etf",
       "description": "A股基金 510300 的均值回归",
       "market": "CN",
-      "extract": [{"raw": "510300", "canonical": "510300.SH", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ETF_UNSUPPORTED", "symbols": ["510300.SH"], "recognized": ["510300.SH"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "510300",
+          "canonical": "510300.SH",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ETF_UNSUPPORTED",
+        "symbols": [
+          "510300.SH"
+        ],
+        "recognized": [
+          "510300.SH"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "cn-900901-unresolved",
       "description": "A股股票 900901 均值回归",
       "market": "CN",
-      "extract": [{"raw": "900901", "canonical": null, "kind": "symbol", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_UNRESOLVED", "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "900901",
+          "canonical": null,
+          "kind": "symbol",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_UNRESOLVED",
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "cn-600519-explicit",
       "description": "A股股票 600519.SH 的均值回归",
       "market": "CN",
-      "extract": [{"raw": "600519.SH", "canonical": "600519.SH", "kind": "symbol", "inferred": false}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["600519.SH"], "recognized": [], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "600519.SH",
+          "canonical": "600519.SH",
+          "kind": "symbol",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "600519.SH"
+        ],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "cn-609999-no-bars",
       "description": "A股股票 609999 均值回归",
       "market": "CN",
-      "no_bars": ["609999.SH"],
-      "extract": [{"raw": "609999", "canonical": "609999.SH", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_NO_DATA", "symbols": ["609999.SH"], "recognized": ["609999.SH"], "asks": [], "hints": []}
+      "no_bars": [
+        "609999.SH"
+      ],
+      "extract": [
+        {
+          "raw": "609999",
+          "canonical": "609999.SH",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_NO_DATA",
+        "symbols": [
+          "609999.SH"
+        ],
+        "recognized": [
+          "609999.SH"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "cn-no-symbol",
       "description": "A股股票的均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "amount-100000",
       "description": "用 100000 元本金做A股股票的均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "rsi-macd",
       "description": "A股股票 RSI MACD 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      },
+      "change": "confirmed by 产品小马 2026-10-24"
     },
     {
       "id": "find-caps-tech",
       "description": "A股股票 FIND CAPS TECH 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      },
+      "change": "confirmed by 产品小马 2026-10-24"
     },
     {
       "id": "spy",
       "description": "美股股票 SPY 的均值回归",
       "market": "US",
-      "extract": [{"raw": "SPY", "canonical": "SPY", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["SPY"], "recognized": ["SPY"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "SPY",
+          "canonical": "SPY",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "SPY"
+        ],
+        "recognized": [
+          "SPY"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "zzzzq-no-bars",
       "description": "美股股票 ZZZZQ 的均值回归",
       "market": "US",
-      "extract": [{"raw": "ZZZZQ", "canonical": null, "kind": "unrecognized", "inferred": false}],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "ZZZZQ"}]}
+      "extract": [
+        {
+          "raw": "ZZZZQ",
+          "canonical": null,
+          "kind": "unrecognized",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [],
+        "unrecognized": [
+          {
+            "token": "ZZZZQ"
+          }
+        ]
+      },
+      "change": "confirmed by 产品小马 2026-10-24"
     },
     {
       "id": "buy-1000-shares",
       "description": "A股 买入 1000 股 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "price-600519",
       "description": "A股 600519股价均值回归",
       "market": "CN",
-      "extract": [{"raw": "600519", "canonical": "600519.SH", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["600519.SH"], "recognized": ["600519.SH"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "600519",
+          "canonical": "600519.SH",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "600519.SH"
+        ],
+        "recognized": [
+          "600519.SH"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "stock-600519",
       "description": "A股 600519股票均值回归",
       "market": "CN",
-      "extract": [{"raw": "600519", "canonical": "600519.SH", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["600519.SH"], "recognized": ["600519.SH"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "600519",
+          "canonical": "600519.SH",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "600519.SH"
+        ],
+        "recognized": [
+          "600519.SH"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "amount-600519",
       "description": "A股 准备 600519元 均值回归",
       "market": "CN",
-      "extract": [{"raw": "600519", "canonical": "600519.SH", "kind": "amount", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_AMOUNT_LIKE", "symbols": [], "recognized": [], "asks": [{"token": "600519", "symbol": "600519.SH", "kind": "amount"}], "hints": []}
+      "extract": [
+        {
+          "raw": "600519",
+          "canonical": "600519.SH",
+          "kind": "amount",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_AMOUNT_LIKE",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "600519",
+            "symbol": "600519.SH",
+            "kind": "amount"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "rsi",
       "description": "A股股票 RSI 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      },
+      "change": "confirmed by 产品小马 2026-10-24"
     },
     {
       "id": "macd",
       "description": "A股股票 MACD 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "kdj",
       "description": "A股股票 KDJ 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "find",
       "description": "A股股票 FIND 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "caps",
       "description": "A股股票 CAPS 均值回归",
       "market": "CN",
-      "extract": [{"raw": "CAPS", "canonical": "CAPS", "kind": "mismatch", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_MARKET_MISMATCH", "symbols": [], "recognized": [], "asks": [], "hints": [], "mismatches": ["CAPS"]}
+      "extract": [
+        {
+          "raw": "CAPS",
+          "canonical": "CAPS",
+          "kind": "mismatch",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_MARKET_MISMATCH",
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [],
+        "mismatches": [
+          "CAPS"
+        ]
+      },
+      "change": "confirmed by 产品小马 2026-10-24"
     },
     {
       "id": "tech",
       "description": "A股股票 TECH 均值回归",
       "market": "CN",
-      "extract": [{"raw": "TECH", "canonical": "TECH", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "TECH", "symbol": "TECH", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "TECH",
+          "canonical": "TECH",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "TECH",
+            "symbol": "TECH",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "cost",
       "description": "美股股票 COST 的均值回归",
       "market": "US",
-      "extract": [{"raw": "COST", "canonical": "COST", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "COST", "symbol": "COST", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "COST",
+          "canonical": "COST",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "COST",
+            "symbol": "COST",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "on",
       "description": "美股股票 ON 的均值回归",
       "market": "US",
-      "extract": [{"raw": "ON", "canonical": "ON", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "ON", "symbol": "ON", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "ON",
+          "canonical": "ON",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "ON",
+            "symbol": "ON",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "it",
       "description": "美股股票 IT 的均值回归",
       "market": "US",
-      "extract": [{"raw": "IT", "canonical": "IT", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "IT", "symbol": "IT", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "IT",
+          "canonical": "IT",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "IT",
+            "symbol": "IT",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "low",
       "description": "美股股票 LOW 的均值回归",
       "market": "US",
-      "extract": [{"raw": "LOW", "canonical": "LOW", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "LOW", "symbol": "LOW", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "LOW",
+          "canonical": "LOW",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "LOW",
+            "symbol": "LOW",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "f",
       "description": "美股股票 F 的均值回归",
       "market": "US",
-      "extract": [{"raw": "F", "canonical": "F", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "F", "symbol": "F", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "F",
+          "canonical": "F",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "F",
+            "symbol": "F",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "now",
       "description": "美股股票 NOW 的均值回归",
       "market": "US",
-      "extract": [{"raw": "NOW", "canonical": "NOW", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "NOW", "symbol": "NOW", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "NOW",
+          "canonical": "NOW",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "NOW",
+            "symbol": "NOW",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "meta",
       "description": "美股股票 META 的均值回归",
       "market": "US",
-      "extract": [{"raw": "META", "canonical": "META", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["META"], "recognized": ["META"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "META",
+          "canonical": "META",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "META"
+        ],
+        "recognized": [
+          "META"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "aapl",
       "description": "美股股票 AAPL 的均值回归",
       "market": "US",
-      "extract": [{"raw": "AAPL", "canonical": "AAPL", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["AAPL"], "recognized": ["AAPL"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "AAPL",
+          "canonical": "AAPL",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "AAPL"
+        ],
+        "recognized": [
+          "AAPL"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "dollar-spy",
       "description": "美股股票 $spy 的均值回归",
       "market": "US",
-      "extract": [{"raw": "$spy", "canonical": "SPY", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["SPY"], "recognized": ["SPY"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "$spy",
+          "canonical": "SPY",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "SPY"
+        ],
+        "recognized": [
+          "SPY"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "lowercase-spy",
       "description": "美股股票 spy 的均值回归",
       "market": "US",
-      "extract": [{"raw": "spy", "canonical": "SPY", "kind": "hint", "inferred": false}],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [{"token": "spy", "symbol": "SPY"}]}
+      "extract": [
+        {
+          "raw": "spy",
+          "canonical": "SPY",
+          "kind": "hint",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [
+          {
+            "token": "spy",
+            "symbol": "SPY"
+          }
+        ]
+      }
     },
     {
       "id": "all-caps-prose-up",
       "description": "美股股票 I THINK THE MARKET IS UP 均值回归",
       "market": "US",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      },
+      "change": "confirmed by 产品小马 2026-10-24"
     },
     {
       "id": "mixed-600519-spy",
       "description": "600519 和 SPY 的均值回归",
       "market": "CN",
       "extract": [
-        {"raw": "600519", "canonical": "600519.SH", "kind": "symbol", "inferred": true},
-        {"raw": "SPY", "canonical": "SPY", "kind": "symbol", "inferred": true}
+        {
+          "raw": "600519",
+          "canonical": "600519.SH",
+          "kind": "symbol",
+          "inferred": true
+        },
+        {
+          "raw": "SPY",
+          "canonical": "SPY",
+          "kind": "symbol",
+          "inferred": true
+        }
       ],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_MIXED_MARKETS", "symbols": ["600519.SH", "SPY"], "recognized": ["600519.SH", "SPY"], "asks": [], "hints": []}
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_MIXED_MARKETS",
+        "symbols": [
+          "600519.SH",
+          "SPY"
+        ],
+        "recognized": [
+          "600519.SH",
+          "SPY"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "brk-dot",
       "description": "美股股票 BRK.B 的均值回归",
       "market": "US",
-      "extract": [{"raw": "BRK.B", "canonical": "BRK-B", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["BRK-B"], "recognized": ["BRK-B"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "BRK.B",
+          "canonical": "BRK-B",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "BRK-B"
+        ],
+        "recognized": [
+          "BRK-B"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "brk-hyphen",
       "description": "美股股票 BRK-B 的均值回归",
       "market": "US",
-      "extract": [{"raw": "BRK-B", "canonical": "BRK-B", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["BRK-B"], "recognized": ["BRK-B"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "BRK-B",
+          "canonical": "BRK-B",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "BRK-B"
+        ],
+        "recognized": [
+          "BRK-B"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "a-share-spaced",
       "description": "A 股股票的均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "a-share-t-plus-1",
       "description": "A股 T+1 均值回归",
       "market": "CN",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "glued-aapl",
       "description": "美股AAPL均值回归",
       "market": "US",
-      "extract": [{"raw": "AAPL", "canonical": "AAPL", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["AAPL"], "recognized": ["AAPL"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "AAPL",
+          "canonical": "AAPL",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "AAPL"
+        ],
+        "recognized": [
+          "AAPL"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "aapl-without-market-word",
       "description": "用AAPL做均值回归",
       "market": "US",
-      "extract": [{"raw": "AAPL", "canonical": "AAPL", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["AAPL"], "recognized": ["AAPL"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "AAPL",
+          "canonical": "AAPL",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "AAPL"
+        ],
+        "recognized": [
+          "AAPL"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "glued-nvda-tsla",
       "description": "美股NVDA和TSLA均值回归",
       "market": "US",
       "extract": [
-        {"raw": "NVDA", "canonical": "NVDA", "kind": "symbol", "inferred": true},
-        {"raw": "TSLA", "canonical": "TSLA", "kind": "symbol", "inferred": true}
+        {
+          "raw": "NVDA",
+          "canonical": "NVDA",
+          "kind": "symbol",
+          "inferred": true
+        },
+        {
+          "raw": "TSLA",
+          "canonical": "TSLA",
+          "kind": "symbol",
+          "inferred": true
+        }
       ],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["NVDA", "TSLA"], "recognized": ["NVDA", "TSLA"], "asks": [], "hints": []}
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "NVDA",
+          "TSLA"
+        ],
+        "recognized": [
+          "NVDA",
+          "TSLA"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "glued-600519",
       "description": "A股600519均值回归",
       "market": "CN",
-      "extract": [{"raw": "600519", "canonical": "600519.SH", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["600519.SH"], "recognized": ["600519.SH"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "600519",
+          "canonical": "600519.SH",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "600519.SH"
+        ],
+        "recognized": [
+          "600519.SH"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "baba-no-bars",
       "description": "美股股票 BABA 的均值回归",
       "market": "US",
-      "no_bars": ["BABA"],
-      "extract": [{"raw": "BABA", "canonical": "BABA", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_NO_DATA", "symbols": ["BABA"], "recognized": ["BABA"], "asks": [], "hints": []}
+      "no_bars": [
+        "BABA"
+      ],
+      "extract": [
+        {
+          "raw": "BABA",
+          "canonical": "BABA",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_NO_DATA",
+        "symbols": [
+          "BABA"
+        ],
+        "recognized": [
+          "BABA"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "nio",
       "description": "美股股票 NIO 的均值回归",
       "market": "US",
-      "extract": [{"raw": "NIO", "canonical": "NIO", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["NIO"], "recognized": ["NIO"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "NIO",
+          "canonical": "NIO",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "NIO"
+        ],
+        "recognized": [
+          "NIO"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "shop",
       "description": "美股股票 SHOP 的均值回归",
       "market": "US",
-      "extract": [{"raw": "SHOP", "canonical": "SHOP", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "SHOP", "symbol": "SHOP", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "SHOP",
+          "canonical": "SHOP",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "SHOP",
+            "symbol": "SHOP",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "can",
       "description": "美股股票 CAN 的均值回归",
       "market": "US",
-      "extract": [{"raw": "CAN", "canonical": "CAN", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "CAN", "symbol": "CAN", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "CAN",
+          "canonical": "CAN",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "CAN",
+            "symbol": "CAN",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "go",
       "description": "美股股票 GO 的均值回归",
       "market": "US",
-      "extract": [{"raw": "GO", "canonical": "GO", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "GO", "symbol": "GO", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "GO",
+          "canonical": "GO",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "GO",
+            "symbol": "GO",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "open",
       "description": "美股股票 OPEN 的均值回归",
       "market": "US",
-      "extract": [{"raw": "OPEN", "canonical": "OPEN", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "OPEN", "symbol": "OPEN", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "OPEN",
+          "canonical": "OPEN",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "OPEN",
+            "symbol": "OPEN",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "real",
       "description": "美股股票 REAL 的均值回归",
       "market": "US",
-      "extract": [{"raw": "REAL", "canonical": "REAL", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "REAL", "symbol": "REAL", "kind": "ask"}], "hints": []}
+      "extract": [
+        {
+          "raw": "REAL",
+          "canonical": "REAL",
+          "kind": "ask",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "REAL",
+            "symbol": "REAL",
+            "kind": "ask"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "pb",
       "description": "美股股票 PB 的均值回归",
       "market": "US",
-      "extract": [{"raw": "PB", "canonical": "PB", "kind": "finance", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "PB", "symbol": "PB", "kind": "finance"}], "hints": []}
+      "extract": [
+        {
+          "raw": "PB",
+          "canonical": "PB",
+          "kind": "finance",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "PB",
+            "symbol": "PB",
+            "kind": "finance"
+          }
+        ],
+        "hints": []
+      }
     },
     {
       "id": "ttm",
       "description": "美股股票 TTM 的均值回归",
       "market": "US",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "echo",
       "description": "美股股票 ECHO 的均值回归",
       "market": "US",
-      "extract": [{"raw": "ECHO", "canonical": "ECHO", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["ECHO"], "recognized": ["ECHO"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "ECHO",
+          "canonical": "ECHO",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "ECHO"
+        ],
+        "recognized": [
+          "ECHO"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "deck",
       "description": "美股股票 DECK 的均值回归",
       "market": "US",
-      "extract": [{"raw": "DECK", "canonical": "DECK", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["DECK"], "recognized": ["DECK"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "DECK",
+          "canonical": "DECK",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "DECK"
+        ],
+        "recognized": [
+          "DECK"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "spy-qqq-iwm",
       "description": "美股股票 SPY QQQ IWM 的均值回归",
       "market": "US",
       "extract": [
-        {"raw": "SPY", "canonical": "SPY", "kind": "symbol", "inferred": true},
-        {"raw": "QQQ", "canonical": "QQQ", "kind": "symbol", "inferred": true},
-        {"raw": "IWM", "canonical": "IWM", "kind": "symbol", "inferred": true}
+        {
+          "raw": "SPY",
+          "canonical": "SPY",
+          "kind": "symbol",
+          "inferred": true
+        },
+        {
+          "raw": "QQQ",
+          "canonical": "QQQ",
+          "kind": "symbol",
+          "inferred": true
+        },
+        {
+          "raw": "IWM",
+          "canonical": "IWM",
+          "kind": "symbol",
+          "inferred": true
+        }
       ],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["SPY", "QQQ", "IWM"], "recognized": ["SPY", "QQQ", "IWM"], "asks": [], "hints": []}
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "SPY",
+          "QQQ",
+          "IWM"
+        ],
+        "recognized": [
+          "SPY",
+          "QQQ",
+          "IWM"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "macro-sentence",
       "description": "美股 The CEO said GDP in the USA will grow and AI stocks rise 均值回归",
       "market": "US",
       "extract": [
-        {"raw": "USA", "canonical": "USA", "kind": "ask", "inferred": false},
-        {"raw": "grow", "canonical": "GROW", "kind": "hint", "inferred": false},
-        {"raw": "AI", "canonical": "AI", "kind": "finance", "inferred": false},
-        {"raw": "rise", "canonical": "RISE", "kind": "hint", "inferred": false}
+        {
+          "raw": "USA",
+          "canonical": "USA",
+          "kind": "ask",
+          "inferred": false
+        },
+        {
+          "raw": "AI",
+          "canonical": "AI",
+          "kind": "finance",
+          "inferred": false
+        }
       ],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "USA", "symbol": "USA", "kind": "ask"}, {"token": "AI", "symbol": "AI", "kind": "finance"}], "hints": []}
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_ASK_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [
+          {
+            "token": "USA",
+            "symbol": "USA",
+            "kind": "ask"
+          },
+          {
+            "token": "AI",
+            "symbol": "AI",
+            "kind": "finance"
+          }
+        ],
+        "hints": []
+      },
+      "change": "产品小马 2026-10-24"
     },
     {
       "id": "tcehy-unrecognized",
       "description": "美股股票 TCEHY 的均值回归",
       "market": "US",
-      "extract": [{"raw": "TCEHY", "canonical": null, "kind": "unrecognized", "inferred": false}],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "TCEHY"}]}
+      "extract": [
+        {
+          "raw": "TCEHY",
+          "canonical": null,
+          "kind": "unrecognized",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [],
+        "unrecognized": [
+          {
+            "token": "TCEHY"
+          }
+        ]
+      }
     },
     {
       "id": "sivb-unrecognized",
       "description": "美股股票 SIVB 的均值回归",
       "market": "US",
-      "extract": [{"raw": "SIVB", "canonical": null, "kind": "unrecognized", "inferred": false}],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "SIVB"}]}
+      "extract": [
+        {
+          "raw": "SIVB",
+          "canonical": null,
+          "kind": "unrecognized",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [],
+        "unrecognized": [
+          {
+            "token": "SIVB"
+          }
+        ]
+      }
     },
     {
       "id": "twtr-unrecognized",
       "description": "美股股票 TWTR 的均值回归",
       "market": "US",
-      "extract": [{"raw": "TWTR", "canonical": null, "kind": "unrecognized", "inferred": false}],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "TWTR"}]}
+      "extract": [
+        {
+          "raw": "TWTR",
+          "canonical": null,
+          "kind": "unrecognized",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [],
+        "unrecognized": [
+          {
+            "token": "TWTR"
+          }
+        ]
+      }
     },
     {
       "id": "macd-golden-cross",
       "description": "MACD 金叉 均值回归",
-      "market": "CN",
+      "market": "pending",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "MARKET_CHOICE_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      },
+      "change": "产品小马 2026-10-24"
     },
     {
       "id": "fullwidth-aapl",
       "description": "美股ＡＡＰＬ均值回归",
       "market": "US",
-      "extract": [{"raw": "AAPL", "canonical": "AAPL", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["AAPL"], "recognized": ["AAPL"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "AAPL",
+          "canonical": "AAPL",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "AAPL"
+        ],
+        "recognized": [
+          "AAPL"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "lone-rsi",
       "description": "RSI 均值回归",
-      "market": "CN",
+      "market": "pending",
       "extract": [],
-      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "MARKET_CHOICE_PENDING",
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      },
+      "change": "产品小马 2026-10-24"
     },
     {
       "id": "dollar-rsi",
       "description": "$RSI 均值回归",
       "market": "US",
-      "extract": [{"raw": "$RSI", "canonical": "RSI", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["RSI"], "recognized": ["RSI"], "asks": [], "hints": []}
+      "extract": [
+        {
+          "raw": "$RSI",
+          "canonical": "RSI",
+          "kind": "symbol",
+          "inferred": true
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": [
+          "RSI"
+        ],
+        "recognized": [
+          "RSI"
+        ],
+        "asks": [],
+        "hints": []
+      }
     },
     {
       "id": "cn-under-us",
       "description": "美股股票 600519 的均值回归",
       "market": "US",
-      "extract": [{"raw": "600519", "canonical": "600519.SH", "kind": "mismatch", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_MARKET_MISMATCH", "symbols": [], "recognized": [], "asks": [], "hints": [], "mismatches": ["600519.SH"]}
+      "extract": [
+        {
+          "raw": "600519",
+          "canonical": "600519.SH",
+          "kind": "mismatch",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": true,
+        "code": "SYMBOL_MARKET_MISMATCH",
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [],
+        "mismatches": [
+          "600519.SH"
+        ]
+      }
+    },
+    {
+      "id": "lowercase-grow-rise",
+      "description": "美股股票 grow and rise 的均值回归",
+      "market": "US",
+      "extract": [
+        {
+          "raw": "grow",
+          "canonical": "GROW",
+          "kind": "hint",
+          "inferred": false
+        },
+        {
+          "raw": "rise",
+          "canonical": "RISE",
+          "kind": "hint",
+          "inferred": false
+        }
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [
+          {
+            "token": "grow",
+            "symbol": "GROW"
+          },
+          {
+            "token": "rise",
+            "symbol": "RISE"
+          }
+        ]
+      }
     }
   ]
 }

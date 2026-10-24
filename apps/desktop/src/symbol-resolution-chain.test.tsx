@@ -817,4 +817,63 @@ describe("symbol resolution call chain", () => {
     fireEvent.click(screen.getByTestId("unlicensed-ack"));
     expect(run).toBeEnabled();
   });
+
+  it("asks which market when the description named none, then sends the US choice", async () => {
+    const {invoke} = renderCard(
+      ZH,
+      {
+        blocked: true,
+        code: "MARKET_CHOICE_PENDING",
+        token: null,
+        symbol: null,
+        symbols: [],
+        inferred: [],
+        editable: true,
+      },
+      {
+        marketChoice: {pending: true, cnCount: 300, usCount: 503},
+        settings: {
+          thesis: "MACD 金叉 均值回归",
+          universe: "",
+          max_effective_hours: "12 小时",
+          round1_methods: "走样检验",
+          coverage_floor: "至少 25 个标的",
+        },
+      },
+    );
+    expect(screen.getByTestId("market-choice")).toHaveTextContent(
+      "描述里没有写市场。这次研究用哪个市场的默认池？",
+    );
+    expect(screen.getByTestId("market-choice-cn")).toHaveTextContent("A 股大市值池（300 只）");
+    expect(screen.getByTestId("market-choice-us")).toHaveTextContent("美股大市值池（503 只）");
+    expect(screen.getByTestId("market-choice-cn")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("market-choice-us")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("market-choice-us"));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("choose_default_market", {
+        researchId: "r-symbol",
+        market: "US",
+      }),
+    );
+    cleanup();
+    renderCard(
+      EN,
+      {
+        blocked: true,
+        code: "MARKET_CHOICE_PENDING",
+        token: null,
+        symbol: null,
+        symbols: [],
+        inferred: [],
+        editable: true,
+      },
+      {marketChoice: {pending: true, cnCount: 300, usCount: 503}},
+    );
+    expect(screen.getByTestId("market-choice")).toHaveTextContent(
+      "The description doesn't name a market. Which market's default pool should this study use?",
+    );
+    expect(screen.getByTestId("market-choice-cn")).toHaveTextContent("China A-share large-cap (300 names)");
+    expect(screen.getByTestId("market-choice-us")).toHaveTextContent("US large-cap (503 names)");
+  });
 });

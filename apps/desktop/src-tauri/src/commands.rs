@@ -324,6 +324,30 @@ pub async fn revert_symbol_ask(
     .map(|_| ())
 }
 
+pub(crate) fn choose_default_market_request(research_id: &str, market: &str) -> Value {
+    json!({
+        "type": "choose_default_market",
+        "research_id": research_id,
+        "market": market,
+    })
+}
+
+#[tauri::command]
+pub async fn choose_default_market(
+    research_id: String,
+    market: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        choose_default_market_request(&research_id, &market),
+    )
+    .await
+    .map(|_| ())
+}
+
 pub(crate) fn dismiss_mismatched_symbol_request(research_id: &str, symbol: &str) -> Value {
     json!({
         "type": "dismiss_mismatched_symbol",
@@ -807,7 +831,8 @@ pub async fn secret_failure_preview(
 mod tests {
     use super::{
         EngineConnection, command_timeout_secs, notification_title, notify_kinds,
-        answer_symbol_ask_request, dismiss_mismatched_symbol_request, parse_engine_error_body,
+        answer_symbol_ask_request, choose_default_market_request, dismiss_mismatched_symbol_request,
+        parse_engine_error_body,
         remove_market_side_request,
         revert_symbol_ask_request, set_research_symbol_request, use_hinted_symbol_request,
     };
@@ -870,6 +895,14 @@ mod tests {
         assert_eq!(body["type"], "use_hinted_symbol");
         assert_eq!(body["research_id"], "r-1");
         assert_eq!(body["symbol"], "SPY");
+    }
+
+    #[test]
+    fn choose_default_market_request_keeps_the_market() {
+        let body = choose_default_market_request("r-1", "US");
+        assert_eq!(body["type"], "choose_default_market");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["market"], "US");
     }
 
     #[test]

@@ -126,8 +126,8 @@ _MARKET_HINT = re.compile(r"美股|美国|A\s*股|中国|沪深|股|债|基金|E
 def _thesis_acceptable(message: str) -> bool:
     if _parse_universe(message) is not None:
         return True
-    # A strategy with no named market is still a thesis. The universe stays
-    # the default China A-share equity pool. Indicator words do not set a market.
+    # A strategy with no named market is still a thesis. The card asks which
+    # market's default pool to use. Nothing is preselected.
     return _STRATEGY_HINT.search(message) is not None
 
 
@@ -137,7 +137,13 @@ def _universe_for_thesis(text: str) -> Universe | None:
         return parsed
     if _STRATEGY_HINT.search(text) is None:
         return None
-    blank = Universe(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY, ())
+    blank = Universe(
+        Market.CN,
+        AssetClass.EQUITY,
+        AssetClass.EQUITY,
+        (),
+        market_unspecified=True,
+    )
     mentions = extract_symbol_mentions(text)
     if not mentions:
         return blank

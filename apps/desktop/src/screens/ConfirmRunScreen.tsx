@@ -219,7 +219,8 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     void api.unlockBrief(view.researchId);
   };
   const dirty = symbolDraft.trim() !== seeded.trim();
-  const runBlocked = Boolean(resolution?.blocked) && !dirty;
+  const marketPending = Boolean(view.marketChoice?.pending);
+  const runBlocked = (Boolean(resolution?.blocked) && !dirty) || marketPending;
   const offeredId = sel?.offeredDataSourceId ?? "";
   const catalog = sel?.priceSources ?? [];
   const catalogMode = catalog.length > 0;
@@ -277,7 +278,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         n: mismatches.length || 1,
       });
     }
-    if (resolution.code === "SYMBOL_ASK_PENDING" || resolution.code === "SYMBOL_AMOUNT_LIKE") {
+    if (
+      resolution.code === "SYMBOL_ASK_PENDING"
+      || resolution.code === "SYMBOL_AMOUNT_LIKE"
+      || resolution.code === "MARKET_CHOICE_PENDING"
+    ) {
       return null;
     }
     return t("ui.confirm.unresolved", {token: localeList(resolution.token)});
@@ -304,6 +309,29 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <p>{t("ui.confirm.policy3")}</p>
         </div>
       </details>
+      {view.marketChoice?.pending && (
+        <section data-testid="market-choice">
+          <p>{t("ui.confirm.marketChoice")}</p>
+          <button
+            type="button"
+            className="text-button"
+            data-testid="market-choice-cn"
+            aria-pressed={false}
+            onClick={() => api.chooseDefaultMarket(view.researchId, "CN")}
+          >
+            {t("ui.confirm.marketChoiceCn", {cn_count: view.marketChoice.cnCount})}
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            data-testid="market-choice-us"
+            aria-pressed={false}
+            onClick={() => api.chooseDefaultMarket(view.researchId, "US")}
+          >
+            {t("ui.confirm.marketChoiceUs", {us_count: view.marketChoice.usCount})}
+          </button>
+        </section>
+      )}
       {view.marketSwitch && (
         <p className="confirm-lead" data-testid="market-switch-notice">
           {t("ui.confirm.marketSwitched", {
@@ -575,6 +603,13 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                       {t("glossary.unlicensed")}
                     </span>
                   )}
+                  {item.unlicensed && item.acknowledgedAt && (
+                    <span data-testid="unlicensed-ack-done">
+                      {t("ui.confirm.unlicensedAcked", {
+                        date: formatResearchTimestamp(item.acknowledgedAt),
+                      })}
+                    </span>
+                  )}
                 </label>
               ))}
             </div>
@@ -612,13 +647,6 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               />
               <span>{t("ui.confirm.unlicensedAck")}</span>
             </label>
-          )}
-          {selectedChoice?.unlicensed && selectedChoice.acknowledgedAt && (
-            <p className="confirm-data-footnote" data-testid="unlicensed-ack-done">
-              {t("ui.confirm.unlicensedAcked", {
-                date: formatResearchTimestamp(selectedChoice.acknowledgedAt),
-              })}
-            </p>
           )}
           {!catalogMode && alreadyAcked && selectedId && sel.unlicensedAcknowledgedAt && (
             <p className="confirm-data-footnote" data-testid="unlicensed-ack-done">

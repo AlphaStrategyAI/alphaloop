@@ -38,6 +38,7 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
         or universe.unresolved_tokens
         or universe.symbol_asks
         or universe.market_mismatches
+        or universe.market_unspecified
     ):
         return True
     return pool_resolvable_brief(brief)

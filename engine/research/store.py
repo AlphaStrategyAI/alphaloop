@@ -416,6 +416,7 @@ class SQLiteStore:
                 universe.setdefault("ticker_hints", [])
                 universe.setdefault("market_mismatches", [])
                 universe.setdefault("unrecognized_tokens", [])
+                universe.setdefault("market_unspecified", False)
                 asks = universe.get("symbol_asks") or []
                 normalized = []
                 for item in asks:

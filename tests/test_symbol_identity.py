@@ -234,6 +234,18 @@ def test_all_caps_prose_without_a_listing_is_not_a_ticker() -> None:
     assert extract_symbol_mentions("I THINK THE MARKET IS UP") == ()
 
 
+def test_lowercase_listings_stay_prose_when_the_card_will_not_use_the_pool() -> None:
+    mentions = extract_symbol_mentions(
+        "美股 The CEO said GDP in the USA will grow and AI stocks rise 均值回归"
+    )
+    assert [(item.raw, item.kind) for item in mentions] == [("USA", "ask"), ("AI", "finance")]
+
+
+def test_lowercase_listings_are_hints_only_for_a_default_pool() -> None:
+    mentions = extract_symbol_mentions("美股股票 grow and rise 的均值回归")
+    assert [(item.raw, item.kind) for item in mentions] == [("grow", "hint"), ("rise", "hint")]
+
+
 def test_real_listing_run_is_not_a_shout() -> None:
     mentions = extract_symbol_mentions("美股股票 SPY QQQ IWM 的均值回归")
     assert mentions == (

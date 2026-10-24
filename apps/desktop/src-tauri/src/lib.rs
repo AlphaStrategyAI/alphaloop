@@ -184,6 +184,7 @@ pub fn run() {
             commands::revert_symbol_ask,
             commands::remove_market_side,
             commands::dismiss_mismatched_symbol,
+            commands::choose_default_market,
             commands::unlock_brief,
             commands::send_dialogue,
             commands::pause_research,

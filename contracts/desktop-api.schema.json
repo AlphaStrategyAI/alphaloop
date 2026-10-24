@@ -222,6 +222,17 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["type", "research_id", "market"],
+      "properties": {
+        "type": {"const": "choose_default_market"},
+        "research_id": {"type": "string", "minLength": 1},
+        "market": {"type": "string", "enum": ["CN", "US"]},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["type", "research_id", "symbol"],
       "properties": {
         "type": {"const": "dismiss_mismatched_symbol"},

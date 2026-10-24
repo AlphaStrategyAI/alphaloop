@@ -232,6 +232,10 @@ def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[Sy
             continue
         found.append(mention)
         occupied.append(match.span())
+    # A lowercase listing is prose. The hint is only for a description that
+    # would otherwise fall back to the default pool.
+    if any(mention.kind in {"symbol", "ask", "finance", "amount", "mismatch"} for mention in found):
+        found = [mention for mention in found if mention.kind != "hint"]
     return _dedupe(found)
 
 

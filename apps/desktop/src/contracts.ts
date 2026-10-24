@@ -47,6 +47,7 @@ export interface SymbolResolution {
     | "SYMBOL_AMOUNT_LIKE"
     | "SYMBOL_MIXED_MARKETS"
     | "SYMBOL_MARKET_MISMATCH"
+    | "MARKET_CHOICE_PENDING"
     | null;
   token?: string | null;
   symbol?: string | null;
@@ -168,6 +169,8 @@ type ViewBody =
       meanReversionOnlyNotice?: string | null;
       constructionNotice?: string | null;
       marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
+      marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
+      benchmarkName?: string | null;
     }
   | {
       kind: "running";
@@ -323,6 +326,8 @@ export interface DesktopApi {
   removeMarketSide(researchId: string, side: "cn" | "us"): Promise<void>;
   /** Drop one symbol the stated market rejected, so the description does not restore it. */
   dismissMismatchedSymbol(researchId: string, symbol: string): Promise<void>;
+  /** Pick the market when the description named none. Nothing is remembered. */
+  chooseDefaultMarket(researchId: string, market: "CN" | "US"): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

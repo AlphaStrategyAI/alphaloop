@@ -72,8 +72,12 @@
     "legacyZh": "描述里的市场是{{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
   },
   "SYMBOL_SOURCE_MISMATCH": {
-    "params": ["source", "market"],
-    "legacyZh": "数据来源和标的市场不一致，请改成同一个市场再开跑。"
+    "params": ["source", "market", "sourceEn", "marketEn"],
+    "legacyZh": "所选数据源 {{source}} 不提供{{market}}行情，和这些标的对不上，无法开跑。请换一个{{market}}数据源。"
+  },
+  "MARKET_CHOICE_PENDING": {
+    "params": [],
+    "legacyZh": "描述里没有写市场。这次研究用哪个市场的默认池？"
   },
   "DATA_SOURCE_UNBOUND": {
     "params": [],
