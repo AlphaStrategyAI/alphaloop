@@ -693,26 +693,33 @@ def element_in_viewport(driver, css: str) -> bool:
 
 
 def fit_confirm_card(driver) -> None:
-    """Fit the whole confirm card in the webview: title, symbol box, and Run."""
-    try:
-        driver.set_window_rect(x=20, y=20, width=1400, height=1600)
-    except Exception:
-        pass
-    driver.execute_script(
-        """
-        document.documentElement.style.zoom = "1";
-        const card = document.querySelector("[data-testid=confirm-run-card]");
-        if (!card) return;
-        card.scrollIntoView({block: "start"});
-        const margin = 16;
-        const needed = card.getBoundingClientRect().height;
-        const view = window.innerHeight;
-        if (needed > view - margin) {
-          document.documentElement.style.zoom = String((view - margin) / needed);
-          card.scrollIntoView({block: "start"});
-        }
-        """
-    )
+    """Fit the whole confirm card at 100% zoom by growing the window, not by scaling."""
+    driver.execute_script("document.documentElement.style.zoom = '1'")
+    for _ in range(3):
+        metrics = driver.execute_script(
+            """
+            const card = document.querySelector("[data-testid=confirm-run-card]");
+            if (!card) return null;
+            card.scrollIntoView({block: "start"});
+            const rect = card.getBoundingClientRect();
+            return {
+              card: rect.height,
+              bottom: rect.bottom,
+              inner: window.innerHeight,
+              zoom: document.documentElement.style.zoom || "1",
+            };
+            """
+        )
+        if not metrics:
+            raise AssertionError("confirm card is missing")
+        if metrics["zoom"] not in ("", "1", "1.0"):
+            raise AssertionError(f"confirm card zoom is {metrics['zoom']}")
+        if metrics["bottom"] <= metrics["inner"] + 2 and metrics["card"] > 0:
+            break
+        outer = driver.get_window_rect()
+        chrome = max(80, int(outer["height"]) - int(metrics["inner"]))
+        needed = int(metrics["bottom"]) + chrome + 32
+        driver.set_window_rect(x=0, y=0, width=max(1440, int(outer["width"])), height=max(needed, 900))
     missing = [
         css
         for css in (
@@ -842,6 +849,21 @@ def main() -> int:
     shot_index = 0
     seen_shots: dict[str, str] = {}
     step_shots: list[str] = []
+    hash_log = LOGS / "screenshot-sha256.txt"
+    hash_log.write_text("", encoding="utf-8")
+
+    def note_shot(filename: str, digest: str) -> None:
+        earlier = seen_shots.get(digest)
+        if earlier is not None and earlier != filename:
+            raise AssertionError(
+                f"screenshot {filename} sha256 {digest} equals earlier shot {earlier}"
+            )
+        seen_shots[digest] = filename
+        with hash_log.open("a", encoding="utf-8") as handle:
+            handle.write(f"{digest}  {filename}\n")
+
+    for existing in sorted(SHOTS.glob("*.png")):
+        note_shot(existing.name, hashlib.sha256(existing.read_bytes()).hexdigest())
 
     def shoot(name: str, *, filename: str | None = None) -> str:
         nonlocal shot_index
@@ -856,15 +878,7 @@ def main() -> int:
         except Exception as error:
             (LOGS / f"{filename}.error.txt").write_text(redact_text(str(error)), encoding="utf-8")
             raise
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        earlier = seen_shots.get(digest)
-        if earlier is not None:
-            raise AssertionError(
-                f"screenshot {filename} sha256 {digest} equals earlier shot {earlier}"
-            )
-        seen_shots[digest] = filename
-        with (LOGS / "screenshot-sha256.txt").open("a", encoding="utf-8") as handle:
-            handle.write(f"{digest}  {filename}\n")
+        note_shot(filename, hashlib.sha256(path.read_bytes()).hexdigest())
         step_shots.append(filename)
         return filename
 

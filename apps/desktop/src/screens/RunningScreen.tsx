@@ -8,7 +8,7 @@ import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
-import {formatDuration} from "../duration";
+import {formatDuration, formatEngineDuration} from "../duration";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
 import {listRowStatusKey} from "../listStatusDisplay";
@@ -64,7 +64,7 @@ export function RunningScreen({
             {t("ui.running.version", {version: view.version})}
             {view.currentAction && view.currentAction !== "idle" ? ` · ${copyText(view.currentAction)}` : ""}
           </p>
-          {view.coverage && <p className="running-accent">{view.coverage}</p>}
+          {view.coverage && <p className="running-accent">{copyText(view.coverage)}</p>}
         </div>
         {view.status === "running" ? (
           <button className="quiet-button" type="button" onClick={() => void api.pauseResearch(view.researchId)}>
@@ -78,7 +78,7 @@ export function RunningScreen({
         <div className="effective-quota" data-testid="effective-quota-progress">
           <div className="effective-quota-labels">
             <span>{t("ui.running.quota")}</span>
-            <span>{quota.usedLabel} / {quota.totalLabel}</span>
+            <span>{formatEngineDuration(quota.usedLabel, t) ?? quota.usedLabel} / {formatEngineDuration(quota.totalLabel, t) ?? quota.totalLabel}</span>
           </div>
           <div
             className="effective-quota-track"
@@ -126,7 +126,7 @@ export function RunningScreen({
         <p className="eyebrow">{t("ui.running.materials")}</p>
         <p>{t("ui.running.sources", {sources: copyText(view.sources) || t("ui.running.sourcesFallback")})}</p>
         <p>{t("ui.running.cutoff", {cutoff: view.dataCutoff || t("ui.running.cutoffFallback")})}</p>
-        <p>{t("ui.running.coverageNow", {coverage: view.coverage})}</p>
+        <p>{t("ui.running.coverageNow", {coverage: copyText(view.coverage)})}</p>
         <p>{t("ui.running.notATerminal")}</p>
       </section>
       <h1>{t("ui.running.roundsTitle")}</h1>

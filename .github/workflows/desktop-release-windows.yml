@@ -282,11 +282,15 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "tzutil before: $(tzutil /g)"
-          Write-Host "dotnet before: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
+          Write-Host "dotnet before, this process: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
           tzutil /s "China Standard Time"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Write-Host "tzutil after: $(tzutil /g)"
-          Write-Host "dotnet after: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
+          # TimeZoneInfo.Local is cached for the life of this process, so it still says UTC.
+          Write-Host "dotnet after, this process cached zone: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
+          $fresh = pwsh -NoProfile -Command "[System.TimeZoneInfo]::Local.Id + ' offset ' + [System.TimeZoneInfo]::Local.BaseUtcOffset"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "dotnet after, fresh process: $fresh"
 
       - name: De-elevated installer smoke
         timeout-minutes: 15

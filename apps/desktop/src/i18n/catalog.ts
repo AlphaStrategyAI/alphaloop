@@ -168,7 +168,7 @@ function messages(lang: "zh" | "en") {
         ),
         MARKET_DATA_TIMEOUT: copy(
           "行情还没取完：{{symbol_count}} 只在限定时间内没有完成。请稍后重试。（MARKET_DATA_TIMEOUT）",
-          "Timed out before {{symbol_count}} {{symbol_countNoun}} finished. Try again.",
+          "Timed out before {{symbol_count, plural, one {# name} other {# names}}} finished. Try again.",
         ),
         MARKET_DATA_RATE_LIMITED: copy(
           "行情源限流（HTTP 429），多次退避后仍失败。请稍后重试。（MARKET_DATA_RATE_LIMITED）",

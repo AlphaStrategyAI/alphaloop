@@ -226,7 +226,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   };
   return (
     <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
-      <p className="tech-pulse-eyebrow">Confirm to run</p>
+      <p className="tech-pulse-eyebrow">{t("ui.confirm.eyebrow")}</p>
       <h1>{t("ui.status.confirmRun")}</h1>
       <p className="confirm-lead">
         {t("ui.confirm.lead")}
@@ -273,7 +273,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           </div>
           <p className="confirm-data-summary" data-testid="symbol-selection-summary">
             {copyText(sel.summaryLine) ||
-              t(sel.count === 1 ? "ui.confirm.summaryOne" : "ui.confirm.summary", {
+              t("ui.confirm.summary", {
                 count: sel.count,
                 listName: copyText(sel.listName),
                 listVersion: sel.listVersion,

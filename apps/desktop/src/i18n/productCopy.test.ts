@@ -70,8 +70,20 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
     expect(zh("「分段稳健性检验」重验未通过。")).toBe("「分段稳健性检验」重验未通过。");
     expect(en("「分段稳健性检验」重验未通过。")).toBe("“Subperiod robustness check” re-verification did not pass.");
     expect(zh("未模拟 T+1 与涨跌停，实际成交可能更差")).toBe("未模拟 T+1 与涨跌停，实际成交可能更差");
-    expect(en("0.00 小时")).toBe("0.00 hours");
-    expect(zh("0.00 小时")).toBe("0.00 小时");
+    expect(en("0.00 小时")).toBe("0 seconds");
+    expect(zh("0.00 小时")).toBe("0 秒");
+    expect(en("0.0833333 小时")).toBe("5 min");
+    expect(zh("0.0833333 小时")).toBe("5 分钟");
+    expect(en("4 小时")).toBe("4 h");
+    expect(zh("4 小时")).toBe("4 小时");
+    expect(en("1.5 小时")).toBe("1 h 30 min");
+    expect(zh("1.5 小时")).toBe("1 小时 30 分钟");
+    expect(en("至少 1 个标的")).toBe("At least 1 name");
+    expect(en("至少 0 个标的")).toBe("At least 0 names");
+    expect(en("至少 2 个标的")).toBe("At least 2 names");
+    expect(en("至少 1 个标的、10 年、缺失不超过 5%")).toBe(
+      "At least 1 name, 10 years of data, missing no more than 5%",
+    );
     const floorOne = "至少 1 个标的、3 年数据，缺失不超过 5%";
     expect(zh(floorOne)).toBe(floorOne);
     expect(en(floorOne)).toBe("At least 1 name, 3 years of data, missing no more than 5%");
