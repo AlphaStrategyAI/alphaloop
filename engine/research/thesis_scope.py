@@ -12,9 +12,18 @@ MEAN_REVERSION_ONLY_NOTICE = (
 )
 CONFIRM_CARD_NOTICE = "策略族：均值回归（V1 唯一）· 论点文字仅作记录，不改变策略"
 # strategy-families-v1 §4.3 and §4.5. Shown only after the user names a supported family.
-FAMILY_REPICK_NOTICE = "原述未采纳，方向与原话不同。相对你的原话，经济逻辑已改成这一族。"
+# {family} is filled with the glossary display name for the chosen family.
+FAMILY_REPICK_TEMPLATE = "已改用{family}。你原来的论点没有采纳，这一族的方向和你的原话不同。"
 FAMILY_FOLLOWUP = "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。"
 MEAN_REVERSION_ACK_REQUIRED = "MEAN_REVERSION_ACK_REQUIRED"
+MEAN_REVERSION_ACK_MESSAGE = "先确认是否按均值回归继续，再开跑。"
+
+
+def family_repick_notice(family_id: str) -> str:
+    """Chinese source sentence. The card substitutes the locale's glossary name."""
+    from engine.research.families import family_display_name
+
+    return FAMILY_REPICK_TEMPLATE.format(family=family_display_name(family_id, "zh"))
 
 
 def thesis_is_non_mean_reversion(text: str) -> bool:
@@ -63,7 +72,7 @@ def mean_reversion_only_notice(
 ) -> str | None:
     """Display line only. Does not decide whether the thesis may run."""
     if repicked_family:
-        return FAMILY_REPICK_NOTICE
+        return family_repick_notice(repicked_family)
     hit = classify_thesis(thesis)
     if hit.outcome == "block":
         return MOMENTUM_UNSUPPORTED_NOTICE

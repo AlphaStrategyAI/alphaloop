@@ -7,7 +7,7 @@ import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {I18nText} from "../i18n/I18nText";
 import {LogicStatementText} from "../i18n/logicStatement";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {localizeKnownCopy} from "../i18n/productCopy";
+import {familyDisplayName, localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {formatDuration} from "../duration";
@@ -283,9 +283,15 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             )}
           </dl>
         )}
-        {view.meanReversionOnlyNotice && (
-          <p className="confirm-lead" data-testid="mean-reversion-only-notice">
-            {copyText(view.meanReversionOnlyNotice)}
+        {(view.repickedFamily || view.meanReversionOnlyNotice) && (
+          <p
+            className="confirm-lead"
+            data-testid="mean-reversion-only-notice"
+            data-repick-family={view.repickedFamily || undefined}
+          >
+            {view.repickedFamily
+              ? t("ui.copy.familyRepick", {family: familyDisplayName(view.repickedFamily, t)})
+              : copyText(view.meanReversionOnlyNotice)}
           </p>
         )}
         {view.cnExecutionNotice && (

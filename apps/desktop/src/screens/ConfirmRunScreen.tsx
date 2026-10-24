@@ -7,7 +7,7 @@ import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataC
 import {DialogueTurnBody, EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {localizeKnownCopy} from "../i18n/productCopy";
+import {familyDisplayName, localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -405,9 +405,15 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           })}
         </p>
       )}
-      {view.meanReversionOnlyNotice && (
-        <p className="confirm-lead" data-testid="mean-reversion-only-notice">
-          {copyText(view.meanReversionOnlyNotice)}
+      {(view.repickedFamily || view.meanReversionOnlyNotice) && (
+        <p
+          className="confirm-lead"
+          data-testid="mean-reversion-only-notice"
+          data-repick-family={view.repickedFamily || undefined}
+        >
+          {view.repickedFamily
+            ? t("ui.copy.familyRepick", {family: familyDisplayName(view.repickedFamily, t)})
+            : copyText(view.meanReversionOnlyNotice)}
         </p>
       )}
       {view.constructionNotice && (
@@ -764,7 +770,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                 : gate.code === "STRATEGY_FAMILY_NOT_RUNNABLE"
                   ? t("errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE")
                   : gate.code === "MEAN_REVERSION_ACK_REQUIRED"
-                    ? t("ui.copy.meanReversionQuestion")
+                    ? t("errors.codes.MEAN_REVERSION_ACK_REQUIRED")
                   : gate.code === "UNLICENSED_SOURCE_UNACKNOWLEDGED"
                     ? t("errors.codes.UNLICENSED_SOURCE_UNACKNOWLEDGED")
                     : blockMessage() || t("ui.confirm.sourcePending")}

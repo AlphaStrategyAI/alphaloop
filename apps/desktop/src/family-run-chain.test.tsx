@@ -213,6 +213,7 @@ describe("family run gate on the confirm card", () => {
 
 const QUESTION =
   "V1 only supports cross-sectional mean reversion (reversal). Your thesis will be recorded but won't change the strategy. Continue with mean reversion?";
+const ACK_REASON = "Confirm whether to continue with mean reversion before running.";
 
 describe("disclosed family stays disabled until the user answers yes", () => {
   it("keeps Run disabled before the answer and sends confirm_run after", () => {
@@ -232,8 +233,8 @@ describe("disclosed family stays disabled until the user answers yes", () => {
     const blocked = screen.getByTestId("confirm-run-start");
     expect(blocked).toBeDisabled();
     expect(blocked).toHaveAttribute("data-run-blocked", "ack");
-    expect(screen.getByTestId("mean-reversion-only-notice")).toHaveTextContent("Continue with mean reversion");
-    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(QUESTION);
+    expect(screen.getByTestId("mean-reversion-only-notice")).toHaveTextContent(QUESTION);
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(ACK_REASON);
     fireEvent.click(blocked);
     expect(payloads).toEqual([]);
 
@@ -259,6 +260,74 @@ describe("disclosed family stays disabled until the user answers yes", () => {
         data_source_id: "yahoo_daily",
       },
     ]);
+  });
+});
+
+describe("family re-pick names the chosen family", () => {
+  it("renders the glossary name in zh and en, with no CJK in English", () => {
+    const cases = [
+      ["mean_reversion", "均值回归", "Mean reversion"],
+      ["low_volatility", "低波", "Low volatility"],
+      ["stock_bond_rebalance", "股债再平衡", "Stock-bond rebalance"],
+    ] as const;
+    for (const [familyId, zhName, enName] of cases) {
+      const sentence = `已改用${zhName}。你原来的论点没有采纳，这一族的方向和你的原话不同。`;
+      const view = card({
+        repickedFamily: familyId,
+        meanReversionOnlyNotice: sentence,
+        runGate: {runnable: familyId === "mean_reversion"},
+      });
+      const zh = renderCard(ZH, view);
+      expect(screen.getByTestId("mean-reversion-only-notice")).toHaveTextContent(
+        `已改用${zhName}。你原来的论点没有采纳，这一族的方向和你的原话不同。`,
+      );
+      expect(screen.getByTestId("mean-reversion-only-notice")).toHaveAttribute("data-repick-family", familyId);
+      zh.unmount();
+
+      const en = renderCard(EN, view);
+      const notice = screen.getByTestId("mean-reversion-only-notice");
+      expect(notice).toHaveTextContent(
+        `Switched to ${enName}. Your original thesis was not adopted, and this family's direction differs from what you said.`,
+      );
+      expect(notice.textContent ?? "").not.toMatch(CJK);
+      en.unmount();
+
+      const fromSentence = localizeKnownCopy(sentence, (key, params) => translate("en", key, params));
+      expect(fromSentence).toBe(
+        `Switched to ${enName}. Your original thesis was not adopted, and this family's direction differs from what you said.`,
+      );
+      expect(fromSentence).not.toMatch(CJK);
+    }
+  });
+
+  it("keeps the follow-up in glossary order and off the momentum, trend, and breakout card", () => {
+    expect(zhCatalog.ui.dialogue.familyFollowUp).toBe(
+      "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。",
+    );
+    expect(enCatalog.ui.dialogue.familyFollowUp).toBe(
+      "That didn't match a supported strategy family. You can say low volatility, stock-bond rebalance, mean reversion, fundamental factor, or all weather.",
+    );
+    expect(enCatalog.ui.dialogue.familyFollowUp).not.toMatch(CJK);
+    expect(enCatalog.errors.codes.MEAN_REVERSION_ACK_REQUIRED).toBe(ACK_REASON);
+    expect(zhCatalog.errors.codes.MEAN_REVERSION_ACK_REQUIRED).toBe("先确认是否按均值回归继续，再开跑。");
+    for (const thesis of ["美股动量策略", "美股趋势策略", "美股突破策略"]) {
+      renderCard(EN, card({
+        settings: {
+          thesis,
+          universe: "美股 · 股票",
+          max_effective_hours: "12 小时",
+          round1_methods: "换手成本",
+          coverage_floor: "至少 1 个标的",
+        },
+        meanReversionOnlyNotice: "暂不支持。不推荐最接近的族，不推荐均值回归。动量是第二批首个新增族",
+        runGate: {runnable: false, code: "STRATEGY_FAMILY_NOT_RUNNABLE"},
+      }));
+      const notice = screen.getByTestId("mean-reversion-only-notice").textContent ?? "";
+      expect(notice).toContain("Not supported yet");
+      expect(notice).not.toContain("didn't match a supported strategy family");
+      expect(notice).not.toContain(enCatalog.ui.dialogue.familyFollowUp);
+      cleanup();
+    }
   });
 });
 
@@ -317,6 +386,9 @@ describe("English surfaces that used to render engine Chinese", () => {
       "ui.completed.maxDrawdown",
       "errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE",
       "ui.copy.meanReversionQuestion",
+      "ui.copy.familyRepick",
+      "ui.dialogue.familyFollowUp",
+      "errors.codes.MEAN_REVERSION_ACK_REQUIRED",
       "ui.surface.pitPurpose",
       "ui.glossaryBody.pit",
     ] as const) {

@@ -169,6 +169,8 @@ type ViewBody =
       confirmDataNoticeCode?: string | null;
       confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
+      /** Family id the user named after an unsupported thesis. The card fills {{family}}. */
+      repickedFamily?: string | null;
       constructionNotice?: string | null;
       /** Engine gate. Run stays disabled when this code is not a source choice. */
       runGate?: {runnable: boolean; code?: string | null} | null;
@@ -241,6 +243,7 @@ type ViewBody =
       title: string;
       universeLabel?: string;
       meanReversionOnlyNotice?: string | null;
+      repickedFamily?: string | null;
       cnExecutionNotice?: string | null;
       subtitle?: string;
       resultHeadline?: string;

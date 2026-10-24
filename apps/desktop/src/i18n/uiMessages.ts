@@ -715,8 +715,8 @@ export function buildUiMessages(copy: Copy) {
         "Continue parameter and model iteration under the locked thesis",
       ),
       familyRepick: copy(
-        "原述未采纳，方向与原话不同。相对你的原话，经济逻辑已改成这一族。",
-        "The original thesis was not adopted, and the direction differs from what you said. Relative to your original words, the economic logic is now this family.",
+        "已改用{{family}}。你原来的论点没有采纳，这一族的方向和你的原话不同。",
+        "Switched to {{family}}. Your original thesis was not adopted, and this family's direction differs from what you said.",
       ),
       meanReversionQuestion: copy(
         "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？",

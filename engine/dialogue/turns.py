@@ -20,7 +20,7 @@ from engine.research.models import (
 )
 from engine.research.thesis_scope import (
     FAMILY_FOLLOWUP,
-    FAMILY_REPICK_NOTICE,
+    family_repick_notice,
     explicit_family_choice,
     is_mean_reversion_ack,
 )
@@ -153,7 +153,9 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
                 repicked_family=choice.family_id,
                 mean_reversion_adopted=choice.outcome == "run",
             )
-            return append_dialogue(updated, DialogueRole.ASSISTANT, FAMILY_REPICK_NOTICE, now)
+            return append_dialogue(
+                updated, DialogueRole.ASSISTANT, family_repick_notice(choice.family_id), now
+            )
     prompt = next_question(research)
     intent = interpret(text, research, prompt.slot)
     unrecognized_thesis: str | None = None

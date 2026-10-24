@@ -16,7 +16,10 @@ from engine.research.a1_copy import DATA_SOURCE_UNBOUND, STRATEGY_FAMILY_NOT_RUN
 from engine.research.family_intent import classify_thesis
 from engine.research.models import Research
 from engine.research.source_acknowledgement import acknowledged_at, is_unlicensed_source
-from engine.research.thesis_scope import MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ONLY_NOTICE
+from engine.research.thesis_scope import (
+    MEAN_REVERSION_ACK_MESSAGE,
+    MEAN_REVERSION_ACK_REQUIRED,
+)
 from engine.research.universe_pool import pool_resolvable
 from engine.research.universe_validation import (
     reject_market_mismatches,
@@ -74,11 +77,11 @@ def evaluate_run_gate(
         pass
     elif repick:
         if not research.mean_reversion_adopted:
-            return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ONLY_NOTICE)
+            return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ACK_MESSAGE)
     elif hit.outcome == "block":
         return RunGate(False, "STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
     elif hit.outcome == "disclose" and not research.mean_reversion_adopted:
-        return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ONLY_NOTICE)
+        return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ACK_MESSAGE)
 
     source = data_source_id.strip()
     if pool_resolvable(research) and not source:

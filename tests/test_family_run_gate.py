@@ -20,8 +20,9 @@ from engine.research.store import SQLiteStore
 from engine.research.thesis_scope import (
     CONFIRM_CARD_NOTICE,
     FAMILY_FOLLOWUP,
-    FAMILY_REPICK_NOTICE,
+    MEAN_REVERSION_ACK_MESSAGE,
     MEAN_REVERSION_ONLY_NOTICE,
+    family_repick_notice,
 )
 from engine.research.user_errors import UserFacingError
 
@@ -121,6 +122,7 @@ def test_disclosed_families_stay_disabled_until_yes_then_run(tmp_path: Path) -> 
                 }
             )
         assert blocked.value.code == "MEAN_REVERSION_ACK_REQUIRED"
+        assert blocked.value.message == MEAN_REVERSION_ACK_MESSAGE
         assert service.store.load(research_id).status is ResearchStatus.DRAFT
         _say(service, research_id, "按均值回归继续")
         adopted = service.store.load(research_id)
@@ -214,9 +216,11 @@ def test_explicit_family_repick_is_the_only_momentum_way_forward(tmp_path: Path)
     assert loaded.repicked_family == "mean_reversion"
     assert loaded.mean_reversion_adopted is True
     view = service.view_for(f"#/research/{research_id}")
-    assert view["meanReversionOnlyNotice"] == FAMILY_REPICK_NOTICE
-    assert "原述未采纳" in view["meanReversionOnlyNotice"]
-    assert "方向与原话不同" in view["meanReversionOnlyNotice"]
+    notice = family_repick_notice("mean_reversion")
+    assert view["repickedFamily"] == "mean_reversion"
+    assert view["meanReversionOnlyNotice"] == notice
+    assert notice == "已改用均值回归。你原来的论点没有采纳，这一族的方向和你的原话不同。"
+    assert loaded.dialogue[-1].text == notice
     assert MEAN_REVERSION_ONLY_NOTICE not in view["meanReversionOnlyNotice"]
     ready = evaluate_run_gate(
         loaded,
@@ -234,6 +238,20 @@ def test_explicit_family_repick_is_the_only_momentum_way_forward(tmp_path: Path)
         }
     )
     assert started.get("status") == "running"
+
+
+def test_blocked_family_shows_unsupported_notice_not_the_follow_up(tmp_path: Path) -> None:
+    """Momentum, trend, and breakout never get the unrecognized-family follow-up."""
+    for thesis in ("美股动量策略", "美股趋势策略", "美股突破策略"):
+        service = _service(tmp_path)
+        research_id = _fill(service, thesis)
+        loaded = service.store.load(research_id)
+        joined = "\n".join(turn.text for turn in loaded.dialogue)
+        assert FAMILY_FOLLOWUP not in joined, thesis
+        assert MEAN_REVERSION_ONLY_NOTICE not in joined, thesis
+        view = service.view_for(f"#/research/{research_id}")
+        assert view["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE, thesis
+        assert view.get("repickedFamily") in (None, "")
 
 
 def test_unrecognized_family_asks_instead_of_running_mean_reversion(tmp_path: Path) -> None:

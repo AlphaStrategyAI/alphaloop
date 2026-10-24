@@ -93,6 +93,6 @@
   },
   "MEAN_REVERSION_ACK_REQUIRED": {
     "params": [],
-    "legacyZh": "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？"
+    "legacyZh": "先确认是否按均值回归继续，再开跑。"
   }
 }

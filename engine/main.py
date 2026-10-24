@@ -780,6 +780,8 @@ class ResearchCommandService:
                 )
                 if notice:
                     body["meanReversionOnlyNotice"] = notice
+                if research.repicked_family:
+                    body["repickedFamily"] = research.repicked_family
                 construction = construction_notice_for(research)
                 if construction:
                     body["constructionNotice"] = construction
@@ -934,6 +936,7 @@ class ResearchCommandService:
                     adopted=research.mean_reversion_adopted,
                     repicked_family=research.repicked_family,
                 ),
+                "repickedFamily": research.repicked_family or None,
                 "cnExecutionNotice": cn_execution_notice_for(research),
                 "universeLabel": subtitle,
                 "subtitle": presentation.summary,
