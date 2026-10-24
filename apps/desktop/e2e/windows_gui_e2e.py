@@ -497,6 +497,29 @@ def wait_css(driver, css: str, timeout: float = 30):
     return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.CSS_SELECTOR, css)))
 
 
+def accept_unlicensed_source(driver) -> None:
+    """The confirm card keeps Run disabled until a price source is chosen and acknowledged."""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    radios = driver.find_elements(By.CSS_SELECTOR, "[data-testid^=price-source-]")
+    if radios:
+        testid = radios[0].get_attribute("data-testid")
+        click(driver, f"[data-testid={testid}]")
+    else:
+        choice = driver.find_elements(By.CSS_SELECTOR, "[data-testid=unlicensed-source-choice]")
+        if choice and not choice[0].is_selected():
+            click(driver, "[data-testid=unlicensed-source-choice]")
+    ack = WebDriverWait(driver, 15).until(
+        lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=unlicensed-ack]")
+    )
+    if not ack.is_selected():
+        click(driver, "[data-testid=unlicensed-ack]")
+    WebDriverWait(driver, 15).until(
+        lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]").is_enabled()
+    )
+
+
 def click(driver, css: str, timeout: float = 20):
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
@@ -1111,6 +1134,7 @@ def main() -> int:
     def step_run_and_export() -> str:
         assert session is not None
         open_confirm_card(session.driver, research_ids["us"])
+        accept_unlicensed_source(session.driver)
         click(session.driver, "[data-testid=confirm-run-start]")
         from selenium.webdriver.support import expected_conditions as EC
         from selenium.webdriver.common.by import By
@@ -1140,6 +1164,7 @@ def main() -> int:
     def step_delete_running() -> str:
         assert session is not None
         open_confirm_card(session.driver, research_ids["cn"])
+        accept_unlicensed_source(session.driver)
         click(session.driver, "[data-testid=confirm-run-start]")
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
