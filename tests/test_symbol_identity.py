@@ -257,17 +257,26 @@ def test_spaced_a_share_is_not_the_agilent_ticker() -> None:
 
 
 def test_common_word_list_comes_from_the_frequency_file() -> None:
-    from engine.research.symbol_identity import common_english_words, english_words
+    import hashlib
+    from pathlib import Path
 
+    from engine.research.symbol_identity import common_english_words
+
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "engine/research/data/en_common_words.txt").read_text(encoding="utf-8")
+    notice = (root / "NOTICE").read_text(encoding="utf-8")
+    words = [line for line in text.splitlines() if line and not line.startswith("#")]
+    digest = hashlib.sha256(("\n".join(words) + "\n").encode("utf-8")).hexdigest()
+    assert f"# sha256: {digest}" in text
+    assert "wordfreq 3.1.1" in text
+    assert "Zipf >= 4.5" in text
+    assert words == sorted(words)
     common = common_english_words()
     assert {"cost", "on", "it", "low", "f", "tech", "now", "the"} <= common
     assert "spy" not in common and "meta" not in common and "aapl" not in common
-    assert "zzzzq" not in english_words()
-    assert "etf" in english_words() and "caps" in english_words()
-    note = (
-        __import__("pathlib").Path(__file__).resolve().parents[1]
-        / "engine/research/data/en_common_words.SOURCE.md"
-    ).read_text(encoding="utf-8")
-    assert "wordfreq" in note
-    assert "CC-BY-SA" in note or "CC BY-SA" in note
-    assert "4.5" in note
+    assert "zzzzq" not in common
+    assert extract_symbol_mentions("ETF") == ()
+    assert extract_symbol_mentions("CAPS") == ()
+    assert "CC-BY-SA 4.0" in notice
+    assert "Apache License 2.0" in notice
+    assert "share-alike" in notice

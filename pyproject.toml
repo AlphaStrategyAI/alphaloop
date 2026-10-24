@@ -19,7 +19,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["build", "mypy", "pandas-stubs", "pillow", "pyinstaller", "pytest", "ruff"]
+dev = [
+  "build",
+  "mypy",
+  "pandas-stubs",
+  "pillow",
+  "pyinstaller",
+  "pytest",
+  "ruff",
+  "wordfreq==3.1.1",
+]
 
 [project.scripts]
 alphaloop = "apps.cli.main:main"

@@ -1,3 +1,9 @@
+# source: wordfreq 3.1.1 best English list
+# https://github.com/rspeer/wordfreq
+# threshold: Zipf >= 4.5
+# generated: 2026-10-24
+# sha256: 20d1350876a98c5bcd2fc516a38c4f82195bbff600928d96e0f9af7793db0f77
+# license: CC-BY-SA 4.0 derivative of the wordfreq frequency data; see NOTICE
 a
 ability
 able

@@ -64,8 +64,11 @@ _INDICATORS = frozenset({
 _INDEX_ETFS = frozenset({"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI"})
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 _COMMON_WORDS_PATH = _DATA_DIR / "en_common_words.txt"
-_ENGLISH_WORDS_PATH = _DATA_DIR / "en_wordfreq_words.txt"
 _A_SHARE = re.compile(r"\s*股")
+# A vowel keeps an ordinary all-caps word (ETF, CAPS) out of the ticker list.
+# The common-word file is only Zipf >= 4.5, so this is what still separates
+# those words from a vowelless non-word such as ZZZZQ.
+_VOWEL = frozenset("aeiouy")
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,14 +185,8 @@ def _is_indicator(token: str) -> bool:
 
 @lru_cache(maxsize=1)
 def common_english_words() -> frozenset[str]:
-    """Zipf >= 4.5 alphabetic words. See ``en_common_words.SOURCE.md``."""
+    """Zipf >= 4.5 alphabetic words. See the file header and NOTICE."""
     return _load_word_file(_COMMON_WORDS_PATH)
-
-
-@lru_cache(maxsize=1)
-def english_words() -> frozenset[str]:
-    """Every alphabetic word in the wordfreq best list. See the source note."""
-    return _load_word_file(_ENGLISH_WORDS_PATH)
 
 
 def _load_word_file(path: Path) -> frozenset[str]:
@@ -224,12 +221,16 @@ def _us_mention(text: str, match: re.Match[str], *, prose_filter: bool) -> Symbo
     if not prose_filter:
         return SymbolMention(token, canonical, True)
     listed = canonical in us_listings()
+    key = _word_key(token)
     if _all_caps(token):
-        if listed and _word_key(token) in common_english_words():
+        common = key in common_english_words()
+        if listed and common:
             return SymbolMention(token, canonical, False, "ask")
-        if listed or _word_key(token) not in english_words():
+        if listed:
             return SymbolMention(token, canonical, True)
-        return None
+        if common or any(char in _VOWEL for char in key):
+            return None
+        return SymbolMention(token, canonical, True)
     if listed:
         return SymbolMention(token, canonical, False, "hint")
     return None
