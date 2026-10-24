@@ -71,7 +71,7 @@ def test_chat_draft_confirm_run_populates_symbols_and_runs_one_round(
     research_id = service.handle({"type": "create_draft"})["research_id"]
     _dialogue_to_confirm(service, research_id)
 
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    service.handle({"type": "confirm_run", "research_id": research_id, "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True})
     loaded = service.store.load(research_id)
     assert loaded.status is ResearchStatus.RUNNING
     symbols = loaded.brief.universe.value.symbols
@@ -96,7 +96,7 @@ def test_second_research_inherits_window_cumulative(tmp_path: Path) -> None:
     service = _service(tmp_path)
     rid_a = service.handle({"type": "create_draft"})["research_id"]
     _dialogue_to_confirm(service, rid_a)
-    service.handle({"type": "confirm_run", "research_id": rid_a})
+    service.handle({"type": "confirm_run", "research_id": rid_a, "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True})
     mono = FakeMonotonic()
     loop = ResearchLoop(
         service.store,
@@ -113,7 +113,7 @@ def test_second_research_inherits_window_cumulative(tmp_path: Path) -> None:
 
     rid_b = service.handle({"type": "create_draft"})["research_id"]
     _dialogue_to_confirm(service, rid_b)
-    service.handle({"type": "confirm_run", "research_id": rid_b})
+    service.handle({"type": "confirm_run", "research_id": rid_b, "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True})
     view_b = service.view_for(f"#/research/{rid_b}")
     assert view_b.get("windowCumulativeRoundsAllResearches", 0) >= 1
 

@@ -37,6 +37,13 @@ export type BriefSlotName =
   | "round1_methods"
   | "coverage_floor";
 
+export interface PriceSourceChoice {
+  id: string;
+  label: string;
+  unlicensed: boolean;
+  acknowledgedAt?: string | null;
+}
+
 export interface SymbolSelectionSummary {
   count: number;
   listName: string;
@@ -53,6 +60,14 @@ export interface SymbolSelectionSummary {
   dataEnd: string;
   dataCutoff: string;
   dataSource: string;
+  dataSourceId?: string | null;
+  dataSourcePending?: boolean;
+  /** Engine-owned list. The card does not decide which row is preselected. */
+  priceSources?: readonly PriceSourceChoice[];
+  offeredDataSourceId?: string;
+  offeredDataSource?: string;
+  unlicensedAcknowledgedAt?: string | null;
+  unlicensedAcknowledgementRequired?: boolean;
   droppedForMissingData?: number;
   shrinkNote?: string | null;
   isDefaultPool?: boolean;
@@ -131,6 +146,8 @@ type ViewBody =
       status: "running" | "paused";
       version: number;
       effective: string;
+      effectiveSeconds?: number;
+      remainingSeconds?: number;
       coverage: string;
       rounds: readonly RoundRecord[];
       currentAction?: string;
@@ -178,7 +195,11 @@ type ViewBody =
       researchId: string;
       version?: number;
       effective?: string;
+      effectiveSeconds?: number;
       remaining?: string;
+      remainingSeconds?: number;
+      stopReason?: "round_cap" | "time_budget" | "early_stop" | null;
+      sources?: string;
       status: "completed" | "ended";
       title: string;
       universeLabel?: string;
@@ -259,7 +280,10 @@ export interface DesktopApi {
     hostStatus?: HostStatus;
   }>;
   createDraft(): Promise<string>;
-  confirmRun(researchId: string): Promise<void>;
+  confirmRun(
+    researchId: string,
+    options?: {dataSourceId?: string; unlicensedAcknowledged?: boolean},
+  ): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

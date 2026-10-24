@@ -13,7 +13,6 @@ from engine.research.window_copy import (
     version_trial_label,
 )
 from engine.research.models import Research, RoundV2
-from engine.research.planned_data_window import DEFAULT_DATA_SOURCE_ID
 from engine.verifiers import method_set_excluding_pit
 
 if TYPE_CHECKING:
@@ -42,7 +41,7 @@ def data_window_key_from_research(research: Research) -> DataWindowKey | None:
     version = research.symbol_list_version or ""
     return DataWindowKey(
         symbol_list_version=version,
-        data_source=research.data_source_id or DEFAULT_DATA_SOURCE_ID,
+        data_source=research.data_source_id or "unset",
         start=research.data_window_start,
         end=research.data_window_end,
     )
@@ -76,7 +75,7 @@ def data_window_key_from_round(round_: RoundV2, research: Research) -> DataWindo
         version = attempt.spec.universe.symbol_list_version
     return DataWindowKey(
         symbol_list_version=version,
-        data_source=research.data_source_id or DEFAULT_DATA_SOURCE_ID,
+        data_source=research.data_source_id or "unset",
         start=start,
         end=end,
     )
