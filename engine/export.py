@@ -48,6 +48,35 @@ def _pit_verification_payload(pit_result: VerifierResult | None) -> dict[str, ob
     return payload
 
 
+_UNLICENSED_SOURCE_IDS = frozenset({"yahoo_daily", "akshare_sina_daily"})
+
+
+def _uses_unlicensed_source(research: Research) -> bool:
+    return research.data_source_id in _UNLICENSED_SOURCE_IDS
+
+
+def _fingerprint_payload(
+    research: Research,
+    *,
+    prices_sha256: str,
+    benchmark_sha256: str | None,
+    symbols: list[str],
+) -> dict[str, object]:
+    provider = "yfinance" if research.data_source_id == "yahoo_daily" else "akshare"
+    return {
+        "source_id": research.data_source_id,
+        "provider": provider,
+        "redistribution": "fingerprint_only",
+        "note": (
+            "Raw prices are not included. Downstream must supply same-definition "
+            "data and check this fingerprint."
+        ),
+        "prices_sha256": prices_sha256,
+        "benchmark_sha256": benchmark_sha256,
+        "symbols": symbols,
+    }
+
+
 def _material_sources(paths: tuple[Path, ...]) -> dict[str, object]:
     rows = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
     return {
@@ -508,11 +537,24 @@ def build_strategy_pack(
         (root / "run_backtest.py").write_text(RUNNER, encoding="utf-8")
         (root / "execution.py").write_text(EXECUTION_STUB, encoding="utf-8")
         (root / "data").mkdir()
-        _asset_prices(data).to_csv(root / "data" / "prices.csv", index_label="date")
-        benchmark_prices.rename("benchmark").to_csv(
-            root / "data" / "benchmark.csv",
-            index_label="date",
-        )
+        if _uses_unlicensed_source(research):
+            prices_csv = _asset_prices(data).to_csv(index_label="date")
+            benchmark_csv = benchmark_prices.rename("benchmark").to_csv(index_label="date")
+            _json(
+                root / "data" / "fingerprint.json",
+                _fingerprint_payload(
+                    research,
+                    prices_sha256=hashlib.sha256(prices_csv.encode("utf-8")).hexdigest(),
+                    benchmark_sha256=hashlib.sha256(benchmark_csv.encode("utf-8")).hexdigest(),
+                    symbols=list(strategy.spec.universe.symbols),
+                ),
+            )
+        else:
+            _asset_prices(data).to_csv(root / "data" / "prices.csv", index_label="date")
+            benchmark_prices.rename("benchmark").to_csv(
+                root / "data" / "benchmark.csv",
+                index_label="date",
+            )
         _json(root / "reports" / "metrics.json", asdict(attempt.simulation))
         _json(root / "reports" / "verification.json", asdict(attempt.verification))
         _json(root / "reports" / "review.json", asdict(attempt.review))
@@ -688,6 +730,23 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
             root / "why_not_live.json",
             why_not_live,
         )
+        if _uses_unlicensed_source(research):
+            (root / "data").mkdir(parents=True, exist_ok=True)
+            snapshot = latest_attempt.data_snapshot_path if latest_attempt is not None else None
+            raw = snapshot.read_bytes() if snapshot is not None and snapshot.is_file() else b""
+            symbols: list[str] = []
+            universe = research.brief.universe.value
+            if universe is not None:
+                symbols = list(universe.symbols)
+            _json(
+                root / "data" / "fingerprint.json",
+                _fingerprint_payload(
+                    research,
+                    prices_sha256=hashlib.sha256(raw).hexdigest(),
+                    benchmark_sha256=None,
+                    symbols=symbols,
+                ),
+            )
         write_glossary(root)
         bundle_root = Path(
             getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)

@@ -38,5 +38,13 @@
   "MARKET_DATA_SHELL_TIMEOUT": {
     "params": [],
     "legacyZh": "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）"
+  },
+  "DATA_SOURCE_UNBOUND": {
+    "params": [],
+    "legacyZh": "这项研究还没有可用的数据来源。"
+  },
+  "UNLICENSED_SOURCE_UNACKNOWLEDGED": {
+    "params": [],
+    "legacyZh": "使用未经许可的数据前，请确认仅用于个人研究。"
   }
 }

@@ -14,7 +14,6 @@ from engine.research.models import (
     new_research,
 )
 from engine.research.symbol_pool import pool_for_market
-from engine.research.planned_data_window import AKSHARE_SINA_DATA_SOURCE_ID
 from engine.research.universe_validation import ensure_runnable_universe
 from engine.research.user_errors import UserFacingError
 
@@ -46,7 +45,7 @@ def test_default_pool_applied_when_symbols_empty() -> None:
     assert len(symbols) >= 25
 
 
-def test_cn_confirm_pins_akshare_data_source_id() -> None:
+def test_cn_confirm_does_not_pin_akshare_data_source_id() -> None:
     research = _locked_us_equity_no_symbols()
     brief = replace(
         research.brief,
@@ -57,7 +56,7 @@ def test_cn_confirm_pins_akshare_data_source_id() -> None:
     )
     research = replace(research, brief=brief)
     updated = ensure_runnable_universe(research)
-    assert updated.data_source_id == AKSHARE_SINA_DATA_SOURCE_ID
+    assert updated.data_source_id == ""
 
 
 def test_empty_cn_equity_symbols_fill_default_pool() -> None:

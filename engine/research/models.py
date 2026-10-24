@@ -492,7 +492,7 @@ class Research:
     symbol_list_version: str | None = None
     data_window_start: date | None = None
     data_window_end: date | None = None
-    data_source_id: str = "yahoo_daily"
+    data_source_id: str = ""
     last_run_error: str | None = None
     last_run_error_code: str | None = None
     last_run_error_params: dict[str, Any] | None = None

@@ -87,7 +87,11 @@ export function buildUiMessages(copy: Copy) {
       expand: copy("展开看全表", "Show the full list"),
       summary: copy(
         "标的 {{count}} 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
-        "{{count}} symbols · list {{listName}} · version {{listVersion}}{{pool}}",
+        "{{count}} {{countSymbolNoun}} · list {{listName}} · version {{listVersion}}{{pool}}",
+      ),
+      summaryOne: copy(
+        "标的 1 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
+        "1 symbol · list {{listName}} · version {{listVersion}}{{pool}}",
       ),
       defaultPool: copy(" · 默认标的池", " · default universe"),
       userPool: copy(" · {{note}}", " · {{note}}"),
@@ -97,6 +101,32 @@ export function buildUiMessages(copy: Copy) {
         "Data {{start}} → {{end}} · daily · source: {{source}}",
       ),
       footnote: copy("确认开跑前锁定清单版本与数据区间。", "The list version and the data window lock before you confirm the run."),
+      sourcePending: copy("待选择", "Not selected"),
+      chooseSource: copy("选择{{source}}", "Choose {{source}}"),
+      unlicensedNotice: copy(
+        "数据来自对公开网页的自动采集，未获数据方许可，仅供个人研究。",
+        "The data is collected automatically from public web pages, without the provider's permission, and is for personal research only.",
+      ),
+      unlicensedAck: copy(
+        "我了解该数据未经许可，仅用于个人研究。",
+        "I understand this data is unlicensed and is for personal research only.",
+      ),
+      unlicensedAcked: copy("已确认·{{date}}", "Acknowledged · {{date}}"),
+      poolNoteMembers: copy(
+        "两个大市值池都是名单日的成分，不是时点成分；回看更早的历史含幸存者偏差。",
+        "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
+        true,
+      ),
+      poolNoteIndexOnly: copy(
+        "只有把池子定义成某个指数时，才会显示「缺时点成分」。",
+        "\"Missing point-in-time constituents\" appears only when a universe is defined as an index.",
+        true,
+      ),
+      poolNoteEdgarUnconfirmed: copy(
+        "EDGAR 是否会覆盖旧值尚未确认，基本面的 PIT 检查可能不通过。",
+        "It's not yet confirmed whether EDGAR overwrites older values, so fundamentals may fail the PIT check.",
+        true,
+      ),
       listVersion: copy("版本 {{version}}", "Version {{version}}"),
       starting: copy("开跑中…", "Starting…"),
       editAgain: copy("再修改", "Edit again"),
@@ -112,6 +142,7 @@ export function buildUiMessages(copy: Copy) {
       materials: copy("资料与数据说明", "Materials and data"),
       sources: copy("用到的资料：{{sources}}", "Materials used: {{sources}}"),
       sourcesFallback: copy("公开资料与本机材料", "Public materials and local files"),
+      noRelevantMaterials: copy("未找到相关资料", "No relevant materials found"),
       cutoff: copy("数据截止：{{cutoff}}", "Data cutoff: {{cutoff}}"),
       cutoffFallback: copy("以本轮冻结快照为准", "This round's frozen snapshot"),
       coverageNow: copy("当前覆盖相对底线：{{coverage}}", "Coverage versus the floor: {{coverage}}"),
@@ -187,9 +218,15 @@ export function buildUiMessages(copy: Copy) {
         "时点一致性未通过，暂不能导出策略包。共 {{count}} 条违规。第一条：{{title}}{{doiPart}}，{{when}}，{{cutoff}}。",
         "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet. {{count}} violations. First: {{title}}{{doiPart}}, {{when}}, {{cutoff}}.",
       ),
+      firstViolationOne: copy(
+        "时点一致性未通过，暂不能导出策略包。共 1 条违规。第一条：{{title}}{{doiPart}}，{{when}}，{{cutoff}}。",
+        "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet. 1 violation. First: {{title}}{{doiPart}}, {{when}}, {{cutoff}}.",
+      ),
       doiPart: copy("（DOI {{doi}}）", " (DOI {{doi}})"),
       trusted: copy("已采信 {{count}} 份有发布日的资料", "Used {{count}} materials that have a publication date"),
+      trustedOne: copy("已采信 1 份有发布日的资料", "Used 1 material that has a publication date"),
       undated: copy("，已浏览未采信 {{count}} 份无日期资料", ", browsed and did not use {{count}} undated materials"),
+      undatedOne: copy("，已浏览未采信 1 份无日期资料", ", browsed and did not use 1 undated material"),
       sentenceStop: copy("。", ". "),
     },
     completed: {
@@ -221,7 +258,11 @@ export function buildUiMessages(copy: Copy) {
       windowEyebrow: copy("标的与数据窗口", "Symbols and the data window"),
       windowSummary: copy(
         "{{count}} 只 · {{listName}} · 版本 {{listVersion}}",
-        "{{count}} symbols · {{listName}} · version {{listVersion}}",
+        "{{count}} {{countSymbolNoun}} · {{listName}} · version {{listVersion}}",
+      ),
+      windowSummaryOne: copy(
+        "1 只 · {{listName}} · 版本 {{listVersion}}",
+        "1 symbol · {{listName}} · version {{listVersion}}",
       ),
       windowMeta: copy(
         "数据区间 {{start}} 至 {{end}}（数据窗口截止 {{cutoff}}{{backtest}}） · 来源 {{source}}",
@@ -264,6 +305,7 @@ export function buildUiMessages(copy: Copy) {
     methods: {
       advanced: copy("修订标识（高级）", "Revision id (advanced)"),
       used: copy("被 {{count}} 次研究用过", "Used by {{count}} researches"),
+      usedOne: copy("被 1 次研究用过", "Used by 1 research"),
       dimensions: copy("计分卡维度", "Scorecard dimensions"),
       colKind: copy("类型", "Kind"),
       colName: copy("名称", "Name"),
@@ -323,7 +365,7 @@ export function buildUiMessages(copy: Copy) {
       gateJoiner: copy("、", ", "),
       shrink: copy(
         "因缺少行情数据，已从标的池剔除 {{dropped}} 只，剩余 {{remaining}} 只可用于本轮研究。",
-        "Missing prices removed {{dropped}} names from the universe. {{remaining}} names remain for this round.",
+        "Missing prices removed {{dropped}} {{droppedNoun}} from the universe. {{remaining}} {{remainingNoun}} {{remainingRemain}} for this round.",
       ),
       summaryEligible: copy(
         "当前冻结验证已全部通过（含时点第四关）。可导出策略包；alphaloop 不提供执行入口。",
@@ -367,11 +409,12 @@ export function buildUiMessages(copy: Copy) {
       hintRunningWindow: copy("{{base}} {{window}}。", "{{base}} {{window}}."),
       usLarge: copy(
         "美股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "US large-cap universe · {{count}} names · list date {{date}}",
+        "US large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
       ),
       cnLarge: copy(
         "A 股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "China A-share large-cap universe · {{count}} names · list date {{date}}",
+        "China A-share large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
+        true,
       ),
       usLargeNote: copy(
         "取自标普 500 在名单日的成分，非时点成分",
@@ -379,11 +422,17 @@ export function buildUiMessages(copy: Copy) {
       ),
       cnLargeNote: copy(
         "取自沪深 300 在名单日的成分，非时点成分",
-        "Taken from CSI 300 membership on the list date; not point-in-time.",
+        "Based on CSI 300 membership on the list date; not point-in-time.",
+        true,
+      ),
+      survivorshipHint: copy(
+        "股票池是名单日的成分，回看更早的历史含幸存者偏差。",
+        "Uses list-date members; earlier history has survivorship bias.",
+        true,
       ),
       v1Line: copy(
         "{{count}} 只 · {{listName}} · 版本 {{version}} · {{date}} · {{tail}}",
-        "{{count}} names · {{listName}} · version {{version}} · {{date}} · {{tail}}",
+        "{{count}} {{countNoun}} · {{listName}} · version {{version}} · {{date}} · {{tail}}",
       ),
       usLargeShort: copy("美股大市值", "US large-cap"),
       cnLargeShort: copy("A股大市值", "China A-share large-cap"),
@@ -393,7 +442,7 @@ export function buildUiMessages(copy: Copy) {
       overrideDefault: copy("已覆盖默认的池", "Replaced the default universe"),
       userLine: copy(
         "{{count}} 只 · {{listName}} · {{tail}}",
-        "{{count}} names · {{listName}} · {{tail}}",
+        "{{count}} {{countNoun}} · {{listName}} · {{tail}}",
       ),
       userLineOne: copy(
         "1 只 · {{listName}} · {{tail}}",
@@ -460,13 +509,40 @@ export function buildUiMessages(copy: Copy) {
       researchThisWindow: copy("本研究在本窗口累计 {{n}} 轮", "This research has {{n}} rounds on this window"),
       versionTrials: copy("本版本 {{used}}/{{budget}} 轮", "This version {{used}}/{{budget}} rounds"),
       hours: copy("{{n}} 小时", "{{n}} hours"),
+      durationSeconds: copy("{{n}} 秒", "{{n}} seconds"),
+      durationSecond: copy("1 秒", "1 second"),
+      durationMinutes: copy("{{minutes}} 分 {{seconds}} 秒", "{{minutes}} minutes {{seconds}} seconds"),
       coverageNow: copy(
         "当前 {{assets}} 个标的、{{years}} 年数据，缺失 {{missing}}%",
-        "Now {{assets}} names, {{years}} years of data, {{missing}}% missing",
+        "Now {{assets}} {{assetsNoun}}, {{years}} years of data, {{missing}}% missing",
+      ),
+      coverageNowOne: copy(
+        "当前 1 个标的、{{years}} 年数据，缺失 {{missing}}%",
+        "Now 1 name, {{years}} years of data, {{missing}}% missing",
+      ),
+      coverageNowYear: copy(
+        "当前 {{assets}} 个标的、1 年数据，缺失 {{missing}}%",
+        "Now {{assets}} names, 1 year of data, {{missing}}% missing",
+      ),
+      coverageNowOneYear: copy(
+        "当前 1 个标的、1 年数据，缺失 {{missing}}%",
+        "Now 1 name, 1 year of data, {{missing}}% missing",
       ),
       coverageFloor: copy(
         "至少 {{assets}} 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
-        "At least {{assets}} names, {{years}} years of data, missing no more than {{missing}}%",
+        "At least {{assets}} {{assetsNoun}}, {{years}} years of data, missing no more than {{missing}}%",
+      ),
+      coverageFloorOne: copy(
+        "至少 1 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
+        "At least 1 name, {{years}} years of data, missing no more than {{missing}}%",
+      ),
+      coverageFloorYear: copy(
+        "至少 {{assets}} 个标的、1 年数据，缺失不超过 {{missing}}%",
+        "At least {{assets}} names, 1 year of data, missing no more than {{missing}}%",
+      ),
+      coverageFloorOneYear: copy(
+        "至少 1 个标的、1 年数据，缺失不超过 {{missing}}%",
+        "At least 1 name, 1 year of data, missing no more than {{missing}}%",
       ),
       coverageWithFloor: copy("{{current}}；底线 {{floor}}", "{{current}}; floor {{floor}}"),
       universe: copy("{{market}} · {{asset}}", "{{market}} · {{asset}}"),
@@ -482,6 +558,19 @@ export function buildUiMessages(copy: Copy) {
         "Effective research time counts gathering, modeling, and verification while the status is Running. Pauses, time waiting on you, and list-polling gaps do not count.",
       ),
       sourcesSaved: copy("公开资料已落成本机材料", "Public material has been saved as local files"),
+      noRelevantMaterials: copy("未找到相关资料", "No relevant materials found"),
+      stopRoundCap: copy(
+        "已停止：轮次上限已到（{{used}}/{{budget}} 轮），时间预算尚未用完。",
+        "Stopped: the round cap was reached ({{used}}/{{budget}}). The time budget was not used up.",
+      ),
+      stopTimeBudget: copy(
+        "已停止：有效研究时间预算已用完。",
+        "Stopped: the effective research time budget was used up.",
+      ),
+      stopEarly: copy(
+        "已停止：时间预算尚未用完。",
+        "Stopped early: the time budget was not used up.",
+      ),
       revisionBuiltin: copy("{{name}} · 内置第 {{n}} 版", "{{name}} · built-in version {{n}}"),
       actionGather: copy("查资料", "Gathering"),
       actionSpecify: copy("补细节", "Filling in details"),

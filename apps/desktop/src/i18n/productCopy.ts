@@ -10,6 +10,7 @@ const EXACT: Record<string, MessageKey> = {
   "当前冻结验证已全部通过（含时点第四关）。可导出策略包；alphaloop 不提供执行入口。": "ui.copy.summaryEligible",
   "取自标普 500 在名单日的成分，非时点成分": "ui.copy.usLargeNote",
   "取自沪深 300 在名单日的成分，非时点成分": "ui.copy.cnLargeNote",
+  "股票池是名单日的成分，回看更早的历史含幸存者偏差。": "ui.copy.survivorshipHint",
   "雅虎日线": "ui.copy.yahoo",
   "AkShare 日线（新浪优先）": "ui.copy.akshare",
   "未模拟 T+1 与涨跌停，实际成交可能更差": "ui.copy.cnExecution",
@@ -21,6 +22,8 @@ const EXACT: Record<string, MessageKey> = {
   "时点一致性未执行，暂不能导出策略包": "ui.copy.blockPitMissing",
   "公开资料与本机材料": "ui.running.sourcesFallback",
   "公开资料已落成本机材料": "ui.copy.sourcesSaved",
+  "未找到相关资料": "ui.copy.noRelevantMaterials",
+  "待选择": "ui.confirm.sourcePending",
   "有效研究时间计入「运行中」状态下的采集、建模与验证执行；暂停、等待确认与列表轮询间隔不计入。": "ui.copy.effectiveHint",
   "未锁定": "ui.list.unlocked",
   "查资料": "ui.copy.actionGather",
@@ -89,6 +92,27 @@ function gateToken(token: string, t: CopyFn): string {
 
 function gates(raw: string, t: CopyFn): string {
   return raw.split("、").map((part) => gateToken(part, t)).join(t("ui.copy.gateJoiner"));
+}
+
+function coverageSentence(
+  kind: "now" | "floor",
+  assets: string,
+  years: string,
+  missing: string,
+  t: CopyFn,
+): string {
+  const oneName = assets === "1";
+  const oneYear = years === "1";
+  if (kind === "now") {
+    if (oneName && oneYear) return t("ui.copy.coverageNowOneYear", {missing});
+    if (oneName) return t("ui.copy.coverageNowOne", {years, missing});
+    if (oneYear) return t("ui.copy.coverageNowYear", {assets, missing});
+    return t("ui.copy.coverageNow", {assets, years, missing});
+  }
+  if (oneName && oneYear) return t("ui.copy.coverageFloorOneYear", {missing});
+  if (oneName) return t("ui.copy.coverageFloorOne", {years, missing});
+  if (oneYear) return t("ui.copy.coverageFloorYear", {assets, missing});
+  return t("ui.copy.coverageFloor", {assets, years, missing});
 }
 
 function paramPiece(piece: string, t: CopyFn): string {
@@ -220,19 +244,27 @@ const RULES: Rule[] = [
     render: (m, t) => t("ui.copy.hours", {n: m[1]}),
   },
   {
+    re: /^(\d+) 秒$/,
+    render: (m, t) => t(m[1] === "1" ? "ui.copy.durationSecond" : "ui.copy.durationSeconds", {n: m[1]}),
+  },
+  {
+    re: /^(\d+) 分 (\d+) 秒$/,
+    render: (m, t) => t("ui.copy.durationMinutes", {minutes: m[1], seconds: m[2]}),
+  },
+  {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%；底线 (.+)$/,
     render: (m, t) => t("ui.copy.coverageWithFloor", {
-      current: t("ui.copy.coverageNow", {assets: m[1], years: m[2], missing: m[3]}),
+      current: coverageSentence("now", m[1], m[2], m[3], t),
       floor: localizeKnownCopy(m[4], t),
     }),
   },
   {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%$/,
-    render: (m, t) => t("ui.copy.coverageNow", {assets: m[1], years: m[2], missing: m[3]}),
+    render: (m, t) => coverageSentence("now", m[1], m[2], m[3], t),
   },
   {
     re: /^至少 (\d+) 个标的、([\d.]+) 年数据，缺失不超过 ([\d.]+)%$/,
-    render: (m, t) => t("ui.copy.coverageFloor", {assets: m[1], years: m[2], missing: m[3]}),
+    render: (m, t) => coverageSentence("floor", m[1], m[2], m[3], t),
   },
   {
     re: /^(美股|A股) · (股票|债券|基金)(?:（(.+)）)?$/,

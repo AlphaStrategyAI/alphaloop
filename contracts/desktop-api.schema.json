@@ -61,6 +61,8 @@
           ]
         },
         "research_id": {"type": "string", "minLength": 1},
+        "data_source_id": {"type": "string"},
+        "unlicensed_acknowledged": {"type": "boolean"},
         "locale": {"type": "string", "enum": ["zh", "en"]}
       }
     },

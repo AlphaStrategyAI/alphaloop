@@ -17,7 +17,7 @@ def test_remaining_shows_full_budget_before_effective_time_starts() -> None:
     assert format_remaining_display(research) == "3.00 小时"
 
 
-def test_effective_and_remaining_use_same_hour_unit() -> None:
+def test_zero_seconds_is_not_shown_as_zero_hours() -> None:
     research = replace(
         running_research(),
         effective_seconds=0.0,
@@ -26,9 +26,9 @@ def test_effective_and_remaining_use_same_hour_unit() -> None:
             max_effective_hours=Slot(3.0, True),
         ),
     )
-    assert format_effective_display(research) == "0.00 小时"
+    assert format_effective_display(research) == "0 秒"
     assert format_remaining_display(research) == "3.00 小时"
-    assert "h" not in format_effective_display(research)
+    assert "0.00" not in format_effective_display(research)
 
 
 def test_remaining_subtracts_elapsed_effective_time() -> None:

@@ -4,11 +4,13 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
+import {I18nText} from "../i18n/I18nText";
 import {LogicStatementText} from "../i18n/logicStatement";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
+import {formatDuration} from "../duration";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
 import {listRowStatusKey} from "../listStatusDisplay";
@@ -144,7 +146,13 @@ function pitFailureCopy(detail: PitDetail | null | undefined, t: Translate): str
     : t("ui.pit.noPublished");
   const cutoff = detail.backtestCutoff ? t("ui.pit.cutoff", {date: detail.backtestCutoff}) : t("ui.pit.noCutoff");
   const doiPart = doi ? t("ui.pit.doiPart", {doi}) : "";
-  return t("ui.pit.firstViolation", {count, title, doiPart, when, cutoff});
+  return t(count === 1 ? "ui.pit.firstViolationOne" : "ui.pit.firstViolation", {
+    count,
+    title,
+    doiPart,
+    when,
+    cutoff,
+  });
 }
 
 export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
@@ -263,6 +271,20 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         {view.honestStopHint && (
           <p className="honest-stop-hint" data-testid="honest-stop-hint">{copyText(view.honestStopHint)}</p>
         )}
+        {view.stopReason === "round_cap" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">
+            {t("ui.copy.stopRoundCap", {
+              used: view.trialBudget?.used ?? 0,
+              budget: view.trialBudget?.budget ?? 0,
+            })}
+          </p>
+        )}
+        {view.stopReason === "time_budget" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">{t("ui.copy.stopTimeBudget")}</p>
+        )}
+        {view.stopReason === "early_stop" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">{t("ui.copy.stopEarly")}</p>
+        )}
         <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
           {checks.map(([label, passed]) => (
             <span className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`} key={label}>
@@ -280,13 +302,22 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             {view.pitDetail.note ? `${copyText(view.pitDetail.note)}${t("ui.pit.sentenceStop")}` : ""}
             {view.pitDetail.executed ? (
               <>
-                {t("ui.pit.trusted", {count: view.pitDetail.evidenceUsed ?? 0})}
+                {t((view.pitDetail.evidenceUsed ?? 0) === 1 ? "ui.pit.trustedOne" : "ui.pit.trusted", {
+                  count: view.pitDetail.evidenceUsed ?? 0,
+                })}
                 {(view.pitDetail.undatedExcluded?.length ?? 0) > 0
-                  ? t("ui.pit.undated", {count: view.pitDetail.undatedExcluded?.length ?? 0})
+                  ? t((view.pitDetail.undatedExcluded?.length ?? 0) === 1 ? "ui.pit.undatedOne" : "ui.pit.undated", {
+                      count: view.pitDetail.undatedExcluded?.length ?? 0,
+                    })
                   : ""}
                 {t("ui.pit.sentenceStop")}{copyText(view.pitDetail.scope)}
               </>
             ) : null}
+          </p>
+        )}
+        {view.sources && (
+          <p className="materials-note" data-testid="completed-sources">
+            {t("ui.running.sources", {sources: copyText(view.sources)})}
           </p>
         )}
         <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
@@ -296,8 +327,20 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {view.windowCumulativeLabel && view.windowCumulativeLabel !== view.workbenchHeaderSummary
             ? ` · ${copyText(view.windowCumulativeLabel)}`
             : ""}
-          {view.effective ? ` · ${t("ui.running.effectiveOnly", {effective: copyText(view.effective)})}` : ""}
-          {view.remaining ? ` · ${t("ui.running.remaining", {remaining: copyText(view.remaining)})}` : ""}
+          {view.effective || view.effectiveSeconds != null
+            ? ` · ${t("ui.running.effectiveOnly", {
+                effective: view.effectiveSeconds != null
+                  ? formatDuration(view.effectiveSeconds, t)
+                  : copyText(view.effective),
+              })}`
+            : ""}
+          {view.remaining || view.remainingSeconds != null
+            ? ` · ${t("ui.running.remaining", {
+                remaining: view.remainingSeconds != null
+                  ? formatDuration(view.remainingSeconds, t)
+                  : copyText(view.remaining),
+              })}`
+            : ""}
         </p>
         {showFailedGateLine && (
           <p className="failed-gates-line" data-testid="failed-gates-line">
@@ -458,7 +501,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           <p className="eyebrow">{t("ui.completed.windowEyebrow")}</p>
           <p data-testid="completed-symbol-selection-summary">
             {copyText(view.symbolSelection.summaryLine) ||
-              t("ui.completed.windowSummary", {
+              t(view.symbolSelection.count === 1 ? "ui.completed.windowSummaryOne" : "ui.completed.windowSummary", {
                 count: view.symbolSelection.count,
                 listName: copyText(view.symbolSelection.listName),
                 listVersion: view.symbolSelection.listVersion,
@@ -466,6 +509,11 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           </p>
           {view.symbolSelection.listNote ? (
             <p data-testid="symbol-selection-note">{copyText(view.symbolSelection.listNote)}</p>
+          ) : null}
+          {view.symbolSelection.isDefaultPool || view.symbolSelection.source === "default_pool" ? (
+            <p data-testid="survivorship-hint">
+              <I18nText k="ui.copy.survivorshipHint" />
+            </p>
           ) : null}
           {view.symbolSelection.listNote && view.symbolSelection.listVersion ? (
             <p data-testid="symbol-selection-version">

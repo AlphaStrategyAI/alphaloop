@@ -39,7 +39,9 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
         <summary>{t("ui.methods.advanced")}</summary>
         <code className="revision-id" title={method.revision}>{method.revision}</code>
       </details>
-      {method.usageCount != null && <p>{t("ui.methods.used", {count: method.usageCount})}</p>}
+      {method.usageCount != null && (
+        <p>{t(method.usageCount === 1 ? "ui.methods.usedOne" : "ui.methods.used", {count: method.usageCount})}</p>
+      )}
       {method.dimensions && method.dimensions.length > 0 && (
         <div className="scorecard-dimensions" data-testid="scorecard-dimensions">
           <p className="eyebrow">{t("ui.methods.dimensions")}</p>
@@ -130,7 +132,9 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
             <small className="revision-label">
               {copyText((method as {revisionLabel?: string}).revisionLabel) || t("ui.methods.builtin")}
             </small>
-            {method.usageCount != null ? <small>{t("ui.methods.used", {count: method.usageCount})}</small> : null}
+            {method.usageCount != null ? (
+              <small>{t(method.usageCount === 1 ? "ui.methods.usedOne" : "ui.methods.used", {count: method.usageCount})}</small>
+            ) : null}
           </a>
         ))}
       </aside>

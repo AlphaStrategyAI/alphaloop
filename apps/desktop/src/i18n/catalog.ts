@@ -168,7 +168,7 @@ function messages(lang: "zh" | "en") {
         ),
         MARKET_DATA_TIMEOUT: copy(
           "行情还没取完：{{symbol_count}} 只在限定时间内没有完成。请稍后重试。（MARKET_DATA_TIMEOUT）",
-          "Timed out before {{symbol_count}} names finished. Try again.",
+          "Timed out before {{symbol_count}} {{symbol_countNoun}} finished. Try again.",
         ),
         MARKET_DATA_RATE_LIMITED: copy(
           "行情源限流（HTTP 429），多次退避后仍失败。请稍后重试。（MARKET_DATA_RATE_LIMITED）",
@@ -181,6 +181,14 @@ function messages(lang: "zh" | "en") {
         MARKET_DATA_SHELL_TIMEOUT: copy(
           "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）",
           "Quote request timed out in the shell. Try again.",
+        ),
+        DATA_SOURCE_UNBOUND: copy(
+          "这项研究还没有可用的数据来源。",
+          "This research does not have a data source yet.",
+        ),
+        UNLICENSED_SOURCE_UNACKNOWLEDGED: copy(
+          "使用未经许可的数据前，请确认仅用于个人研究。",
+          "Before using an unlicensed source, confirm it is for personal research only.",
         ),
       },
     },
@@ -200,6 +208,12 @@ export const FINAL_MESSAGE_KEYS = [
   "settings.general.optionEn",
   "format.datePattern",
   "format.dateTimePattern",
+  "ui.copy.cnLarge",
+  "ui.copy.cnLargeNote",
+  "ui.copy.survivorshipHint",
+  "ui.confirm.poolNoteMembers",
+  "ui.confirm.poolNoteIndexOnly",
+  "ui.confirm.poolNoteEdgarUnconfirmed",
 ] as const;
 
 export function isFinalMessageKey(key: string): boolean {

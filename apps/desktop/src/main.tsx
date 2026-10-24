@@ -12,13 +12,16 @@ import {App} from "./App";
 import type {DesktopApi, DesktopView} from "./contracts";
 import {I18nProvider} from "./i18n/I18nProvider";
 import {tauriLanguagePort, createMemoryLanguagePort} from "./i18n/port";
+import {confirmRunInvokeArgs} from "./confirmRunCommand";
 import {readBrowserRoute} from "./routing";
 
 const desktopApi: DesktopApi = {
   async fetchView(route) { return invoke<DesktopView>("fetch_view", {route}); },
   async pollMarketDataProgress() { return invoke("market_data_progress"); },
   async createDraft() { return invoke<string>("create_draft"); },
-  async confirmRun(researchId) { await invoke("confirm_run", {researchId}); },
+  async confirmRun(researchId, options) {
+    await invoke("confirm_run", confirmRunInvokeArgs(researchId, options));
+  },
   async unlockBrief(researchId, slot) { await invoke("unlock_brief", {researchId, slot}); },
   async sendDialogue(researchId, message) { await invoke("send_dialogue", {researchId, message}); },
   async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },
