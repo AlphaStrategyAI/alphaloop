@@ -14,6 +14,7 @@ export function buildUiMessages(copy: Copy) {
       restart: copy("重启引擎", "Restart engine"),
       loading: copy("加载中…", "Loading…"),
       retry: copy("重试", "Try again"),
+      testData: copy("测试数据", "Test data"),
     },
     status: {
       draft: copy("草稿", "Draft"),
@@ -63,7 +64,7 @@ export function buildUiMessages(copy: Copy) {
       placeholder: copy("把方向说清楚，不用填表。", "Say what you want. No form to fill in."),
     },
     confirm: {
-      eyebrow: copy("Confirm to run", "Confirm to run"),
+      eyebrow: copy("确认开跑", "Confirm to run"),
       lead: copy(
         "五项设定已锁定。点开跑后进入本机研究；「再修改」回草稿并解锁设定。",
         "The five settings are locked. Run starts local research. Edit again returns to the draft and unlocks the settings.",
@@ -86,11 +87,7 @@ export function buildUiMessages(copy: Copy) {
       expand: copy("展开看全表", "Show the full list"),
       summary: copy(
         "标的 {{count}} 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
-        "{{count}} {{countSymbolNoun}} · list {{listName}} · version {{listVersion}}{{pool}}",
-      ),
-      summaryOne: copy(
-        "标的 1 只 · 清单 {{listName}} · 版本 {{listVersion}}{{pool}}",
-        "1 symbol · list {{listName}} · version {{listVersion}}{{pool}}",
+        "{{count, plural, one {# symbol} other {# symbols}}} · list {{listName}} · version {{listVersion}}{{pool}}",
       ),
       defaultPool: copy(" · 默认标的池", " · default universe"),
       userPool: copy(" · {{note}}", " · {{note}}"),
@@ -215,17 +212,17 @@ export function buildUiMessages(copy: Copy) {
       noCutoff: copy("没有回测截止日", "no backtest cutoff"),
       firstViolation: copy(
         "时点一致性未通过，暂不能导出策略包。共 {{count}} 条违规。第一条：{{title}}{{doiPart}}，{{when}}，{{cutoff}}。",
-        "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet. {{count}} violations. First: {{title}}{{doiPart}}, {{when}}, {{cutoff}}.",
-      ),
-      firstViolationOne: copy(
-        "时点一致性未通过，暂不能导出策略包。共 1 条违规。第一条：{{title}}{{doiPart}}，{{when}}，{{cutoff}}。",
-        "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet. 1 violation. First: {{title}}{{doiPart}}, {{when}}, {{cutoff}}.",
+        "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet. {{count, plural, one {# violation} other {# violations}}}. First: {{title}}{{doiPart}}, {{when}}, {{cutoff}}.",
       ),
       doiPart: copy("（DOI {{doi}}）", " (DOI {{doi}})"),
-      trusted: copy("已采信 {{count}} 份有发布日的资料", "Used {{count}} materials that have a publication date"),
-      trustedOne: copy("已采信 1 份有发布日的资料", "Used 1 material that has a publication date"),
-      undated: copy("，已浏览未采信 {{count}} 份无日期资料", ", browsed and did not use {{count}} undated materials"),
-      undatedOne: copy("，已浏览未采信 1 份无日期资料", ", browsed and did not use 1 undated material"),
+      trusted: copy(
+        "已采信 {{count}} 份有发布日的资料",
+        "Used {{count, plural, one {# material that has} other {# materials that have}}} a publication date",
+      ),
+      undated: copy(
+        "，已浏览未采信 {{count}} 份无日期资料",
+        ", browsed and did not use {{count, plural, one {# undated material} other {# undated materials}}}",
+      ),
       sentenceStop: copy("。", ". "),
     },
     completed: {
@@ -257,11 +254,7 @@ export function buildUiMessages(copy: Copy) {
       windowEyebrow: copy("标的与数据窗口", "Symbols and the data window"),
       windowSummary: copy(
         "{{count}} 只 · {{listName}} · 版本 {{listVersion}}",
-        "{{count}} {{countSymbolNoun}} · {{listName}} · version {{listVersion}}",
-      ),
-      windowSummaryOne: copy(
-        "1 只 · {{listName}} · 版本 {{listVersion}}",
-        "1 symbol · {{listName}} · version {{listVersion}}",
+        "{{count, plural, one {# symbol} other {# symbols}}} · {{listName}} · version {{listVersion}}",
       ),
       windowMeta: copy(
         "数据区间 {{start}} 至 {{end}}（数据窗口截止 {{cutoff}}{{backtest}}） · 来源 {{source}}",
@@ -277,11 +270,14 @@ export function buildUiMessages(copy: Copy) {
         "{{window}}。再加预算不放宽任何阈值，只增加偶然通过的可能性。确认继续迭代？",
         "{{window}}. Adding budget does not loosen any threshold. It only raises the chance of a pass by luck. Continue iterating?",
       ),
-      iterateFallback: copy("本窗口所有研究累计 {{n}} 轮", "All research on this window has {{n}} rounds in total"),
+      iterateFallback: copy(
+        "本窗口所有研究累计 {{n}} 轮",
+        "All research on this window has {{n, plural, one {# round} other {# rounds}}} in total",
+      ),
       suspicionTitle: copy("高怀疑提示", "High-suspicion notice"),
       suspicionBody: copy(
         "已累计 {{n}} 轮（阈值 {{threshold}}）。偶然通过的可能性更高。确认仍要追加预算并继续？",
-        "{{n}} rounds so far (threshold {{threshold}}). A pass by luck is more likely. Add budget and continue anyway?",
+        "{{n, plural, one {# round} other {# rounds}}} so far (threshold {{threshold}}). A pass by luck is more likely. Add budget and continue anyway?",
       ),
       suspicionConfirm: copy("仍要继续", "Continue anyway"),
       priorEyebrow: copy("先前未通过轮次（验证记录）", "Earlier rounds that did not pass"),
@@ -303,8 +299,10 @@ export function buildUiMessages(copy: Copy) {
     },
     methods: {
       advanced: copy("修订标识（高级）", "Revision id (advanced)"),
-      used: copy("被 {{count}} 次研究用过", "Used by {{count}} researches"),
-      usedOne: copy("被 1 次研究用过", "Used by 1 research"),
+      used: copy(
+        "被 {{count}} 次研究用过",
+        "Used by {{count, plural, one {# research} other {# researches}}}",
+      ),
       dimensions: copy("计分卡维度", "Scorecard dimensions"),
       colKind: copy("类型", "Kind"),
       colName: copy("名称", "Name"),
@@ -364,7 +362,7 @@ export function buildUiMessages(copy: Copy) {
       gateJoiner: copy("、", ", "),
       shrink: copy(
         "因缺少行情数据，已从标的池剔除 {{dropped}} 只，剩余 {{remaining}} 只可用于本轮研究。",
-        "Missing prices removed {{dropped}} {{droppedNoun}} from the universe. {{remaining}} {{remainingNoun}} {{remainingRemain}} for this round.",
+        "Missing prices removed {{dropped, plural, one {# name} other {# names}}} from the universe. {{remaining, plural, one {# name remains} other {# names remain}}} for this round.",
       ),
       summaryEligible: copy(
         "当前冻结验证已全部通过（含时点第四关）。可导出策略包；alphaloop 不提供执行入口。",
@@ -387,7 +385,7 @@ export function buildUiMessages(copy: Copy) {
       headlineFailed: copy("研究已结束，验证未通过", "Research ended. Verification did not pass"),
       hintExhausted: copy(
         "实现层迭代预算已用尽（{{used}}/{{budget}} 轮）。验证仍未通过；只能导出研究记录包。",
-        "The implementation-iteration budget is used up ({{used}}/{{budget}} rounds). Verification still did not pass. Only a research record can be exported.",
+        "The implementation-iteration budget is used up ({{used}}/{{budget}} {{budget, plural, one {round} other {rounds}}}). Verification still did not pass. Only a research record can be exported.",
       ),
       hintRounds: copy(
         "第 {{used}}/{{budget}} 轮验证未通过（未通过：{{gates}}）。可导出研究记录包。",
@@ -408,11 +406,11 @@ export function buildUiMessages(copy: Copy) {
       hintRunningWindow: copy("{{base}} {{window}}。", "{{base}} {{window}}."),
       usLarge: copy(
         "美股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "US large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
+        "US large-cap universe · {{count, plural, one {# name} other {# names}}} · list date {{date}}",
       ),
       cnLarge: copy(
         "A 股大市值池 · {{count}} 只 · 名单日 {{date}}",
-        "China A-share large-cap universe · {{count}} {{countNoun}} · list date {{date}}",
+        "China A-share large-cap universe · {{count, plural, one {# name} other {# names}}} · list date {{date}}",
         true,
       ),
       usLargeNote: copy(
@@ -431,7 +429,7 @@ export function buildUiMessages(copy: Copy) {
       ),
       v1Line: copy(
         "{{count}} 只 · {{listName}} · 版本 {{version}} · {{date}} · {{tail}}",
-        "{{count}} {{countNoun}} · {{listName}} · version {{version}} · {{date}} · {{tail}}",
+        "{{count, plural, one {# name} other {# names}}} · {{listName}} · version {{version}} · {{date}} · {{tail}}",
       ),
       usLargeShort: copy("美股大市值", "US large-cap"),
       cnLargeShort: copy("A股大市值", "China A-share large-cap"),
@@ -441,11 +439,7 @@ export function buildUiMessages(copy: Copy) {
       overrideDefault: copy("已覆盖默认的池", "Replaced the default universe"),
       userLine: copy(
         "{{count}} 只 · {{listName}} · {{tail}}",
-        "{{count}} {{countNoun}} · {{listName}} · {{tail}}",
-      ),
-      userLineOne: copy(
-        "1 只 · {{listName}} · {{tail}}",
-        "1 name · {{listName}} · {{tail}}",
+        "{{count, plural, one {# name} other {# names}}} · {{listName}} · {{tail}}",
       ),
       selected: copy("已选标的", "Selected symbols"),
       defaultTail: copy("默认标的池", "default universe"),
@@ -470,6 +464,13 @@ export function buildUiMessages(copy: Copy) {
       features: copy("特征集", "feature set"),
       modelFamily: copy("模型族", "model family"),
       meanReversion: copy("均值回归", "mean reversion"),
+      initialSpec: copy("初始 {{family}} 规格", "Initial {{family}} spec"),
+      logicLead: copy("论点：", "Thesis: "),
+      logicTail: copy(
+        "；实际执行：截面均值回归，回看 {{days}} 天",
+        "; executed as cross-sectional mean reversion, lookback {{days}} days",
+      ),
+      clauseJoin: copy("；", "; "),
       paramChange: copy("{{name}}：{{before}} → {{after}}", "{{name}}: {{before}} → {{after}}"),
       changeLine: copy("变更：{{text}}", "Change: {{text}}"),
       reverifyPass: copy("「{{method}}」重验通过。", "“{{method}}” re-verification passed."),
@@ -498,43 +499,33 @@ export function buildUiMessages(copy: Copy) {
       blockPitFailed: copy("时点一致性未通过，暂不能导出策略包", "Point-in-time consistency did not pass, so a strategy pack cannot be exported yet"),
       blockPitMissing: copy("时点一致性未执行，暂不能导出策略包", "Point-in-time consistency did not run, so a strategy pack cannot be exported yet"),
       blockGate: copy("{{gate}}，暂不能导出策略包", "{{gate}}, so a strategy pack cannot be exported yet"),
-      researchThisWindow: copy("本研究在本窗口累计 {{n}} 轮", "This research has {{n}} rounds on this window"),
-      versionTrials: copy("本版本 {{used}}/{{budget}} 轮", "This version {{used}}/{{budget}} rounds"),
-      hours: copy("{{n}} 小时", "{{n}} hours"),
-      durationSeconds: copy("{{n}} 秒", "{{n}} seconds"),
-      durationSecond: copy("1 秒", "1 second"),
-      durationMinutes: copy("{{minutes}} 分 {{seconds}} 秒", "{{minutes}} minutes {{seconds}} seconds"),
+      researchThisWindow: copy(
+        "本研究在本窗口累计 {{n}} 轮",
+        "This research has {{n, plural, one {# round} other {# rounds}}} on this window",
+      ),
+      versionTrials: copy(
+        "本版本 {{used}}/{{budget}} 轮",
+        "This version {{used}}/{{budget}} {{budget, plural, one {round} other {rounds}}}",
+      ),
+      durationHours: copy("{{n}} 小时", "{{n}} h"),
+      durationHoursMinutes: copy("{{hours}} 小时 {{minutes}} 分钟", "{{hours}} h {{minutes}} min"),
+      durationMinutesOnly: copy("{{n}} 分钟", "{{n}} min"),
+      durationSeconds: copy("{{n}} 秒", "{{n, plural, one {# second} other {# seconds}}}"),
+      durationMinutes: copy(
+        "{{minutes}} 分 {{seconds}} 秒",
+        "{{minutes, plural, one {# minute} other {# minutes}}} {{seconds, plural, one {# second} other {# seconds}}}",
+      ),
       coverageNow: copy(
         "当前 {{assets}} 个标的、{{years}} 年数据，缺失 {{missing}}%",
-        "Now {{assets}} {{assetsNoun}}, {{years}} years of data, {{missing}}% missing",
-      ),
-      coverageNowOne: copy(
-        "当前 1 个标的、{{years}} 年数据，缺失 {{missing}}%",
-        "Now 1 name, {{years}} years of data, {{missing}}% missing",
-      ),
-      coverageNowYear: copy(
-        "当前 {{assets}} 个标的、1 年数据，缺失 {{missing}}%",
-        "Now {{assets}} names, 1 year of data, {{missing}}% missing",
-      ),
-      coverageNowOneYear: copy(
-        "当前 1 个标的、1 年数据，缺失 {{missing}}%",
-        "Now 1 name, 1 year of data, {{missing}}% missing",
+        "Now {{assets, plural, one {# name} other {# names}}}, {{years, plural, one {# year} other {# years}}} of data, {{missing}}% missing",
       ),
       coverageFloor: copy(
         "至少 {{assets}} 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
-        "At least {{assets}} {{assetsNoun}}, {{years}} years of data, missing no more than {{missing}}%",
+        "At least {{assets, plural, one {# name} other {# names}}}, {{years, plural, one {# year} other {# years}}} of data, missing no more than {{missing}}%",
       ),
-      coverageFloorOne: copy(
-        "至少 1 个标的、{{years}} 年数据，缺失不超过 {{missing}}%",
-        "At least 1 name, {{years}} years of data, missing no more than {{missing}}%",
-      ),
-      coverageFloorYear: copy(
-        "至少 {{assets}} 个标的、1 年数据，缺失不超过 {{missing}}%",
-        "At least {{assets}} names, 1 year of data, missing no more than {{missing}}%",
-      ),
-      coverageFloorOneYear: copy(
-        "至少 1 个标的、1 年数据，缺失不超过 {{missing}}%",
-        "At least 1 name, 1 year of data, missing no more than {{missing}}%",
+      coverageFloorShort: copy(
+        "至少 {{assets}} 个标的",
+        "At least {{assets, plural, one {# name} other {# names}}}",
       ),
       coverageWithFloor: copy("{{current}}；底线 {{floor}}", "{{current}}; floor {{floor}}"),
       universe: copy("{{market}} · {{asset}}", "{{market}} · {{asset}}"),

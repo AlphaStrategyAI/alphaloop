@@ -40,7 +40,7 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
         <code className="revision-id" title={method.revision}>{method.revision}</code>
       </details>
       {method.usageCount != null && (
-        <p>{t(method.usageCount === 1 ? "ui.methods.usedOne" : "ui.methods.used", {count: method.usageCount})}</p>
+        <p>{t("ui.methods.used", {count: method.usageCount})}</p>
       )}
       {method.dimensions && method.dimensions.length > 0 && (
         <div className="scorecard-dimensions" data-testid="scorecard-dimensions">
@@ -133,7 +133,7 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
               {copyText((method as {revisionLabel?: string}).revisionLabel) || t("ui.methods.builtin")}
             </small>
             {method.usageCount != null ? (
-              <small>{t(method.usageCount === 1 ? "ui.methods.usedOne" : "ui.methods.used", {count: method.usageCount})}</small>
+              <small>{t("ui.methods.used", {count: method.usageCount})}</small>
             ) : null}
           </a>
         ))}

@@ -3,11 +3,12 @@ import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
+import {LogicStatementText} from "../i18n/logicStatement";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
-import {formatDuration} from "../duration";
+import {formatDuration, formatEngineDuration} from "../duration";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
 import {listRowStatusKey} from "../listStatusDisplay";
@@ -63,7 +64,7 @@ export function RunningScreen({
             {t("ui.running.version", {version: view.version})}
             {view.currentAction && view.currentAction !== "idle" ? ` · ${copyText(view.currentAction)}` : ""}
           </p>
-          {view.coverage && <p className="running-accent">{view.coverage}</p>}
+          {view.coverage && <p className="running-accent">{copyText(view.coverage)}</p>}
         </div>
         {view.status === "running" ? (
           <button className="quiet-button" type="button" onClick={() => void api.pauseResearch(view.researchId)}>
@@ -77,7 +78,7 @@ export function RunningScreen({
         <div className="effective-quota" data-testid="effective-quota-progress">
           <div className="effective-quota-labels">
             <span>{t("ui.running.quota")}</span>
-            <span>{quota.usedLabel} / {quota.totalLabel}</span>
+            <span>{formatEngineDuration(quota.usedLabel, t) ?? quota.usedLabel} / {formatEngineDuration(quota.totalLabel, t) ?? quota.totalLabel}</span>
           </div>
           <div
             className="effective-quota-track"
@@ -125,7 +126,7 @@ export function RunningScreen({
         <p className="eyebrow">{t("ui.running.materials")}</p>
         <p>{t("ui.running.sources", {sources: copyText(view.sources) || t("ui.running.sourcesFallback")})}</p>
         <p>{t("ui.running.cutoff", {cutoff: view.dataCutoff || t("ui.running.cutoffFallback")})}</p>
-        <p>{t("ui.running.coverageNow", {coverage: view.coverage})}</p>
+        <p>{t("ui.running.coverageNow", {coverage: copyText(view.coverage)})}</p>
         <p>{t("ui.running.notATerminal")}</p>
       </section>
       <h1>{t("ui.running.roundsTitle")}</h1>
@@ -136,7 +137,7 @@ export function RunningScreen({
           <div className="round-columns">
             <div className="round-logic">
               <p className="eyebrow">{t("ui.running.logic")}</p>
-              <p>{round.logicStatement.statement}</p>
+              <p data-testid="logic-statement"><LogicStatementText text={round.logicStatement.statement} /></p>
             </div>
             <div className="round-impl">
               <p className="eyebrow">{t("ui.running.implementation")}</p>

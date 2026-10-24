@@ -6,25 +6,66 @@ on:
   pull_request:
     branches: [main, "cursor/**"]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      run_e2e:
+        description: Install and drive the NSIS setup from this build
+        type: boolean
+        default: false
+
+permissions: {}
 
 jobs:
   build-windows-installer:
-    runs-on: windows-latest
+    permissions:
+      contents: read
+    runs-on: windows-2025
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         with:
           python-version: "3.12"
           cache: pip
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         with:
-          node-version: "20"
+          python-version: "3.12"
+
+      - name: Check desktop version declarations
+        id: ver
+        shell: bash
+        run: |
+          python scripts/check_app_version.py --check
+          echo "version=$(python scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
+        with:
+          node-version: "22"
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
+
+      - name: Record version and git sha
+        shell: bash
+        run: |
+          SHA=$(python scripts/resolve_embedded_sha.py)
+          echo "embedding commit $SHA"
+          ALPHALOOP_GIT_SHA="$SHA" python scripts/write_build_info.py
+          mkdir -p release-artifacts
+          printf '%s\n' "$SHA" > "release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows.embedded-sha"
 
       - name: Build engine sidecar (PyInstaller onedir)
         shell: bash
@@ -40,34 +81,266 @@ jobs:
           python scripts/verify_engine_resource_layout.py \
             --staged apps/desktop/src-tauri/resources/engine/alphaloop-engine
 
-      - name: Build Tauri desktop bundle
+      - name: Build unsigned NSIS setup
         working-directory: apps/desktop
         run: |
           npm ci
-          npm run tauri -- build
+          npm run tauri -- build --bundles nsis
 
-      - name: Collect bundle artifacts
+      - name: Collect the NSIS setup
         shell: bash
         run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          mkdir -p release-artifacts/windows-${SHORT_SHA}
+          VERSION="${{ steps.ver.outputs.version }}"
+          mkdir -p release-artifacts
           shopt -s nullglob
-          for f in apps/desktop/src-tauri/target/release/bundle/msi/*.msi; do
-            cp "$f" "release-artifacts/windows-${SHORT_SHA}/"
+          exe=""
+          for f in apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe; do
+            exe="$f"
           done
-          for f in apps/desktop/src-tauri/target/release/bundle/nsis/*.exe; do
-            cp "$f" "release-artifacts/windows-${SHORT_SHA}/"
-          done
-          if ! ls release-artifacts/windows-${SHORT_SHA}/* 1>/dev/null 2>&1; then
-            echo "No .msi or NSIS .exe found under target/release/bundle"
+          if [[ -z "$exe" ]]; then
+            echo "No NSIS setup exe found"
             find apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f || true
             exit 1
           fi
-          ls -la "release-artifacts/windows-${SHORT_SHA}"
+          main=""
+          for f in apps/desktop/src-tauri/target/release/*.exe; do
+            base="$(basename "$f")"
+            case "$base" in
+              *-setup.exe) ;;
+              *) main="$base" ;;
+            esac
+          done
+          if [[ -z "$main" ]]; then
+            echo "release binary not found"
+            exit 1
+          fi
+          if ! grep -R -q "$main" apps/desktop/src-tauri/target/release/nsis; then
+            echo "NSIS output does not reference $main"
+            grep -R -n "exe" apps/desktop/src-tauri/target/release/nsis || true
+            exit 1
+          fi
+          echo "NSIS installs $main"
+          cp "$exe" "release-artifacts/alphaloop_${VERSION}_windows_x64-setup.exe"
+          python - "$VERSION" <<'PY'
+          import hashlib, pathlib, sys
+          version = sys.argv[1]
+          path = pathlib.Path("release-artifacts") / f"alphaloop_{version}_windows_x64-setup.exe"
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          sidecar = path.with_name(path.name + ".sha256")
+          sidecar.write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+          print(sidecar.read_text(), end="")
+          PY
+          ls -la release-artifacts
 
-      - name: Upload Windows installers
-        uses: actions/upload-artifact@v4
+      - name: Upload Windows setup exe
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: alphaloop-desktop-windows-${{ github.sha }}
-          path: release-artifacts/**
+          name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe
           if-no-files-found: error
+
+      - name: Upload Windows setup hash
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe.sha256
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_windows.embedded-sha
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_windows.embedded-sha
+          if-no-files-found: error
+
+  windows-e2e:
+    needs: build-windows-installer
+    if: github.event_name == 'pull_request' || inputs.run_e2e
+    permissions:
+      contents: read
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: App version
+        id: ver
+        shell: bash
+        run: echo "version=$(python scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
+
+      - name: Download Windows setup
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_windows_x64-setup.exe
+          path: installer
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
+
+      - name: Install tauri-driver 2.1.0
+        run: cargo install tauri-driver --version 2.1.0 --locked
+
+      - name: Install msedgedriver matching the WebView2 Runtime
+        shell: pwsh
+        run: |
+          # The installed app loads Evergreen WebView2, not msedge.exe. Tauri's
+          # manual WebDriver guide says a driver/runtime mismatch hangs while
+          # connecting. The runtime client id is the EdgeUpdate WebView2 GUID.
+          $guid = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = @(
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$guid",
+            "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$guid"
+          )
+          $runtime = $null
+          foreach ($key in $keys) {
+            $runtime = (Get-ItemProperty -Path $key -ErrorAction SilentlyContinue).pv
+            if ($runtime) { break }
+          }
+          if (-not $runtime) {
+            $roots = @(
+              "${env:ProgramFiles(x86)}\Microsoft\EdgeWebView\Application",
+              "$env:ProgramFiles\Microsoft\EdgeWebView\Application"
+            )
+            $exe = Get-ChildItem -Path $roots -Filter msedgewebview2.exe -Recurse -ErrorAction SilentlyContinue |
+              Sort-Object { [version]$_.VersionInfo.ProductVersion } -Descending |
+              Select-Object -First 1
+            if (-not $exe) { throw "WebView2 Runtime was not found" }
+            $runtime = $exe.VersionInfo.ProductVersion
+          }
+          $edgePath = @(
+            "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ($edgePath) {
+            $edge = (Get-Item $edgePath).VersionInfo.ProductVersion
+            Write-Host "Edge browser $edge (not used for the driver)"
+          }
+          Write-Host "WebView2 Runtime $runtime"
+          $zip = Join-Path $env:RUNNER_TEMP "edgedriver.zip"
+          $dest = Join-Path $env:RUNNER_TEMP "msedgedriver"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $primary = "https://msedgedriver.microsoft.com/$runtime/edgedriver_win64.zip"
+          try {
+            Invoke-WebRequest -Uri $primary -OutFile $zip
+          } catch {
+            $major = $runtime.Split('.')[0]
+            $latestFile = Join-Path $env:RUNNER_TEMP "latest-webview.txt"
+            Invoke-WebRequest -Uri "https://msedgedriver.microsoft.com/LATEST_RELEASE_${major}_WINDOWS" -OutFile $latestFile
+            $bytes = [System.IO.File]::ReadAllBytes($latestFile)
+            if ($bytes.Length -ge 2 -and ($bytes[1] -eq 0 -or ($bytes[0] -eq 255 -and $bytes[1] -eq 254))) {
+              $latest = [System.Text.Encoding]::Unicode.GetString($bytes)
+            } else {
+              $latest = [System.Text.Encoding]::UTF8.GetString($bytes)
+            }
+            $latest = $latest.Trim([char]0).Trim()
+            Write-Host "fallback driver $latest for WebView2 major $major"
+            Invoke-WebRequest -Uri "https://msedgedriver.microsoft.com/$latest/edgedriver_win64.zip" -OutFile $zip
+          }
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          $driver = Join-Path $dest "msedgedriver.exe"
+          if (-not (Test-Path $driver)) { throw "msedgedriver.exe missing after extract" }
+          & $driver --version
+          Add-Content -Path $env:GITHUB_ENV -Value "MSEDGEDRIVER=$driver"
+          Add-Content -Path $env:GITHUB_PATH -Value $dest
+
+      - name: Install Selenium 4.51.0
+        run: python -m pip install selenium==4.51.0
+
+      # WebView2 Runtime 150+ ignores WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS on an
+      # elevated host. msedgedriver puts --remote-debugging-port there, and
+      # windows-2025 jobs run as admin, so session creation dies with
+      # "DevToolsActivePort file doesn't exist" while the app itself stays up.
+      # Dropping to medium integrity restores the variable. See
+      # https://github.com/tauri-apps/wry/issues/1782
+      - name: Install gsudo and open the workspace to a medium-integrity token
+        shell: pwsh
+        run: |
+          winget install gerardog.gsudo --accept-source-agreements --accept-package-agreements --disable-interactivity
+          $env:PATH = [Environment]::GetEnvironmentVariable('PATH','Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH','User')
+          $gsudo = (Get-Command gsudo -ErrorAction Stop).Source
+          Split-Path $gsudo | Add-Content -Path $env:GITHUB_PATH
+          & $gsudo --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The filtered medium token is not in Administrators. Grant an ACE it
+          # holds so it can read the installer and write screenshots and logs.
+          icacls "$env:GITHUB_WORKSPACE" /grant "Everyone:(OI)(CI)F" /T /C | Out-Null
+          if ($env:RUNNER_TEMP) {
+            icacls "$env:RUNNER_TEMP" /grant "Everyone:(OI)(CI)F" /T /C | Out-Null
+          }
+          $cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+          if (Test-Path $cargoBin) {
+            icacls $cargoBin /grant "Everyone:(OI)(CI)RX" /T /C | Out-Null
+          }
+
+      - name: Show the Windows time zone, then use China Standard Time
+        shell: pwsh
+        run: |
+          Write-Host "tzutil before: $(tzutil /g)"
+          Write-Host "dotnet before, this process: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
+          tzutil /s "China Standard Time"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "tzutil after: $(tzutil /g)"
+          # TimeZoneInfo.Local is cached for the life of this process, so it still says UTC.
+          Write-Host "dotnet after, this process cached zone: $([System.TimeZoneInfo]::Local.Id) offset $([System.TimeZoneInfo]::Local.BaseUtcOffset)"
+          $fresh = pwsh -NoProfile -Command "[System.TimeZoneInfo]::Local.Id + ' offset ' + [System.TimeZoneInfo]::Local.BaseUtcOffset"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "dotnet after, fresh process: $fresh"
+
+      - name: De-elevated installer smoke
+        timeout-minutes: 15
+        shell: pwsh
+        env:
+          ALPHALOOP_OFFLINE_MARKET_DATA: "1"
+        run: |
+          $version = "${{ steps.ver.outputs.version }}"
+          $installer = Join-Path (Get-Location) "installer/alphaloop_${version}_windows_x64-setup.exe"
+          if (-not (Test-Path $installer)) { throw "installer missing: $installer" }
+          gsudo --integrity Medium pwsh -NoProfile -File "apps/desktop/e2e/windows_installed_smoke.ps1" -Installer $installer
+          exit $LASTEXITCODE
+
+      - name: Windows GUI end-to-end
+        timeout-minutes: 20
+        shell: pwsh
+        env:
+          ALPHALOOP_OFFLINE_MARKET_DATA: "1"
+          ALPHALOOP_MAX_TRIALS: "1"
+          ALPHALOOP_E2E_HOLD_RUNNING_SEC: "45"
+          ALPHALOOP_REVIEWER: deterministic
+          PYTHONUNBUFFERED: "1"
+        run: |
+          $version = "${{ steps.ver.outputs.version }}"
+          $installer = Join-Path (Get-Location) "installer/alphaloop_${version}_windows_x64-setup.exe"
+          if (-not (Test-Path $installer)) { throw "installer missing: $installer" }
+          Unblock-File -Path $installer
+          gsudo --integrity Medium python "apps/desktop/e2e/windows_gui_e2e.py" $installer
+          exit $LASTEXITCODE
+
+      - name: Publish step summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f e2e-artifacts/summary.md ]]; then
+            cat e2e-artifacts/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-e2e-screenshots
+          path: e2e-artifacts/screenshots
+          if-no-files-found: warn
+
+      - name: Upload app and engine logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-e2e-logs
+          path: e2e-artifacts/logs
+          if-no-files-found: warn

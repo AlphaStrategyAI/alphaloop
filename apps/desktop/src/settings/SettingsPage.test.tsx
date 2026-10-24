@@ -118,4 +118,14 @@ describe("settings language", () => {
     expect(screen.getByRole("radio", {name: "中文"})).toBeChecked();
     expect(screen.getByRole("radio", {name: /跟随系统/})).toHaveAccessibleName(expect.stringContaining("English"));
   });
+
+  it("shows the baked version and commit on the about card", async () => {
+    render(
+      <I18nProvider initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <SettingsPage route="#/settings/general" />
+      </I18nProvider>,
+    );
+    expect(await screen.findByTestId("about-version")).toHaveTextContent("Version 0.9.0");
+    expect(screen.getByTestId("about-sha")).toHaveTextContent("Commit unknown");
+  });
 });

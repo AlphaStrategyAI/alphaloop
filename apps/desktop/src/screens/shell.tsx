@@ -81,7 +81,12 @@ export function NightShell({
             ? "success"
             : undefined;
   return (
-    <main className="night-shell tech-pulse-shell" data-testid="night-shell" data-view={view.kind}>
+    <main
+      className="night-shell tech-pulse-shell"
+      data-testid="night-shell"
+      data-view={view.kind}
+      data-engine-phase={sidecarState?.phase ?? "unknown"}
+    >
       <aside className="rail" data-testid="rail">
         <div className="rail-center">
           <BrandMark />
@@ -118,6 +123,11 @@ export function NightShell({
               done: view.marketDataProgress.done,
               total: view.marketDataProgress.total,
             })}
+          </p>
+        ) : null}
+        {view.testData ? (
+          <p className="test-data-badge" data-testid="test-data-badge" role="status">
+            {t("ui.shell.testData")}
           </p>
         ) : null}
         {view.thesisChangeHint && <p className="thesis-hint">{view.thesisChangeHint}</p>}

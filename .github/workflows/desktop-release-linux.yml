@@ -1,0 +1,151 @@
+name: desktop-release-linux
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main, "cursor/**"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  build-linux-deb:
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          python-version: "3.12"
+
+      - name: Check desktop version declarations
+        id: ver
+        run: |
+          python scripts/check_app_version.py --check
+          echo "version=$(python scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          node-version: "22"
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
+
+      - name: Install Tauri and sidecar system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            python3-venv
+          uname -m | grep -qx x86_64
+
+      - name: Record version and git sha
+        run: |
+          SHA=$(python3 scripts/resolve_embedded_sha.py)
+          echo "embedding commit $SHA"
+          ALPHALOOP_GIT_SHA="$SHA" python3 scripts/write_build_info.py
+          mkdir -p release-artifacts
+          printf '%s\n' "$SHA" > "release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_linux.embedded-sha"
+
+      - name: Build engine sidecar (PyInstaller onedir)
+        run: bash scripts/build_sidecar.sh
+
+      - name: Stage engine for Tauri
+        run: TARGET=linux bash scripts/stage_engine_for_tauri.sh
+
+      - name: Verify staged engine layout
+        run: python3 scripts/verify_engine_resource_layout.py --staged apps/desktop/src-tauri/resources/engine/alphaloop-engine
+
+      - name: Build unsigned deb bundle
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run tauri -- build --bundles deb
+
+      - name: Name the deb and require an executable engine
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          DEB=$(find apps/desktop/src-tauri/target/release/bundle/deb -name '*.deb' -maxdepth 1 | head -1)
+          if [[ -z "$DEB" ]]; then
+            find apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type f || true
+            exit 1
+          fi
+          ARCH=$(dpkg-deb -f "$DEB" Architecture)
+          if [[ "$ARCH" != "amd64" ]]; then
+            echo "expected amd64 deb, got $ARCH"
+            exit 1
+          fi
+          if ! dpkg-deb -c "$DEB" | grep 'alphaloop-engine$' | grep -E '^-..x'; then
+            echo "bundled engine is not executable inside the deb"
+            dpkg-deb -c "$DEB" | grep alphaloop-engine || true
+            exit 1
+          fi
+          mkdir -p release-artifacts
+          cp "$DEB" "release-artifacts/alphaloop_${VERSION}_linux_amd64.deb"
+          python3 - "$VERSION" <<'PY'
+          import hashlib, pathlib, sys
+          version = sys.argv[1]
+          path = pathlib.Path("release-artifacts") / f"alphaloop_{version}_linux_amd64.deb"
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          sidecar = path.with_name(path.name + ".sha256")
+          sidecar.write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+          print(sidecar.read_text(), end="")
+          PY
+          ls -la release-artifacts
+
+      - name: Install the deb on Ubuntu 22.04 and 24.04
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          DEB="release-artifacts/alphaloop_${VERSION}_linux_amd64.deb"
+          bash scripts/smoke_installed_deb.sh "$DEB" ubuntu:22.04
+          bash scripts/smoke_installed_deb.sh "$DEB" ubuntu:24.04
+
+      - name: Upload Linux deb
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_linux_amd64.deb
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_linux_amd64.deb
+          if-no-files-found: error
+
+      - name: Upload Linux deb hash
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_linux_amd64.deb.sha256
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_linux_amd64.deb.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_linux.embedded-sha
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_linux.embedded-sha
+          if-no-files-found: error
