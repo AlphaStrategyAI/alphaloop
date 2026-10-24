@@ -35,11 +35,19 @@ def universe_with_mentions(universe: Universe, mentions: tuple[SymbolMention, ..
     seen: set[str] = set()
     unresolved: list[str] = []
     inferred: list[tuple[str, str]] = []
-    asks: list[tuple[str, str]] = []
+    asks: list[tuple[str, str, str]] = []
     hints: list[tuple[str, str]] = []
+    mismatches: list[tuple[str, str]] = []
+    unrecognized: list[str] = []
     for mention in mentions:
         if mention.kind == "hint" and mention.canonical:
             hints.append((mention.raw, mention.canonical))
+            continue
+        if mention.kind == "unrecognized":
+            unrecognized.append(mention.raw)
+            continue
+        if mention.kind == "mismatch" and mention.canonical:
+            mismatches.append((mention.raw, mention.canonical))
             continue
         if mention.kind in {"ask", "finance", "amount"} and mention.canonical:
             asks.append((mention.raw, mention.canonical, mention.kind))
@@ -52,7 +60,7 @@ def universe_with_mentions(universe: Universe, mentions: tuple[SymbolMention, ..
                 inferred.append((mention.raw, mention.canonical))
         else:
             unresolved.append(mention.raw)
-    claimed = bool(resolved or unresolved or asks)
+    claimed = bool(resolved or unresolved or asks or mismatches)
     return replace(
         universe,
         symbols=tuple(resolved),
@@ -62,6 +70,8 @@ def universe_with_mentions(universe: Universe, mentions: tuple[SymbolMention, ..
         inferred_symbols=tuple(inferred),
         symbol_asks=tuple(asks),
         ticker_hints=tuple(hints),
+        market_mismatches=tuple(mismatches),
+        unrecognized_tokens=tuple(dict.fromkeys(unrecognized)),
         recognition_hidden=False,
     )
 
@@ -76,6 +86,7 @@ def apply_described_symbols(research: Research) -> Research:
         or universe.symbols
         or universe.unresolved_tokens
         or universe.symbol_asks
+        or universe.market_mismatches
     ):
         return research
     mentions = described_mentions(research)

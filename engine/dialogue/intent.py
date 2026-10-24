@@ -126,7 +126,22 @@ _MARKET_HINT = re.compile(r"美股|美国|A\s*股|中国|沪深|股|债|基金|E
 def _thesis_acceptable(message: str) -> bool:
     if _parse_universe(message) is not None:
         return True
-    return bool(_STRATEGY_HINT.search(message) and _MARKET_HINT.search(message))
+    # A strategy with no named market is still a thesis. The universe stays
+    # the default China A-share equity pool. Indicator words do not set a market.
+    return _STRATEGY_HINT.search(message) is not None
+
+
+def _universe_for_thesis(text: str) -> Universe | None:
+    parsed = _parse_universe(text)
+    if parsed is not None:
+        return parsed
+    if _STRATEGY_HINT.search(text) is None:
+        return None
+    blank = Universe(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY, ())
+    mentions = extract_symbol_mentions(text)
+    if not mentions:
+        return blank
+    return universe_with_mentions(blank, mentions)
 
 
 def _parse_thesis(message: str) -> str | None:
@@ -142,7 +157,7 @@ def _fill_slot(active: SlotName, text: str) -> list[tuple[str, Any]]:
         thesis = _parse_thesis(text)
         if thesis:
             updates.append(("thesis", thesis))
-        universe = _parse_universe(text)
+        universe = _universe_for_thesis(text)
         if universe is not None:
             updates.append(("universe", universe))
     elif active is SlotName.UNIVERSE:
@@ -171,7 +186,7 @@ def _extras_from_any_slot(text: str, brief_filled: set[str]) -> list[tuple[str, 
         if thesis and _parse_universe(text) is None:
             pass
     if "universe" not in brief_filled:
-        universe = _parse_universe(text)
+        universe = _universe_for_thesis(text) if "thesis" not in brief_filled else _parse_universe(text)
         if universe is not None:
             extras.append(("universe", universe))
     if "max_effective_hours" not in brief_filled:

@@ -183,6 +183,7 @@ pub fn run() {
             commands::use_hinted_symbol,
             commands::revert_symbol_ask,
             commands::remove_market_side,
+            commands::dismiss_mismatched_symbol,
             commands::unlock_brief,
             commands::send_dialogue,
             commands::pause_research,

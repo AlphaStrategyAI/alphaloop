@@ -50,6 +50,7 @@ function viewWith(resolution: NonNullable<Extract<DesktopView, {kind: "confirm_r
 function renderCard(
   language: typeof ZH | typeof EN,
   resolution: NonNullable<Extract<DesktopView, {kind: "confirm_run"}>["symbolResolution"]>,
+  extra: Partial<Extract<DesktopView, {kind: "confirm_run"}>> = {},
 ) {
   const invoke = vi.fn(async () => undefined);
   const raw = createTauriDesktopApi(invoke as unknown as DesktopInvoke);
@@ -57,9 +58,15 @@ function renderCard(
     onError: vi.fn(),
     refresh: vi.fn(async () => undefined),
   });
+  const base = viewWith(resolution);
+  const view = {
+    ...base,
+    ...extra,
+    symbolSelection: extra.symbolSelection ?? base.symbolSelection,
+  };
   render(
     <I18nProvider initial={language}>
-      <ConfirmRunCard api={bound} view={viewWith(resolution)} />
+      <ConfirmRunCard api={bound} view={view} />
     </I18nProvider>,
   );
   return {invoke};
@@ -300,7 +307,7 @@ describe("symbol resolution call chain", () => {
     };
     const zh = renderCard(ZH, asked);
     expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
-      "「COST」是美股代码 COST，也是常见英文单词。要把它当作标的吗？",
+      "COST 是美股代码，也是常见英文单词。要把它当作标的吗？",
     );
     expect(screen.getByTestId("symbol-ask-yes-COST")).toHaveTextContent("当作标的");
     expect(screen.getByTestId("symbol-ask-no-COST")).toHaveTextContent("只是文字");
@@ -320,7 +327,7 @@ describe("symbol resolution call chain", () => {
 
     const en = renderCard(EN, asked);
     expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
-      '"COST" is the US ticker COST and also a common English word. Use it as a symbol?',
+      "COST is a US ticker and also a common English word. Use it as a symbol?",
     );
     expect(screen.getByTestId("symbol-ask-yes-COST")).toHaveTextContent("Use as symbol");
     expect(screen.getByTestId("symbol-ask-no-COST")).toHaveTextContent("Just text");
@@ -639,5 +646,175 @@ describe("symbol resolution call chain", () => {
         side: "cn",
       }),
     );
+  });
+
+  it("names the symbol on a recognition remove button", () => {
+    renderCard(ZH, {
+      blocked: false,
+      code: null,
+      token: "SPY",
+      symbol: "SPY",
+      symbols: ["SPY"],
+      inferred: [{raw: "SPY", symbol: "SPY"}],
+      editable: true,
+    });
+    expect(screen.getByTestId("symbol-remove-SPY")).toHaveTextContent("移除 SPY");
+    cleanup();
+    renderCard(EN, {
+      blocked: false,
+      code: null,
+      token: "SPY",
+      symbol: "SPY",
+      symbols: ["SPY"],
+      inferred: [{raw: "SPY", symbol: "SPY"}],
+      editable: true,
+    });
+    expect(screen.getByTestId("symbol-remove-SPY")).toHaveTextContent("Remove SPY");
+  });
+
+  it("keeps the older ask sentence when the token is not the symbol", () => {
+    renderCard(EN, {
+      blocked: true,
+      code: "SYMBOL_ASK_PENDING",
+      token: null,
+      symbol: null,
+      symbols: [],
+      inferred: [],
+      editable: true,
+      asks: [{token: "low price", symbol: "LOW", kind: "ask"}],
+    });
+    expect(screen.getByTestId("symbol-ask")).toHaveTextContent(
+      '"low price" is the US ticker LOW and also a common English word. Use it as a symbol?',
+    );
+  });
+
+  it("blocks a stated-market mismatch and removes that symbol through the invoke chain", async () => {
+    const mismatch = {
+      blocked: true,
+      code: "SYMBOL_MARKET_MISMATCH" as const,
+      token: null,
+      symbol: null,
+      symbols: [] as string[],
+      inferred: [],
+      editable: true,
+      mismatches: ["CAPS", "TECH"],
+      mismatchMarket: "CN" as const,
+    };
+    const zh = renderCard(ZH, mismatch);
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "描述里的市场是A股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
+    );
+    expect(screen.getByTestId("symbol-remove-mismatch-CAPS")).toHaveTextContent("移除 CAPS");
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("symbol-remove-mismatch-CAPS"));
+    await waitFor(() =>
+      expect(zh.invoke).toHaveBeenCalledWith("dismiss_mismatched_symbol", {
+        researchId: "r-symbol",
+        symbol: "CAPS",
+      }),
+    );
+    cleanup();
+    const en = renderCard(EN, {
+      ...mismatch,
+      mismatches: ["CAPS"],
+    });
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "The description says China A-shares, but CAPS isn't in that market. Remove it or change the market.",
+    );
+    expect(screen.getByTestId("symbol-remove-mismatch-CAPS")).toHaveTextContent("Remove CAPS");
+    cleanup();
+    renderCard(EN, mismatch);
+    expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
+      "The description says China A-shares, but CAPS, TECH aren't in that market. Remove them or change the market.",
+    );
+  });
+
+  it("shows an unrecognized token with the default pool and does not block Run for the token", () => {
+    renderCard(
+      EN,
+      {
+        blocked: false,
+        code: null,
+        token: null,
+        symbol: null,
+        symbols: [],
+        inferred: [],
+        editable: true,
+        unrecognized: [{token: "TCEHY"}],
+        hints: [{token: "spy", symbol: "SPY"}],
+        poolCount: 503,
+      },
+      {
+        symbolSelection: {
+          count: 503,
+          listName: "US large-cap universe",
+          listVersion: "us_equity_large_cap_v2",
+          symbols: ["SPY"],
+          source: "default_pool",
+          dataStart: "2014-10-19",
+          dataEnd: "2026-10-19",
+          dataCutoff: "2026-10-19",
+          dataSource: "待选择",
+          dataSourcePending: true,
+          offeredDataSourceId: "yahoo_daily",
+          offeredDataSource: "雅虎日线",
+          priceSources: [{id: "yahoo_daily", label: "雅虎日线", unlicensed: true}],
+        },
+      },
+    );
+    expect(screen.getByTestId("symbol-unrecognized-TCEHY")).toHaveTextContent(
+      '"TCEHY" wasn\'t recognized. It isn\'t on the US listings (it may be OTC or delisted), so it won\'t be used as a symbol.',
+    );
+    expect(screen.getByTestId("symbol-pool-hint")).toHaveTextContent("default pool");
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+  });
+
+  it("after a market switch, Run stays blocked until an unlicensed source is chosen and acknowledged", () => {
+    renderCard(
+      ZH,
+      {
+        blocked: false,
+        code: null,
+        token: "SPY",
+        symbol: "SPY",
+        symbols: ["SPY"],
+        inferred: [{raw: "SPY", symbol: "SPY"}],
+        editable: true,
+      },
+      {
+        marketSwitch: {market: "US", benchmark: "S&P 500"},
+        settings: {
+          thesis: "600519 和 SPY",
+          universe: "美股 · 股票",
+          max_effective_hours: "12 小时",
+          round1_methods: "走样检验",
+          coverage_floor: "至少 1 个标的",
+        },
+        symbolSelection: {
+          count: 1,
+          listName: "用户指定标的",
+          listVersion: "用户",
+          symbols: ["SPY"],
+          source: "user_override",
+          dataStart: "2014-10-19",
+          dataEnd: "2026-10-19",
+          dataCutoff: "2026-10-19",
+          dataSource: "待选择",
+          dataSourcePending: true,
+          offeredDataSourceId: "yahoo_daily",
+          offeredDataSource: "雅虎日线",
+          priceSources: [{id: "yahoo_daily", label: "雅虎日线", unlicensed: true}],
+        },
+      },
+    );
+    expect(screen.getByTestId("market-switch-notice")).toHaveTextContent(
+      "已按剩下的标的切换到美股，基准改为 S&P 500。",
+    );
+    const run = screen.getByTestId("confirm-run-start") as HTMLButtonElement;
+    expect(run).toBeDisabled();
+    fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
+    expect(run).toBeDisabled();
+    fireEvent.click(screen.getByTestId("unlicensed-ack"));
+    expect(run).toBeEnabled();
   });
 });

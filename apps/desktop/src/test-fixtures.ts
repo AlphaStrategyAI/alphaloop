@@ -16,6 +16,7 @@ export function minimalDesktopApi(overrides: Partial<DesktopApi> = {}): DesktopA
     useHintedSymbol: async () => undefined,
     revertSymbolAsk: async () => undefined,
     removeMarketSide: async () => undefined,
+    dismissMismatchedSymbol: async () => undefined,
     unlockBrief: async () => undefined,
     sendDialogue: async () => undefined,
     pauseResearch: async () => undefined,

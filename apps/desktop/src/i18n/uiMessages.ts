@@ -146,6 +146,11 @@ export function buildUiMessages(copy: Copy) {
         '"{{token}}" is the US ticker {{symbol}} and also a common English word. Use it as a symbol?',
         true,
       ),
+      symbolAskSame: copy(
+        "{{symbol}} 是美股代码，也是常见英文单词。要把它当作标的吗？",
+        "{{symbol}} is a US ticker and also a common English word. Use it as a symbol?",
+        true,
+      ),
       useAsSymbol: copy("当作标的", "Use as symbol", true),
       justText: copy("只是文字", "Just text", true),
       askBeforeRun: copy(
@@ -188,7 +193,24 @@ export function buildUiMessages(copy: Copy) {
       usedAsSymbol: copy("已当作标的：{{symbol}} · ", "Used as symbol: {{symbol}} · ", true),
       treatedAsText: copy("「{{token}}」按文字处理 · ", '"{{token}}" treated as text · ', true),
       changeAnswer: copy("更改", "Change", true),
-      removeSymbol: copy("移除", "Remove"),
+      removeSymbol: copy("移除 {{symbol}}", "Remove {{symbol}}", true),
+      marketUs: copy("美股", "US stocks", true),
+      marketCn: copy("A股", "China A-shares", true),
+      marketSwitched: copy(
+        "已按剩下的标的切换到{{market}}，基准改为 {{benchmark}}。",
+        "Switched to {{market}} to match the remaining symbols. The benchmark is now {{benchmark}}.",
+        true,
+      ),
+      marketMismatch: copy(
+        "描述里的市场是{{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。",
+        "The description says {{market}}, but {{symbols}} {{nIsnt}} in that market. Remove {{nIt}} or change the market.",
+        true,
+      ),
+      unrecognizedTicker: copy(
+        "没有识别「{{token}}」：它不在美股上市名单里（可能是场外或已退市的代码），不会当作标的。",
+        '"{{token}}" wasn\'t recognized. It isn\'t on the US listings (it may be OTC or delisted), so it won\'t be used as a symbol.',
+        true,
+      ),
       mixedMarkets: copy(
         "一次研究只能用同一个市场的标的，这里既有 A 股（{{cn_symbols}}），也有美股（{{us_symbols}}）。请删掉其中一边。",
         "A study can only use symbols from one market, but this has both China A-shares ({{cn_symbols}}) and US stocks ({{us_symbols}}). Remove one side.",

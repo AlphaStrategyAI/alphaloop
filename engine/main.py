@@ -40,6 +40,7 @@ from engine.research.universe_pool import (
 from engine.research.universe_validation import (
     answer_symbol_ask,
     apply_symbol_edit,
+    dismiss_mismatched_symbol,
     ensure_runnable_universe,
     refresh_symbol_probe,
     remove_market_side,
@@ -775,6 +776,11 @@ class ResearchCommandService:
                 construction = construction_notice_for(research)
                 if construction:
                     body["constructionNotice"] = construction
+                if research.market_switch_market:
+                    body["marketSwitch"] = {
+                        "market": research.market_switch_market,
+                        "benchmark": research.market_switch_benchmark,
+                    }
                 selection = body.get("symbolSelection")
                 if isinstance(selection, dict):
                     self._attach_unlicensed_choice(selection, research)
@@ -972,8 +978,21 @@ class ResearchCommandService:
                 is_unlicensed_source,
                 record_acknowledgement,
             )
-
             from engine.research.universe_pool import pool_resolvable
+            from engine.research.universe_validation import (
+                reject_market_mismatches,
+                reject_mixed_markets,
+                reject_pending_symbol_asks,
+                reject_source_market_mismatch,
+                reject_unresolved_symbols,
+            )
+
+            # Symbol identity wins over an unbound source. A mismatch must not
+            # be reported as DATA_SOURCE_UNBOUND, and it must not reach the loop.
+            reject_market_mismatches(research)
+            reject_unresolved_symbols(research)
+            reject_pending_symbol_asks(research)
+            reject_mixed_markets(research)
 
             requested = data_source_id.strip() if isinstance(data_source_id, str) else ""
             source = requested or research.data_source_id
@@ -1005,6 +1024,7 @@ class ResearchCommandService:
                     record_acknowledgement(source, now, settings)
             if source != research.data_source_id:
                 research = replace(research, data_source_id=source)
+            reject_source_market_mismatch(research, source, self.paths.data.settings_file)
             expected_at = research.updated_at
             try:
                 research = ensure_runnable_universe(research)
@@ -1155,6 +1175,10 @@ class ResearchCommandService:
         if kind == "remove_market_side":
             research = self.store.load(str(request["research_id"]))
             updated = remove_market_side(research, str(request["side"]), now)
+            return self._save(research, updated)
+        if kind == "dismiss_mismatched_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = dismiss_mismatched_symbol(research, str(request["symbol"]), now)
             return self._save(research, updated)
 
         research = self.store.load(request["research_id"])

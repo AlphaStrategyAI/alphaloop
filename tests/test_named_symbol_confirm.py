@@ -43,12 +43,18 @@ def _draft(service: ResearchCommandService) -> str:
 
 
 def _confirm(service: ResearchCommandService, research_id: str) -> dict:
-    """Pass the source #151 requires so the symbol check is what confirm_run answers."""
+    """Pass a source that matches the market so confirm_run answers the symbol check.
+
+    Yahoo is the US source. AkShare is the China A-share source. Either one
+    still needs the personal-research acknowledgement.
+    """
+    universe = service.store.load(research_id).brief.universe.value
+    source = "akshare_sina_daily" if universe is not None and universe.market is Market.CN else "yahoo_daily"
     return service.handle(
         {
             "type": "confirm_run",
             "research_id": research_id,
-            "data_source_id": "yahoo_daily",
+            "data_source_id": source,
             "unlicensed_acknowledged": True,
         }
     )
@@ -224,18 +230,13 @@ def test_indicators_and_all_caps_prose_are_not_a_fake_universe(tmp_path: Path) -
     service = _service(tmp_path)
     research_id = _draft(service)
     view = _fill(service, research_id, "A股股票 RSI MACD FIND CAPS TECH 均值回归", FLOOR_MANY)
-    resolution = view["symbolResolution"]
-    assert resolution["blocked"] is True
-    assert resolution["code"] == "SYMBOL_ASK_PENDING"
-    assert resolution["asks"] == [
-        {"token": "RSI", "symbol": "RSI", "kind": "finance"},
-        {"token": "TECH", "symbol": "TECH", "kind": "ask"},
-    ]
-    assert resolution["symbols"] == ["CAPS"]
-    with pytest.raises(UserFacingError) as exc:
-        _confirm(service, research_id)
-    assert exc.value.code == "SYMBOL_ASK_PENDING"
-    assert service.store.load(research_id).brief.universe.value.symbols == ("CAPS",)
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["source"] == "default_pool"
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    resolution = view.get("symbolResolution")
+    assert resolution is None or resolution["blocked"] is False
+    assert service.store.load(research_id).brief.universe.value.market is Market.CN
 
 
 def test_spy_is_recognized_and_can_run(tmp_path: Path) -> None:
@@ -249,22 +250,19 @@ def test_spy_is_recognized_and_can_run(tmp_path: Path) -> None:
     assert service.store.load(research_id).brief.universe.value.symbols == ("SPY",)
 
 
-def test_fake_us_ticker_with_no_bars_blocks_confirm_run(tmp_path: Path) -> None:
-    set_pool_data_loader(_NoBars(frozenset({"ZZZZQ"})))
+def test_unrecognized_ticker_stays_on_the_default_pool(tmp_path: Path) -> None:
     service = _service(tmp_path)
     research_id = _draft(service)
-    view = _fill(service, research_id, "美股股票 ZZZZQ 的均值回归", FLOOR_ONE)
+    view = _fill(service, research_id, "美股股票 ZZZZQ 的均值回归", FLOOR_MANY)
     resolution = view["symbolResolution"]
-    assert resolution["blocked"] is True
-    assert resolution["code"] == "SYMBOL_NO_DATA"
-    assert resolution["symbol"] == "ZZZZQ"
-    assert resolution["inferred"] == [{"raw": "ZZZZQ", "symbol": "ZZZZQ"}]
-    with pytest.raises(UserFacingError) as exc:
-        _confirm(service, research_id)
-    assert exc.value.code == "SYMBOL_NO_DATA"
-    assert exc.value.params["symbol"] == "ZZZZQ"
-    assert exc.value.message == "所选数据源没有 ZZZZQ 的行情，无法开跑。请改代码或换数据源。"
-    assert service.store.load(research_id).brief.universe.value.symbols == ("ZZZZQ",)
+    assert resolution["blocked"] is False
+    assert resolution["code"] is None
+    assert resolution["unrecognized"] == [{"token": "ZZZZQ"}]
+    assert resolution["symbols"] == []
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["source"] == "default_pool"
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
 
 
 def test_empty_price_frame_for_a_named_ticker_is_no_data_not_an_outage(tmp_path: Path) -> None:
@@ -275,7 +273,7 @@ def test_empty_price_frame_for_a_named_ticker_is_no_data_not_an_outage(tmp_path:
     set_pool_data_loader(_Empty())
     service = _service(tmp_path)
     research_id = _draft(service)
-    view = _fill(service, research_id, "美股股票 ZZZZQ 的均值回归", FLOOR_ONE)
+    view = _fill(service, research_id, "美股股票 ECHO 的均值回归", FLOOR_ONE)
     assert view["symbolResolution"]["blocked"] is True
     assert view["symbolResolution"]["code"] == "SYMBOL_NO_DATA"
     with pytest.raises(UserFacingError) as exc:
@@ -322,13 +320,14 @@ def test_ordinary_english_and_chinese_do_not_block_the_default_pool(tmp_path: Pa
         "A股股票的均值回归 mean reversion daily THE LOW CAP",
         FLOOR_MANY,
     )
-    resolution = view["symbolResolution"]
-    assert resolution["blocked"] is True
-    assert resolution["asks"] == [{"token": "LOW", "symbol": "LOW", "kind": "ask"}]
-    assert "CAP" not in [ask["token"] for ask in resolution["asks"]]
-    with pytest.raises(UserFacingError) as exc:
-        _confirm(service, research_id)
-    assert exc.value.code == "SYMBOL_ASK_PENDING"
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    resolution = view.get("symbolResolution")
+    assert resolution is None or resolution["blocked"] is False
+    assert resolution is None or resolution["asks"] == []
+    _confirm(service, research_id)
+    assert service.store.load(research_id).brief.universe.value.symbols == pool.symbols
 
 
 def test_editing_the_symbol_on_the_card_replaces_the_unresolved_token(tmp_path: Path) -> None:
@@ -647,11 +646,102 @@ def test_removing_one_market_keeps_the_other_recognition(tmp_path: Path) -> None
     view = service.view_for(f"#/research/{research_id}")
     assert view["symbolResolution"]["inferred"] == [{"raw": "SPY", "symbol": "SPY"}]
     assert view["symbolSelection"]["symbols"] == ["SPY"]
+    assert view["settings"]["universe"] == "美股 · 股票"
+    assert view["marketSwitch"] == {"market": "US", "benchmark": "S&P 500"}
+    assert view["symbolSelection"]["dataSourcePending"] is True
+    assert view["symbolSelection"]["dataSourceId"] is None
+    assert view["symbolSelection"]["dataSourceId"] not in {"yahoo_daily", "akshare_sina_daily"}
+    stored = service.store.load(research_id)
+    assert stored.brief.universe.value.market is Market.US
+    assert stored.brief.universe.value.asset_class is AssetClass.EQUITY
+    assert stored.data_source_id == ""
+    with pytest.raises(UserFacingError) as unbound:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert unbound.value.code == "DATA_SOURCE_UNBOUND"
+    with pytest.raises(UserFacingError) as mismatch:
+        service.handle(
+            {
+                "type": "confirm_run",
+                "research_id": research_id,
+                "data_source_id": "akshare_sina_daily",
+                "unlicensed_acknowledged": True,
+            }
+        )
+    assert mismatch.value.code == "SYMBOL_SOURCE_MISMATCH"
+    assert "000300" not in mismatch.value.message
+    with pytest.raises(UserFacingError) as unacked:
+        service.handle(
+            {
+                "type": "confirm_run",
+                "research_id": research_id,
+                "data_source_id": "yahoo_daily",
+            }
+        )
+    assert unacked.value.code == "UNLICENSED_SOURCE_UNACKNOWLEDGED"
+    started_view = _confirm(service, research_id)
+    assert started_view.get("status") == "running"
+    started = service.store.load(research_id)
+    assert started.brief.universe.value.market is Market.US
+    assert started.brief.universe.value.symbols == ("SPY",)
+    assert started.data_source_id == "yahoo_daily"
+    assert "000300" not in (started.last_run_error or "")
 
 
 def test_held_out_prose_uses_the_pool(tmp_path: Path) -> None:
     service = _service(tmp_path)
     research_id = _draft(service)
     view = _fill(service, research_id, "美股股票 I THINK THE MARKET IS UP 均值回归", FLOOR_MANY)
-    assert view["symbolResolution"]["asks"] == [{"token": "UP", "symbol": "UP", "kind": "ask"}]
+    pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["source"] == "default_pool"
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    resolution = view.get("symbolResolution")
+    assert resolution is None or resolution["asks"] == []
+
+
+def test_stated_market_mismatch_blocks_before_a_source_is_chosen(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = _draft(service)
+    view = _fill(service, research_id, "A股股票 CAPS 均值回归", FLOOR_ONE)
+    assert view["symbolResolution"]["code"] == "SYMBOL_MARKET_MISMATCH"
+    assert view["symbolResolution"]["mismatches"] == ["CAPS"]
     assert view["symbolResolution"]["blocked"] is True
+    with pytest.raises(UserFacingError) as exc:
+        service.handle({"type": "confirm_run", "research_id": research_id})
+    assert exc.value.code == "SYMBOL_MARKET_MISMATCH"
+    assert exc.value.message == (
+        "描述里的市场是A股，但 CAPS 不属于这个市场。请删掉这些代码，或改成对应的市场。"
+    )
+    service.handle(
+        {"type": "dismiss_mismatched_symbol", "research_id": research_id, "symbol": "CAPS"}
+    )
+    view = service.view_for(f"#/research/{research_id}")
+    pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+    assert pool is not None
+    assert view["symbolSelection"]["source"] == "default_pool"
+    assert view["symbolSelection"]["symbols"] == list(pool.symbols)
+    resolution = view.get("symbolResolution")
+    assert resolution is None or resolution.get("code") != "SYMBOL_MARKET_MISMATCH"
+    assert "CAPS" not in (view["symbolSelection"]["symbols"])
+
+
+def test_remove_side_preselects_one_licensed_source_and_never_yahoo(tmp_path: Path) -> None:
+    from engine.research.price_source_choice import save_configured_licensed_source
+
+    service = _service(tmp_path)
+    save_configured_licensed_source(
+        service.paths.data.settings_file,
+        source_id="local-file-desk",
+        label="Desk CSV",
+        market=Market.US,
+    )
+    research_id = _draft(service)
+    _fill(service, research_id, "600519 和 SPY 的均值回归", FLOOR_ONE)
+    service.handle({"type": "remove_market_side", "research_id": research_id, "side": "cn"})
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["symbolSelection"]["dataSourcePending"] is False
+    assert view["symbolSelection"]["dataSourceId"] == "local-file-desk"
+    assert view["symbolSelection"]["dataSourceId"] != "yahoo_daily"
+    assert service.store.load(research_id).data_source_id == ""
+    service.handle({"type": "confirm_run", "research_id": research_id})
+    assert service.store.load(research_id).data_source_id == "local-file-desk"

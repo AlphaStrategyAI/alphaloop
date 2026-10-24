@@ -77,7 +77,14 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
     cn, us = market_symbol_sides(tuple(universe.symbols))
     mixed = bool(cn and us)
     asks = tuple(universe.symbol_asks)
-    default_pool = not universe.user_symbols_override and not asks and not universe.unresolved_tokens
+    mismatches = tuple(universe.market_mismatches)
+    unrecognized = tuple(universe.unrecognized_tokens)
+    default_pool = (
+        not universe.user_symbols_override
+        and not asks
+        and not universe.unresolved_tokens
+        and not mismatches
+    )
     hints = tuple(universe.ticker_hints)[:3] if default_pool else ()
     named = bool(
         universe.user_symbols_override
@@ -87,6 +94,8 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
         or universe.symbol_ask_answers
         or hints
         or mixed
+        or mismatches
+        or unrecognized
     )
     if not named:
         return None
@@ -95,7 +104,11 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
     token = "、".join(universe.unresolved_tokens) if universe.unresolved_tokens else None
     symbol = universe.symbols[0] if universe.user_symbols_override and universe.symbols else None
     etfs = akshare_etf_symbols(tuple(universe.symbols))
-    if universe.unresolved_tokens or (
+    if mismatches:
+        blocked = True
+        code = "SYMBOL_MARKET_MISMATCH"
+        symbol = None
+    elif universe.unresolved_tokens or (
         universe.user_symbols_override and not universe.symbols and not asks
     ):
         blocked = True
@@ -125,7 +138,7 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
         code = "SYMBOL_NO_DATA"
         symbol = "、".join(research.symbol_probe_missing)
     pool_count = None
-    if hints:
+    if hints or unrecognized:
         pool = pool_for_market(
             universe.market,
             universe.asset_class,
@@ -157,6 +170,9 @@ def symbol_resolution_payload(research: Research) -> dict[str, Any] | None:
         "poolCount": pool_count,
         "cnSymbols": "、".join(cn) if mixed else None,
         "usSymbols": "、".join(us) if mixed else None,
+        "mismatches": [canonical for _raw, canonical in mismatches],
+        "mismatchMarket": universe.market.value if mismatches else None,
+        "unrecognized": [{"token": raw} for raw in unrecognized],
     }
 
 

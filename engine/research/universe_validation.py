@@ -23,6 +23,9 @@ _ETF_UNSUPPORTED = "所选数据源暂不支持 A 股 ETF 行情（{symbol}）�
 _ASK_PENDING = "先确认上面的代码再开跑。"
 _AMOUNT = "「{token}」看起来像金额，也可能是代码 {symbol}。要把它当作标的吗？"
 _MIXED = "一次研究只能用同一个市场的标的，这里既有 A 股（{cn_symbols}），也有美股（{us_symbols}）。请删掉其中一边。"
+_MISMATCH = "描述里的市场是{market}，但 {symbols} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
+# Product has not written this sentence. The catalog key is not final.
+_SOURCE_MISMATCH = "数据来源和标的市场不一致，请改成同一个市场再开跑。"
 
 
 def _named_symbol_label(symbols: tuple[str, ...]) -> str:
@@ -87,6 +90,85 @@ def reject_pending_symbol_asks(research: Research) -> None:
     raise UserFacingError("SYMBOL_ASK_PENDING", _ASK_PENDING)
 
 
+def _market_label(market: object) -> tuple[str, str]:
+    from engine.research.models import Market
+
+    if market is Market.US:
+        return "美股", "US stocks"
+    return "A股", "China A-shares"
+
+
+def reject_market_mismatches(research: Research) -> None:
+    """Stated market and the named symbols have to be the same market."""
+    universe = research.brief.universe.value
+    if universe is None:
+        return
+    symbols: list[str] = []
+    if universe.market_mismatches:
+        symbols = [canonical for _raw, canonical in universe.market_mismatches]
+    else:
+        cn, us = market_symbol_sides(universe.symbols)
+        from engine.research.models import Market
+
+        if universe.market is Market.CN and us and not cn:
+            symbols = list(us)
+        elif universe.market is Market.US and cn and not us:
+            symbols = list(cn)
+    if not symbols:
+        return
+    market, market_en = _market_label(universe.market)
+    joined = _named_symbol_label(tuple(symbols))
+    raise UserFacingError(
+        "SYMBOL_MARKET_MISMATCH",
+        _MISMATCH.format(market=market, symbols=joined),
+        params={
+            "market": market,
+            "marketEn": market_en,
+            "symbols": joined,
+            "n": len(symbols),
+        },
+    )
+
+
+def reject_source_market_mismatch(research: Research, source_id: str, settings_path: object) -> None:
+    """A chosen price source has to belong to the universe market.
+
+    Yahoo is US. AkShare is China A-shares. A licensed file configured for the
+    other market is the same disagreement. An empty source is not this error.
+    """
+    from pathlib import Path
+
+    from engine.research.models import Market
+    from engine.research.planned_data_window import (
+        AKSHARE_SINA_DATA_SOURCE_ID,
+        DEFAULT_DATA_SOURCE_ID,
+    )
+    from engine.research.price_source_choice import configured_licensed_sources
+
+    universe = research.brief.universe.value
+    source = source_id.strip()
+    if universe is None or not source:
+        return
+    disagrees = (
+        source == DEFAULT_DATA_SOURCE_ID and universe.market is not Market.US
+    ) or (
+        source == AKSHARE_SINA_DATA_SOURCE_ID and universe.market is not Market.CN
+    )
+    if source not in {DEFAULT_DATA_SOURCE_ID, AKSHARE_SINA_DATA_SOURCE_ID}:
+        path = settings_path if isinstance(settings_path, Path) else Path(str(settings_path))
+        other = Market.US if universe.market is Market.CN else Market.CN
+        other_ids = {item.source_id for item in configured_licensed_sources(path, other)}
+        same_ids = {item.source_id for item in configured_licensed_sources(path, universe.market)}
+        disagrees = source in other_ids and source not in same_ids
+    if not disagrees:
+        return
+    raise UserFacingError(
+        "SYMBOL_SOURCE_MISMATCH",
+        _SOURCE_MISMATCH,
+        params={"source": source, "market": universe.market.value},
+    )
+
+
 def reject_mixed_markets(research: Research) -> None:
     universe = research.brief.universe.value
     if universe is None:
@@ -110,6 +192,7 @@ def refresh_symbol_probe(research: Research) -> Research:
         universe is None
         or universe.unresolved_tokens
         or universe.symbol_asks
+        or universe.market_mismatches
         or not universe.user_symbols_override
         or not universe.symbols
         or akshare_etf_symbols(universe.symbols)
@@ -159,6 +242,8 @@ def _cleared_probe(research: Research, **changes: object) -> Research:
         symbol_probe_symbols=(),
         symbol_probe_missing=(),
         symbol_probe_unavailable=False,
+        market_switch_market="",
+        market_switch_benchmark="",
         **changes,
     )
 
@@ -327,11 +412,20 @@ def revert_symbol_ask(research: Research, token: str, now: datetime) -> Research
 
 
 def remove_market_side(research: Research, side: str, now: datetime) -> Research:
-    """Drop one market from a mixed card and keep the other side's recognition."""
+    """Drop one market and retarget the market and benchmark to what remains.
+
+    The data source is cleared, not switched. Preselection runs again for the
+    new market and does not choose Yahoo or AkShare.
+    """
+    from engine.metrics import benchmark_for
+    from engine.research.models import Market
+
     _require_draft(research)
     universe = research.brief.universe.value
     if universe is None:
         raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    if side not in {"cn", "us"}:
+        raise UserFacingError("SYMBOL_MARKET_MISMATCH", _MISMATCH.format(market="", symbols=side))
     cn, us = market_symbol_sides(universe.symbols)
     drop = set(cn if side == "cn" else us)
     keep = tuple(symbol for symbol in universe.symbols if symbol not in drop)
@@ -342,15 +436,70 @@ def remove_market_side(research: Research, side: str, now: datetime) -> Research
         research,
         tuple(raw for raw, symbol in universe.inferred_symbols if symbol in drop),
     )
+    market = Market.US if side == "cn" else Market.CN
     updated = replace(
         universe,
+        market=market,
         symbols=keep,
         symbol_list_version=None,
         user_symbols_override=bool(keep or universe.unresolved_tokens or universe.symbol_asks),
         inferred_symbols=inferred,
         recognition_hidden=False,
     )
+    benchmark = benchmark_for(updated).name
     brief = replace(research.brief, universe=Slot(updated, research.brief.universe.locked))
+    cleared = _cleared_probe(
+        research,
+        brief=brief,
+        dismissed_symbol_tokens=dismissed,
+        data_source_id="",
+        updated_at=now,
+    )
+    return replace(
+        cleared,
+        market_switch_market=market.value,
+        market_switch_benchmark=benchmark,
+    )
+
+
+def dismiss_mismatched_symbol(research: Research, symbol: str, now: datetime) -> Research:
+    """Drop one stated-market mismatch so the description does not put it back."""
+    from engine.research.symbol_mentions import described_mentions
+
+    _require_draft(research)
+    universe = research.brief.universe.value
+    if universe is None:
+        raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    match = next(
+        (
+            pair
+            for pair in universe.market_mismatches
+            if pair[1] == symbol or pair[0] == symbol
+        ),
+        None,
+    )
+    if match is None:
+        return research
+    raw, canonical = match
+    dismissed = _dismissed_with(research, (raw, canonical))
+    mentions = described_mentions(replace(research, dismissed_symbol_tokens=dismissed))
+    rebuilt = universe_with_mentions(
+        replace(
+            universe,
+            symbols=(),
+            symbol_list_version=None,
+            user_symbols_override=False,
+            unresolved_tokens=(),
+            inferred_symbols=(),
+            symbol_asks=(),
+            ticker_hints=(),
+            market_mismatches=(),
+            unrecognized_tokens=(),
+            recognition_hidden=False,
+        ),
+        mentions,
+    )
+    brief = replace(research.brief, universe=Slot(rebuilt, research.brief.universe.locked))
     return _cleared_probe(
         research,
         brief=brief,
@@ -365,6 +514,7 @@ def resolve_universe_symbols(research: Research, now: datetime) -> Research:
     universe = research.brief.universe.value
     if universe is None:
         raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    reject_market_mismatches(research)
     reject_unresolved_symbols(research)
     reject_pending_symbol_asks(research)
     reject_mixed_markets(research)

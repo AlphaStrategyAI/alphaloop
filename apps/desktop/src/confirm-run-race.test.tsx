@@ -49,6 +49,7 @@ function makeApi(overrides: Partial<DesktopApi>): DesktopApi {
     useHintedSymbol: overrides.useHintedSymbol ?? vi.fn(async () => undefined),
     revertSymbolAsk: overrides.revertSymbolAsk ?? vi.fn(async () => undefined),
     removeMarketSide: overrides.removeMarketSide ?? vi.fn(async () => undefined),
+    dismissMismatchedSymbol: vi.fn(async () => undefined),
   };
 }
 

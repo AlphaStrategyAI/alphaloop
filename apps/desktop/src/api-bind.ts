@@ -60,6 +60,7 @@ export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
     useHintedSymbol: bindMethod(api.useHintedSymbol, deps),
     revertSymbolAsk: bindMethod(api.revertSymbolAsk, deps),
     removeMarketSide: bindMethod(api.removeMarketSide, deps),
+    dismissMismatchedSymbol: bindMethod(api.dismissMismatchedSymbol, deps),
     unlockBrief: bindMethod(api.unlockBrief, deps),
     sendDialogue: bindMethod(api.sendDialogue, deps),
     pauseResearch: bindMethod(api.pauseResearch, deps),

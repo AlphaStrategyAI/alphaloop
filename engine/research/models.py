@@ -113,6 +113,8 @@ class Universe:
     symbol_asks: tuple[tuple[str, str, str], ...] = ()
     symbol_ask_answers: tuple[tuple[str, str, str, bool], ...] = ()
     ticker_hints: tuple[tuple[str, str], ...] = ()
+    market_mismatches: tuple[tuple[str, str], ...] = ()
+    unrecognized_tokens: tuple[str, ...] = ()
     recognition_hidden: bool = False
 
     def __post_init__(self) -> None:
@@ -515,6 +517,8 @@ class Research:
     symbol_probe_missing: tuple[str, ...] = ()
     symbol_probe_unavailable: bool = False
     dismissed_symbol_tokens: tuple[str, ...] = ()
+    market_switch_market: str = ""
+    market_switch_benchmark: str = ""
 
 
 def new_research(research_id: str, now: datetime) -> Research:

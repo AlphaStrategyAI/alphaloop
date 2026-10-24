@@ -101,6 +101,8 @@ def test_symbol_regression_corpus(row: dict, tmp_path: Path) -> None:
         assert [item["symbol"] for item in resolution["inferred"]] == card["recognized"]
         assert resolution["asks"] == card["asks"]
         assert resolution["hints"] == card["hints"]
+        assert (resolution.get("mismatches") or []) == (card.get("mismatches") or [])
+        assert (resolution.get("unrecognized") or []) == (card.get("unrecognized") or [])
     if card["default_pool"]:
         pool = pool_for_market(Market(row["market"]), AssetClass.EQUITY, AssetClass.EQUITY)
         assert pool is not None
@@ -111,3 +113,36 @@ def test_symbol_regression_corpus(row: dict, tmp_path: Path) -> None:
         assert selection is not None
         assert selection["symbols"] == card["symbols"]
         assert selection["source"] == "user_override"
+
+
+def test_corpus_expectation_edits_require_product_approval() -> None:
+    """An existing row's expected outcome changes only with a signed-off commit."""
+    import subprocess
+
+    def show(rev: str) -> str | None:
+        try:
+            return subprocess.check_output(
+                ["git", "show", f"{rev}:tests/data/symbol_regression_corpus.json"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            return None
+
+    previous = show("HEAD^")
+    current = show("HEAD")
+    if previous is None or current is None:
+        return
+    old_rows = {row["id"]: row for row in json.loads(previous)["rows"]}
+    new_rows = {row["id"]: row for row in json.loads(current)["rows"]}
+    changed = [
+        row_id
+        for row_id, row in old_rows.items()
+        if row_id not in new_rows
+        or row.get("extract") != new_rows[row_id].get("extract")
+        or row.get("card") != new_rows[row_id].get("card")
+    ]
+    if not changed:
+        return
+    message = subprocess.check_output(["git", "log", "-1", "--format=%B"], text=True)
+    assert "corpus-change-approved:" in message, changed

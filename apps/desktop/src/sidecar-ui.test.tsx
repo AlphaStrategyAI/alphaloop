@@ -18,6 +18,7 @@ const api: DesktopApi = {
   useHintedSymbol: vi.fn(async () => undefined),
   revertSymbolAsk: vi.fn(async () => undefined),
   removeMarketSide: vi.fn(async () => undefined),
+  dismissMismatchedSymbol: vi.fn(async () => undefined),
   unlockBrief: vi.fn(),
   sendDialogue: vi.fn(),
   pauseResearch: vi.fn(),

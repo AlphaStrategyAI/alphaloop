@@ -324,6 +324,30 @@ pub async fn revert_symbol_ask(
     .map(|_| ())
 }
 
+pub(crate) fn dismiss_mismatched_symbol_request(research_id: &str, symbol: &str) -> Value {
+    json!({
+        "type": "dismiss_mismatched_symbol",
+        "research_id": research_id,
+        "symbol": symbol,
+    })
+}
+
+#[tauri::command]
+pub async fn dismiss_mismatched_symbol(
+    research_id: String,
+    symbol: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        dismiss_mismatched_symbol_request(&research_id, &symbol),
+    )
+    .await
+    .map(|_| ())
+}
+
 pub(crate) fn remove_market_side_request(research_id: &str, side: &str) -> Value {
     json!({
         "type": "remove_market_side",
@@ -783,7 +807,8 @@ pub async fn secret_failure_preview(
 mod tests {
     use super::{
         EngineConnection, command_timeout_secs, notification_title, notify_kinds,
-        answer_symbol_ask_request, parse_engine_error_body, remove_market_side_request,
+        answer_symbol_ask_request, dismiss_mismatched_symbol_request, parse_engine_error_body,
+        remove_market_side_request,
         revert_symbol_ask_request, set_research_symbol_request, use_hinted_symbol_request,
     };
     use serde_json::json;
@@ -845,6 +870,14 @@ mod tests {
         assert_eq!(body["type"], "use_hinted_symbol");
         assert_eq!(body["research_id"], "r-1");
         assert_eq!(body["symbol"], "SPY");
+    }
+
+    #[test]
+    fn dismiss_mismatched_symbol_request_keeps_the_symbol() {
+        let body = dismiss_mismatched_symbol_request("r-1", "CAPS");
+        assert_eq!(body["type"], "dismiss_mismatched_symbol");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["symbol"], "CAPS");
     }
 
     #[test]

@@ -401,6 +401,8 @@ class SQLiteStore:
             data.setdefault("symbol_probe_missing", [])
             data.setdefault("symbol_probe_unavailable", False)
             data.setdefault("dismissed_symbol_tokens", [])
+            data.setdefault("market_switch_market", "")
+            data.setdefault("market_switch_benchmark", "")
             universe = (
                 data.get("brief", {}).get("universe", {}).get("value")
                 if isinstance(data.get("brief"), dict)
@@ -412,6 +414,8 @@ class SQLiteStore:
                 universe.setdefault("symbol_asks", [])
                 universe.setdefault("symbol_ask_answers", [])
                 universe.setdefault("ticker_hints", [])
+                universe.setdefault("market_mismatches", [])
+                universe.setdefault("unrecognized_tokens", [])
                 asks = universe.get("symbol_asks") or []
                 normalized = []
                 for item in asks:

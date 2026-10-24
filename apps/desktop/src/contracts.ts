@@ -46,6 +46,7 @@ export interface SymbolResolution {
     | "SYMBOL_ASK_PENDING"
     | "SYMBOL_AMOUNT_LIKE"
     | "SYMBOL_MIXED_MARKETS"
+    | "SYMBOL_MARKET_MISMATCH"
     | null;
   token?: string | null;
   symbol?: string | null;
@@ -58,6 +59,9 @@ export interface SymbolResolution {
   poolCount?: number | null;
   cnSymbols?: string | null;
   usSymbols?: string | null;
+  mismatches?: readonly string[];
+  mismatchMarket?: "US" | "CN" | null;
+  unrecognized?: readonly {token: string}[];
 }
 
 export interface PriceSourceChoice {
@@ -163,6 +167,7 @@ type ViewBody =
       confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
       constructionNotice?: string | null;
+      marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
     }
   | {
       kind: "running";
@@ -316,6 +321,8 @@ export interface DesktopApi {
   useHintedSymbol(researchId: string, symbol: string): Promise<void>;
   revertSymbolAsk(researchId: string, token: string): Promise<void>;
   removeMarketSide(researchId: string, side: "cn" | "us"): Promise<void>;
+  /** Drop one symbol the stated market rejected, so the description does not restore it. */
+  dismissMismatchedSymbol(researchId: string, symbol: string): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

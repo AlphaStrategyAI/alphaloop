@@ -268,6 +268,15 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         us_symbols: localeList(resolution.usSymbols),
       });
     }
+    if (resolution.code === "SYMBOL_MARKET_MISMATCH") {
+      const mismatches = resolution.mismatches ?? [];
+      const market = t(resolution.mismatchMarket === "US" ? "ui.confirm.marketUs" : "ui.confirm.marketCn");
+      return t("ui.confirm.marketMismatch", {
+        market,
+        symbols: mismatches.join(listSep),
+        n: mismatches.length || 1,
+      });
+    }
     if (resolution.code === "SYMBOL_ASK_PENDING" || resolution.code === "SYMBOL_AMOUNT_LIKE") {
       return null;
     }
@@ -295,6 +304,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <p>{t("ui.confirm.policy3")}</p>
         </div>
       </details>
+      {view.marketSwitch && (
+        <p className="confirm-lead" data-testid="market-switch-notice">
+          {t("ui.confirm.marketSwitched", {
+            market: t(view.marketSwitch.market === "US" ? "ui.confirm.marketUs" : "ui.confirm.marketCn"),
+            benchmark: view.marketSwitch.benchmark,
+          })}
+        </p>
+      )}
       {view.meanReversionOnlyNotice && (
         <p className="confirm-lead" data-testid="mean-reversion-only-notice">
           {copyText(view.meanReversionOnlyNotice)}
@@ -330,7 +347,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => removeRecognized(item.symbol)}
                 >
-                  {t("ui.confirm.removeSymbol")}
+                  {t("ui.confirm.removeSymbol", {symbol: item.symbol})}
                 </button>
               ))}
             </p>
@@ -342,7 +359,9 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                   ? t("ui.confirm.amountAsk", {token: ask.token, symbol: ask.symbol})
                   : ask.kind === "finance"
                     ? t("ui.confirm.financeAsk", {token: ask.token, symbol: ask.symbol})
-                    : t("ui.confirm.symbolAsk", {token: ask.token, symbol: ask.symbol})}
+                    : ask.token.toUpperCase() === ask.symbol.toUpperCase()
+                      ? t("ui.confirm.symbolAskSame", {symbol: ask.symbol})
+                      : t("ui.confirm.symbolAsk", {token: ask.token, symbol: ask.symbol})}
               </p>
               <button
                 type="button"
@@ -375,6 +394,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               >
                 {t("ui.confirm.changeAnswer")}
               </button>
+            </p>
+          ))}
+          {(resolution?.unrecognized ?? []).map((item) => (
+            <p key={item.token} data-testid={`symbol-unrecognized-${item.token}`}>
+              {t("ui.confirm.unrecognizedTicker", {token: item.token})}
             </p>
           ))}
           {hints.length === 1 && (
@@ -415,6 +439,18 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               ))}
             </div>
           )}
+          {resolution?.code === "SYMBOL_MARKET_MISMATCH" &&
+            (resolution.mismatches ?? []).map((symbol) => (
+              <button
+                key={symbol}
+                type="button"
+                className="text-button"
+                data-testid={`symbol-remove-mismatch-${symbol}`}
+                onClick={() => api.dismissMismatchedSymbol(view.researchId, symbol)}
+              >
+                {t("ui.confirm.removeSymbol", {symbol})}
+              </button>
+            ))}
           {resolution?.code === "SYMBOL_MIXED_MARKETS" && (
             <div data-testid="symbol-mixed-actions">
               <button

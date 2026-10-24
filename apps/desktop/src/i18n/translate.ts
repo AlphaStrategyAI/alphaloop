@@ -33,6 +33,8 @@ function withCountWords(params: MessageParams): MessageParams {
     extra[`${key}Noun`] = one ? "name" : "names";
     extra[`${key}SymbolNoun`] = one ? "symbol" : "symbols";
     extra[`${key}Remain`] = one ? "remains" : "remain";
+    extra[`${key}Isnt`] = one ? "isn't" : "aren't";
+    extra[`${key}It`] = one ? "it" : "them";
   }
   return {...extra, ...params};
 }

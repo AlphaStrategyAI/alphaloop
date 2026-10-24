@@ -67,6 +67,14 @@
     "params": ["cn_symbols", "us_symbols"],
     "legacyZh": "一次研究只能用同一个市场的标的，这里既有 A 股（{{cn_symbols}}），也有美股（{{us_symbols}}）。请删掉其中一边。"
   },
+  "SYMBOL_MARKET_MISMATCH": {
+    "params": ["market", "marketEn", "symbols", "n"],
+    "legacyZh": "描述里的市场是{{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
+  },
+  "SYMBOL_SOURCE_MISMATCH": {
+    "params": ["source", "market"],
+    "legacyZh": "数据来源和标的市场不一致，请改成同一个市场再开跑。"
+  },
   "DATA_SOURCE_UNBOUND": {
     "params": [],
     "legacyZh": "这项研究还没有可用的数据来源。"

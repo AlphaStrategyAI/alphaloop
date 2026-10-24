@@ -62,18 +62,15 @@
       "id": "rsi-macd",
       "description": "A股股票 RSI MACD 均值回归",
       "market": "CN",
-      "extract": [{"raw": "RSI", "canonical": "RSI", "kind": "finance", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "RSI", "symbol": "RSI", "kind": "finance"}], "hints": []}
+      "extract": [],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
     },
     {
       "id": "find-caps-tech",
       "description": "A股股票 FIND CAPS TECH 均值回归",
       "market": "CN",
-      "extract": [
-        {"raw": "CAPS", "canonical": "CAPS", "kind": "symbol", "inferred": true},
-        {"raw": "TECH", "canonical": "TECH", "kind": "ask", "inferred": false}
-      ],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": ["CAPS"], "recognized": ["CAPS"], "asks": [{"token": "TECH", "symbol": "TECH", "kind": "ask"}], "hints": []}
+      "extract": [],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
     },
     {
       "id": "spy",
@@ -86,9 +83,8 @@
       "id": "zzzzq-no-bars",
       "description": "美股股票 ZZZZQ 的均值回归",
       "market": "US",
-      "no_bars": ["ZZZZQ"],
-      "extract": [{"raw": "ZZZZQ", "canonical": "ZZZZQ", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_NO_DATA", "symbols": ["ZZZZQ"], "recognized": ["ZZZZQ"], "asks": [], "hints": []}
+      "extract": [{"raw": "ZZZZQ", "canonical": null, "kind": "unrecognized", "inferred": false}],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "ZZZZQ"}]}
     },
     {
       "id": "buy-1000-shares",
@@ -122,8 +118,8 @@
       "id": "rsi",
       "description": "A股股票 RSI 均值回归",
       "market": "CN",
-      "extract": [{"raw": "RSI", "canonical": "RSI", "kind": "finance", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "RSI", "symbol": "RSI", "kind": "finance"}], "hints": []}
+      "extract": [],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
     },
     {
       "id": "macd",
@@ -150,8 +146,8 @@
       "id": "caps",
       "description": "A股股票 CAPS 均值回归",
       "market": "CN",
-      "extract": [{"raw": "CAPS", "canonical": "CAPS", "kind": "symbol", "inferred": true}],
-      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["CAPS"], "recognized": ["CAPS"], "asks": [], "hints": []}
+      "extract": [{"raw": "CAPS", "canonical": "CAPS", "kind": "mismatch", "inferred": false}],
+      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_MARKET_MISMATCH", "symbols": [], "recognized": [], "asks": [], "hints": [], "mismatches": ["CAPS"]}
     },
     {
       "id": "tech",
@@ -234,8 +230,8 @@
       "id": "all-caps-prose-up",
       "description": "美股股票 I THINK THE MARKET IS UP 均值回归",
       "market": "US",
-      "extract": [{"raw": "UP", "canonical": "UP", "kind": "ask", "inferred": false}],
-      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "UP", "symbol": "UP", "kind": "ask"}], "hints": []}
+      "extract": [],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
     },
     {
       "id": "mixed-600519-spy",
@@ -383,6 +379,85 @@
       "market": "US",
       "extract": [{"raw": "DECK", "canonical": "DECK", "kind": "symbol", "inferred": true}],
       "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["DECK"], "recognized": ["DECK"], "asks": [], "hints": []}
+    },
+    {
+      "id": "spy-qqq-iwm",
+      "description": "美股股票 SPY QQQ IWM 的均值回归",
+      "market": "US",
+      "extract": [
+        {"raw": "SPY", "canonical": "SPY", "kind": "symbol", "inferred": true},
+        {"raw": "QQQ", "canonical": "QQQ", "kind": "symbol", "inferred": true},
+        {"raw": "IWM", "canonical": "IWM", "kind": "symbol", "inferred": true}
+      ],
+      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["SPY", "QQQ", "IWM"], "recognized": ["SPY", "QQQ", "IWM"], "asks": [], "hints": []}
+    },
+    {
+      "id": "macro-sentence",
+      "description": "美股 The CEO said GDP in the USA will grow and AI stocks rise 均值回归",
+      "market": "US",
+      "extract": [
+        {"raw": "USA", "canonical": "USA", "kind": "ask", "inferred": false},
+        {"raw": "grow", "canonical": "GROW", "kind": "hint", "inferred": false},
+        {"raw": "AI", "canonical": "AI", "kind": "finance", "inferred": false},
+        {"raw": "rise", "canonical": "RISE", "kind": "hint", "inferred": false}
+      ],
+      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_ASK_PENDING", "symbols": [], "recognized": [], "asks": [{"token": "USA", "symbol": "USA", "kind": "ask"}, {"token": "AI", "symbol": "AI", "kind": "finance"}], "hints": []}
+    },
+    {
+      "id": "tcehy-unrecognized",
+      "description": "美股股票 TCEHY 的均值回归",
+      "market": "US",
+      "extract": [{"raw": "TCEHY", "canonical": null, "kind": "unrecognized", "inferred": false}],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "TCEHY"}]}
+    },
+    {
+      "id": "sivb-unrecognized",
+      "description": "美股股票 SIVB 的均值回归",
+      "market": "US",
+      "extract": [{"raw": "SIVB", "canonical": null, "kind": "unrecognized", "inferred": false}],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "SIVB"}]}
+    },
+    {
+      "id": "twtr-unrecognized",
+      "description": "美股股票 TWTR 的均值回归",
+      "market": "US",
+      "extract": [{"raw": "TWTR", "canonical": null, "kind": "unrecognized", "inferred": false}],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": [], "unrecognized": [{"token": "TWTR"}]}
+    },
+    {
+      "id": "macd-golden-cross",
+      "description": "MACD 金叉 均值回归",
+      "market": "CN",
+      "extract": [],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+    },
+    {
+      "id": "fullwidth-aapl",
+      "description": "美股ＡＡＰＬ均值回归",
+      "market": "US",
+      "extract": [{"raw": "AAPL", "canonical": "AAPL", "kind": "symbol", "inferred": true}],
+      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["AAPL"], "recognized": ["AAPL"], "asks": [], "hints": []}
+    },
+    {
+      "id": "lone-rsi",
+      "description": "RSI 均值回归",
+      "market": "CN",
+      "extract": [],
+      "card": {"default_pool": true, "blocked": false, "code": null, "symbols": [], "recognized": [], "asks": [], "hints": []}
+    },
+    {
+      "id": "dollar-rsi",
+      "description": "$RSI 均值回归",
+      "market": "US",
+      "extract": [{"raw": "$RSI", "canonical": "RSI", "kind": "symbol", "inferred": true}],
+      "card": {"default_pool": false, "blocked": false, "code": null, "symbols": ["RSI"], "recognized": ["RSI"], "asks": [], "hints": []}
+    },
+    {
+      "id": "cn-under-us",
+      "description": "美股股票 600519 的均值回归",
+      "market": "US",
+      "extract": [{"raw": "600519", "canonical": "600519.SH", "kind": "mismatch", "inferred": false}],
+      "card": {"default_pool": false, "blocked": true, "code": "SYMBOL_MARKET_MISMATCH", "symbols": [], "recognized": [], "asks": [], "hints": [], "mismatches": ["600519.SH"]}
     }
   ]
 }

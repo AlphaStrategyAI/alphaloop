@@ -11,6 +11,7 @@ and other English words stay prose.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -58,13 +59,17 @@ _UNCERTAIN_PREFIX3 = frozenset({"900", "200"})
 
 # Closed technical-analysis and finance vocabulary. Not a list of English words.
 # A member that is also a real listing is asked about; the others stay prose.
+# Indicator words are always prose. A leading ``$`` is the only way one becomes a symbol.
 _INDICATORS = frozenset({
-    "RSI", "MACD", "KDJ", "BOLL", "ATR", "SMA", "EMA", "VWAP", "OBV", "CCI",
-    "ADX", "STOCH", "ROC", "MFI", "DMI", "SAR", "PSY", "BIAS", "TRIX", "DMA", "EMV",
+    "RSI", "MACD", "KDJ", "BOLL", "ATR", "EMA", "SMA", "MA", "OBV", "CCI",
+    "BIAS", "WR", "VWAP", "ADX", "STOCH", "ROC", "MFI", "DMI", "SAR", "PSY",
+    "TRIX", "DMA", "EMV",
 })
-_FINANCE = frozenset({
-    "PE", "PB", "PS", "TTM", "EPS", "ROE", "ROA", "YOY", "QOQ", "EBITDA",
-    "ROIC", "CAGR", "NAV", "AUM", "IPO", "EBIT", "DPS", "BPS", "FCF", "WACC", "PEG",
+# Asked about only when the token is also a real US listing. Otherwise prose.
+_LISTED_ASK_TERMS = frozenset({
+    "GDP", "AI", "CEO", "USA", "CPI", "PMI", "IPO", "ETF", "ESG", "CFO", "NAV",
+    "ROI", "AUM", "FED", "FOMC", "SEC", "NYSE", "YOY", "QOQ",
+    "PE", "PB", "PS", "TTM", "EPS", "ROE", "ROA", "EBITDA", "ROIC",
 })
 _CN_MARKET = re.compile(r"A\s*股|沪|深|中国")
 _US_MARKET = re.compile(r"美股|美国")
@@ -76,10 +81,6 @@ _DATA_DIR = Path(__file__).resolve().parent / "data"
 _COMMON_WORDS_PATH = _DATA_DIR / "en_common_words.txt"
 _US_LISTINGS_PATH = _DATA_DIR / "us_listings.txt"
 _A_SHARE = re.compile(r"\s*股")
-# A vowel keeps an ordinary all-caps word (ETF, CAPS) out of the ticker list.
-# The common-word file is only Zipf >= 4.5, so this is what still separates
-# those words from a vowelless non-word such as ZZZZQ.
-_VOWEL = frozenset("aeiouy")
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,8 +123,65 @@ def is_cn_etf_symbol(symbol: str) -> bool:
     return suffix == "SZ" and code[:2] == "15"
 
 
+def _explicit_market(text: str) -> str | None:
+    """``CN`` or ``US`` when the text names that market, else None when it names both or neither."""
+    cn = _CN_MARKET.search(text) is not None
+    us = _US_MARKET.search(text) is not None
+    if cn and us:
+        return None
+    if cn:
+        return "CN"
+    if us:
+        return "US"
+    return None
+
+
+def _caps_runs(text: str) -> list[list[re.Match[str]]]:
+    """Runs of consecutive all-caps words, including words longer than a ticker."""
+    token = re.compile(r"(?<![A-Za-z])[A-Z]+(?:[.\-][A-Z]+)?(?![A-Za-z])")
+    runs: list[list[re.Match[str]]] = []
+    current: list[re.Match[str]] = []
+    for match in token.finditer(text):
+        if not current:
+            current = [match]
+            continue
+        between = text[current[-1].end():match.start()]
+        if between and re.fullmatch(r"[\s,，、;；:.]+", between):
+            current.append(match)
+            continue
+        if len(current) >= 3:
+            runs.append(current)
+        current = [match]
+    if len(current) >= 3:
+        runs.append(current)
+    return runs
+
+
+def _shout_spans(text: str) -> list[tuple[int, int]]:
+    """All-caps runs that are prose, not a list of real non-word listings."""
+    spans: list[tuple[int, int]] = []
+    listings = us_listings()
+    common = common_english_words()
+    for run in _caps_runs(text):
+        words = [match.group(0) for match in run]
+        def _listed(word: str) -> bool:
+            return _yahoo(word) in listings
+
+        def _common(word: str) -> bool:
+            return _word_key(word) in common
+
+        # Every word is a real listing and none is a common word: 「SPY QQQ IWM」.
+        if all(_listed(word) for word in words) and not any(_common(word) for word in words):
+            continue
+        # Any common word that is not itself a listing makes the whole run prose.
+        if any(_common(word) and not _listed(word) for word in words):
+            spans.append((run[0].start(), run[-1].end()))
+    return spans
+
+
 def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[SymbolMention, ...]:
     """Pull symbol-like tokens out of prose without inventing venues or tickers."""
+    text = unicodedata.normalize("NFKC", text)
     found: list[SymbolMention] = []
     occupied: list[tuple[int, int]] = []
     for match in _MARKED_TICKER.finditer(text):
@@ -151,7 +209,7 @@ def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[Sy
         if suffix is not None:
             suffix_up = suffix.upper()
             if suffix_up in _LISTED_SUFFIXES:
-                found.append(SymbolMention(raw, f"{code}.{suffix_up}", False))
+                found.append(_placed_cn(text, raw, f"{code}.{suffix_up}", False, prose_filter))
             else:
                 found.append(SymbolMention(raw, None, False))
             occupied.append(match.span())
@@ -161,12 +219,13 @@ def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[Sy
             continue
         if kind == "certain":
             inferred = suffix_for_listed_code(code)
-            found.append(SymbolMention(raw, f"{code}.{inferred}", True))
+            found.append(_placed_cn(text, raw, f"{code}.{inferred}", True, prose_filter))
         else:
             found.append(SymbolMention(raw, None, False))
         occupied.append(match.span())
+    shouted = _shout_spans(text) if prose_filter else []
     for match in _US_TOKEN.finditer(text):
-        if _overlaps(match.span(), occupied):
+        if _overlaps(match.span(), occupied) or _overlaps(match.span(), shouted):
             continue
         mention = _us_mention(text, match, prose_filter=prose_filter)
         if mention is None:
@@ -174,6 +233,18 @@ def extract_symbol_mentions(text: str, *, prose_filter: bool = True) -> tuple[Sy
         found.append(mention)
         occupied.append(match.span())
     return _dedupe(found)
+
+
+def _placed_cn(
+    text: str,
+    raw: str,
+    canonical: str,
+    inferred: bool,
+    prose_filter: bool,
+) -> SymbolMention:
+    if prose_filter and _explicit_market(text) == "US":
+        return SymbolMention(raw, canonical, False, "mismatch")
+    return SymbolMention(raw, canonical, inferred)
 
 
 def _is_quantity(text: str, end: int) -> bool:
@@ -227,12 +298,14 @@ def us_listings() -> frozenset[str]:
     return frozenset(symbols)
 
 
+def _is_cn_symbol(symbol: str) -> bool:
+    return symbol.upper().endswith((".SH", ".SZ", ".BJ"))
+
+
 def _term(token: str) -> str | None:
     base = _word_key(token).upper()
-    if base in _FINANCE or token.upper() in _FINANCE:
+    if base in _LISTED_ASK_TERMS or token.upper() in _LISTED_ASK_TERMS:
         return "finance"
-    if base in _INDICATORS or token.upper() in _INDICATORS:
-        return "indicator"
     return None
 
 
@@ -255,21 +328,30 @@ def _us_mention(text: str, match: re.Match[str], *, prose_filter: bool) -> Symbo
     canonical = _yahoo(token)
     if not prose_filter:
         return SymbolMention(token, canonical, True)
-    listed = canonical in us_listings()
-    term = _term(token)
-    if term and not listed:
+    if _is_indicator(token):
         return None
+    listed = canonical in us_listings()
+    explicit = _explicit_market(text)
     key = _word_key(token)
+    common = key in common_english_words()
+    term = _term(token)
     if _all_caps(token):
-        common = key in common_english_words()
+        # A listed common word or finance term is asked about, even under an
+        # explicit A-share sentence. It is never auto-recognized there.
         if listed and (common or term):
-            kind = "finance" if term else "ask"
+            kind = "ask" if common else "finance"
             return SymbolMention(token, canonical, False, kind)
+        if listed and explicit == "CN" and not _is_cn_symbol(canonical):
+            return SymbolMention(token, canonical, False, "mismatch")
         if listed:
             return SymbolMention(token, canonical, True)
-        if common or any(char in _VOWEL for char in key):
+        # GDP, CEO, and the other macro words are text unless they are listings.
+        if term:
             return None
-        return SymbolMention(token, canonical, True)
+        letters = len(re.sub(r"[^A-Za-z]", "", token))
+        if 2 <= letters <= 5 and not common:
+            return SymbolMention(token, None, False, "unrecognized")
+        return None
     if listed:
         return SymbolMention(token, canonical, False, "hint")
     return None

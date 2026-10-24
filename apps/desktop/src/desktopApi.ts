@@ -29,6 +29,9 @@ export function createTauriDesktopApi(invoke: DesktopInvoke = tauriInvoke): Desk
     async removeMarketSide(researchId, side) {
       await invoke("remove_market_side", {researchId, side});
     },
+    async dismissMismatchedSymbol(researchId, symbol) {
+      await invoke("dismiss_mismatched_symbol", {researchId, symbol});
+    },
     async unlockBrief(researchId, slot) { await invoke("unlock_brief", {researchId, slot}); },
     async sendDialogue(researchId, message) { await invoke("send_dialogue", {researchId, message}); },
     async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },
@@ -68,6 +71,7 @@ export function createPreviewDesktopApi(preview: DesktopView): DesktopApi {
     async useHintedSymbol() { return undefined; },
     async revertSymbolAsk() { return undefined; },
     async removeMarketSide() { return undefined; },
+    async dismissMismatchedSymbol() { return undefined; },
     async unlockBrief() { return undefined; },
     async sendDialogue() { return undefined; },
     async pauseResearch() { return undefined; },
