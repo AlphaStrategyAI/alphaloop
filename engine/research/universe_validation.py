@@ -457,6 +457,7 @@ def remove_market_side(research: Research, side: str, now: datetime) -> Research
         research,
         tuple(raw for raw, symbol in universe.inferred_symbols if symbol in drop),
     )
+    previous = universe.market
     market = Market.US if side == "cn" else Market.CN
     updated = replace(
         universe,
@@ -476,6 +477,8 @@ def remove_market_side(research: Research, side: str, now: datetime) -> Research
         data_source_id="",
         updated_at=now,
     )
+    if previous == market:
+        return cleared
     return replace(
         cleared,
         market_switch_market=market.value,

@@ -497,6 +497,23 @@ def wait_css(driver, css: str, timeout: float = 30):
     return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.CSS_SELECTOR, css)))
 
 
+def assert_run_disabled(driver, reason_needle: str) -> None:
+    """Run must be disabled, look disabled, and say why before anyone confirms."""
+    from selenium.webdriver.common.by import By
+
+    button = driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
+    if button.is_enabled():
+        raise AssertionError("Run was enabled before the blocking choice was made")
+    if button.get_attribute("data-run-blocked") not in {"market", "source"}:
+        raise AssertionError(f"Run is disabled without a block reason: {button.get_attribute('data-run-blocked')}")
+    opacity = driver.execute_script("return getComputedStyle(arguments[0]).opacity", button)
+    if float(opacity) >= 0.99:
+        raise AssertionError(f"disabled Run still looks fully opaque ({opacity})")
+    reason = driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-blocked-reason]").text
+    if reason_needle not in reason:
+        raise AssertionError(f"blocked Run reason {reason!r} did not contain {reason_needle!r}")
+
+
 def accept_unlicensed_source(driver) -> None:
     """The confirm card keeps Run disabled until a price source is chosen and acknowledged."""
     from selenium.webdriver.common.by import By
@@ -1131,9 +1148,35 @@ def main() -> int:
         assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "A-share confirm card")
         return f"US {research_ids['us']} and A-share {research_ids['cn']} each opened their own confirm card"
 
+    def step_blocked_run_before_confirm() -> str:
+        assert session is not None
+        unnamed = create_until_confirm(
+            session.driver,
+            (
+                "MACD 金叉 均值回归",
+                "4 小时",
+                "走样检验、样本外稳定",
+                "至少 1 个标的、10 年、缺失不超过 5%",
+            ),
+        )
+        from selenium.webdriver.common.by import By
+
+        card = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
+        if "doesn't name a market" not in card and "没有写市场" not in card:
+            raise AssertionError(f"unnamed-market card did not ask which market: {card[:400]}")
+        assert_run_disabled(session.driver, "market" if "doesn't name a market" in card else "没有写市场")
+        reason = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-blocked-reason]").text
+        if "doesn't name a market" in card and "doesn't name a market" not in reason:
+            raise AssertionError(f"market-ask feedback missing: {reason}")
+        if "没有写市场" in card and "没有写市场" not in reason:
+            raise AssertionError(f"market-ask feedback missing: {reason}")
+        go(session.driver, "#/research")
+        return f"unnamed research {unnamed} kept Run disabled until a market is chosen"
+
     def step_run_and_export() -> str:
         assert session is not None
         open_confirm_card(session.driver, research_ids["us"])
+        assert_run_disabled(session.driver, "Not selected")
         accept_unlicensed_source(session.driver)
         click(session.driver, "[data-testid=confirm-run-start]")
         from selenium.webdriver.support import expected_conditions as EC
@@ -1271,6 +1314,7 @@ def main() -> int:
         run_step("secrets: no file is not locked; create passphrase", "secrets-create", step_secrets_create)
         run_step("restart and unlock passphrase", "secrets-unlock", step_secrets_unlock)
         run_step("US and A-share confirm cards open their own research", "confirms", step_two_confirms)
+        run_step("blocked Run stays disabled before confirm", "blocked-run", step_blocked_run_before_confirm)
         run_step("run to conclusion and export a file", "conclusion", step_run_and_export)
         run_step("delete a running research; engine stays up", "delete-running", step_delete_running)
         run_step("close and reopen; data persists", "persist", step_persist)

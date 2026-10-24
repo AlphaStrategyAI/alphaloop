@@ -82,6 +82,17 @@ button:hover:not(:disabled),
 a:hover {
   box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.12);
 }
+button.cyan-button:disabled,
+button.cyan-button.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  box-shadow: none;
+}
+.confirm-run-blocked-reason {
+  grid-column: 1 / -1;
+  margin: 0;
+}
 
 .night-shell.tech-pulse-shell {
   grid-template-columns: 180px 1fr;

@@ -175,6 +175,10 @@ export function buildUiMessages(copy: Copy) {
         "「{{token}}」是美股代码 {{symbol}}，也是金融缩写。要把它当作标的吗？",
         '"{{token}}" is the US ticker {{symbol}} and also a finance abbreviation. Use it as a symbol?',
       ),
+      financeAskSame: copy(
+        "{{symbol}} 是美股代码，也是金融缩写。要把它当作标的吗？",
+        "{{symbol}} is a US ticker and also a finance abbreviation. Use it as a symbol?",
+      ),
       poolHintMany: copy(
         "没有识别到标的，将使用默认池（{{n}} 只）。你是指下面的代码吗？",
         "No symbol recognized, so the run will use the default pool ({{n}} names). Did you mean one of these?",
