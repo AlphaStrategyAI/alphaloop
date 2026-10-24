@@ -1,3 +1,4 @@
+import {formatEngineDuration} from "../duration";
 import type {MessageKey} from "./I18nProvider";
 import type {MessageParams} from "./translate";
 
@@ -101,28 +102,25 @@ function coverageSentence(
   missing: string,
   t: CopyFn,
 ): string {
-  const oneName = assets === "1";
-  const oneYear = years === "1";
-  if (kind === "now") {
-    if (oneName && oneYear) return t("ui.copy.coverageNowOneYear", {missing});
-    if (oneName) return t("ui.copy.coverageNowOne", {years, missing});
-    if (oneYear) return t("ui.copy.coverageNowYear", {assets, missing});
-    return t("ui.copy.coverageNow", {assets, years, missing});
-  }
-  if (oneName && oneYear) return t("ui.copy.coverageFloorOneYear", {missing});
-  if (oneName) return t("ui.copy.coverageFloorOne", {years, missing});
-  if (oneYear) return t("ui.copy.coverageFloorYear", {assets, missing});
-  return t("ui.copy.coverageFloor", {assets, years, missing});
+  const key = kind === "now" ? "ui.copy.coverageNow" : "ui.copy.coverageFloor";
+  return t(key, {assets, years, missing});
 }
 
 function paramPiece(piece: string, t: CopyFn): string {
-  const match = /^(.+?)：(.*) → (.*)$/.exec(piece.trim());
-  if (!match) return exactLabel(piece.trim(), t);
-  return t("ui.copy.paramChange", {
-    name: exactLabel(match[1], t),
-    before: match[2],
-    after: match[3],
-  });
+  const trimmed = piece.trim();
+  const match = /^(.+?)：(.*) → (.*)$/.exec(trimmed);
+  if (match) {
+    return t("ui.copy.paramChange", {
+      name: exactLabel(match[1], t),
+      before: match[2],
+      after: match[3],
+    });
+  }
+  const initial = /^初始 (.+) 规格$/.exec(trimmed);
+  if (initial) {
+    return t("ui.copy.initialSpec", {family: exactLabel(initial[1].trim(), t)});
+  }
+  return exactLabel(trimmed, t);
 }
 
 const RULES: Rule[] = [
@@ -146,7 +144,7 @@ const RULES: Rule[] = [
   },
   {
     re: /^(\d+) 只 · ([^·]+) · ([^·]+)$/,
-    render: (m, t) => t(m[1] === "1" ? "ui.copy.userLineOne" : "ui.copy.userLine", {
+    render: (m, t) => t("ui.copy.userLine", {
       count: m[1],
       listName: exactLabel(m[2], t),
       tail: exactLabel(m[3], t),
@@ -233,18 +231,6 @@ const RULES: Rule[] = [
     render: (m, t) => t("ui.copy.changeLine", {text: m[1]}),
   },
   {
-    re: /^(\d+(?:\.\d+)?) 小时$/,
-    render: (m, t) => t("ui.copy.hours", {n: m[1]}),
-  },
-  {
-    re: /^(\d+) 秒$/,
-    render: (m, t) => t(m[1] === "1" ? "ui.copy.durationSecond" : "ui.copy.durationSeconds", {n: m[1]}),
-  },
-  {
-    re: /^(\d+) 分 (\d+) 秒$/,
-    render: (m, t) => t("ui.copy.durationMinutes", {minutes: m[1], seconds: m[2]}),
-  },
-  {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%；底线 (.+)$/,
     render: (m, t) => t("ui.copy.coverageWithFloor", {
       current: coverageSentence("now", m[1], m[2], m[3], t),
@@ -258,6 +244,14 @@ const RULES: Rule[] = [
   {
     re: /^至少 (\d+) 个标的、([\d.]+) 年数据，缺失不超过 ([\d.]+)%$/,
     render: (m, t) => coverageSentence("floor", m[1], m[2], m[3], t),
+  },
+  {
+    re: /^至少 (\d+) 个标的、([\d.]+) 年、缺失不超过 ([\d.]+)%$/,
+    render: (m, t) => coverageSentence("floor", m[1], m[2], m[3], t),
+  },
+  {
+    re: /^至少 (\d+) 个标的$/,
+    render: (m, t) => t("ui.copy.coverageFloorShort", {assets: m[1]}),
   },
   {
     re: /^(美股|A股) · (股票|债券|基金)(?:（(.+)）)?$/,
@@ -288,6 +282,8 @@ const RULES: Rule[] = [
  * user theses and literature titles, is returned unchanged.
  */
 export function localizeKnownCopy(text: string, t: CopyFn): string {
+  const duration = formatEngineDuration(text, t);
+  if (duration != null) return duration;
   const exact = EXACT[text];
   if (exact) return t(exact);
   const shrunk = SHRINK.exec(text);

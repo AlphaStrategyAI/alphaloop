@@ -40,8 +40,9 @@ if [[ -z "$VENV_PY" ]]; then
   fi
 fi
 "$VENV_PY" -m pip install -q -U pip
-"$VENV_PY" -m pip install -q pyinstaller
-"$VENV_PY" -m pip install -q -e .
+"$VENV_PY" -m pip install --require-hashes -r packaging/requirements-sidecar.txt
+"$VENV_PY" -m pip install --no-deps --no-build-isolation -e .
+ALPHALOOP_GIT_SHA="${ALPHALOOP_GIT_SHA:-}" "$VENV_PY" "$ROOT/scripts/write_build_info.py"
 
 "$VENV_PY" -m PyInstaller --noconfirm --clean packaging/alphaloop-engine.spec
 DIST_DIR="$ROOT/dist/alphaloop-engine"

@@ -129,7 +129,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
               {t("ui.list.openCard")}
             </OpenResearchLink>
             <span className="list-pinned-hint">{t("ui.list.clickCard")}</span>
-            <button type="button" className="text-button" onClick={() => askDelete(item.id)}>
+            <button type="button" className="text-button" data-testid="delete-research" onClick={() => askDelete(item.id)}>
               {t("ui.list.delete")}
             </button>
           </div>
@@ -162,6 +162,8 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
           <article
             className={`research-row${row.status === "ended" ? " research-row--failed" : ""}`}
             data-testid="research-row"
+            data-research-id={row.id}
+            data-status={row.status}
             key={row.id}
           >
             <div>
@@ -174,7 +176,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             </div>
             <div className="row-actions">
               <OpenResearchLink researchId={row.id}>{t("ui.list.enter")}</OpenResearchLink>
-              <button onClick={() => askDelete(row.id)}>{t("ui.list.delete")}</button>
+              <button type="button" data-testid="delete-research" onClick={() => askDelete(row.id)}>{t("ui.list.delete")}</button>
               <StatusPill status={row.status} />
             </div>
           </article>

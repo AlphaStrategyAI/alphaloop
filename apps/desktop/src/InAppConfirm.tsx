@@ -41,6 +41,7 @@ export function InAppConfirmOverlay({
           <button
             type="button"
             className="cyan-button"
+            data-testid="in-app-confirm-accept"
             onClick={() => request.onConfirm()}
           >
             {request.confirmLabel ?? t("ui.common.confirm")}

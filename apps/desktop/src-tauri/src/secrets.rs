@@ -51,17 +51,28 @@ pub struct SecretVault {
 impl SecretVault {
     pub fn open_default() -> Self {
         let directory = default_directory();
+        let vault_file_exists = vault_path(&directory).is_file();
+        // Test-only. Unset, the platform keyring is still preferred.
+        let force_passphrase =
+            std::env::var("ALPHALOOP_SECRETS_BACKEND").ok().as_deref() == Some("passphrase");
+        if force_passphrase {
+            return Self::new(
+                None,
+                resolve_startup_mode(true, false, vault_file_exists),
+                directory,
+            );
+        }
         match open_platform_store() {
-            Ok(store) => Self::new(Some(store), VaultMode::Keyring, directory),
-            Err(_) => {
-                let path = vault_path(&directory);
-                let mode = if path.is_file() {
-                    VaultMode::Passphrase
-                } else {
-                    VaultMode::NeedsChoice
-                };
-                Self::new(None, mode, directory)
-            }
+            Ok(store) => Self::new(
+                Some(store),
+                resolve_startup_mode(false, true, vault_file_exists),
+                directory,
+            ),
+            Err(_) => Self::new(
+                None,
+                resolve_startup_mode(false, false, vault_file_exists),
+                directory,
+            ),
         }
     }
 
@@ -340,10 +351,35 @@ fn vault_path(directory: &Path) -> PathBuf {
     directory.join("secret-vault.bin")
 }
 
-fn default_directory() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_else(std::env::temp_dir)
+fn resolve_startup_mode(
+    force_passphrase: bool,
+    platform_available: bool,
+    vault_file_exists: bool,
+) -> VaultMode {
+    if force_passphrase || !platform_available {
+        return if vault_file_exists {
+            VaultMode::Passphrase
+        } else {
+            VaultMode::NeedsChoice
+        };
+    }
+    VaultMode::Keyring
+}
+
+fn vault_directory_from(data_root_override: Option<&str>, platform_data_dir: Option<&Path>) -> PathBuf {
+    if let Some(value) = data_root_override.map(str::trim).filter(|value| !value.is_empty()) {
+        return PathBuf::from(value);
+    }
+    platform_data_dir
+        .unwrap_or_else(|| Path::new("."))
         .join("alphaloop")
+}
+
+fn default_directory() -> PathBuf {
+    // When a test sets ALPHALOOP_DATA_ROOT, keep the passphrase file with the
+    // research data. Unset, the vault stays in the platform data dir.
+    let override_root = std::env::var("ALPHALOOP_DATA_ROOT").ok();
+    vault_directory_from(override_root.as_deref(), dirs::data_dir().as_deref())
 }
 
 fn open_platform_store() -> Result<Arc<CredentialStore>, String> {
@@ -537,6 +573,7 @@ fn looks_like_token(segment: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::{Path, PathBuf};
 
     struct TempDir {
         path: std::path::PathBuf,
@@ -620,6 +657,36 @@ mod tests {
         assert_eq!(vault.export_map().get("ci-probe").map(String::as_str), Some(secret));
         vault.delete("ci-probe").unwrap();
         assert!(!vault.is_set("ci-probe").unwrap());
+    }
+
+    #[test]
+    fn passphrase_flag_skips_the_platform_store_until_a_file_exists() {
+        assert_eq!(
+            resolve_startup_mode(false, true, false),
+            VaultMode::Keyring
+        );
+        assert_eq!(
+            resolve_startup_mode(true, true, false),
+            VaultMode::NeedsChoice
+        );
+        assert_eq!(
+            resolve_startup_mode(true, true, true),
+            VaultMode::Passphrase
+        );
+        assert_eq!(
+            resolve_startup_mode(false, false, false),
+            VaultMode::NeedsChoice
+        );
+    }
+
+    #[test]
+    fn data_root_override_relocates_the_vault_directory() {
+        let overridden = vault_directory_from(Some("/tmp/alphaloop-e2e"), Some(Path::new("/platform")));
+        assert_eq!(overridden, PathBuf::from("/tmp/alphaloop-e2e"));
+        let fallback = vault_directory_from(None, Some(Path::new("/platform")));
+        assert_eq!(fallback, PathBuf::from("/platform/alphaloop"));
+        let blank = vault_directory_from(Some("  "), Some(Path::new("/platform")));
+        assert_eq!(blank, PathBuf::from("/platform/alphaloop"));
     }
 
     #[test]

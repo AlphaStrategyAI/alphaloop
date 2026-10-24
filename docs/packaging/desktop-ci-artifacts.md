@@ -1,29 +1,34 @@
 # Desktop CI installable artifacts
 
-Unsigned desktop bundles are produced on push / `workflow_dispatch` for the `cursor/**` and `main` branches.
+Unsigned desktop bundles are produced on push and pull request for `cursor/**` and `main`.
+
+The file names use the version in `apps/desktop/src-tauri/tauri.conf.json`.
 
 ## Workflows
 
-| Workflow | Runner | Artifact upload name |
-|----------|--------|----------------------|
-| `desktop-release-windows.yml` | `windows-latest` | `alphaloop-desktop-windows-<full-sha>` |
-| `desktop-release-macos.yml` | `macos-latest` | `alphaloop-desktop-macos-<full-sha>` |
+| Workflow | Runner | Artifact name |
+|----------|--------|----------------|
+| `desktop-release-linux.yml` | `ubuntu-22.04` | `alphaloop_<version>_linux_amd64.deb` |
+| `desktop-release-macos.yml` | `macos-14` (arm64) | `alphaloop_<version>_macos_arm64.dmg` and `alphaloop_<version>_macos_arm64.app.tar.gz` |
+| `desktop-release-windows.yml` | `windows-2025` | `alphaloop_<version>_windows_x64-setup.exe` |
+
+Pull requests also run the Windows GUI end-to-end job. Screenshots are `windows-e2e-screenshots`. App and engine logs are `windows-e2e-logs`.
 
 Download from the GitHub Actions run page: **Summary → Artifacts**, or `gh run download <run-id> -n <artifact-name>`.
 
-## Windows artifact contents
+Tag pushes of `v*` run `desktop-release.yml`, which rebuilds the three platforms and opens a draft prerelease. See [release.md](../release.md). That workflow does not run on pull requests.
 
-After a successful run, the artifact folder `windows-<short-sha>/` contains:
+## Signing
 
-- `*.msi` from `apps/desktop/src-tauri/target/release/bundle/msi/`
-- NSIS `*.exe` from `apps/desktop/src-tauri/target/release/bundle/nsis/`
+macOS builds are ad-hoc signed (`signingIdentity` `-`) and not notarized. Gatekeeper still warns. Windows builds have no Authenticode certificate. The Linux package is not signed by a distribution key.
 
-## macOS artifact contents
+## Local parity
 
-Folder `macos-<short-sha>/`:
+1. `bash scripts/build_sidecar.sh`
+2. `TARGET=macos|linux|windows bash scripts/stage_engine_for_tauri.sh`
+3. `cd apps/desktop && npm ci && npm run tauri -- build`
 
-- `alphaloop-macos-<short-sha>.zip` — zipped `.app` from `bundle/macos/`
-- `alphaloop-macos-<short-sha>.dmg` — Tauri DMG when present, otherwise `hdiutil` fallback
+Linux CI passes `--bundles deb`. macOS CI passes `--target aarch64-apple-darwin`.
 
 ## Engine HTTP (market-data stalls)
 
@@ -38,9 +43,3 @@ After pulling this branch: `bash scripts/build_sidecar.sh` (rebuilds PyInstaller
 `libmini_racer` for Sina akshare endpoints), then stage and `npm run tauri -- build`.
 Confirm path uses `cn_equity_large_cap_v1` when universe symbols are empty; dialogue accepts
 `600519.SH` tickers; daily data prefers Sina (`stock_zh_a_daily` / `stock_zh_index_daily`).
-
-## Local parity
-
-1. `bash scripts/build_sidecar.sh`
-2. `TARGET=macos|linux|windows bash scripts/stage_engine_for_tauri.sh`
-3. `cd apps/desktop && npm ci && npm run tauri -- build`

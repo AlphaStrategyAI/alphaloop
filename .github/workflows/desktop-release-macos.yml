@@ -6,25 +6,67 @@ on:
   pull_request:
     branches: [main, "cursor/**"]
   workflow_dispatch:
+  workflow_call:
+
+permissions: {}
 
 jobs:
   build-macos-bundle:
-    runs-on: macos-latest
+    permissions:
+      contents: read
+    # macos-14 is an Apple Silicon runner. The bundle is ad-hoc signed and not notarized.
+    runs-on: macos-14
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         with:
           python-version: "3.12"
           cache: pip
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         with:
-          node-version: "20"
+          python-version: "3.12"
+
+      - name: Check desktop version declarations
+        id: ver
+        run: |
+          python3 scripts/check_app_version.py --check
+          echo "version=$(python3 scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
+
+      - name: Require an arm64 host
+        run: uname -m | grep -qx arm64
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
+        with:
+          node-version: "22"
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        with:
+          node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.99.1"
+          targets: aarch64-apple-darwin
+
+      - name: Confirm the Rust host is Apple Silicon
+        run: "rustc -vV | grep -q 'host: aarch64-apple-darwin'"
+
+      - name: Record version and git sha
+        run: |
+          SHA=$(python3 scripts/resolve_embedded_sha.py)
+          echo "embedding commit $SHA"
+          ALPHALOOP_GIT_SHA="$SHA" python3 scripts/write_build_info.py
+          mkdir -p release-artifacts
+          printf '%s\n' "$SHA" > "release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos.embedded-sha"
 
       - name: Build engine sidecar (PyInstaller onedir)
         run: bash scripts/build_sidecar.sh
@@ -38,30 +80,55 @@ jobs:
           python3 scripts/verify_engine_resource_layout.py \
             --staged apps/desktop/src-tauri/resources/engine/alphaloop-engine
 
-      - name: Build Tauri desktop bundle
+      - name: Build ad-hoc signed arm64 bundle
         working-directory: apps/desktop
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
         run: |
           npm ci
-          npm run tauri -- build
+          npm run tauri -- build --target aarch64-apple-darwin
 
-      - name: Package .app zip and DMG fallback
+      - name: Verify arm64 ad-hoc signature and package
         run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          OUT="release-artifacts/macos-${SHORT_SHA}"
+          VERSION="${{ steps.ver.outputs.version }}"
+          OUT="release-artifacts"
           mkdir -p "$OUT"
-          APP=$(find apps/desktop/src-tauri/target/release/bundle/macos -name '*.app' -maxdepth 1 | head -1)
+          APP=$(find apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos -name '*.app' -maxdepth 1 | head -1)
           if [[ -z "$APP" ]]; then
-            find apps/desktop/src-tauri/target/release/bundle -maxdepth 4 -type d -name '*.app' || true
+            find apps/desktop/src-tauri/target -path '*bundle/macos/*.app' -maxdepth 8 || true
             exit 1
           fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT/alphaloop-macos-${SHORT_SHA}.zip"
-          DMG=$(find apps/desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' -maxdepth 1 2>/dev/null | head -1 || true)
+          BIN="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")"
+          ENGINE="$APP/Contents/Resources/engine/alphaloop-engine/alphaloop-engine"
+          test -x "$BIN"
+          test -x "$ENGINE"
+          echo "app binary: $BIN"
+          lipo -archs "$BIN" | grep -qx arm64
+          lipo -archs "$ENGINE" | grep -qx arm64
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --verify --deep --strict --verbose=2 "$ENGINE"
+          tar -czf "$OUT/alphaloop_${VERSION}_macos_arm64.app.tar.gz" -C "$(dirname "$APP")" "$(basename "$APP")"
+          DMG=$(find apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -maxdepth 1 2>/dev/null | head -1 || true)
           if [[ -n "$DMG" && -f "$DMG" ]]; then
-            cp "$DMG" "$OUT/"
+            cp "$DMG" "$OUT/alphaloop_${VERSION}_macos_arm64.dmg"
           else
             hdiutil create -volname alphaloop -srcfolder "$APP" -ov -format UDZO \
-              "$OUT/alphaloop-macos-${SHORT_SHA}.dmg"
+              "$OUT/alphaloop_${VERSION}_macos_arm64.dmg"
           fi
+          python3 - "$OUT" "$VERSION" <<'PY'
+          import hashlib, pathlib, sys
+          out = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          for name in (
+              f"alphaloop_{version}_macos_arm64.dmg",
+              f"alphaloop_{version}_macos_arm64.app.tar.gz",
+          ):
+              path = out / name
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              sidecar = out / f"{name}.sha256"
+              sidecar.write_text(f"{digest}  {name}\n", encoding="utf-8")
+              print(sidecar.read_text(), end="")
+          PY
           ls -la "$OUT"
           if ! find "$APP" -name NOTICE | grep -q NOTICE; then
             echo "NOTICE is missing from the macOS app bundle"
@@ -69,9 +136,36 @@ jobs:
             exit 1
           fi
 
-      - name: Upload macOS bundles
-        uses: actions/upload-artifact@v4
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: alphaloop-desktop-macos-${{ github.sha }}
-          path: release-artifacts/**
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg
+          if-no-files-found: error
+
+      - name: Upload macOS DMG hash
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg.sha256
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.dmg.sha256
+          if-no-files-found: error
+
+      - name: Upload macOS app archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
+          if-no-files-found: error
+
+      - name: Upload macOS app archive hash
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz.sha256
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz.sha256
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos.embedded-sha
+          path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos.embedded-sha
           if-no-files-found: error
