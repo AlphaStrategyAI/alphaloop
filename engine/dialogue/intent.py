@@ -7,6 +7,7 @@ from typing import Any
 
 from engine.dialogue.prompts import QUESTIONS, SlotName
 from engine.research.coverage_parse import merge_coverage_floor
+from engine.research.family_intent import thesis_mentions_strategy
 from engine.research.models import (
     AssetClass,
     CoverageFloor,
@@ -63,7 +64,12 @@ def _parse_universe(message: str) -> Universe | None:
     elif "债" in message:
         asset = AssetClass.BOND
         underlying = AssetClass.BOND
-    elif re.search(r"股|股票", message):
+    elif re.search(r"股|股票|stocks|equities|equity", message, re.IGNORECASE):
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
+    elif thesis_mentions_strategy(message):
+        # A named family with a market and no asset word still has a universe.
+        # The card says which strategy will actually run.
         asset = AssetClass.EQUITY
         underlying = AssetClass.EQUITY
     else:
@@ -72,7 +78,9 @@ def _parse_universe(message: str) -> Universe | None:
     mentions = extract_symbol_mentions(message)
     if market is None and any(_cn_mention(mention) for mention in mentions):
         market = Market.CN
-    if market is None and any(mention.canonical and not _cn_mention(mention) for mention in mentions):
+    if market is None and any(
+        mention.canonical and not _cn_mention(mention) for mention in mentions
+    ):
         market = Market.US
     if asset is None and mentions:
         asset = AssetClass.EQUITY
@@ -119,6 +127,11 @@ def _parse_methods(message: str) -> tuple[MethodRef, ...]:
 
 _STRATEGY_HINT = re.compile(
     r"均值|回归|动量|套利|波动|多空|轮动|价值|成长|利差|收缩|修复|量价"
+    r"|基本面|因子|估值|股债|再平衡|全天候|低波|趋势|突破"
+    r"|momentum|trend|breakout|fundamental|factor|valuation|rebalance"
+    r"|all[\s\-]*weather|low[\s\-]*vol|mean[\s\-]*reversion|reversal|arbitrage|growth"
+    r"|60\s*[/／]\s*40",
+    re.IGNORECASE,
 )
 _MARKET_HINT = re.compile(r"美股|美国|A\s*股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
 
@@ -128,14 +141,16 @@ def _thesis_acceptable(message: str) -> bool:
         return True
     # A strategy with no named market is still a thesis. The card asks which
     # market's default pool to use. Nothing is preselected.
-    return _STRATEGY_HINT.search(message) is not None
+    if _STRATEGY_HINT.search(message) is not None:
+        return True
+    return thesis_mentions_strategy(message)
 
 
 def _universe_for_thesis(text: str) -> Universe | None:
     parsed = _parse_universe(text)
     if parsed is not None:
         return parsed
-    if _STRATEGY_HINT.search(text) is None:
+    if _STRATEGY_HINT.search(text) is None and not thesis_mentions_strategy(text):
         return None
     blank = Universe(
         Market.CN,
@@ -152,7 +167,10 @@ def _universe_for_thesis(text: str) -> Universe | None:
 
 def _parse_thesis(message: str) -> str | None:
     text = message.strip()
-    if len(text) < 4 or not _thesis_acceptable(text):
+    # 全天候 is three characters and is still a thesis. Other fragments stay rejected.
+    if len(text) < 4 and not thesis_mentions_strategy(text):
+        return None
+    if not text or not _thesis_acceptable(text):
         return None
     return text
 
@@ -192,7 +210,9 @@ def _extras_from_any_slot(text: str, brief_filled: set[str]) -> list[tuple[str, 
         if thesis and _parse_universe(text) is None:
             pass
     if "universe" not in brief_filled:
-        universe = _universe_for_thesis(text) if "thesis" not in brief_filled else _parse_universe(text)
+        universe = (
+            _universe_for_thesis(text) if "thesis" not in brief_filled else _parse_universe(text)
+        )
         if universe is not None:
             extras.append(("universe", universe))
     if "max_effective_hours" not in brief_filled:
@@ -221,7 +241,9 @@ def interpret(
 ) -> Intent:
     text = message.strip()
     if not text:
-        prompt = QUESTIONS.get(active_slot, "请输入与五项研究设定有关的信息。") if active_slot else ""
+        prompt = (
+            QUESTIONS.get(active_slot, "请输入与五项研究设定有关的信息。") if active_slot else ""
+        )
         return Intent(IntentKind.OFF_TOPIC, response=prompt or "请输入与五项研究设定有关的信息。")
     if "解锁" in text:
         return Intent(IntentKind.OFF_TOPIC, response="在确认开跑卡上点「改一改」即可调整单项设定。")
@@ -229,7 +251,13 @@ def interpret(
     brief = research.brief
     filled = {
         name
-        for name in ("thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor")
+        for name in (
+            "thesis",
+            "universe",
+            "max_effective_hours",
+            "round1_methods",
+            "coverage_floor",
+        )
         if getattr(brief, name).value is not None
     }
 
@@ -252,9 +280,7 @@ def interpret(
     if active_slot is not None:
         return Intent(
             IntentKind.OFF_TOPIC,
-            response=(
-                f"没能理解你的意思。{QUESTIONS[active_slot]}"
-            ),
+            response=(f"没能理解你的意思。{QUESTIONS[active_slot]}"),
         )
     return Intent(
         IntentKind.OFF_TOPIC,

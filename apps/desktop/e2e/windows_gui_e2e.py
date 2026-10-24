@@ -504,7 +504,7 @@ def assert_run_disabled(driver, reason_needle: str) -> None:
     button = driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
     if button.is_enabled():
         raise AssertionError("Run was enabled before the blocking choice was made")
-    if button.get_attribute("data-run-blocked") not in {"market", "source"}:
+    if button.get_attribute("data-run-blocked") not in {"market", "source", "family", "unlicensed", "resolution"}:
         raise AssertionError(f"Run is disabled without a block reason: {button.get_attribute('data-run-blocked')}")
     opacity = driver.execute_script("return getComputedStyle(arguments[0]).opacity", button)
     if float(opacity) >= 0.99:
@@ -1173,6 +1173,41 @@ def main() -> int:
         go(session.driver, "#/research")
         return f"unnamed research {unnamed} kept Run disabled until a market is chosen"
 
+    def step_momentum_blocked() -> str:
+        assert session is not None
+        create_until_confirm(
+            session.driver,
+            (
+                "美股动量策略",
+                "4 小时",
+                "走样检验、样本外稳定",
+                "至少 1 个标的、10 年、缺失不超过 5%",
+            ),
+        )
+        from selenium.webdriver.common.by import By
+
+        card = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
+        if "Not supported yet" not in card and "暂不支持" not in card:
+            raise AssertionError(f"momentum card did not say the family is unsupported: {card[:400]}")
+        needle = "cannot run yet" if "Not supported yet" in card else "这一族还不能开跑"
+        assert_run_disabled(session.driver, needle)
+        button = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
+        if button.get_attribute("data-run-blocked") != "family":
+            raise AssertionError("momentum Run was not blocked as a family")
+        assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "momentum confirm card")
+        go(session.driver, "#/research")
+        return "momentum card says it is unsupported and Run is disabled with the same reason"
+
+    def step_english_reference() -> str:
+        assert session is not None
+        go(session.driver, "#/glossary")
+        wait_css(session.driver, "[data-testid=glossary-page]")
+        assert_no_cjk(session.driver, "[data-testid=glossary-page]", "glossary")
+        go(session.driver, "#/methods")
+        wait_css(session.driver, "[data-testid=method-definition-display]")
+        assert_no_cjk(session.driver, ".methods-layout", "methods")
+        return "English glossary and methods rendered with no CJK"
+
     def step_run_and_export() -> str:
         assert session is not None
         open_confirm_card(session.driver, research_ids["us"])
@@ -1315,6 +1350,8 @@ def main() -> int:
         run_step("restart and unlock passphrase", "secrets-unlock", step_secrets_unlock)
         run_step("US and A-share confirm cards open their own research", "confirms", step_two_confirms)
         run_step("blocked Run stays disabled before confirm", "blocked-run", step_blocked_run_before_confirm)
+        run_step("momentum card and Run agree the family cannot run", "momentum-blocked", step_momentum_blocked)
+        run_step("English glossary and methods have no CJK", "en-reference", step_english_reference)
         run_step("run to conclusion and export a file", "conclusion", step_run_and_export)
         run_step("delete a running research; engine stays up", "delete-running", step_delete_running)
         run_step("close and reopen; data persists", "persist", step_persist)

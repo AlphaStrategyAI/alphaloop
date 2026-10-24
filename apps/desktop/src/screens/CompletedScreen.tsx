@@ -155,6 +155,11 @@ function pitFailureCopy(detail: PitDetail | null | undefined, t: Translate): str
   });
 }
 
+function formatMetricPercent(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "";
+  return `${(value * 100).toFixed(1)}%`;
+}
+
 export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
   const {t} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
@@ -200,7 +205,12 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
   };
   const pitLabel = pitGateLabel(view.pitDetail, view.eligibility.pitExecutedAndPassed, t);
   const checks = [
-    [t("ui.completed.gateMethods"), view.eligibility.allMethodsPassed],
+    [
+      view.eligibility.allMethodsPassed
+        ? t("ui.completed.methodsPassed")
+        : t("ui.completed.methodsFailed"),
+      view.eligibility.allMethodsPassed,
+    ],
     [t("ui.completed.gatePending"), view.eligibility.noPendingConfirm],
     [t("ui.completed.gateReverify"), view.eligibility.reverifiesPassed],
     [pitLabel, view.eligibility.pitExecutedAndPassed],
@@ -257,6 +267,22 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         )}
         <h1 data-testid="completed-focus-title">{eligible ? t("ui.completed.title") : t("ui.completed.title")}</h1>
         <p className="completed-focus-headline">{headline}</p>
+        {view.metrics && (view.metrics.excessAnn != null || view.metrics.maxDrawdown != null || view.metrics.maxDD != null) && (
+          <dl className="completed-metrics" data-testid="completed-metrics">
+            {view.metrics.excessAnn != null && (
+              <div>
+                <dt>{t("ui.completed.excessAnn")}</dt>
+                <dd data-testid="completed-excess-ann">{formatMetricPercent(view.metrics.excessAnn)}</dd>
+              </div>
+            )}
+            {(view.metrics.maxDrawdown ?? view.metrics.maxDD) != null && (
+              <div>
+                <dt>{t("ui.completed.maxDrawdown")}</dt>
+                <dd data-testid="completed-max-dd">{formatMetricPercent(view.metrics.maxDrawdown ?? view.metrics.maxDD)}</dd>
+              </div>
+            )}
+          </dl>
+        )}
         {view.meanReversionOnlyNotice && (
           <p className="confirm-lead" data-testid="mean-reversion-only-notice">
             {copyText(view.meanReversionOnlyNotice)}

@@ -215,7 +215,7 @@ function messages(lang: "zh" | "en") {
           true,
         ),
         SYMBOL_MARKET_MISMATCH: copy(
-          "描述里的市场是{{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。",
+          "描述里的市场是 {{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。",
           "The description says {{marketEn}}, but {{symbols}} {{nIsnt}} in that market. Remove {{nIt}} or change the market.",
           true,
         ),
@@ -236,6 +236,10 @@ function messages(lang: "zh" | "en") {
         UNLICENSED_SOURCE_UNACKNOWLEDGED: copy(
           "使用未经许可的数据前，请确认仅用于个人研究。",
           "Before using an unlicensed source, confirm it is for personal research only.",
+        ),
+        STRATEGY_FAMILY_NOT_RUNNABLE: copy(
+          "这一族还不能开跑。",
+          "This family cannot run yet.",
         ),
       },
     },
@@ -273,6 +277,9 @@ export const FINAL_MESSAGE_KEYS = [
   "ui.confirm.marketChoiceCn",
   "ui.confirm.marketChoiceUs",
   "ui.confirm.marketMismatch",
+  "ui.list.untitled",
+  "ui.completed.methodsPassed",
+  "ui.completed.methodsFailed",
   "ui.confirm.unrecognizedTicker",
   "ui.confirm.usedAsSymbol",
   "ui.confirm.treatedAsText",

@@ -7,9 +7,16 @@ from typing import Any
 from engine.dialogue.intent import Intent, IntentKind, interpret
 from engine.dialogue.prompts import SlotName
 from engine.dialogue.slots import apply_intent, next_question
-from engine.research.coverage_parse import parse_coverage_parts
 from engine.i18n.errors import redact_technical_detail
-from engine.research.models import CoverageFloor, DialogueRole, DialogueTurn, Research, ResearchStatus
+from engine.research.coverage_parse import parse_coverage_parts
+from engine.research.family_intent import classify_thesis
+from engine.research.models import (
+    CoverageFloor,
+    DialogueRole,
+    DialogueTurn,
+    Research,
+    ResearchStatus,
+)
 from engine.research.thesis_scope import (
     MEAN_REVERSION_ONLY_NOTICE,
     is_mean_reversion_ack,
@@ -66,9 +73,7 @@ def _apply_coverage_scratch(
     assets, years, missing = parse_coverage_parts(message)
     min_assets = assets if assets is not None else research.coverage_min_assets_scratch
     min_years = years if years is not None else research.coverage_min_years_scratch
-    max_missing = (
-        missing if missing is not None else research.coverage_max_missing_pct_scratch
-    )
+    max_missing = missing if missing is not None else research.coverage_max_missing_pct_scratch
     if min_assets is None and min_years is None and max_missing is None:
         return research
     if min_assets is not None and min_years is not None and max_missing is not None:
@@ -103,11 +108,21 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
         from engine.dialogue.modification import process_modification_dialogue
 
         return process_modification_dialogue(research, text, now)
-    if research.pending_non_mr_thesis and is_mean_reversion_ack(text):
+    if is_mean_reversion_ack(text) and research.pending_non_mr_thesis:
         intent = Intent(IntentKind.PROVIDE, (("thesis", research.pending_non_mr_thesis),))
         with_user = append_dialogue(research, DialogueRole.USER, text, now)
         updated = apply_intent(with_user, intent, now)
-        updated = replace(updated, pending_non_mr_thesis=None)
+        updated = replace(updated, pending_non_mr_thesis=None, mean_reversion_adopted=True)
+        return append_dialogue(updated, DialogueRole.ASSISTANT, next_question(updated).message, now)
+    thesis_now = research.brief.thesis.value
+    if (
+        is_mean_reversion_ack(text)
+        and isinstance(thesis_now, str)
+        and classify_thesis(thesis_now).outcome == "block"
+        and not research.mean_reversion_adopted
+    ):
+        with_user = append_dialogue(research, DialogueRole.USER, text, now)
+        updated = replace(with_user, mean_reversion_adopted=True)
         return append_dialogue(updated, DialogueRole.ASSISTANT, next_question(updated).message, now)
     prompt = next_question(research)
     intent = interpret(text, research, prompt.slot)
@@ -115,10 +130,14 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
     if intent.kind is IntentKind.PROVIDE:
         kept: list[tuple[str, object]] = []
         for name, value in intent.updates:
+            # Disclose families wait for an explicit mean-reversion acknowledgement
+            # so the card can state what will actually run. Momentum is stored
+            # immediately: the card then says the family cannot run.
             if (
                 name == "thesis"
                 and isinstance(value, str)
                 and thesis_is_non_mean_reversion(value)
+                and classify_thesis(value).outcome == "disclose"
             ):
                 held_thesis = value
                 continue

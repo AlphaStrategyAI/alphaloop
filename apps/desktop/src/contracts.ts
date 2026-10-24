@@ -170,6 +170,8 @@ type ViewBody =
       confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
       constructionNotice?: string | null;
+      /** Engine gate. Run stays disabled when this code is not a source choice. */
+      runGate?: {runnable: boolean; code?: string | null} | null;
       market?: "CN" | "US" | null;
       marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
       marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;

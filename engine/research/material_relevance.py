@@ -12,31 +12,72 @@ Relevant means score >= 1: at least one key term in the title or abstract.
 Papers that score 0 are dropped. Nothing is added to fill a quota. An empty
 list is the correct result when nothing matches.
 
-Key terms come from a fixed lexicon. A query selects a group when it contains
-any trigger for that group (a phrase, or the family id). Mean reversion's
-terms are ``mean reversion``, ``mean-reversion``, ``mean reverting``,
-``reversal``, and ``均值回归``. Matching is case-insensitive. Hyphens and
-repeated spaces are ignored, so ``mean-reversion`` matches ``mean reversion``.
+Key terms come from a fixed lexicon, one group per detected family. The
+family is the same classification the dialogue uses. Mean reversion's terms
+are ``mean reversion``, ``mean-reversion``, ``mean reverting``, ``reversal``,
+and ``均值回归``. Matching is case-insensitive. Hyphens and repeated spaces
+are ignored, so ``mean-reversion`` matches ``mean reversion``.
 
-When the query names no group, papers are kept as fetched. There is no
-strategy term to require, so the filter does not empty the list.
+When the query names no family, papers are kept as fetched. There is no
+strategy term to require, so the filter does not empty the list. When it
+names one or more families, a paper must match one of those families' terms.
+Nothing is added to fill a quota.
 """
 
 from __future__ import annotations
 
 from typing import Protocol
 
-_MEAN_REVERSION_TERMS = (
-    "mean reversion",
-    "mean-reversion",
-    "mean reverting",
-    "reversal",
-    "均值回归",
-)
-_MEAN_REVERSION_TRIGGERS = _MEAN_REVERSION_TERMS + (
-    "mean_reversion",
-    "legacy_mean_reversion",
-)
+from engine.research.family_intent import classify_thesis
+
+_TERMS: dict[str, tuple[str, ...]] = {
+    "mean_reversion": (
+        "mean reversion",
+        "mean-reversion",
+        "mean reverting",
+        "reversal",
+        "均值回归",
+    ),
+    "low_volatility": (
+        "low volatility",
+        "low-volatility",
+        "low vol",
+        "低波",
+        "低波动",
+    ),
+    "fundamental_factor": (
+        "fundamental",
+        "valuation",
+        "value factor",
+        "基本面",
+        "估值",
+        "价值",
+    ),
+    "stock_bond_rebalance": (
+        "stock-bond",
+        "rebalance",
+        "60/40",
+        "股债",
+        "再平衡",
+    ),
+    "all_weather": (
+        "all weather",
+        "all-weather",
+        "risk parity",
+        "全天候",
+    ),
+    "momentum": (
+        "momentum",
+        "trend",
+        "breakout",
+        "动量",
+        "趋势",
+        "突破",
+    ),
+    "arbitrage": ("arbitrage", "套利"),
+    "rotation": ("rotation", "轮动"),
+    "growth": ("growth", "成长"),
+}
 
 
 def _normalize(text: str) -> str:
@@ -56,13 +97,21 @@ def _contains(haystack: str, term: str) -> bool:
 
 
 def strategy_key_terms(query: str) -> tuple[str, ...]:
-    """Terms the query names. Empty when the query names no known strategy."""
-    folded = _normalize(query or "")
-    raw = query or ""
-    for trigger in _MEAN_REVERSION_TRIGGERS:
-        if trigger in raw or _normalize(trigger) in folded:
-            return _MEAN_REVERSION_TERMS
-    return ()
+    """Terms for the family the query names. Empty when it names none.
+
+    Several disclose families keep the union of their terms. A paper then has
+    to match one of those families, and unrelated papers still drop.
+    """
+    hit = classify_thesis(query)
+    if hit.outcome == "none":
+        return ()
+    families = hit.families or (hit.family_id,)
+    terms: list[str] = []
+    for family_id in families:
+        for term in _TERMS.get(family_id, ()):
+            if term not in terms:
+                terms.append(term)
+    return tuple(terms)
 
 
 def relevance_score(material: _TextMaterial, terms: tuple[str, ...]) -> int:
