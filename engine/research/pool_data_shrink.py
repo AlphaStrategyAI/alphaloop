@@ -71,6 +71,38 @@ def _deadline_for_symbols(symbols: tuple[str, ...]) -> float:
     return load_deadline_seconds(len(symbols), batch_size=batch)
 
 
+def missing_named_symbols(
+    symbols: tuple[str, ...],
+    start: date,
+    end: date,
+    loader: SymbolDataLoader | None = None,
+) -> tuple[str, ...]:
+    """Named symbols with no usable bars.
+
+    Timeouts, rate limits, and connection failures stay source outages. An empty
+    frame, a missing column, or a one-symbol fetch failure is no data: a fake
+    ticker must not leave Run enabled.
+    """
+    if not symbols:
+        return ()
+    try:
+        active = loader or _production_loader(symbols)
+        frame = active.load_daily(symbols, start, end)
+    except UserFacingError as error:
+        if error.code == "MARKET_DATA_FETCH_FAILED" and len(symbols) == 1:
+            return symbols
+        raise
+    except Exception as error:
+        classified = classify_load_failure(error)
+        if classified is not None:
+            if classified.code == "MARKET_DATA_FETCH_FAILED" and len(symbols) == 1:
+                return symbols
+            raise classified from error
+        raise
+    kept = set(symbols_with_any_bars(frame, symbols))
+    return tuple(symbol for symbol in symbols if symbol not in kept)
+
+
 def symbols_with_daily_data(
     symbols: tuple[str, ...],
     start: date,

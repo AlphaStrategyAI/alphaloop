@@ -250,6 +250,176 @@ pub async fn create_draft(connection: State<'_, EngineConnection>) -> Result<Str
         .ok_or("create_draft response omitted research_id".into())
 }
 
+pub(crate) fn set_research_symbol_request(research_id: &str, symbol: &str) -> Value {
+    json!({
+        "type": "set_research_symbol",
+        "research_id": research_id,
+        "symbol": symbol,
+    })
+}
+
+#[tauri::command]
+pub async fn set_research_symbol(
+    research_id: String,
+    symbol: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        set_research_symbol_request(&research_id, &symbol),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn answer_symbol_ask_request(research_id: &str, token: &str, accept: bool) -> Value {
+    json!({
+        "type": "answer_symbol_ask",
+        "research_id": research_id,
+        "token": token,
+        "accept": accept,
+    })
+}
+
+#[tauri::command]
+pub async fn answer_symbol_ask(
+    research_id: String,
+    token: String,
+    accept: bool,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        answer_symbol_ask_request(&research_id, &token, accept),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn revert_symbol_ask_request(research_id: &str, token: &str) -> Value {
+    json!({
+        "type": "revert_symbol_ask",
+        "research_id": research_id,
+        "token": token,
+    })
+}
+
+#[tauri::command]
+pub async fn revert_symbol_ask(
+    research_id: String,
+    token: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        revert_symbol_ask_request(&research_id, &token),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn choose_default_market_request(research_id: &str, market: &str) -> Value {
+    json!({
+        "type": "choose_default_market",
+        "research_id": research_id,
+        "market": market,
+    })
+}
+
+#[tauri::command]
+pub async fn choose_default_market(
+    research_id: String,
+    market: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        choose_default_market_request(&research_id, &market),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn dismiss_mismatched_symbol_request(research_id: &str, symbol: &str) -> Value {
+    json!({
+        "type": "dismiss_mismatched_symbol",
+        "research_id": research_id,
+        "symbol": symbol,
+    })
+}
+
+#[tauri::command]
+pub async fn dismiss_mismatched_symbol(
+    research_id: String,
+    symbol: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        dismiss_mismatched_symbol_request(&research_id, &symbol),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn remove_market_side_request(research_id: &str, side: &str) -> Value {
+    json!({
+        "type": "remove_market_side",
+        "research_id": research_id,
+        "side": side,
+    })
+}
+
+#[tauri::command]
+pub async fn remove_market_side(
+    research_id: String,
+    side: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        remove_market_side_request(&research_id, &side),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub(crate) fn use_hinted_symbol_request(research_id: &str, symbol: &str) -> Value {
+    json!({
+        "type": "use_hinted_symbol",
+        "research_id": research_id,
+        "symbol": symbol,
+    })
+}
+
+#[tauri::command]
+pub async fn use_hinted_symbol(
+    research_id: String,
+    symbol: String,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        use_hinted_symbol_request(&research_id, &symbol),
+    )
+    .await
+    .map(|_| ())
+}
+
 #[tauri::command]
 pub async fn confirm_run(
     research_id: String,
@@ -661,7 +831,10 @@ pub async fn secret_failure_preview(
 mod tests {
     use super::{
         EngineConnection, command_timeout_secs, notification_title, notify_kinds,
+        answer_symbol_ask_request, choose_default_market_request, dismiss_mismatched_symbol_request,
         parse_engine_error_body,
+        remove_market_side_request,
+        revert_symbol_ask_request, set_research_symbol_request, use_hinted_symbol_request,
     };
     use serde_json::json;
 
@@ -695,6 +868,49 @@ mod tests {
         assert!(command_timeout_secs(None, 60) > 13 * 60);
         assert_eq!(command_timeout_secs(Some(120), 60), 240);
         assert!(command_timeout_secs(Some(120), 60) > 120);
+    }
+
+    #[test]
+    fn set_research_symbol_request_keeps_the_research_id_and_the_symbol() {
+        let body = set_research_symbol_request("r-1", "600519.SH");
+        assert_eq!(body["type"], "set_research_symbol");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["symbol"], "600519.SH");
+    }
+
+    #[test]
+    fn answer_symbol_ask_request_keeps_the_token_and_the_answer() {
+        let yes = answer_symbol_ask_request("r-1", "COST", true);
+        assert_eq!(yes["type"], "answer_symbol_ask");
+        assert_eq!(yes["research_id"], "r-1");
+        assert_eq!(yes["token"], "COST");
+        assert_eq!(yes["accept"], true);
+        let no = answer_symbol_ask_request("r-1", "COST", false);
+        assert_eq!(no["accept"], false);
+    }
+
+    #[test]
+    fn use_hinted_symbol_request_keeps_the_symbol() {
+        let body = use_hinted_symbol_request("r-1", "SPY");
+        assert_eq!(body["type"], "use_hinted_symbol");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["symbol"], "SPY");
+    }
+
+    #[test]
+    fn choose_default_market_request_keeps_the_market() {
+        let body = choose_default_market_request("r-1", "US");
+        assert_eq!(body["type"], "choose_default_market");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["market"], "US");
+    }
+
+    #[test]
+    fn dismiss_mismatched_symbol_request_keeps_the_symbol() {
+        let body = dismiss_mismatched_symbol_request("r-1", "CAPS");
+        assert_eq!(body["type"], "dismiss_mismatched_symbol");
+        assert_eq!(body["research_id"], "r-1");
+        assert_eq!(body["symbol"], "CAPS");
     }
 
     #[test]

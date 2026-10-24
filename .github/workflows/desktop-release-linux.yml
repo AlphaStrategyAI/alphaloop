@@ -110,6 +110,11 @@ jobs:
             dpkg-deb -c "$DEB" | grep alphaloop-engine || true
             exit 1
           fi
+          dpkg-deb -c "$DEB" > /tmp/deb-contents.txt
+          if ! grep -q 'NOTICE' /tmp/deb-contents.txt; then
+            echo "NOTICE is missing from the deb"
+            exit 1
+          fi
           mkdir -p release-artifacts
           cp "$DEB" "release-artifacts/alphaloop_${VERSION}_linux_amd64.deb"
           python3 - "$VERSION" <<'PY'

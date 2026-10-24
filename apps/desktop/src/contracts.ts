@@ -37,6 +37,34 @@ export type BriefSlotName =
   | "round1_methods"
   | "coverage_floor";
 
+export interface SymbolResolution {
+  blocked: boolean;
+  code?:
+    | "SYMBOL_UNRESOLVED"
+    | "SYMBOL_NO_DATA"
+    | "SYMBOL_ETF_UNSUPPORTED"
+    | "SYMBOL_ASK_PENDING"
+    | "SYMBOL_AMOUNT_LIKE"
+    | "SYMBOL_MIXED_MARKETS"
+    | "SYMBOL_MARKET_MISMATCH"
+    | "MARKET_CHOICE_PENDING"
+    | null;
+  token?: string | null;
+  symbol?: string | null;
+  symbols: readonly string[];
+  inferred: readonly {raw: string; symbol: string}[];
+  editable: boolean;
+  asks?: readonly {token: string; symbol: string; kind?: "ask" | "finance" | "amount"}[];
+  answers?: readonly {token: string; symbol: string; kind?: string; accept: boolean}[];
+  hints?: readonly {token: string; symbol: string}[];
+  poolCount?: number | null;
+  cnSymbols?: string | null;
+  usSymbols?: string | null;
+  mismatches?: readonly string[];
+  mismatchMarket?: "US" | "CN" | null;
+  unrecognized?: readonly {token: string}[];
+}
+
 export interface PriceSourceChoice {
   id: string;
   label: string;
@@ -134,11 +162,15 @@ type ViewBody =
       settings: BriefSettings;
       chatEnabled?: boolean;
       symbolSelection?: SymbolSelectionSummary;
+      symbolResolution?: SymbolResolution | null;
       confirmDataNotice?: string | null;
       confirmDataNoticeCode?: string | null;
       confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
       constructionNotice?: string | null;
+      marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
+      marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
+      benchmarkName?: string | null;
     }
   | {
       kind: "running";
@@ -286,6 +318,18 @@ export interface DesktopApi {
     researchId: string,
     options?: {dataSourceId?: string; unlicensedAcknowledged?: boolean},
   ): Promise<void>;
+  /** Confirm-card symbol edit. Both arguments are required; the engine rejects a bare id. */
+  setResearchSymbol(researchId: string, symbol: string): Promise<void>;
+  /** Answer one ambiguous all-caps ticker. `accept` false keeps it as prose. */
+  answerSymbolAsk(researchId: string, token: string, accept: boolean): Promise<void>;
+  /** One click on the default-pool hint. Sets that ticker as the symbol. */
+  useHintedSymbol(researchId: string, symbol: string): Promise<void>;
+  revertSymbolAsk(researchId: string, token: string): Promise<void>;
+  removeMarketSide(researchId: string, side: "cn" | "us"): Promise<void>;
+  /** Drop one symbol the stated market rejected, so the description does not restore it. */
+  dismissMismatchedSymbol(researchId: string, symbol: string): Promise<void>;
+  /** Pick the market when the description named none. Nothing is remembered. */
+  chooseDefaultMarket(researchId: string, market: "CN" | "US"): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

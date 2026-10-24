@@ -18,6 +18,13 @@ function api(): DesktopApi {
     fetchView: vi.fn(),
     createDraft: vi.fn(),
     confirmRun: vi.fn(async () => undefined),
+    setResearchSymbol: vi.fn(async () => undefined),
+    answerSymbolAsk: vi.fn(async () => undefined),
+    useHintedSymbol: vi.fn(async () => undefined),
+    revertSymbolAsk: vi.fn(async () => undefined),
+    removeMarketSide: vi.fn(async () => undefined),
+    dismissMismatchedSymbol: vi.fn(async () => undefined),
+    chooseDefaultMarket: vi.fn(async () => undefined),
     unlockBrief: vi.fn(),
     sendDialogue: vi.fn(),
     pauseResearch: vi.fn(),
@@ -89,7 +96,9 @@ describe("confirm source presentation", () => {
         <ConfirmRunCard api={api()} view={ackedView} />
       </I18nProvider>,
     );
-    expect(screen.queryByTestId("unlicensed-ack-done")).toBeNull();
+    const doneBefore = screen.getByTestId("unlicensed-ack-done");
+    expect(doneBefore.textContent).toContain(formatResearchTimestamp(ACK_AT));
+    expect((screen.getByTestId("price-source-yahoo_daily") as HTMLInputElement).checked).toBe(false);
     fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
     const done = screen.getByTestId("unlicensed-ack-done");
     expect(done.textContent).toContain(formatResearchTimestamp(ACK_AT));
@@ -109,7 +118,7 @@ describe("confirm source presentation", () => {
         dataSourcePending: false,
         priceSources: [
           {id: "local-file-desk", label: "Desk CSV", unlicensed: false, acknowledgedAt: null},
-          {id: "yahoo_daily", label: "雅虎日线", unlicensed: true, acknowledgedAt: null},
+          {id: "yahoo_daily", label: "雅虎日线", unlicensed: true, acknowledgedAt: ACK_AT},
         ],
       },
     };
@@ -119,7 +128,10 @@ describe("confirm source presentation", () => {
       </I18nProvider>,
     );
     expect(screen.queryByTestId("unlicensed-notice")).toBeNull();
+    expect(screen.getByTestId("unlicensed-tag").textContent).toBe("Unlicensed");
+    expect(screen.getByTestId("unlicensed-ack-done").textContent).toContain(formatResearchTimestamp(ACK_AT));
     expect(screen.getByTestId("confirm-data-meta").textContent).toContain("Desk CSV");
+    expect((screen.getByTestId("price-source-yahoo_daily") as HTMLInputElement).checked).toBe(false);
     fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
     expect(screen.getByTestId("unlicensed-notice")).toBeInTheDocument();
   });

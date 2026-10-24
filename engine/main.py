@@ -26,14 +26,28 @@ from engine.dialogue.pool_errors import (
     record_transient_confirm_notice,
     reopen_after_pool_failure,
 )
-from engine.research.confirm_view import confirm_data_notice, symbol_selection_payload
+from engine.research.confirm_view import (
+    confirm_data_notice,
+    symbol_resolution_payload,
+    symbol_selection_payload,
+)
 from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
 from engine.research.universe_pool import (
     materialize_default_pool,
     pin_draft_data_source,
     pool_resolvable,
 )
-from engine.research.universe_validation import ensure_runnable_universe
+from engine.research.universe_validation import (
+    answer_symbol_ask,
+    apply_symbol_edit,
+    choose_default_market,
+    dismiss_mismatched_symbol,
+    ensure_runnable_universe,
+    refresh_symbol_probe,
+    remove_market_side,
+    revert_symbol_ask,
+    use_hinted_symbol,
+)
 from engine.i18n.errors import build_error_envelope, redact_technical_detail
 from engine.i18n.locale import (
     normalize_request_locale,
@@ -722,22 +736,37 @@ class ResearchCommandService:
         research = self.store.load(research_id)
         if research.status.value == "draft":
             materialized = pin_draft_data_source(materialize_default_pool(research))
+            if all_slots_locked(materialized.brief):
+                materialized = refresh_symbol_probe(materialized)
             if (
                 materialized.brief != research.brief
                 or materialized.data_source_id != research.data_source_id
+                or materialized.symbol_probe_symbols != research.symbol_probe_symbols
+                or materialized.symbol_probe_missing != research.symbol_probe_missing
+                or materialized.symbol_probe_unavailable != research.symbol_probe_unavailable
             ):
                 self.store.save(materialized, research.updated_at)
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
+            universe = research.brief.universe.value
+            named_symbols = universe is not None and (
+                universe.user_symbols_override or bool(universe.unresolved_tokens)
+            )
+            chat_enabled = view_kind == "draft" or not pool_resolvable(research)
+            if view_kind == "confirm_run" and named_symbols:
+                chat_enabled = False
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
                 "dialogue": [dialogue_turn_view(turn) for turn in research.dialogue],
                 "settings": self._settings(research),
-                "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
+                "chatEnabled": chat_enabled,
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
+                resolution = symbol_resolution_payload(research)
+                if resolution is not None:
+                    body["symbolResolution"] = resolution
                 fetch_notice = confirm_data_notice(research)
                 if fetch_notice:
                     body["confirmDataNotice"] = fetch_notice["text"]
@@ -752,6 +781,26 @@ class ResearchCommandService:
                 construction = construction_notice_for(research)
                 if construction:
                     body["constructionNotice"] = construction
+                if research.market_switch_market:
+                    body["marketSwitch"] = {
+                        "market": research.market_switch_market,
+                        "benchmark": research.market_switch_benchmark,
+                    }
+                if universe is not None and universe.market_unspecified:
+                    from engine.research.models import AssetClass, Market
+                    from engine.research.symbol_pool import pool_for_market
+
+                    cn_pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+                    us_pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+                    body["marketChoice"] = {
+                        "pending": True,
+                        "cnCount": len(cn_pool.symbols) if cn_pool is not None else 0,
+                        "usCount": len(us_pool.symbols) if us_pool is not None else 0,
+                    }
+                elif universe is not None:
+                    from engine.metrics import benchmark_for
+
+                    body["benchmarkName"] = benchmark_for(universe).name
                 selection = body.get("symbolSelection")
                 if isinstance(selection, dict):
                     self._attach_unlicensed_choice(selection, research)
@@ -949,8 +998,23 @@ class ResearchCommandService:
                 is_unlicensed_source,
                 record_acknowledgement,
             )
-
             from engine.research.universe_pool import pool_resolvable
+            from engine.research.universe_validation import (
+                reject_market_mismatches,
+                reject_mixed_markets,
+                reject_pending_symbol_asks,
+                reject_source_market_mismatch,
+                reject_unresolved_symbols,
+                reject_unspecified_market,
+            )
+
+            # Symbol identity wins over an unbound source. A mismatch must not
+            # be reported as DATA_SOURCE_UNBOUND, and it must not reach the loop.
+            reject_unspecified_market(research)
+            reject_market_mismatches(research)
+            reject_unresolved_symbols(research)
+            reject_pending_symbol_asks(research)
+            reject_mixed_markets(research)
 
             requested = data_source_id.strip() if isinstance(data_source_id, str) else ""
             source = requested or research.data_source_id
@@ -982,6 +1046,7 @@ class ResearchCommandService:
                     record_acknowledgement(source, now, settings)
             if source != research.data_source_id:
                 research = replace(research, data_source_id=source)
+            reject_source_market_mismatch(research, source, self.paths.data.settings_file)
             expected_at = research.updated_at
             try:
                 research = ensure_runnable_universe(research)
@@ -1108,6 +1173,39 @@ class ResearchCommandService:
                 data_source_id=raw_source if isinstance(raw_source, str) else None,
                 unlicensed_acknowledged=bool(request.get("unlicensed_acknowledged")),
             )
+        if kind == "set_research_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = apply_symbol_edit(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "answer_symbol_ask":
+            research = self.store.load(str(request["research_id"]))
+            updated = answer_symbol_ask(
+                research,
+                str(request["token"]),
+                bool(request["accept"]),
+                now,
+            )
+            return self._save(research, updated)
+        if kind == "use_hinted_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = use_hinted_symbol(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "revert_symbol_ask":
+            research = self.store.load(str(request["research_id"]))
+            updated = revert_symbol_ask(research, str(request["token"]), now)
+            return self._save(research, updated)
+        if kind == "remove_market_side":
+            research = self.store.load(str(request["research_id"]))
+            updated = remove_market_side(research, str(request["side"]), now)
+            return self._save(research, updated)
+        if kind == "dismiss_mismatched_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = dismiss_mismatched_symbol(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "choose_default_market":
+            research = self.store.load(str(request["research_id"]))
+            updated = choose_default_market(research, str(request["market"]), now)
+            return self._save(research, updated)
 
         research = self.store.load(request["research_id"])
         if kind == "delete_research":

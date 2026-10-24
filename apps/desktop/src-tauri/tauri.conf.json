@@ -40,7 +40,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "resources/engine/alphaloop-engine": "engine/alphaloop-engine"
+      "resources/engine/alphaloop-engine": "engine/alphaloop-engine",
+      "../../../NOTICE": "NOTICE"
     }
   }
 }

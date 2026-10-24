@@ -17,7 +17,7 @@ def format_universe_display(
     *,
     include_symbols: bool = True,
 ) -> str:
-    if universe is None:
+    if universe is None or universe.market_unspecified:
         return ""
     market = _MARKET_LABEL[universe.market]
     asset = _ASSET_LABEL[universe.asset_class]

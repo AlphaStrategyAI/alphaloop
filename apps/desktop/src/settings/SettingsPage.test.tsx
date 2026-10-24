@@ -24,6 +24,26 @@ function Harness({route}: {route: string}) {
 }
 
 describe("settings language", () => {
+  it("says local file import arrives in M2 on the data sources page", async () => {
+    const port = createMemoryLanguagePort({preference: "zh", systemLocale: "zh-CN"});
+    const zh = render(
+      <I18nProvider port={port} initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
+        <SettingsPage route="#/settings/data" />
+      </I18nProvider>,
+    );
+    expect(await screen.findByTestId("settings-later")).toHaveTextContent("本地文件导入将在 M2 提供。");
+    zh.unmount();
+
+    render(
+      <I18nProvider port={port} initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <SettingsPage route="#/settings/data" />
+      </I18nProvider>,
+    );
+    const later = await screen.findByTestId("settings-later");
+    expect(later).toHaveTextContent("Local file import arrives in M2.");
+    expect(later.querySelector("[data-i18n-placeholder]")).toBeNull();
+  });
+
   it("persists the preference and restores it on the next mount", async () => {
     const port = createMemoryLanguagePort({preference: "system", systemLocale: "zh-CN"});
     const first = render(

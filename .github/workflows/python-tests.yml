@@ -43,5 +43,9 @@ jobs:
           cache: pip
       - name: Install package with dev extras
         run: pip install -e ".[dev]"
+      - name: Check the common-word list matches wordfreq
+        run: python scripts/gen_common_words.py --check
+      - name: Check the US listing snapshot hash
+        run: python scripts/gen_us_listings.py --check
       - name: Run pytest (skip network-marked tests)
         run: python -m pytest -q -m "not network"

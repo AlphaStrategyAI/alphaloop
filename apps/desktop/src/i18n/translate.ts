@@ -25,6 +25,21 @@ function isCount(value: string | number): boolean {
   return /^\d+(?:\.\d+)?$/.test(value);
 }
 
+/** English count words derived from numeric params. Chinese templates do not reference them. */
+function withCountWords(params: MessageParams): MessageParams {
+  const extra: MessageParams = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (!isCount(value)) continue;
+    const one = Number(value) === 1;
+    extra[`${key}Noun`] = one ? "name" : "names";
+    extra[`${key}SymbolNoun`] = one ? "symbol" : "symbols";
+    extra[`${key}Remain`] = one ? "remains" : "remain";
+    extra[`${key}Isnt`] = one ? "isn't" : "aren't";
+    extra[`${key}It`] = one ? "it" : "them";
+  }
+  return {...extra, ...params};
+}
+
 /** English uses `one` only for 1. Zero and every other count use `other`. Chinese does not branch. */
 export function pluralCategory(locale: Locale, value: string | number): "one" | "other" {
   if (locale === "en" && Number(value) === 1) return "one";
@@ -100,10 +115,11 @@ export function applyPlurals(template: string, params: MessageParams | undefined
 }
 
 export function interpolate(template: string, params?: MessageParams, locale: Locale = "en"): string {
-  const expanded = applyPlurals(template, params, locale);
-  if (!params) return expanded;
+  const values = params ? withCountWords(params) : undefined;
+  const expanded = applyPlurals(template, values, locale);
+  if (!values) return expanded;
   return expanded.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (match, name: string) => {
-    const value = params[name];
+    const value = values[name];
     return value === undefined ? match : String(value);
   });
 }

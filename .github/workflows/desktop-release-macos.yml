@@ -130,6 +130,11 @@ jobs:
               print(sidecar.read_text(), end="")
           PY
           ls -la "$OUT"
+          if ! find "$APP" -name NOTICE | grep -q NOTICE; then
+            echo "NOTICE is missing from the macOS app bundle"
+            find "$APP" -maxdepth 4 -type d || true
+            exit 1
+          fi
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

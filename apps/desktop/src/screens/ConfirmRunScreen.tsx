@@ -168,7 +168,34 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
 }
 
 export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "confirm_run"}>}) {
-  const {t} = useI18n();
+  const {t, resolved} = useI18n();
+  const resolution = view.symbolResolution ?? null;
+  const listSep = resolved === "zh" ? "、" : ", ";
+  const localeList = (value: string | null | undefined) =>
+    (value ?? "").split("、").filter(Boolean).join(listSep);
+  const seeded = resolution
+    ? resolution.symbols.length
+      ? resolution.symbols.join(listSep)
+      : localeList(resolution.token)
+    : "";
+  const [symbolDraft, setSymbolDraft] = useState(seeded);
+  const [saving, setSaving] = useState(false);
+  const saveChain = useRef(Promise.resolve());
+  useEffect(() => {
+    setSymbolDraft(seeded);
+  }, [seeded, view.researchId]);
+  const commitSymbol = (value: string) => {
+    const text = value.trim();
+    if (text === seeded.trim()) return Promise.resolve();
+    setSaving(true);
+    const job = saveChain.current.then(() => api.setResearchSymbol(view.researchId, text));
+    saveChain.current = job.then(
+      () => undefined,
+      () => undefined,
+    );
+    return job.finally(() => setSaving(false));
+  };
+  const exchangeDigits = resolution?.token?.match(/\d{6}/)?.[0];
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const editSlot = (slot: BriefSlotName) => {
     void api.unlockBrief(view.researchId, slot).then(() => {
@@ -192,11 +219,12 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const returnToDraft = () => {
     void api.unlockBrief(view.researchId);
   };
+  const dirty = symbolDraft.trim() !== seeded.trim();
+  const marketPending = Boolean(view.marketChoice?.pending);
+  const runBlocked = (Boolean(resolution?.blocked) && !dirty) || marketPending;
   const offeredId = sel?.offeredDataSourceId ?? "";
   const catalog = sel?.priceSources ?? [];
   const catalogMode = catalog.length > 0;
-  // Preselection is dataSourcePending / dataSourceId from the engine. This
-  // screen does not re-decide it, and it does not remember a previous pick.
   const selectedId = pickedSource || (sel?.dataSourcePending ? "" : sel?.dataSourceId || "");
   const selectedChoice = catalog.find((item) => item.id === selectedId);
   const unlicensedIds = new Set(["yahoo_daily", "akshare_sina_daily"]);
@@ -205,24 +233,67 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     ? Boolean(selectedChoice?.unlicensed && !selectedChoice.acknowledgedAt)
     : unlicensedIds.has(selectedId) && !alreadyAcked;
   const mustPick = catalogMode || sel?.dataSourcePending === true || sel?.unlicensedAcknowledgementRequired === true;
-  const canRun = (!mustPick || Boolean(selectedId)) && (!ackRequired || acked);
+  const canRun = (!mustPick || Boolean(selectedId)) && (!ackRequired || acked) && !runBlocked;
   const startRun = () => {
     if (startingRef.current || !canRun) return;
     startingRef.current = true;
     setStarting(true);
     setRunError(null);
-    void api
-      .confirmRun(view.researchId, {
-        dataSourceId: selectedId || undefined,
-        unlicensedAcknowledged: ackRequired ? true : undefined,
-      })
-      .catch((error: unknown) => {
+    void (async () => {
+      try {
+        if (symbolDraft.trim() !== seeded.trim()) {
+          await commitSymbol(symbolDraft);
+        }
+        await api.confirmRun(view.researchId, {
+          dataSourceId: selectedId || undefined,
+          unlicensedAcknowledged: ackRequired ? true : undefined,
+        });
+      } catch (error: unknown) {
         setRunError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
+      } finally {
         startingRef.current = false;
         setStarting(false);
+      }
+    })();
+  };
+  const blockMessage = () => {
+    if (!resolution?.blocked) return null;
+    if (resolution.code === "SYMBOL_NO_DATA") {
+      return t("ui.confirm.noData", {symbol: localeList(resolution.symbol)});
+    }
+    if (resolution.code === "SYMBOL_ETF_UNSUPPORTED") {
+      return t("ui.confirm.etfUnsupported", {symbol: localeList(resolution.symbol)});
+    }
+    if (resolution.code === "SYMBOL_MIXED_MARKETS") {
+      return t("ui.confirm.mixedMarkets", {
+        cn_symbols: localeList(resolution.cnSymbols),
+        us_symbols: localeList(resolution.usSymbols),
       });
+    }
+    if (resolution.code === "SYMBOL_MARKET_MISMATCH") {
+      const mismatches = resolution.mismatches ?? [];
+      const market = t(resolution.mismatchMarket === "US" ? "ui.confirm.marketUs" : "ui.confirm.marketCn");
+      return t("ui.confirm.marketMismatch", {
+        market,
+        symbols: mismatches.join(listSep),
+        n: mismatches.length || 1,
+      });
+    }
+    if (
+      resolution.code === "SYMBOL_ASK_PENDING"
+      || resolution.code === "SYMBOL_AMOUNT_LIKE"
+      || resolution.code === "MARKET_CHOICE_PENDING"
+    ) {
+      return null;
+    }
+    return t("ui.confirm.unresolved", {token: localeList(resolution.token)});
+  };
+  const asks = resolution?.asks ?? [];
+  const answers = resolution?.answers ?? [];
+  const hints = (resolution?.hints ?? []).slice(0, 3);
+  const removeRecognized = (symbol: string) => {
+    const rest = (resolution?.symbols ?? []).filter((item) => item !== symbol);
+    void api.setResearchSymbol(view.researchId, rest.join(listSep));
   };
   return (
     <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
@@ -239,6 +310,37 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <p>{t("ui.confirm.policy3")}</p>
         </div>
       </details>
+      {view.marketChoice?.pending && (
+        <section data-testid="market-choice">
+          <p>{t("ui.confirm.marketChoice")}</p>
+          <button
+            type="button"
+            className="text-button"
+            data-testid="market-choice-cn"
+            aria-pressed={false}
+            onClick={() => api.chooseDefaultMarket(view.researchId, "CN")}
+          >
+            {t("ui.confirm.marketChoiceCn", {cn_count: view.marketChoice.cnCount})}
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            data-testid="market-choice-us"
+            aria-pressed={false}
+            onClick={() => api.chooseDefaultMarket(view.researchId, "US")}
+          >
+            {t("ui.confirm.marketChoiceUs", {us_count: view.marketChoice.usCount})}
+          </button>
+        </section>
+      )}
+      {view.marketSwitch && (
+        <p className="confirm-lead" data-testid="market-switch-notice">
+          {t("ui.confirm.marketSwitched", {
+            market: t(view.marketSwitch.market === "US" ? "ui.confirm.marketUs" : "ui.confirm.marketCn"),
+            benchmark: view.marketSwitch.benchmark,
+          })}
+        </p>
+      )}
       {view.meanReversionOnlyNotice && (
         <p className="confirm-lead" data-testid="mean-reversion-only-notice">
           {copyText(view.meanReversionOnlyNotice)}
@@ -257,6 +359,186 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             params={view.confirmDataNoticeParams}
           />
         </p>
+      )}
+      {resolution?.editable && (
+        <section className="confirm-data-panel symbol-resolution" data-testid="symbol-resolution">
+          {resolution.inferred.length > 0 && (
+            <p data-testid="symbol-recognition">
+              {t("ui.confirm.recognized", {
+                symbol: resolution.inferred.map((item) => item.symbol).join(listSep),
+              })}
+              {resolution.inferred.map((item) => (
+                <button
+                  key={item.symbol}
+                  type="button"
+                  className="text-button symbol-remove"
+                  data-testid={`symbol-remove-${item.symbol}`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => removeRecognized(item.symbol)}
+                >
+                  {t("ui.confirm.removeSymbol", {symbol: item.symbol})}
+                </button>
+              ))}
+            </p>
+          )}
+          {asks.map((ask) => (
+            <div key={ask.token} className="symbol-ask" data-testid="symbol-ask" data-ask-kind={ask.kind ?? "ask"}>
+              <p>
+                {ask.kind === "amount"
+                  ? t("ui.confirm.amountAsk", {token: ask.token, symbol: ask.symbol})
+                  : ask.kind === "finance"
+                    ? t("ui.confirm.financeAsk", {token: ask.token, symbol: ask.symbol})
+                    : ask.token.toUpperCase() === ask.symbol.toUpperCase()
+                      ? t("ui.confirm.symbolAskSame", {symbol: ask.symbol})
+                      : t("ui.confirm.symbolAsk", {token: ask.token, symbol: ask.symbol})}
+              </p>
+              <button
+                type="button"
+                className="text-button"
+                data-testid={`symbol-ask-yes-${ask.token}`}
+                onClick={() => api.answerSymbolAsk(view.researchId, ask.token, true)}
+              >
+                {t("ui.confirm.useAsSymbol")}
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                data-testid={`symbol-ask-no-${ask.token}`}
+                onClick={() => api.answerSymbolAsk(view.researchId, ask.token, false)}
+              >
+                {t("ui.confirm.justText")}
+              </button>
+            </div>
+          ))}
+          {answers.map((answer) => (
+            <p key={answer.token} data-testid="symbol-ask-answered">
+              {answer.accept
+                ? t("ui.confirm.usedAsSymbol", {symbol: answer.symbol})
+                : t("ui.confirm.treatedAsText", {token: answer.token})}
+              <button
+                type="button"
+                className="text-button"
+                data-testid={`symbol-ask-change-${answer.token}`}
+                onClick={() => api.revertSymbolAsk(view.researchId, answer.token)}
+              >
+                {t("ui.confirm.changeAnswer")}
+              </button>
+            </p>
+          ))}
+          {(resolution?.unrecognized ?? []).map((item) => (
+            <p key={item.token} data-testid={`symbol-unrecognized-${item.token}`}>
+              {t("ui.confirm.unrecognizedTicker", {token: item.token})}
+            </p>
+          ))}
+          {hints.length === 1 && (
+            <div className="symbol-pool-hint" data-testid="symbol-pool-hint">
+              <p>
+                {t((resolution?.poolCount ?? 0) === 1 ? "ui.confirm.poolHintOne" : "ui.confirm.poolHint", {
+                  n: resolution?.poolCount ?? 0,
+                  symbol: hints[0].symbol,
+                })}
+              </p>
+              <button
+                type="button"
+                className="text-button"
+                data-testid="symbol-hint-use"
+                onClick={() => api.useHintedSymbol(view.researchId, hints[0].symbol)}
+              >
+                {t("ui.confirm.setAsSymbol")}
+              </button>
+            </div>
+          )}
+          {hints.length > 1 && (
+            <div className="symbol-pool-hint" data-testid="symbol-pool-hint">
+              <p>
+                {t((resolution?.poolCount ?? 0) === 1 ? "ui.confirm.poolHintManyOne" : "ui.confirm.poolHintMany", {
+                  n: resolution?.poolCount ?? 0,
+                })}
+              </p>
+              {hints.map((hint, index) => (
+                <button
+                  key={hint.token}
+                  type="button"
+                  className="text-button"
+                  data-testid={`symbol-hint-use-${index + 1}`}
+                  onClick={() => api.useHintedSymbol(view.researchId, hint.symbol)}
+                >
+                  {hint.symbol} {t("ui.confirm.setAsSymbol")}
+                </button>
+              ))}
+            </div>
+          )}
+          {resolution?.code === "SYMBOL_MARKET_MISMATCH" &&
+            (resolution.mismatches ?? []).map((symbol) => (
+              <button
+                key={symbol}
+                type="button"
+                className="text-button"
+                data-testid={`symbol-remove-mismatch-${symbol}`}
+                onClick={() => api.dismissMismatchedSymbol(view.researchId, symbol)}
+              >
+                {t("ui.confirm.removeSymbol", {symbol})}
+              </button>
+            ))}
+          {resolution?.code === "SYMBOL_MIXED_MARKETS" && (
+            <div data-testid="symbol-mixed-actions">
+              <button
+                type="button"
+                className="text-button"
+                data-testid="symbol-remove-cn"
+                onClick={() => api.removeMarketSide(view.researchId, "cn")}
+              >
+                {t("ui.confirm.removeCn")}
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                data-testid="symbol-remove-us"
+                onClick={() => api.removeMarketSide(view.researchId, "us")}
+              >
+                {t("ui.confirm.removeUs")}
+              </button>
+            </div>
+          )}
+          {blockMessage() && (
+            <p className="confirm-data-notice" data-testid="symbol-block-error" role="alert">
+              {blockMessage()}
+            </p>
+          )}
+          <label className="symbol-edit-label">
+            <span>{t("ui.confirm.symbolEdit")}</span>
+            <input
+              data-testid="symbol-edit"
+              value={symbolDraft}
+              aria-label={t("ui.confirm.symbolEdit")}
+              onChange={(event) => setSymbolDraft(event.target.value)}
+              onBlur={() => {
+                void commitSymbol(symbolDraft);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void commitSymbol(symbolDraft);
+                }
+              }}
+            />
+          </label>
+          {resolution.blocked && resolution.code === "SYMBOL_UNRESOLVED" && exchangeDigits && (
+            <div role="group" aria-label={t("ui.confirm.pickExchange")}>
+              {(["SH", "SZ", "BJ"] as const).map((suffix) => (
+                <button
+                  key={suffix}
+                  type="button"
+                  className="text-button"
+                  data-testid={`symbol-pick-${suffix}`}
+                  onClick={() => api.setResearchSymbol(view.researchId, `${exchangeDigits}.${suffix}`)}
+                >
+                  .{suffix}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
       )}
       {sel && (
         <section className="confirm-data-panel" data-testid="symbol-selection">
@@ -322,6 +604,13 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                       {t("glossary.unlicensed")}
                     </span>
                   )}
+                  {item.unlicensed && item.acknowledgedAt && (
+                    <span data-testid="unlicensed-ack-done">
+                      {t("ui.confirm.unlicensedAcked", {
+                        date: formatResearchTimestamp(item.acknowledgedAt),
+                      })}
+                    </span>
+                  )}
                 </label>
               ))}
             </div>
@@ -360,13 +649,6 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
               <span>{t("ui.confirm.unlicensedAck")}</span>
             </label>
           )}
-          {selectedChoice?.unlicensed && selectedChoice.acknowledgedAt && (
-            <p className="confirm-data-footnote" data-testid="unlicensed-ack-done">
-              {t("ui.confirm.unlicensedAcked", {
-                date: formatResearchTimestamp(selectedChoice.acknowledgedAt),
-              })}
-            </p>
-          )}
           {!catalogMode && alreadyAcked && selectedId && sel.unlicensedAcknowledgedAt && (
             <p className="confirm-data-footnote" data-testid="unlicensed-ack-done">
               {t("ui.confirm.unlicensedAcked", {
@@ -401,11 +683,17 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         </p>
       )}
       <div className="actions confirm-actions">
+        {asks.length > 0 && (
+          <p className="confirm-data-notice" data-testid="symbol-ask-block-hint">
+            {t("ui.confirm.askBeforeRun")}
+          </p>
+        )}
         <button
           className="cyan-button"
           data-testid="confirm-run-start"
-          disabled={starting || !canRun}
-          aria-busy={starting}
+          disabled={starting || saving || !canRun}
+          aria-busy={starting || saving}
+          onMouseDown={(event) => event.preventDefault()}
           onClick={startRun}
         >
           {starting ? t("ui.confirm.starting") : t("glossary.run")}

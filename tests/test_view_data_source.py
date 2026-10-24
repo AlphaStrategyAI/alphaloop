@@ -102,9 +102,13 @@ def test_view_source_follows_symbols_and_does_not_probe(
 
 
 def test_confirm_pin_uses_the_same_symbol_mapping() -> None:
+    from engine.research.user_errors import UserFacingError
+
     symbols = ("600519.SH", "000858.SZ")
-    research = _confirm_draft("r-pin", Market.US, symbols)
-    updated = ensure_runnable_universe(research)
     assert data_source_id_for_symbols(symbols, Market.US) == AKSHARE_SINA_DATA_SOURCE_ID
     assert data_source_id_for_symbols(("AAPL", "MSFT"), Market.US) == "yahoo_daily"
+    updated = ensure_runnable_universe(_confirm_draft("r-pin", Market.CN, symbols))
     assert updated.data_source_id == ""
+    with pytest.raises(UserFacingError) as exc:
+        ensure_runnable_universe(_confirm_draft("r-pin-us", Market.US, symbols))
+    assert exc.value.code == "SYMBOL_MARKET_MISMATCH"

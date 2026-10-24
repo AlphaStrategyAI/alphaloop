@@ -6,6 +6,7 @@ from enum import StrEnum
 from typing import Any
 
 from engine.dialogue.prompts import QUESTIONS, SlotName
+from engine.research.coverage_parse import merge_coverage_floor
 from engine.research.models import (
     AssetClass,
     CoverageFloor,
@@ -14,7 +15,8 @@ from engine.research.models import (
     Research,
     Universe,
 )
-from engine.research.coverage_parse import merge_coverage_floor, parse_coverage_parts
+from engine.research.symbol_identity import extract_symbol_mentions
+from engine.research.symbol_mentions import universe_with_mentions
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT
 
 
@@ -44,20 +46,17 @@ METHOD_WORDS = {
 }
 
 
-def _extract_tickers(text: str) -> tuple[str, ...]:
-    found: list[str] = []
-    for token in re.split(r"[、,，\s]+", text):
-        token = token.strip().upper()
-        if re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z])?", token):
-            found.append(token)
-        elif re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", token):
-            found.append(token)
-    return tuple(dict.fromkeys(found))
+def _cn_mention(mention: object) -> bool:
+    raw = getattr(mention, "raw", "")
+    canonical = getattr(mention, "canonical", None) or ""
+    if re.fullmatch(r"\d{6}(?:\.[A-Za-z]{2})?", raw):
+        return True
+    return canonical.endswith((".SH", ".SZ", ".BJ"))
 
 
 def _parse_universe(message: str) -> Universe | None:
     market = Market.US if re.search(r"美股|美国|US", message, re.IGNORECASE) else None
-    market = Market.CN if re.search(r"A股|中国|沪深|CN", message, re.IGNORECASE) else market
+    market = Market.CN if re.search(r"A\s*股|中国|沪深|CN", message, re.IGNORECASE) else market
     if re.search(r"基金|ETF", message, re.IGNORECASE):
         asset = AssetClass.FUND
         underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
@@ -70,18 +69,20 @@ def _parse_universe(message: str) -> Universe | None:
     else:
         asset = None
         underlying = None
+    mentions = extract_symbol_mentions(message)
+    if market is None and any(_cn_mention(mention) for mention in mentions):
+        market = Market.CN
+    if market is None and any(mention.canonical and not _cn_mention(mention) for mention in mentions):
+        market = Market.US
+    if asset is None and mentions:
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
     if market is None or asset is None or underlying is None:
         return None
-    tickers = _extract_tickers(message)
-    if tickers:
-        return Universe(
-            market,
-            asset,
-            underlying,
-            tickers,
-            user_symbols_override=True,
-        )
-    return Universe(market, asset, underlying, ())
+    blank = Universe(market, asset, underlying, ())
+    if mentions:
+        return universe_with_mentions(blank, mentions)
+    return blank
 
 
 def _parse_hours(message: str) -> float | None:
@@ -119,13 +120,34 @@ def _parse_methods(message: str) -> tuple[MethodRef, ...]:
 _STRATEGY_HINT = re.compile(
     r"均值|回归|动量|套利|波动|多空|轮动|价值|成长|利差|收缩|修复|量价"
 )
-_MARKET_HINT = re.compile(r"美股|美国|A股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
+_MARKET_HINT = re.compile(r"美股|美国|A\s*股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
 
 
 def _thesis_acceptable(message: str) -> bool:
     if _parse_universe(message) is not None:
         return True
-    return bool(_STRATEGY_HINT.search(message) and _MARKET_HINT.search(message))
+    # A strategy with no named market is still a thesis. The card asks which
+    # market's default pool to use. Nothing is preselected.
+    return _STRATEGY_HINT.search(message) is not None
+
+
+def _universe_for_thesis(text: str) -> Universe | None:
+    parsed = _parse_universe(text)
+    if parsed is not None:
+        return parsed
+    if _STRATEGY_HINT.search(text) is None:
+        return None
+    blank = Universe(
+        Market.CN,
+        AssetClass.EQUITY,
+        AssetClass.EQUITY,
+        (),
+        market_unspecified=True,
+    )
+    mentions = extract_symbol_mentions(text)
+    if not mentions:
+        return blank
+    return universe_with_mentions(blank, mentions)
 
 
 def _parse_thesis(message: str) -> str | None:
@@ -141,7 +163,7 @@ def _fill_slot(active: SlotName, text: str) -> list[tuple[str, Any]]:
         thesis = _parse_thesis(text)
         if thesis:
             updates.append(("thesis", thesis))
-        universe = _parse_universe(text)
+        universe = _universe_for_thesis(text)
         if universe is not None:
             updates.append(("universe", universe))
     elif active is SlotName.UNIVERSE:
@@ -170,7 +192,7 @@ def _extras_from_any_slot(text: str, brief_filled: set[str]) -> list[tuple[str, 
         if thesis and _parse_universe(text) is None:
             pass
     if "universe" not in brief_filled:
-        universe = _parse_universe(text)
+        universe = _universe_for_thesis(text) if "thesis" not in brief_filled else _parse_universe(text)
         if universe is not None:
             extras.append(("universe", universe))
     if "max_effective_hours" not in brief_filled:

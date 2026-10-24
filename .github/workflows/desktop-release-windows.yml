@@ -120,6 +120,11 @@ jobs:
             exit 1
           fi
           echo "NSIS installs $main"
+          if ! find apps/desktop/src-tauri/target/release -name NOTICE | grep -q NOTICE; then
+            echo "NOTICE is missing from the Windows bundle tree"
+            find apps/desktop/src-tauri/target/release/bundle -maxdepth 3 -type d || true
+            exit 1
+          fi
           cp "$exe" "release-artifacts/alphaloop_${VERSION}_windows_x64-setup.exe"
           python - "$VERSION" <<'PY'
           import hashlib, pathlib, sys
