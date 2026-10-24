@@ -26,7 +26,7 @@ def test_format_universe_display_with_symbols():
         underlying_asset_class=AssetClass.BOND,
         symbols=("000001", "000002"),
     )
-    assert format_universe_display(u) == "A股 · 债券（000001、000002）"
+    assert format_universe_display(u) == "A 股 · 债券（000001、000002）"
 
 
 def test_format_coverage_vs_floor_uses_readable_floor_not_repr() -> None:

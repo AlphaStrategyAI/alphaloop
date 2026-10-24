@@ -265,6 +265,7 @@ export const FINAL_MESSAGE_KEYS = [
   "ui.confirm.removeUs",
   "ui.confirm.removeSymbol",
   "ui.confirm.symbolAskSame",
+  "ui.confirm.financeAskSame",
   "ui.confirm.marketUs",
   "ui.confirm.marketCn",
   "ui.confirm.marketSwitched",

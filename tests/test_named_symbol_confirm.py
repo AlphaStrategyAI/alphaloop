@@ -735,7 +735,7 @@ def test_stated_market_mismatch_blocks_before_a_source_is_chosen(tmp_path: Path)
         service.handle({"type": "confirm_run", "research_id": research_id})
     assert exc.value.code == "SYMBOL_MARKET_MISMATCH"
     assert exc.value.message == (
-        "描述里的市场是A股，但 CAPS 不属于这个市场。请删掉这些代码，或改成对应的市场。"
+        "描述里的市场是A 股，但 CAPS 不属于这个市场。请删掉这些代码，或改成对应的市场。"
     )
     service.handle(
         {"type": "dismiss_mismatched_symbol", "research_id": research_id, "symbol": "CAPS"}

@@ -28,7 +28,7 @@ def _load_pool_file(path: Path) -> SymbolPool:
     raw = json.loads(path.read_text(encoding="utf-8"))
     return SymbolPool(
         version_id=str(raw["version_id"]),
-        display_name=str(raw["display_name"]),
+        display_name=str(raw["display_name"]).replace("A股", "A 股"),
         generated_date=str(raw["generated_date"]),
         market=Market(raw["market"]),
         asset_class=AssetClass(raw["asset_class"]),
@@ -103,7 +103,7 @@ def _empty_pool_dialogue_prompt() -> str:
     us = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
     cn = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
     us_text = _pool_prompt_label(us, "美股大市值")
-    cn_text = _pool_prompt_label(cn, "A股大市值")
+    cn_text = _pool_prompt_label(cn, "A 股大市值")
     return (
         f"要用哪组标的？默认：{us_text}或 {cn_text}，也可以说「600519.SH」或「SPY、QQQ」。"
     )

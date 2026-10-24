@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {enCatalog, isFinalMessageKey} from "./catalog";
+import {enCatalog, isFinalMessageKey, zhCatalog} from "./catalog";
 import {localizeKnownCopy} from "./productCopy";
 import {translate} from "./translate";
 
@@ -24,6 +24,26 @@ const CN_LIST = "A 股大市值池 · 300 只 · 名单日 2026-10-19";
 const V1_LINE = "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池";
 
 describe("catalog keys for secrets and previously hardcoded product copy", () => {
+  it("keeps the signed-off same-token finance ask final", () => {
+    expect(isFinalMessageKey("ui.confirm.financeAskSame")).toBe(true);
+    expect(zhCatalog.ui.confirm.financeAskSame).toBe(
+      "{{symbol}} 是美股代码，也是金融缩写。要把它当作标的吗？",
+    );
+    expect(enCatalog.ui.confirm.financeAskSame).toBe(
+      "{{symbol}} is a US ticker and also a finance abbreviation. Use it as a symbol?",
+    );
+  });
+
+  it("uses a half-width space in every zh UI string that names A-shares", () => {
+    for (const [key, text] of leaves(zhCatalog)) {
+      expect(text, key).not.toMatch(/A股/);
+    }
+    expect(zh("A股 · 股票")).toBe("A 股 · 股票");
+    expect(zh("A 股 · 股票")).toBe("A 股 · 股票");
+    expect(en("A股 · 股票")).toBe("China A-shares · equities");
+    expect(en("A 股 · 股票")).toBe("China A-shares · equities");
+  });
+
   it("keeps the secrets rail and panel strings in both languages", () => {
     expect(translate("zh", "ui.secrets.open")).toBe("密钥");
     expect(translate("en", "ui.secrets.open")).toBe("Secrets");

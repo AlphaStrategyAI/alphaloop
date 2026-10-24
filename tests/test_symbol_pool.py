@@ -12,7 +12,7 @@ def test_us_equity_large_cap_v1_stays_forty_symbols() -> None:
 def test_cn_equity_large_cap_v1_includes_moutai() -> None:
     pool = pool_by_version("cn_equity_large_cap_v1")
     assert pool is not None
-    assert pool.display_name == "A股大市值"
+    assert pool.display_name == "A 股大市值"
     assert "600519.SH" in pool.symbols
     assert len(pool.symbols) == 40
 

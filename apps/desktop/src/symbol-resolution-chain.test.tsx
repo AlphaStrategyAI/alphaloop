@@ -702,7 +702,7 @@ describe("symbol resolution call chain", () => {
     };
     const zh = renderCard(ZH, mismatch);
     expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
-      "描述里的市场是A股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
+      "描述里的市场是A 股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
     );
     expect(screen.getByTestId("symbol-remove-mismatch-CAPS")).toHaveTextContent("移除 CAPS");
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();

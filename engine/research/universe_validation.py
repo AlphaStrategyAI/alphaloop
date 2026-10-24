@@ -99,7 +99,7 @@ def _market_label(market: object) -> tuple[str, str]:
 
     if market is Market.US:
         return "美股", "US stocks"
-    return "A股", "China A-shares"
+    return "A 股", "China A-shares"
 
 
 def reject_market_mismatches(research: Research) -> None:
