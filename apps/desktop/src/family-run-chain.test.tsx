@@ -9,6 +9,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 import {bindDesktopApi} from "./api-bind";
 import {confirmRunEnginePayload} from "./confirmRunCommand";
 import type {DesktopApi, DesktopView} from "./contracts";
+import {enCatalog, isFinalMessageKey, zhCatalog} from "./i18n/catalog";
 import {I18nProvider} from "./i18n/I18nProvider";
 import {localizeKnownCopy} from "./i18n/productCopy";
 import {translate} from "./i18n/translate";
@@ -210,6 +211,57 @@ describe("family run gate on the confirm card", () => {
   });
 });
 
+const QUESTION =
+  "V1 only supports cross-sectional mean reversion (reversal). Your thesis will be recorded but won't change the strategy. Continue with mean reversion?";
+
+describe("disclosed family stays disabled until the user answers yes", () => {
+  it("keeps Run disabled before the answer and sends confirm_run after", () => {
+    const before = card({
+      settings: {
+        thesis: "美股低波策略",
+        universe: "美股 · 股票",
+        max_effective_hours: "12 小时",
+        round1_methods: "换手成本",
+        coverage_floor: "至少 1 个标的",
+      },
+      meanReversionOnlyNotice:
+        "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？",
+      runGate: {runnable: false, code: "MEAN_REVERSION_ACK_REQUIRED"},
+    });
+    const {payloads, rerender, bound} = renderCard(EN, before);
+    const blocked = screen.getByTestId("confirm-run-start");
+    expect(blocked).toBeDisabled();
+    expect(blocked).toHaveAttribute("data-run-blocked", "ack");
+    expect(screen.getByTestId("mean-reversion-only-notice")).toHaveTextContent("Continue with mean reversion");
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(QUESTION);
+    fireEvent.click(blocked);
+    expect(payloads).toEqual([]);
+
+    rerender(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={bound} view={card({
+          settings: before.settings,
+          meanReversionOnlyNotice:
+            "策略族：均值回归（V1 唯一）· 论点文字仅作记录，不改变策略",
+          runGate: {runnable: false, code: "DATA_SOURCE_UNBOUND"},
+        })} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
+    const ready = screen.getByTestId("confirm-run-start");
+    expect(ready).toBeEnabled();
+    expect(screen.queryByTestId("confirm-run-blocked-reason")).toBeNull();
+    fireEvent.click(ready);
+    expect(payloads).toEqual([
+      {
+        type: "confirm_run",
+        research_id: "r-family",
+        data_source_id: "yahoo_daily",
+      },
+    ]);
+  });
+});
+
 describe("completed result chip and metrics", () => {
   it("shows the result, not the check name, and the two metrics in both languages", () => {
     render(
@@ -251,9 +303,25 @@ describe("English surfaces that used to render engine Chinese", () => {
     expect(en("原理想靠什么赚钱？例如：美股大市值股票的均值回归。")).not.toMatch(CJK);
     expect(en("没能理解你的意思。原理想靠什么赚钱？例如：美股大市值股票的均值回归。")).not.toMatch(CJK);
     expect(en("变更：延续锁定论点下的参数/模型迭代")).toBe(
-      "Change: Parameter and model iteration under the locked thesis",
+      "Change: Continue parameter and model iteration under the locked thesis",
     );
     expect(en("未命名研究")).toBe("Untitled study");
+    expect(enCatalog.ui.completed.maxDrawdown).toBe(enCatalog.ui.surface.drawdownName);
+    expect(zhCatalog.ui.completed.maxDrawdown).toBe(zhCatalog.ui.surface.drawdownName);
+    expect(enCatalog.ui.completed.excessAnn).toBe("Annualized excess return");
+    expect(enCatalog.errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE).toBe(
+      "This strategy family can't run yet.",
+    );
+    for (const key of [
+      "ui.completed.excessAnn",
+      "ui.completed.maxDrawdown",
+      "errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE",
+      "ui.copy.meanReversionQuestion",
+      "ui.surface.pitPurpose",
+      "ui.glossaryBody.pit",
+    ] as const) {
+      expect(isFinalMessageKey(key), key).toBe(true);
+    }
     expect(en("试验次数（X/N）与累计 M")).not.toMatch(CJK);
 
     render(

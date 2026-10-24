@@ -13,9 +13,10 @@ from pathlib import Path
 from typing import Any
 
 from engine.research.a1_copy import DATA_SOURCE_UNBOUND, STRATEGY_FAMILY_NOT_RUNNABLE
+from engine.research.family_intent import classify_thesis
 from engine.research.models import Research
 from engine.research.source_acknowledgement import acknowledged_at, is_unlicensed_source
-from engine.research.thesis_scope import thesis_is_blocked_family
+from engine.research.thesis_scope import MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ONLY_NOTICE
 from engine.research.universe_pool import pool_resolvable
 from engine.research.universe_validation import (
     reject_market_mismatches,
@@ -66,9 +67,18 @@ def evaluate_run_gate(
         except UserFacingError as error:
             return _from_error(error)
 
-    thesis = research.brief.thesis.value if research.brief.thesis.value else ""
-    if thesis_is_blocked_family(str(thesis)) and not research.mean_reversion_adopted:
+    thesis = str(research.brief.thesis.value or "")
+    hit = classify_thesis(thesis)
+    repick = research.repicked_family
+    if repick == "mean_reversion":
+        pass
+    elif repick:
+        if not research.mean_reversion_adopted:
+            return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ONLY_NOTICE)
+    elif hit.outcome == "block":
         return RunGate(False, "STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
+    elif hit.outcome == "disclose" and not research.mean_reversion_adopted:
+        return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ONLY_NOTICE)
 
     source = data_source_id.strip()
     if pool_resolvable(research) and not source:

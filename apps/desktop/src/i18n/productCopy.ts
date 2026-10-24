@@ -36,6 +36,8 @@ const EXACT: Record<string, MessageKey> = {
   "未命名研究": "ui.list.untitled",
   "延续锁定论点下的参数/模型迭代": "ui.copy.lockedIteration",
   "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？": "ui.copy.meanReversionQuestion",
+  "原述未采纳，方向与原话不同。相对你的原话，经济逻辑已改成这一族。": "ui.copy.familyRepick",
+  "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。": "ui.dialogue.familyFollowUp",
   "原理想靠什么赚钱？例如：美股大市值股票的均值回归。": "ui.dialogue.askThesis",
   "研究哪类资产？例如：美股股票；也可以说「SPY、QQQ」指定标的。": "ui.dialogue.askUniverse",
   "最多允许多少有效研究时间？例如：12 小时，或 30 分钟。暂停和等待确认不计时。": "ui.dialogue.askHours",

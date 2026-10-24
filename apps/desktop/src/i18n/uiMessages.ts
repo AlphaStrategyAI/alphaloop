@@ -63,7 +63,7 @@ export function buildUiMessages(copy: Copy) {
         "I will ask about the thesis, assets, time, methods, and coverage floor. When they are complete, you confirm the run.",
       ),
       placeholder: copy("把方向说清楚，不用填表。", "Say what you want. No form to fill in."),
-      misunderstood: copy("没能理解你的意思。", "I could not tell what you meant. "),
+      misunderstood: copy("没能理解你的意思。", "I couldn't understand that. "),
       askThesis: copy(
         "原理想靠什么赚钱？例如：美股大市值股票的均值回归。",
         "What is the idea supposed to make money from? For example: mean reversion in US large-cap stocks.",
@@ -82,15 +82,19 @@ export function buildUiMessages(copy: Copy) {
       ),
       askCoverage: copy(
         "最低数据覆盖？例如：至少 25 个、10 年、缺失不超过 5%。",
-        "What is the minimum data coverage? For example: at least 25 names, 10 years, missing no more than 5%.",
+        "What is the minimum data coverage? For example: at least 25 names, 10 years of history, and no more than 5% missing.",
       ),
       unlockOnCard: copy(
         "在确认开跑卡上点「改一改」即可调整单项设定。",
-        "Use Edit again on the confirm card to change one setting.",
+        "To change a single setting, click Edit on the confirmation card.",
       ),
       slotsReady: copy(
         "五项研究设定已齐全，请检查确认开跑卡。",
-        "The five settings are filled in. Check the confirm card.",
+        "All five study settings are filled in. Review the confirmation card.",
+      ),
+      familyFollowUp: copy(
+        "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。",
+        "That didn't match a supported strategy family. You can say low volatility, stock-bond rebalance, mean reversion, fundamental factor, or all weather.",
       ),
     },
     confirm: {
@@ -708,11 +712,15 @@ export function buildUiMessages(copy: Copy) {
       ),
       lockedIteration: copy(
         "延续锁定论点下的参数/模型迭代",
-        "Parameter and model iteration under the locked thesis",
+        "Continue parameter and model iteration under the locked thesis",
+      ),
+      familyRepick: copy(
+        "原述未采纳，方向与原话不同。相对你的原话，经济逻辑已改成这一族。",
+        "The original thesis was not adopted, and the direction differs from what you said. Relative to your original words, the economic logic is now this family.",
       ),
       meanReversionQuestion: copy(
         "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？",
-        "V1 only runs cross-sectional mean reversion (reversal). Your thesis is recorded and does not change the strategy. Continue as mean reversion?",
+        "V1 only supports cross-sectional mean reversion (reversal). Your thesis will be recorded but won't change the strategy. Continue with mean reversion?",
       ),
     },
     glossaryBody: {
@@ -722,11 +730,11 @@ export function buildUiMessages(copy: Copy) {
       costTerm: copy("成本（bp）", "Cost (bp)"),
       pit: copy(
         "确保证据与回测只使用决策当时可获得的信息，杜绝前视偏差。",
-        "Evidence and the backtest use only information that was available when the decision was made, so there is no lookahead.",
+        "Evidence and backtests use only information that was available when each decision was made, which rules out look-ahead bias.",
       ),
       trials: copy(
         "「本版本 1/5 轮」这种写法里，斜线前是当前版本已经跑过的轮次，斜线后是这一版的轮次预算（例子里的 1 和 5 只是格式）。「本研究在本窗口累计 1 轮」只计这一次研究在同一数据窗口上的轮次；「本窗口所有研究累计 1 轮」把同一窗口上的其他研究也算进去。数字变大只说明试过更多轮，不代表任何门槛被放宽。",
-        "In a label like this version 1/5 rounds, the number before the slash is how many rounds this version has already run, and the number after it is this version's round budget (1 and 5 are only the shape of the example). This research's count on the window includes only this research on the same data window. The count for every research on the window also includes the others. A larger number only means more rounds were tried. It does not mean any threshold was relaxed.",
+        'In a label like "This version 1/5 rounds", the number before the slash is how many rounds this version has already run, and the number after it is this version\'s round budget (1 and 5 are just examples). "This research has 1 round on this window" counts only this research on the same data window. "All research on this window has 1 round in total" also counts other research on that window. A larger number only means more rounds were tried. It does not mean any threshold was relaxed.',
       ),
       walk: copy(
         "按时间把固定参数的收益切成若干段，比较前缀与下一段的表现是否一致。这是时间分段表现一致性，不是重新估计参数的 walk-forward。展示名是「分段稳健性检验」。对话里的旧称「走样检验」仍可解析，方法 id 与修订号不变。",
@@ -746,11 +754,11 @@ export function buildUiMessages(copy: Copy) {
       ),
       benchmark: copy(
         "股票默认基准是价格指数（美股标普 500、A 股沪深 300）。策略收益按复权后的总回报计算，和价格指数不是同一口径。债的基准另有约定，不要把股票这套口径套过去。",
-        "The default equity benchmark is a price index (S&P 500 for US stocks, the China A-share large-cap index). Strategy returns use total return after adjustment, which is not the same basis as the price index. Bond benchmarks are agreed separately. Do not apply the equity basis to bonds.",
+        "The default equity benchmark is a price index (S&P 500 for US stocks, the CSI 300 for China A-shares). Strategy returns use total return after adjustment, which is not the same basis as the price index. Bond benchmarks are agreed separately. Do not apply the equity basis to bonds.",
       ),
       cost: copy(
         "在换手成本下检验净超额是否仍为正。美股按 10bp、A 股按 20bp，用「年化超额 − 年化换手 × bp/10000」估算净超额。这个扣减发生在验证器里；回测收益序列本身不含逐日费用。1bp 是万分之一。",
-        "Check whether net excess stays positive after turnover cost. US stocks use 10 bp and China A-shares use 20 bp. Net excess is estimated as annualized excess minus annualized turnover times bp/10000. That deduction happens in the verifier. The backtest return series itself has no daily fee. 1 bp is one basis point.",
+        "Check whether net excess stays positive after turnover cost. US stocks use 10 bp and China A-shares use 20 bp. Net excess is estimated as annualized excess minus annualized turnover times bp/10000. That deduction happens in the verifier. The backtest return series itself has no daily fee. 1 bp is 0.01%.",
       ),
     },
     surface: {
@@ -759,7 +767,7 @@ export function buildUiMessages(copy: Copy) {
       explanation: copy("说明：", "Explanation: "),
       threshold: copy("通过阈值：", "Pass threshold: "),
       comparison: copy("比较方式：", "Comparison: "),
-      failureHint: copy("未通过提示：", "Failure text: "),
+      failureHint: copy("未通过提示：", "Failure message: "),
       unit: copy("单位：", "Unit: "),
       category: copy("类别：", "Category: "),
       noBody: copy("（无正文）", "(No body)"),
@@ -786,9 +794,9 @@ export function buildUiMessages(copy: Copy) {
       costPurpose: copy("在换手成本下检验净超额是否仍为正。", "Check whether net excess stays positive after turnover cost."),
       pitPurpose: copy(
         "确保证据与回测只使用决策当时可获得的信息，杜绝前视偏差。",
-        "Evidence and the backtest use only information that was available when the decision was made, so there is no lookahead.",
+        "Evidence and backtests use only information that was available when each decision was made, which rules out look-ahead bias.",
       ),
-      frozenPurpose: copy("冻结验证方法定义。", "Frozen verification-method definition."),
+      frozenPurpose: copy("冻结验证方法定义。", "Freezes the verification-method definition."),
       sharpeFloor: copy("样本外夏普下限（不含等于）", "Out-of-sample Sharpe floor (exclusive)"),
       excessFloor: copy("年化超额下限（不含等于）", "Annualized excess floor (exclusive)"),
       drawdownFloor: copy("最大回撤下限", "Maximum drawdown floor"),
@@ -830,13 +838,13 @@ export function buildUiMessages(copy: Copy) {
       segmentDesc: copy("样本外分段数量下限", "Floor for the number of out-of-sample segments"),
       segmentFail: copy("样本外分段不足", "Not enough out-of-sample segments"),
       pitName: copy("时点一致性", "Point-in-time consistency"),
-      pitCheck: copy("检查是否存在前视偏差", "Check for lookahead"),
-      pitFail: copy("存在前视偏差", "Lookahead is present"),
+      pitCheck: copy("检查是否存在前视偏差", "Check for look-ahead bias"),
+      pitFail: copy("存在前视偏差", "Look-ahead bias is present"),
       pitExplain: copy(
         "证据与回测窗口仅使用决策当时可获得的信息。",
         "Evidence and the backtest window use only information available at decision time.",
       ),
-      pitLookahead: copy("检测到前视偏差（详见违规项）", "Lookahead detected (see the violations)"),
+      pitLookahead: copy("检测到前视偏差（详见违规项）", "Look-ahead bias detected (see the violations)"),
       displayNameNote: copy("展示名是「", "Display name: "),
       legacyStill: copy("」仍可解析，方法 id 与修订号不变。", " still resolves. The method id and revision do not change."),
     },

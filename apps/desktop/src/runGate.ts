@@ -73,6 +73,7 @@ export function runBlockedToken(code: string | null): string | undefined {
   if (code === "MARKET_CHOICE_PENDING") return "market";
   if (code === "DATA_SOURCE_UNBOUND") return "source";
   if (code === "STRATEGY_FAMILY_NOT_RUNNABLE") return "family";
+  if (code === "MEAN_REVERSION_ACK_REQUIRED") return "ack";
   if (code === "UNLICENSED_SOURCE_UNACKNOWLEDGED") return "unlicensed";
   return "resolution";
 }

@@ -7,7 +7,7 @@ from typing import Any
 
 from engine.dialogue.prompts import QUESTIONS, SlotName
 from engine.research.coverage_parse import merge_coverage_floor
-from engine.research.family_intent import thesis_mentions_strategy
+from engine.research.family_intent import classify_thesis, thesis_mentions_strategy
 from engine.research.models import (
     AssetClass,
     CoverageFloor,
@@ -61,7 +61,7 @@ def _parse_universe(message: str) -> Universe | None:
     if re.search(r"基金|ETF", message, re.IGNORECASE):
         asset = AssetClass.FUND
         underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
-    elif "债" in message:
+    elif "债" in message and classify_thesis(message).family_id != "stock_bond_rebalance":
         asset = AssetClass.BOND
         underlying = AssetClass.BOND
     elif re.search(r"股|股票|stocks|equities|equity", message, re.IGNORECASE):

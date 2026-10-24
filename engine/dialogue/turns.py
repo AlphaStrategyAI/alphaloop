@@ -8,6 +8,7 @@ from engine.dialogue.intent import Intent, IntentKind, interpret
 from engine.dialogue.prompts import SlotName
 from engine.dialogue.slots import apply_intent, next_question
 from engine.i18n.errors import redact_technical_detail
+from engine.research.a1_copy import MOMENTUM_UNSUPPORTED_NOTICE
 from engine.research.coverage_parse import parse_coverage_parts
 from engine.research.family_intent import classify_thesis
 from engine.research.models import (
@@ -18,9 +19,10 @@ from engine.research.models import (
     ResearchStatus,
 )
 from engine.research.thesis_scope import (
-    MEAN_REVERSION_ONLY_NOTICE,
+    FAMILY_FOLLOWUP,
+    FAMILY_REPICK_NOTICE,
+    explicit_family_choice,
     is_mean_reversion_ack,
-    thesis_is_non_mean_reversion,
 )
 
 
@@ -108,55 +110,79 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
         from engine.dialogue.modification import process_modification_dialogue
 
         return process_modification_dialogue(research, text, now)
-    if is_mean_reversion_ack(text) and research.pending_non_mr_thesis:
-        intent = Intent(IntentKind.PROVIDE, (("thesis", research.pending_non_mr_thesis),))
+    thesis_now = research.brief.thesis.value if isinstance(research.brief.thesis.value, str) else ""
+    pending = research.pending_non_mr_thesis or ""
+    current_hit = classify_thesis(pending or thesis_now)
+    if is_mean_reversion_ack(text) and (pending or thesis_now):
         with_user = append_dialogue(research, DialogueRole.USER, text, now)
-        updated = apply_intent(with_user, intent, now)
-        updated = replace(updated, pending_non_mr_thesis=None, mean_reversion_adopted=True)
-        return append_dialogue(updated, DialogueRole.ASSISTANT, next_question(updated).message, now)
-    thesis_now = research.brief.thesis.value
+        # Momentum, trend, and breakout never treat a yes as adoption.
+        if current_hit.outcome == "block" and not research.repicked_family:
+            return append_dialogue(
+                with_user, DialogueRole.ASSISTANT, MOMENTUM_UNSUPPORTED_NOTICE, now
+            )
+        if research.repicked_family and research.repicked_family != "mean_reversion":
+            updated = replace(with_user, mean_reversion_adopted=True, pending_non_mr_thesis=None)
+            return append_dialogue(
+                updated, DialogueRole.ASSISTANT, next_question(updated).message, now
+            )
+        if current_hit.outcome == "disclose" or (
+            pending and classify_thesis(pending).outcome == "disclose"
+        ):
+            if pending:
+                updated = apply_intent(
+                    with_user,
+                    Intent(IntentKind.PROVIDE, (("thesis", pending),)),
+                    now,
+                )
+            else:
+                updated = with_user
+            updated = replace(updated, pending_non_mr_thesis=None, mean_reversion_adopted=True)
+            return append_dialogue(
+                updated, DialogueRole.ASSISTANT, next_question(updated).message, now
+            )
     if (
-        is_mean_reversion_ack(text)
-        and isinstance(thesis_now, str)
+        thesis_now
         and classify_thesis(thesis_now).outcome == "block"
-        and not research.mean_reversion_adopted
+        and not research.repicked_family
     ):
-        with_user = append_dialogue(research, DialogueRole.USER, text, now)
-        updated = replace(with_user, mean_reversion_adopted=True)
-        return append_dialogue(updated, DialogueRole.ASSISTANT, next_question(updated).message, now)
+        choice = explicit_family_choice(text)
+        if choice is not None:
+            with_user = append_dialogue(research, DialogueRole.USER, text, now)
+            updated = replace(
+                with_user,
+                repicked_family=choice.family_id,
+                mean_reversion_adopted=choice.outcome == "run",
+            )
+            return append_dialogue(updated, DialogueRole.ASSISTANT, FAMILY_REPICK_NOTICE, now)
     prompt = next_question(research)
     intent = interpret(text, research, prompt.slot)
-    held_thesis: str | None = None
+    unrecognized_thesis: str | None = None
     if intent.kind is IntentKind.PROVIDE:
         kept: list[tuple[str, object]] = []
         for name, value in intent.updates:
-            # Disclose families wait for an explicit mean-reversion acknowledgement
-            # so the card can state what will actually run. Momentum is stored
-            # immediately: the card then says the family cannot run.
+            # An unrecognized thesis is not stored as mean reversion. Ask which family.
             if (
                 name == "thesis"
                 and isinstance(value, str)
-                and thesis_is_non_mean_reversion(value)
-                and classify_thesis(value).outcome == "disclose"
+                and classify_thesis(value).outcome == "none"
             ):
-                held_thesis = value
+                unrecognized_thesis = value
                 continue
             kept.append((name, value))
-        if held_thesis is not None:
+        if unrecognized_thesis is not None:
             intent = (
                 Intent(IntentKind.PROVIDE, tuple(kept))
                 if kept
-                else Intent(IntentKind.OFF_TOPIC, response=MEAN_REVERSION_ONLY_NOTICE)
+                else Intent(IntentKind.OFF_TOPIC, response=FAMILY_FOLLOWUP)
             )
     with_user = append_dialogue(research, DialogueRole.USER, text, now)
     updated = apply_intent(with_user, intent, now)
     updated = _apply_coverage_scratch(updated, text, prompt.slot)
-    if held_thesis is not None:
-        updated = replace(updated, pending_non_mr_thesis=held_thesis)
-    elif any(name == "thesis" for name, _value in intent.updates):
+    if unrecognized_thesis is not None:
         updated = replace(updated, pending_non_mr_thesis=None)
-    if held_thesis is not None:
-        return append_dialogue(updated, DialogueRole.ASSISTANT, MEAN_REVERSION_ONLY_NOTICE, now)
+        return append_dialogue(updated, DialogueRole.ASSISTANT, FAMILY_FOLLOWUP, now)
+    if any(name == "thesis" for name, _value in intent.updates):
+        updated = replace(updated, pending_non_mr_thesis=None)
     if intent.kind is IntentKind.OFF_TOPIC:
         reply = intent.response or prompt.message
         if research.dialogue and research.dialogue[-1].text == reply:

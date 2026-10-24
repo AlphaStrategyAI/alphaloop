@@ -763,6 +763,8 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                 ? t("ui.confirm.marketChoice")
                 : gate.code === "STRATEGY_FAMILY_NOT_RUNNABLE"
                   ? t("errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE")
+                  : gate.code === "MEAN_REVERSION_ACK_REQUIRED"
+                    ? t("ui.copy.meanReversionQuestion")
                   : gate.code === "UNLICENSED_SOURCE_UNACKNOWLEDGED"
                     ? t("errors.codes.UNLICENSED_SOURCE_UNACKNOWLEDGED")
                     : blockMessage() || t("ui.confirm.sourcePending")}

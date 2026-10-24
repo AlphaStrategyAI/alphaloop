@@ -776,6 +776,7 @@ class ResearchCommandService:
                 notice = mean_reversion_only_notice(
                     str(research.brief.thesis.value or ""),
                     adopted=research.mean_reversion_adopted,
+                    repicked_family=research.repicked_family,
                 )
                 if notice:
                     body["meanReversionOnlyNotice"] = notice
@@ -931,6 +932,7 @@ class ResearchCommandService:
                 "meanReversionOnlyNotice": mean_reversion_only_notice(
                     str(research.brief.thesis.value or ""),
                     adopted=research.mean_reversion_adopted,
+                    repicked_family=research.repicked_family,
                 ),
                 "cnExecutionNotice": cn_execution_notice_for(research),
                 "universeLabel": subtitle,

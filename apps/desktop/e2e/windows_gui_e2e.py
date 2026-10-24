@@ -1189,9 +1189,18 @@ def main() -> int:
         card = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
         if "Not supported yet" not in card and "暂不支持" not in card:
             raise AssertionError(f"momentum card did not say the family is unsupported: {card[:400]}")
-        needle = "cannot run yet" if "Not supported yet" in card else "这一族还不能开跑"
+        for banned in (
+            "要按均值回归继续",
+            "Continue with mean reversion",
+            "Continue as mean reversion",
+        ):
+            if banned in card:
+                raise AssertionError(f"momentum card asked to continue as mean reversion: {banned}")
+        needle = "can't run yet" if "Not supported yet" in card else "这一族还不能开跑"
         assert_run_disabled(session.driver, needle)
         button = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
+        if button.is_enabled():
+            raise AssertionError("momentum Run was enabled")
         if button.get_attribute("data-run-blocked") != "family":
             raise AssertionError("momentum Run was not blocked as a family")
         assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "momentum confirm card")

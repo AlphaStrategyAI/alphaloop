@@ -12,12 +12,17 @@ from engine.research.a1_copy import MOMENTUM_UNSUPPORTED_NOTICE, STRATEGY_FAMILY
 from engine.research.family_intent import classify_thesis
 from engine.research.gather import Material, gather_materials
 from engine.research.material_relevance import strategy_key_terms
-from engine.research.models import new_research
+from engine.research.models import ResearchStatus, new_research
 from engine.research.run_gate import evaluate_run_gate
 from engine.research.runtime import EnginePaths
 from engine.research.source_acknowledgement import record_acknowledgement
 from engine.research.store import SQLiteStore
-from engine.research.thesis_scope import CONFIRM_CARD_NOTICE
+from engine.research.thesis_scope import (
+    CONFIRM_CARD_NOTICE,
+    FAMILY_FOLLOWUP,
+    FAMILY_REPICK_NOTICE,
+    MEAN_REVERSION_ONLY_NOTICE,
+)
 from engine.research.user_errors import UserFacingError
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
@@ -88,29 +93,70 @@ def test_keyword_table_covers_zh_and_en_for_every_family() -> None:
         assert classify_thesis(text).family_id == family_id, text
 
 
-def test_fundamental_is_disclosed_instead_of_running_silently(tmp_path: Path) -> None:
-    service = _service(tmp_path)
-    research_id = _fill(service, "A股基本面因子，买低市盈率高ROE的股票", ack=True)
-    view = service.view_for(f"#/research/{research_id}")
-    assert view["kind"] == "confirm_run"
-    assert view["meanReversionOnlyNotice"] == CONFIRM_CARD_NOTICE
-    assert view["runGate"]["code"] != "STRATEGY_FAMILY_NOT_RUNNABLE"
-    assert all("没能理解你的意思" not in turn["text"] for turn in view["dialogue"])
+def _source_for(thesis: str) -> str:
+    return "akshare_sina_daily" if "A股" in thesis or "A 股" in thesis else "yahoo_daily"
 
 
-def test_stock_bond_and_all_weather_reach_a_card(tmp_path: Path) -> None:
+def test_disclosed_families_stay_disabled_until_yes_then_run(tmp_path: Path) -> None:
+    theses = (
+        "美股低波策略",
+        "A股基本面因子，买账面更便宜的公司",
+        "美股全天候",
+        "美股股票的股债再平衡",
+    )
+    for thesis in theses:
+        service = _service(tmp_path)
+        research_id = _fill(service, thesis)
+        view = service.view_for(f"#/research/{research_id}")
+        assert view["kind"] == "confirm_run", thesis
+        assert view["meanReversionOnlyNotice"] == MEAN_REVERSION_ONLY_NOTICE
+        assert view["runGate"] == {"runnable": False, "code": "MEAN_REVERSION_ACK_REQUIRED"}, thesis
+        with pytest.raises(UserFacingError) as blocked:
+            service.handle(
+                {
+                    "type": "confirm_run",
+                    "research_id": research_id,
+                    "data_source_id": _source_for(thesis),
+                    "unlicensed_acknowledged": True,
+                }
+            )
+        assert blocked.value.code == "MEAN_REVERSION_ACK_REQUIRED"
+        assert service.store.load(research_id).status is ResearchStatus.DRAFT
+        _say(service, research_id, "按均值回归继续")
+        adopted = service.store.load(research_id)
+        assert adopted.mean_reversion_adopted is True
+        assert adopted.brief.thesis.value == thesis
+        after = service.view_for(f"#/research/{research_id}")
+        assert after["meanReversionOnlyNotice"] == CONFIRM_CARD_NOTICE
+        assert after["runGate"]["code"] != "MEAN_REVERSION_ACK_REQUIRED"
+        ready = evaluate_run_gate(
+            service.store.load(research_id),
+            data_source_id=_source_for(thesis),
+            unlicensed_acknowledged=True,
+            settings_path=service.paths.data.settings_file,
+        )
+        assert ready.runnable is True
+        started = service.handle(
+            {
+                "type": "confirm_run",
+                "research_id": research_id,
+                "data_source_id": _source_for(thesis),
+                "unlicensed_acknowledged": True,
+            }
+        )
+        assert started.get("status") == "running"
+
+
+def test_stock_bond_and_all_weather_are_recognized(tmp_path: Path) -> None:
     service = _service(tmp_path)
     for thesis in ("股债再平衡", "全天候", "all weather", "60/40 rebalance"):
         research_id = service.handle({"type": "create_draft"})["research_id"]
         _say(service, research_id, thesis)
         loaded = service.store.load(research_id)
-        assert loaded.pending_non_mr_thesis == thesis
+        assert loaded.brief.thesis.value == thesis
+        assert loaded.mean_reversion_adopted is False
         assert all("没能理解你的意思" not in turn.text for turn in loaded.dialogue)
-        assert CONFIRM_CARD_NOTICE not in loaded.dialogue[-1].text or thesis
-        _say(service, research_id, "按均值回归继续")
-        adopted = service.store.load(research_id)
-        assert adopted.brief.thesis.value == thesis
-        assert adopted.pending_non_mr_thesis is None
+        assert MEAN_REVERSION_ONLY_NOTICE not in loaded.dialogue[-1].text
 
 
 def test_momentum_card_and_confirm_run_agree(tmp_path: Path) -> None:
@@ -133,13 +179,52 @@ def test_momentum_card_and_confirm_run_agree(tmp_path: Path) -> None:
     assert exc.value.message == STRATEGY_FAMILY_NOT_RUNNABLE
 
 
-def test_adopting_mean_reversion_clears_the_momentum_block(tmp_path: Path) -> None:
+def test_momentum_yes_is_not_adoption_and_the_question_is_absent(tmp_path: Path) -> None:
+    for answer in ("按均值回归继续", "是", "可以", "yes"):
+        service = _service(tmp_path)
+        research_id = _fill(service, "美股趋势突破")
+        _say(service, research_id, answer)
+        loaded = service.store.load(research_id)
+        assert loaded.mean_reversion_adopted is False
+        assert loaded.repicked_family == ""
+        assert loaded.status is ResearchStatus.DRAFT
+        assert all(MEAN_REVERSION_ONLY_NOTICE not in turn.text for turn in loaded.dialogue)
+        view = service.view_for(f"#/research/{research_id}")
+        assert view["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE
+        assert view["runGate"]["code"] == "STRATEGY_FAMILY_NOT_RUNNABLE"
+        with pytest.raises(UserFacingError) as exc:
+            service.handle(
+                {
+                    "type": "confirm_run",
+                    "research_id": research_id,
+                    "data_source_id": "yahoo_daily",
+                    "unlicensed_acknowledged": True,
+                }
+            )
+        assert exc.value.code == "STRATEGY_FAMILY_NOT_RUNNABLE"
+        assert service.store.load(research_id).status is ResearchStatus.DRAFT
+
+
+def test_explicit_family_repick_is_the_only_momentum_way_forward(tmp_path: Path) -> None:
     service = _service(tmp_path)
     research_id = _fill(service, "美股动量策略")
-    _say(service, research_id, "按均值回归继续")
+    _say(service, research_id, "选择均值回归")
+    loaded = service.store.load(research_id)
+    assert loaded.brief.thesis.value == "美股动量策略"
+    assert loaded.repicked_family == "mean_reversion"
+    assert loaded.mean_reversion_adopted is True
     view = service.view_for(f"#/research/{research_id}")
-    assert view["meanReversionOnlyNotice"] == CONFIRM_CARD_NOTICE
-    assert view["runGate"]["code"] != "STRATEGY_FAMILY_NOT_RUNNABLE"
+    assert view["meanReversionOnlyNotice"] == FAMILY_REPICK_NOTICE
+    assert "原述未采纳" in view["meanReversionOnlyNotice"]
+    assert "方向与原话不同" in view["meanReversionOnlyNotice"]
+    assert MEAN_REVERSION_ONLY_NOTICE not in view["meanReversionOnlyNotice"]
+    ready = evaluate_run_gate(
+        loaded,
+        data_source_id="yahoo_daily",
+        unlicensed_acknowledged=True,
+        settings_path=service.paths.data.settings_file,
+    )
+    assert ready.runnable is True
     started = service.handle(
         {
             "type": "confirm_run",
@@ -149,6 +234,17 @@ def test_adopting_mean_reversion_clears_the_momentum_block(tmp_path: Path) -> No
         }
     )
     assert started.get("status") == "running"
+
+
+def test_unrecognized_family_asks_instead_of_running_mean_reversion(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = service.handle({"type": "create_draft"})["research_id"]
+    _say(service, research_id, "美股波动收缩策略")
+    loaded = service.store.load(research_id)
+    assert loaded.brief.thesis.value is None
+    assert loaded.mean_reversion_adopted is False
+    assert FAMILY_FOLLOWUP in loaded.dialogue[-1].text
+    assert service.view_for(f"#/research/{research_id}")["kind"] == "draft"
 
 
 def test_removing_a_share_side_uses_the_stored_yahoo_acknowledgement(tmp_path: Path) -> None:
