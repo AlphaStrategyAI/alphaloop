@@ -75,7 +75,9 @@ def list_items(
         rows.append(
             ResearchListItem(
                 research_id=item.research_id,
-                title=(item.brief.thesis.value or "未命名研究"),
+                # Empty means no stored thesis. The desktop renders the untitled label.
+                # A saved title that is still the old Chinese label is mapped there too.
+                title=(item.brief.thesis.value or ""),
                 universe_label=(
                     f"{_MARKET[universe.market]} · {_ASSET[universe.asset_class]}"
                     if universe is not None

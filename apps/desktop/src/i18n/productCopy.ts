@@ -326,6 +326,16 @@ const RULES: Rule[] = [
 ];
 
 /**
+ * List-row title. An empty stored title is untitled. A study saved before that
+ * marker still carries the Chinese catalog string, which lives in `EXACT`.
+ */
+export function researchListTitle(title: string | null | undefined, t: CopyFn): string {
+  const stored = title ?? "";
+  if (!stored.trim() || EXACT[stored] === "ui.list.untitled") return t("ui.list.untitled");
+  return stored;
+}
+
+/**
  * Translate a known engine product sentence. Unrecognized text, including
  * user theses and literature titles, is returned unchanged.
  */

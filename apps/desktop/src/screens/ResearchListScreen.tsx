@@ -4,7 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {localizeKnownCopy} from "../i18n/productCopy";
+import {localizeKnownCopy, researchListTitle} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -58,7 +58,7 @@ export function StatusPill({status}: {status: ResearchListDisplayStatus}) {
 export function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
   const {t} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
-  const researchTitle = (title: string) => (title === "未命名研究" ? t("ui.list.untitled") : title);
+  const researchTitle = (title: string) => researchListTitle(title, t);
   const deleteWarning = t("ui.list.deleteBody");
   const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
   const awaitingCards = [
