@@ -20,10 +20,28 @@ export function lookupMessage(catalog: unknown, key: string): string | undefined
   return current;
 }
 
+function isCount(value: string | number): boolean {
+  return typeof value === "number" || (typeof value === "string" && /^\d+$/.test(value));
+}
+
+/** English count words derived from numeric params. Chinese templates do not reference them. */
+function withCountWords(params: MessageParams): MessageParams {
+  const extra: MessageParams = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (!isCount(value)) continue;
+    const one = Number(value) === 1;
+    extra[`${key}Noun`] = one ? "name" : "names";
+    extra[`${key}SymbolNoun`] = one ? "symbol" : "symbols";
+    extra[`${key}Remain`] = one ? "remains" : "remain";
+  }
+  return {...extra, ...params};
+}
+
 export function interpolate(template: string, params?: MessageParams): string {
   if (!params) return template;
+  const values = withCountWords(params);
   return template.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (match, name: string) => {
-    const value = params[name];
+    const value = values[name];
     return value === undefined ? match : String(value);
   });
 }
