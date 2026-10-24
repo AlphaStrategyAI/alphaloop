@@ -4,11 +4,12 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 
 import type {DesktopApi, DesktopView} from "../contracts";
 import {I18nProvider} from "./I18nProvider";
-import {enCatalog} from "./catalog";
+import {enCatalog, isFinalMessageKey, zhCatalog} from "./catalog";
 import {CompletedScreen} from "../screens/CompletedScreen";
 import {ConfirmRunCard} from "../screens/ConfirmRunScreen";
 
 const EN = {preference: "en" as const, systemLocale: "en-US", resolved: "en" as const};
+const ZH = {preference: "zh" as const, systemLocale: "zh-CN", resolved: "zh" as const};
 const CJK_PUNCT = /[。，、；：！？「」『』（）〈〉《》【】‘’]/;
 
 afterEach(() => cleanup());
@@ -154,6 +155,167 @@ describe("I2 smoke follow-ups", () => {
       "1 name · User-specified symbols · Replaced the default universe",
     );
     expect(screen.getByTestId("completed-symbol-selection-summary").textContent).not.toMatch(/[\u4e00-\u9fff]/);
+  });
+
+  it("shows CSI 300 only in the A-share fine print on the confirm card and conclusion page", () => {
+    const poolName = "China A-share large-cap universe · 300 names · list date 2026-10-19";
+    const finePrint = "Based on CSI 300 membership on the list date; not point-in-time.";
+    const selection = {
+      count: 300,
+      listName: "A 股大市值池 · 300 只 · 名单日 2026-10-19",
+      listVersion: "2",
+      summaryLine: "A 股大市值池 · 300 只 · 名单日 2026-10-19",
+      listNote: "取自沪深 300 在名单日的成分，非时点成分",
+      generatedDate: "2026-10-19",
+      symbols: ["600519.SH"],
+      source: "default_pool" as const,
+      isDefaultPool: true,
+      dataStart: "2016-10-20",
+      dataEnd: "2026-10-19",
+      dataCutoff: "2026-10-19",
+      dataSource: "AkShare 日线（新浪优先）",
+    };
+    const assertPool = (summaryId: string) => {
+      const summary = screen.getByTestId(summaryId).textContent ?? "";
+      const note = screen.getByTestId("symbol-selection-note").textContent ?? "";
+      expect(summary).toBe(poolName);
+      expect(note).toBe(finePrint);
+      expect(summary).not.toContain("CSI 300");
+      const page = document.body.textContent ?? "";
+      expect(page.match(/CSI 300/g)).toEqual(["CSI 300"]);
+      expect(note).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+      expect(summary).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF]/);
+      expect(screen.getByTestId(summaryId).querySelector("[data-i18n-placeholder]")).toBeNull();
+      expect(screen.getByTestId("symbol-selection-note").querySelector("[data-i18n-placeholder]")).toBeNull();
+    };
+
+    const {unmount} = render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard
+          api={api()}
+          view={{
+            kind: "confirm_run",
+            researchId: "r-cn",
+            dialogue: [],
+            chatEnabled: false,
+            settings: {
+              thesis: "关注低波动",
+              universe: "A股 · 股票",
+              universe_symbols: selection.summaryLine,
+              max_effective_hours: "4 小时",
+              round1_methods: "分段稳健性检验",
+              coverage_floor: "至少 25 个标的",
+            },
+            symbolSelection: selection,
+          }}
+        />
+      </I18nProvider>,
+    );
+    assertPool("symbol-selection-summary");
+    expect(screen.getByTestId("universe-symbols")).toHaveTextContent(poolName);
+    unmount();
+
+    render(
+      <I18nProvider initial={EN}>
+        <CompletedScreen
+          api={api()}
+          view={{
+            kind: "completed",
+            researchId: "r-cn",
+            status: "completed",
+            title: "A股均值回归",
+            selectedRoundId: "round-1",
+            selectedMethodId: "m-1",
+            eligibility: {
+              allMethodsPassed: false,
+              noPendingConfirm: true,
+              reverifiesPassed: true,
+              pitExecutedAndPassed: false,
+            },
+            symbolSelection: selection,
+          }}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("completed-symbol-selection-summary")).toHaveTextContent(poolName);
+    assertPool("completed-symbol-selection-summary");
+  });
+
+  it("shows the three finalized pool notes in both languages", () => {
+    const zhLines = [
+      "两个大市值池都是名单日的成分，不是时点成分；回看更早的历史含幸存者偏差。",
+      "只有把池子定义成某个指数时，才会显示「缺时点成分」。",
+      "EDGAR 是否会覆盖旧值尚未确认，基本面的 PIT 检查可能不通过。",
+    ] as const;
+    const enLines = [
+      "Both universes use list-date members, not point-in-time; earlier history has survivorship bias.",
+      "\"Missing point-in-time constituents\" appears only when a universe is defined as an index.",
+      "It's not yet confirmed whether EDGAR overwrites older values, so fundamentals may fail the PIT check.",
+    ] as const;
+    expect(zhCatalog.ui.confirm.poolNoteMembers).toBe(zhLines[0]);
+    expect(zhCatalog.ui.confirm.poolNoteIndexOnly).toBe(zhLines[1]);
+    expect(zhCatalog.ui.confirm.poolNoteEdgarUnconfirmed).toBe(zhLines[2]);
+    expect(enCatalog.ui.confirm.poolNoteMembers).toBe(enLines[0]);
+    expect(enCatalog.ui.confirm.poolNoteIndexOnly).toBe(enLines[1]);
+    expect(enCatalog.ui.confirm.poolNoteEdgarUnconfirmed).toBe(enLines[2]);
+    for (const key of [
+      "ui.confirm.poolNoteMembers",
+      "ui.confirm.poolNoteIndexOnly",
+      "ui.confirm.poolNoteEdgarUnconfirmed",
+    ] as const) {
+      expect(isFinalMessageKey(key), key).toBe(true);
+    }
+    expect(enLines[1].includes('"')).toBe(true);
+    expect(enLines[2].includes("'")).toBe(true);
+    for (const sentence of enLines) {
+      expect(sentence).not.toMatch(/[\u3000-\u303F\uFF00-\uFFEF\u4e00-\u9fff]/);
+    }
+
+    const readyView: DesktopView = {
+      kind: "confirm_run",
+      researchId: "r-ready",
+      dialogue: [],
+      chatEnabled: false,
+      settings: {
+        thesis: "Mean reversion",
+        universe: "美股 · 股票",
+        max_effective_hours: "4 小时",
+        round1_methods: "分段稳健性检验",
+        coverage_floor: "至少 25 个标的、10 年数据，缺失不超过 5%",
+      },
+      symbolSelection: {
+        count: 503,
+        listName: "美股大市值池 · 503 只 · 名单日 2026-10-16",
+        listVersion: "2",
+        summaryLine: "美股大市值池 · 503 只 · 名单日 2026-10-16",
+        listNote: "取自标普 500 在名单日的成分，非时点成分",
+        symbols: ["AAPL"],
+        source: "default_pool",
+        isDefaultPool: true,
+        dataStart: "2016-10-20",
+        dataEnd: "2026-10-19",
+        dataCutoff: "2026-10-19",
+        dataSource: "雅虎日线",
+      },
+    };
+    const chinese = render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard api={api()} view={readyView} />
+      </I18nProvider>,
+    );
+    expect(screen.getAllByTestId("default-pool-note").map((node) => node.textContent)).toEqual([...zhLines]);
+    chinese.unmount();
+
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={api()} view={readyView} />
+      </I18nProvider>,
+    );
+    expect(screen.getAllByTestId("default-pool-note").map((node) => node.textContent)).toEqual([...enLines]);
+    for (const node of screen.getAllByTestId("default-pool-note")) {
+      expect(node.querySelector("[data-i18n-placeholder]")).toBeNull();
+    }
+    expect(screen.getByTestId("confirm-run-card").textContent).not.toMatch(/[\u4e00-\u9fff]/);
   });
 });
 

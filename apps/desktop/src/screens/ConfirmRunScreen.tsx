@@ -1,6 +1,7 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
 import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import {I18nText} from "../i18n/I18nText";
 import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataCopy";
 import {DialogueTurnBody} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
@@ -429,6 +430,13 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             {t("ui.confirm.meta", {start: sel.dataStart, end: sel.dataEnd, source: copyText(sel.dataSource)})}
           </p>
           <p className="confirm-data-footnote">{t("ui.confirm.footnote")}</p>
+          {sel.isDefaultPool || sel.source === "default_pool" ? (
+            <div data-testid="default-pool-notes">
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteMembers" /></p>
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteIndexOnly" /></p>
+              <p className="confirm-data-meta" data-testid="default-pool-note"><I18nText k="ui.confirm.poolNoteEdgarUnconfirmed" /></p>
+            </div>
+          ) : null}
           {sel.shrinkNote && (
             <p className="pool-shrink-note" data-testid="pool-shrink-note">{copyText(sel.shrinkNote)}</p>
           )}

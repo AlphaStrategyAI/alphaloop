@@ -201,8 +201,10 @@ def test_v2_display_name_is_not_stored_on_the_research() -> None:
         "China A-share large-cap universe · 300 names · list date 2026-10-19"
     )
     assert payload["listNoteEn"] == (
-        "Taken from CSI 300 membership on the list date; not point-in-time."
+        "Based on CSI 300 membership on the list date; not point-in-time."
     )
+    assert payload["listNameEn"].count("CSI 300") == 0
+    assert payload["listNoteEn"].count("CSI 300") == 1
     assert "版本" not in payload["summaryLine"]
 
 
