@@ -6,6 +6,20 @@ type BindDeps = {
   onSuccess?: () => void;
 };
 
+type AsyncFn = (...args: never[]) => Promise<unknown>;
+type Params<T> = T extends (...args: infer A) => unknown ? A : never;
+
+/**
+ * Parameter tuples compared in both directions. A function with fewer
+ * parameters is still assignable to `DesktopApi["confirmRun"]`, which is how
+ * the binding compiled while dropping `options`. This check does not allow that.
+ */
+type SameParams<Expected, Actual> = [Params<Expected>] extends [Params<Actual>]
+  ? [Params<Actual>] extends [Params<Expected>]
+    ? true
+    : false
+  : false;
+
 async function runMutation<T>(
   action: () => Promise<T>,
   deps: BindDeps,
@@ -21,31 +35,37 @@ async function runMutation<T>(
   }
 }
 
+/** Forward every argument. The wrapper's parameter list is the method's. */
+function bindMethod<T extends AsyncFn>(method: T, deps: BindDeps): T {
+  return ((...args: Params<T>) => runMutation(() => method(...args), deps)) as T;
+}
+
 /** Wrap mutation API calls: surface errors and refresh the current route view. */
 export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
+  const confirmRun = bindMethod(api.confirmRun, deps);
+  const _confirmRunKeepsOptions: SameParams<DesktopApi["confirmRun"], typeof confirmRun> = true;
+  const _shortConfirmRunIsRejected: SameParams<
+    DesktopApi["confirmRun"],
+    (researchId: string) => Promise<void>
+  > = false;
+  void _confirmRunKeepsOptions;
+  void _shortConfirmRunIsRejected;
+
   return {
     fetchView: (route) => api.fetchView(route),
-    createDraft: () => runMutation(() => api.createDraft(), deps),
-    confirmRun: (researchId) => runMutation(() => api.confirmRun(researchId), deps),
-    setResearchSymbol: (researchId, symbol) =>
-      runMutation(() => api.setResearchSymbol(researchId, symbol), deps),
-    answerSymbolAsk: (researchId, token, accept) =>
-      runMutation(() => api.answerSymbolAsk(researchId, token, accept), deps),
-    useHintedSymbol: (researchId, symbol) =>
-      runMutation(() => api.useHintedSymbol(researchId, symbol), deps),
-    unlockBrief: (researchId, slot) =>
-      runMutation(() => api.unlockBrief(researchId, slot), deps),
-    sendDialogue: (researchId, message) =>
-      runMutation(() => api.sendDialogue(researchId, message), deps),
-    pauseResearch: (researchId) => runMutation(() => api.pauseResearch(researchId), deps),
-    resumeResearch: (researchId) => runMutation(() => api.resumeResearch(researchId), deps),
-    confirmModification: (researchId) =>
-      runMutation(() => api.confirmModification(researchId), deps),
-    continueIterate: (researchId, options) =>
-      runMutation(() => api.continueIterate(researchId, options), deps),
-    extendResearch: (researchId, hours) =>
-      runMutation(() => api.extendResearch(researchId, hours), deps),
-    deleteResearch: (researchId) => runMutation(() => api.deleteResearch(researchId), deps),
+    createDraft: bindMethod(api.createDraft, deps),
+    confirmRun,
+    setResearchSymbol: bindMethod(api.setResearchSymbol, deps),
+    answerSymbolAsk: bindMethod(api.answerSymbolAsk, deps),
+    useHintedSymbol: bindMethod(api.useHintedSymbol, deps),
+    unlockBrief: bindMethod(api.unlockBrief, deps),
+    sendDialogue: bindMethod(api.sendDialogue, deps),
+    pauseResearch: bindMethod(api.pauseResearch, deps),
+    resumeResearch: bindMethod(api.resumeResearch, deps),
+    confirmModification: bindMethod(api.confirmModification, deps),
+    continueIterate: bindMethod(api.continueIterate, deps),
+    extendResearch: bindMethod(api.extendResearch, deps),
+    deleteResearch: bindMethod(api.deleteResearch, deps),
     resolveConfirm: (researchId, decision, whoPays) =>
       runMutation(
         () =>
@@ -54,13 +74,11 @@ export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
             : api.resolveConfirm(researchId, decision, whoPays),
         deps,
       ),
-    exportArtifact: (researchId, kind) =>
-      runMutation(() => api.exportArtifact(researchId, kind), deps),
+    exportArtifact: bindMethod(api.exportArtifact, deps),
     revealExportInFolder: (path) => api.revealExportInFolder(path),
-    reverify: (researchId, roundId, methodId) =>
-      runMutation(() => api.reverify(researchId, roundId, methodId), deps),
-    reviseMethod: (methodId, definition) =>
-      runMutation(() => api.reviseMethod(methodId, definition), deps),
-    createMethod: (name, definition) => runMutation(() => api.createMethod(name, definition), deps),
+    reverify: bindMethod(api.reverify, deps),
+    reviseMethod: bindMethod(api.reviseMethod, deps),
+    createMethod: bindMethod(api.createMethod, deps),
+    pollMarketDataProgress: api.pollMarketDataProgress?.bind(api),
   };
 }

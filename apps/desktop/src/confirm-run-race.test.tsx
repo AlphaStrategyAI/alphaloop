@@ -71,7 +71,10 @@ describe("confirm run race", () => {
     );
 
     fireEvent.click(screen.getByTestId("confirm-run-start"));
-    await waitFor(() => expect(api.confirmRun).toHaveBeenCalledWith("r-confirm"));
+    await waitFor(() => expect(api.confirmRun).toHaveBeenCalledWith("r-confirm", {
+      dataSourceId: undefined,
+      unlicensedAcknowledged: undefined,
+    }));
 
     window.location.hash = "#/research";
     window.dispatchEvent(new HashChangeEvent("hashchange"));

@@ -367,14 +367,12 @@ def _pin_window(
         slot = getattr(locked_brief, name)
         if slot.value is not None:
             locked_brief = replace(locked_brief, **{name: Slot(slot.value, True)})
-    pinned = research.brief.universe.value or universe
     return replace(
         research,
         brief=locked_brief,
         symbol_list_version=version,
         data_window_start=start,
         data_window_end=end,
-        data_source_id=data_source_id_for_symbols(pinned.symbols, pinned.market),
         updated_at=now,
     )
 

@@ -327,16 +327,19 @@ pub async fn use_hinted_symbol(
 #[tauri::command]
 pub async fn confirm_run(
     research_id: String,
+    data_source_id: Option<String>,
+    unlicensed_acknowledged: Option<bool>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
-    mutate(
-        &app,
-        &connection,
-        json!({"type": "confirm_run", "research_id": research_id}),
-    )
-    .await
-    .map(|_| ())
+    let mut request = json!({"type": "confirm_run", "research_id": research_id});
+    if let Some(source) = data_source_id {
+        request["data_source_id"] = json!(source);
+    }
+    if let Some(acknowledged) = unlicensed_acknowledged {
+        request["unlicensed_acknowledged"] = json!(acknowledged);
+    }
+    mutate(&app, &connection, request).await.map(|_| ())
 }
 
 

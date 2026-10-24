@@ -62,5 +62,13 @@
   "SYMBOL_MIXED_MARKETS": {
     "params": ["cn_symbols", "us_symbols"],
     "legacyZh": "一次研究只能用同一个市场的标的，这里既有 A 股（{{cn_symbols}}），也有美股（{{us_symbols}}）。请删掉其中一边。"
+  },
+  "DATA_SOURCE_UNBOUND": {
+    "params": [],
+    "legacyZh": "这项研究还没有可用的数据来源。"
+  },
+  "UNLICENSED_SOURCE_UNACKNOWLEDGED": {
+    "params": [],
+    "legacyZh": "使用未经许可的数据前，请确认仅用于个人研究。"
   }
 }

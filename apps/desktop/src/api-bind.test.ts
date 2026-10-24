@@ -35,8 +35,8 @@ describe("bindDesktopApi", () => {
     const refresh = vi.fn(async () => undefined);
     const bound = bindDesktopApi(api, {onError, refresh});
 
-    await bound.unlockBrief("r-1");
-    expect(unlockBrief).toHaveBeenCalledWith("r-1", undefined);
+    await bound.unlockBrief("r-1", "thesis");
+    expect(unlockBrief).toHaveBeenCalledWith("r-1", "thesis");
     expect(refresh).toHaveBeenCalled();
 
     const failing = vi.fn(async () => {

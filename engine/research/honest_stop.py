@@ -112,6 +112,29 @@ def can_auto_continue_impl_iteration(
     return implementation_trials_used(research) < research.implementation_trial_budget
 
 
+def run_stop_reason(research: Research) -> str | None:
+    """Why a finished run stopped, when that is not "verification passed".
+
+    ``round_cap`` — the implementation-trial cap was reached and the time
+    budget was not. ``time_budget`` — effective time reached the hour budget.
+    ``early_stop`` — the run ended with time still left for some other reason.
+    ``None`` — still running, or verification passed before the time budget.
+    The round cap and the hour budget are unchanged; this only names which
+    one actually stopped the run.
+    """
+    if research.status not in {ResearchStatus.COMPLETED, ResearchStatus.ENDED}:
+        return None
+    max_hours = research.brief.max_effective_hours.value
+    time_left = max_hours is not None and research.effective_seconds < max_hours * 3600
+    if max_hours is not None and not time_left:
+        return "time_budget"
+    if budget_exhausted_stop(research):
+        return "round_cap"
+    if time_left and not methods_verification_passed(research):
+        return "early_stop"
+    return None
+
+
 def budget_exhausted_stop(research: Research) -> bool:
     if research.status is not ResearchStatus.COMPLETED:
         return False

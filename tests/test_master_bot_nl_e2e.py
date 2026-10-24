@@ -64,7 +64,7 @@ def test_master_bot_nl_confirm_starts_and_runs_one_round(tmp_path: Path) -> None
     service = _service(tmp_path)
     research_id = service.handle({"type": "create_draft"})["research_id"]
     _dialogue_to_confirm(service, research_id)
-    service.handle({"type": "confirm_run", "research_id": research_id})
+    service.handle({"type": "confirm_run", "research_id": research_id, "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True})
     loaded = service.store.load(research_id)
     assert loaded.status is ResearchStatus.RUNNING
     assert len(loaded.brief.universe.value.symbols) == 503
@@ -92,7 +92,7 @@ def test_missing_pool_returns_question_in_chat_and_enables_input(tmp_path: Path,
     assert view["kind"] == "draft"
     assert view.get("chatEnabled") is True
     with pytest.raises(UserFacingError):
-        service.handle({"type": "confirm_run", "research_id": research_id})
+        service.handle({"type": "confirm_run", "research_id": research_id, "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True})
     view = service.view_for(f"#/research/{research_id}")
     assert view["kind"] == "draft"
     assert any("要用哪组标的" in turn["text"] for turn in view["dialogue"])

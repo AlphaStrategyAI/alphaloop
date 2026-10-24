@@ -38,6 +38,8 @@ _TECHNICAL_STRING_KEYS = frozenset(
         "revision",
         "conclusionRoundId",
         "recordId",
+        "dataSourceId",
+        "offeredDataSourceId",
     }
 )
 

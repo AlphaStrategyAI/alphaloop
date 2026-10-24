@@ -83,7 +83,12 @@ def test_confirm_run_transient_keeps_pool_and_slots(tmp_path: Path) -> None:
     store.create(research)
     before_symbols = research.brief.universe.value.symbols
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": research.research_id})
+        service.handle({
+            "type": "confirm_run",
+            "research_id": research.research_id,
+            "data_source_id": "yahoo_daily",
+            "unlicensed_acknowledged": True,
+        })
     assert exc.value.code == TRANSIENT_DATA_CODE
     loaded = store.load(research.research_id)
     assert loaded.status is ResearchStatus.DRAFT
@@ -109,8 +114,18 @@ def test_confirm_run_retries_after_source_recovers(tmp_path: Path) -> None:
     research = _confirm_ready_research()
     store.create(research)
     with pytest.raises(UserFacingError):
-        service.handle({"type": "confirm_run", "research_id": research.research_id})
-    service.handle({"type": "confirm_run", "research_id": research.research_id})
+        service.handle({
+            "type": "confirm_run",
+            "research_id": research.research_id,
+            "data_source_id": "yahoo_daily",
+            "unlicensed_acknowledged": True,
+        })
+    service.handle({
+        "type": "confirm_run",
+        "research_id": research.research_id,
+        "data_source_id": "yahoo_daily",
+        "unlicensed_acknowledged": True,
+    })
     loaded = store.load(research.research_id)
     assert loaded.status is ResearchStatus.RUNNING
     assert loaded.symbol_list_version == "us_equity_large_cap_v2"

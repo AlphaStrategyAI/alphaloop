@@ -1,5 +1,6 @@
 import {invoke as tauriInvoke} from "@tauri-apps/api/core";
 
+import {confirmRunInvokeArgs} from "./confirmRunCommand";
 import type {DesktopApi, DesktopView} from "./contracts";
 
 export type DesktopInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -10,7 +11,9 @@ export function createTauriDesktopApi(invoke: DesktopInvoke = tauriInvoke): Desk
     async fetchView(route) { return invoke<DesktopView>("fetch_view", {route}); },
     async pollMarketDataProgress() { return invoke("market_data_progress"); },
     async createDraft() { return invoke<string>("create_draft"); },
-    async confirmRun(researchId) { await invoke("confirm_run", {researchId}); },
+    async confirmRun(researchId, options) {
+      await invoke("confirm_run", confirmRunInvokeArgs(researchId, options));
+    },
     async setResearchSymbol(researchId, symbol) {
       await invoke("set_research_symbol", {researchId, symbol});
     },

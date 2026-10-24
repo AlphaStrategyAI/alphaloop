@@ -62,10 +62,10 @@ def _card_data_source_id(
     symbols: tuple[str, ...],
     market: object,
 ) -> str:
+    """The source the user already chose. Symbols do not fill this in."""
+    del symbols, market
     if research.status is not ResearchStatus.DRAFT:
         return research.data_source_id
-    if symbols:
-        return data_source_id_for_symbols(symbols, market)
     return research.data_source_id
 
 
@@ -200,15 +200,19 @@ def symbol_selection_payload(research: Research) -> dict[str, Any] | None:
         override_note=USER_OVERRIDE_NOTE if user_override else None,
         user_override=user_override,
     )
+    selected = _card_data_source_id(research, tuple(symbols), universe.market)
+    offered = data_source_id_for_symbols(tuple(symbols), universe.market)
     payload.update(
         {
             "symbols": list(symbols),
             "dataStart": start.isoformat(),
             "dataEnd": end.isoformat(),
             "dataCutoff": end.isoformat(),
-            "dataSource": data_source_label(
-                _card_data_source_id(research, tuple(symbols), universe.market)
-            ),
+            "dataSource": data_source_label(selected),
+            "dataSourceId": selected or None,
+            "dataSourcePending": not bool(selected),
+            "offeredDataSourceId": offered,
+            "offeredDataSource": data_source_label(offered),
             "droppedForMissingData": dropped,
             "shrinkNote": shrink_note or None,
         }

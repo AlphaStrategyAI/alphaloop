@@ -204,6 +204,14 @@ function messages(lang: "zh" | "en") {
           "A study can only use symbols from one market, but this has both China A-shares ({{cn_symbols}}) and US stocks ({{us_symbols}}). Remove one side.",
           true,
         ),
+        DATA_SOURCE_UNBOUND: copy(
+          "这项研究还没有可用的数据来源。",
+          "This research does not have a data source yet.",
+        ),
+        UNLICENSED_SOURCE_UNACKNOWLEDGED: copy(
+          "使用未经许可的数据前，请确认仅用于个人研究。",
+          "Before using an unlicensed source, confirm it is for personal research only.",
+        ),
       },
     },
     glossary: glossaryMessages(lang),

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from engine.research.models import Research, ResearchBrief, ResearchStatus, Slot, Universe
-from engine.research.planned_data_window import data_source_id_for_symbols
+from engine.research.models import Research, ResearchBrief, Slot, Universe
 from engine.research.symbol_mentions import apply_described_symbols
 from engine.research.symbol_pool import pool_for_market
 
@@ -52,20 +51,13 @@ def materialize_default_pool(research: Research) -> Research:
 
 
 def pin_draft_data_source(research: Research) -> Research:
-    """Store the same source id the confirm card will display.
+    """Leave the source unset. Yahoo and AkShare are not a default.
 
-    Only drafts change. A running or finished research keeps the id it pinned
-    when it started, so an old record does not get a new source on open.
+    The confirm card offers ``data_source_id_for_symbols`` as a choice. It is
+    stored only after the user selects it. A running or finished research keeps
+    the id it already has.
     """
-    if research.status is not ResearchStatus.DRAFT:
-        return research
-    universe = research.brief.universe.value
-    if universe is None or not universe.symbols:
-        return research
-    pinned = data_source_id_for_symbols(universe.symbols, universe.market)
-    if research.data_source_id == pinned:
-        return research
-    return replace(research, data_source_id=pinned)
+    return research
 
 
 def pool_resolvable_brief(brief: ResearchBrief) -> bool:
