@@ -69,7 +69,7 @@
   },
   "SYMBOL_MARKET_MISMATCH": {
     "params": ["market", "marketEn", "symbols", "n"],
-    "legacyZh": "描述里的市场是{{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
+    "legacyZh": "描述里的市场是 {{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
   },
   "SYMBOL_SOURCE_MISMATCH": {
     "params": ["source", "market", "sourceEn", "marketEn"],
@@ -86,5 +86,13 @@
   "UNLICENSED_SOURCE_UNACKNOWLEDGED": {
     "params": [],
     "legacyZh": "使用未经许可的数据前，请确认仅用于个人研究。"
+  },
+  "STRATEGY_FAMILY_NOT_RUNNABLE": {
+    "params": [],
+    "legacyZh": "这一族还不能开跑。"
+  },
+  "MEAN_REVERSION_ACK_REQUIRED": {
+    "params": [],
+    "legacyZh": "先确认是否按均值回归继续，再开跑。"
   }
 }

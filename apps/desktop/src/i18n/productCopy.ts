@@ -4,6 +4,28 @@ import type {MessageParams} from "./translate";
 
 export type CopyFn = (key: MessageKey, params?: MessageParams) => string;
 
+/** Glossary display names. Ids are what the engine stores; zh names appear in source sentences. */
+const FAMILY_ID_KEY: Record<string, MessageKey> = {
+  low_volatility: "glossary.lowVolatility",
+  stock_bond_rebalance: "glossary.stockBondRebalance",
+  mean_reversion: "glossary.meanReversion",
+  fundamental_factor: "glossary.fundamentalFactor",
+  all_weather: "glossary.allWeather",
+};
+
+const FAMILY_ZH_KEY: Record<string, MessageKey> = {
+  "低波": "glossary.lowVolatility",
+  "股债再平衡": "glossary.stockBondRebalance",
+  "均值回归": "glossary.meanReversion",
+  "基本面因子": "glossary.fundamentalFactor",
+  "全天候": "glossary.allWeather",
+};
+
+export function familyDisplayName(idOrZh: string, t: CopyFn): string {
+  const key = FAMILY_ID_KEY[idOrZh] ?? FAMILY_ZH_KEY[idOrZh];
+  return key ? t(key) : idOrZh;
+}
+
 const EXACT: Record<string, MessageKey> = {
   "研究已完成，可导出策略包": "ui.copy.headlineExport",
   "研究已完成，但未通过可实盘交接": "ui.copy.headlineHandoff",
@@ -33,6 +55,21 @@ const EXACT: Record<string, MessageKey> = {
   "迭代": "ui.copy.actionIterate",
   "验证": "glossary.verification",
   "这些是界面和导出包里使用的展示名。方法的 id 与修订号没有改，计算也没有改。对话里仍可输入旧称，会解析成同一个方法。": "ui.copy.glossaryIntro",
+  "未命名研究": "ui.list.untitled",
+  "延续锁定论点下的参数/模型迭代": "ui.copy.lockedIteration",
+  "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？": "ui.copy.meanReversionQuestion",
+  "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。": "ui.dialogue.familyFollowUp",
+  "原理想靠什么赚钱？例如：美股大市值股票的均值回归。": "ui.dialogue.askThesis",
+  "研究哪类资产？例如：美股股票；也可以说「SPY、QQQ」指定标的。": "ui.dialogue.askUniverse",
+  "最多允许多少有效研究时间？例如：12 小时，或 30 分钟。暂停和等待确认不计时。": "ui.dialogue.askHours",
+  "第一轮用哪些冻结验证方法？例如：分段稳健性检验、样本外稳定、集中度、换手成本。": "ui.dialogue.askMethods",
+  "最低数据覆盖？例如：至少 25 个、10 年、缺失不超过 5%。": "ui.dialogue.askCoverage",
+  "在确认开跑卡上点「改一改」即可调整单项设定。": "ui.dialogue.unlockOnCard",
+  "五项研究设定已齐全，请检查确认开跑卡。": "ui.dialogue.slotsReady",
+  "试验次数（X/N）与累计 M": "ui.glossaryBody.trialTerm",
+  "冻结验证方法": "ui.glossaryBody.frozenTerm",
+  "基准口径": "ui.glossaryBody.benchmarkTerm",
+  "成本（bp）": "ui.glossaryBody.costTerm",
 };
 
 /** Longer labels first so a prefix does not swallow a more specific name. */
@@ -65,6 +102,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["特征集", "ui.copy.features"],
   ["模型族", "ui.copy.modelFamily"],
   ["均值回归", "ui.copy.meanReversion"],
+  ["延续锁定论点下的参数/模型迭代", "ui.copy.lockedIteration"],
   ["集中度", "ui.copy.crowding"],
 ];
 
@@ -126,6 +164,10 @@ function paramPiece(piece: string, t: CopyFn): string {
 }
 
 const RULES: Rule[] = [
+  {
+    re: /^已改用(.+)。你原来的论点没有采纳，这一族的方向和你的原话不同。$/,
+    render: (m, t) => t("ui.copy.familyRepick", {family: familyDisplayName(m[1], t)}),
+  },
   {
     re: /^美股大市值池 · (\d+) 只 · 名单日 (\d{4}-\d{2}-\d{2})$/,
     render: (m, t) => t("ui.copy.usLarge", {count: m[1], date: m[2]}),
@@ -229,8 +271,12 @@ const RULES: Rule[] = [
     }),
   },
   {
+    re: /^没能理解你的意思。(.*)$/,
+    render: (m, t) => `${t("ui.dialogue.misunderstood")}${localizeKnownCopy(m[1], t)}`,
+  },
+  {
     re: /^变更：(.+)$/,
-    render: (m, t) => t("ui.copy.changeLine", {text: m[1]}),
+    render: (m, t) => t("ui.copy.changeLine", {text: exactLabel(m[1], t)}),
   },
   {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%；底线 (.+)$/,

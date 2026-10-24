@@ -58,6 +58,7 @@ export function StatusPill({status}: {status: ResearchListDisplayStatus}) {
 export function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
   const {t} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
+  const researchTitle = (title: string) => (title === "未命名研究" ? t("ui.list.untitled") : title);
   const deleteWarning = t("ui.list.deleteBody");
   const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
   const awaitingCards = [
@@ -116,7 +117,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             <span className="list-pinned-meta">{t("ui.list.frozen")}</span>
           </div>
           <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
-            <h2>{item.title}</h2>
+            <h2>{researchTitle(item.title)}</h2>
             <p>
               <span>{item.universeLabel ? copyText(item.universeLabel) : t("ui.list.unlocked")}</span>
               {item.createdAt
@@ -147,7 +148,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             <StatusPill status="confirm_run" />
           </div>
           <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
-            <h2>{item.title}</h2>
+            <h2>{researchTitle(item.title)}</h2>
             <p>{item.universeLabel ? copyText(item.universeLabel) : t("ui.list.briefReady")}</p>
           </OpenResearchLink>
           <div className="list-pinned-actions">
@@ -167,7 +168,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             key={row.id}
           >
             <div>
-              <h3>{row.title}</h3>
+              <h3>{researchTitle(row.title)}</h3>
               <p>
                 <span>{row.universeLabel ? copyText(row.universeLabel) : t("ui.list.unlocked")}</span>
                 {row.createdAt ? ` · ${formatResearchTimestamp(row.createdAt)}` : ""}

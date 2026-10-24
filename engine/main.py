@@ -774,10 +774,14 @@ class ResearchCommandService:
                         body["confirmDataNoticeCode"] = fetch_notice["code"]
                         body["confirmDataNoticeParams"] = fetch_notice.get("params") or {}
                 notice = mean_reversion_only_notice(
-                    str(research.brief.thesis.value or "")
+                    str(research.brief.thesis.value or ""),
+                    adopted=research.mean_reversion_adopted,
+                    repicked_family=research.repicked_family,
                 )
                 if notice:
                     body["meanReversionOnlyNotice"] = notice
+                if research.repicked_family:
+                    body["repickedFamily"] = research.repicked_family
                 construction = construction_notice_for(research)
                 if construction:
                     body["constructionNotice"] = construction
@@ -806,6 +810,15 @@ class ResearchCommandService:
                 selection = body.get("symbolSelection")
                 if isinstance(selection, dict):
                     self._attach_unlicensed_choice(selection, research)
+                from engine.research.run_gate import evaluate_run_gate
+
+                gate = evaluate_run_gate(
+                    research,
+                    data_source_id=research.data_source_id,
+                    unlicensed_acknowledged=False,
+                    settings_path=self.paths.data.settings_file,
+                )
+                body["runGate"] = {"runnable": gate.runnable, "code": gate.code}
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -919,8 +932,11 @@ class ResearchCommandService:
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
                 "meanReversionOnlyNotice": mean_reversion_only_notice(
-                    str(research.brief.thesis.value or "")
+                    str(research.brief.thesis.value or ""),
+                    adopted=research.mean_reversion_adopted,
+                    repicked_family=research.repicked_family,
                 ),
+                "repickedFamily": research.repicked_family or None,
                 "cnExecutionNotice": cn_execution_notice_for(research),
                 "universeLabel": subtitle,
                 "subtitle": presentation.summary,
@@ -994,29 +1010,13 @@ class ResearchCommandService:
                 view["research_id"] = research.research_id
                 view["status"] = research.status.value
                 return view
-            from engine.research.a1_copy import DATA_SOURCE_UNBOUND
+            from engine.research.run_gate import evaluate_run_gate
             from engine.research.source_acknowledgement import (
                 acknowledged_at,
                 is_unlicensed_source,
                 record_acknowledgement,
             )
             from engine.research.universe_pool import pool_resolvable
-            from engine.research.universe_validation import (
-                reject_market_mismatches,
-                reject_mixed_markets,
-                reject_pending_symbol_asks,
-                reject_source_market_mismatch,
-                reject_unresolved_symbols,
-                reject_unspecified_market,
-            )
-
-            # Symbol identity wins over an unbound source. A mismatch must not
-            # be reported as DATA_SOURCE_UNBOUND, and it must not reach the loop.
-            reject_unspecified_market(research)
-            reject_market_mismatches(research)
-            reject_unresolved_symbols(research)
-            reject_pending_symbol_asks(research)
-            reject_mixed_markets(research)
 
             requested = data_source_id.strip() if isinstance(data_source_id, str) else ""
             source = requested or research.data_source_id
@@ -1035,20 +1035,24 @@ class ResearchCommandService:
                     source = preselect_price_source(
                         available_price_sources(universe.market, self.paths.data.settings_file)
                     ) or ""
-            if pool_resolvable(research) and not source:
-                raise UserFacingError("DATA_SOURCE_UNBOUND", DATA_SOURCE_UNBOUND)
+            gate = evaluate_run_gate(
+                research,
+                data_source_id=source,
+                unlicensed_acknowledged=unlicensed_acknowledged,
+                settings_path=self.paths.data.settings_file,
+            )
+            if not gate.runnable:
+                raise UserFacingError(
+                    gate.code or "DATA_SOURCE_UNBOUND",
+                    gate.message or "",
+                    params=gate.params or None,
+                )
             if source and is_unlicensed_source(source):
                 settings = self.paths.data.settings_file
-                if acknowledged_at(source, settings) is None and not unlicensed_acknowledged:
-                    raise UserFacingError(
-                        "UNLICENSED_SOURCE_UNACKNOWLEDGED",
-                        "使用未经许可的数据前，请确认仅用于个人研究。",
-                    )
                 if acknowledged_at(source, settings) is None:
                     record_acknowledgement(source, now, settings)
             if source != research.data_source_id:
                 research = replace(research, data_source_id=source)
-            reject_source_market_mismatch(research, source, self.paths.data.settings_file)
             expected_at = research.updated_at
             try:
                 research = ensure_runnable_universe(research)
