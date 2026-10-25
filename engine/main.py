@@ -752,8 +752,11 @@ class ResearchCommandService:
             named_symbols = universe is not None and (
                 universe.user_symbols_override or bool(universe.unresolved_tokens)
             )
-            chat_enabled = view_kind == "draft" or not pool_resolvable(research)
-            if view_kind == "confirm_run" and named_symbols:
+            from engine.research.family_choice import family_choice_payload, reply_open
+
+            family_reply = reply_open(research)
+            chat_enabled = view_kind == "draft" or not pool_resolvable(research) or family_reply
+            if view_kind == "confirm_run" and named_symbols and not family_reply:
                 chat_enabled = False
             body: dict[str, Any] = {
                 "kind": view_kind,
@@ -761,6 +764,7 @@ class ResearchCommandService:
                 "dialogue": [dialogue_turn_view(turn) for turn in research.dialogue],
                 "settings": self._settings(research),
                 "chatEnabled": chat_enabled,
+                **family_choice_payload(research),
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)

@@ -55,9 +55,50 @@ def _cn_mention(mention: object) -> bool:
     return canonical.endswith((".SH", ".SZ", ".BJ"))
 
 
+_CN_MARKET = re.compile(r"A\s*股|中国|沪深|China|\bCN\b", re.IGNORECASE)
+_US_MARKET = re.compile(r"美股|美国|\bUS\b", re.IGNORECASE)
+_BARE_STRATEGY = re.compile(r"volatility|squeeze|策略", re.IGNORECASE)
+_US_FAMILY_BASKETS = {
+    "stock_bond_rebalance": ("SPY", "AGG"),
+    "all_weather": ("SPY", "TLT", "IEF", "GLD", "DBC"),
+}
+
+
+def _named_market(message: str) -> Market | None:
+    if _CN_MARKET.search(message):
+        return Market.CN
+    if _US_MARKET.search(message):
+        return Market.US
+    return None
+
+
+def _us_family_basket(message: str) -> Universe | None:
+    """Stock-bond and all-weather with no China market lock the US fund baskets."""
+    hit = classify_thesis(message)
+    symbols = _US_FAMILY_BASKETS.get(hit.family_id)
+    if symbols is None or hit.outcome != "disclose":
+        return None
+    if _CN_MARKET.search(message):
+        return None
+    mentions = extract_symbol_mentions(message)
+    if any(_cn_mention(mention) for mention in mentions):
+        return None
+    named = tuple(
+        mention.canonical
+        for mention in mentions
+        if mention.kind == "symbol" and mention.canonical and not _cn_mention(mention)
+    )
+    return Universe(
+        Market.US,
+        AssetClass.FUND,
+        AssetClass.EQUITY,
+        named or symbols,
+        user_symbols_override=True,
+    )
+
+
 def _parse_universe(message: str) -> Universe | None:
-    market = Market.US if re.search(r"美股|美国|US", message, re.IGNORECASE) else None
-    market = Market.CN if re.search(r"A\s*股|中国|沪深|CN", message, re.IGNORECASE) else market
+    market = _named_market(message)
     if re.search(r"基金|ETF", message, re.IGNORECASE):
         asset = AssetClass.FUND
         underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
@@ -143,10 +184,17 @@ def _thesis_acceptable(message: str) -> bool:
     # market's default pool to use. Nothing is preselected.
     if _STRATEGY_HINT.search(message) is not None:
         return True
-    return thesis_mentions_strategy(message)
+    if thesis_mentions_strategy(message):
+        return True
+    # A market plus strategy language outside the closed lexicon is still a thesis.
+    # The dialogue asks which family instead of the generic misunderstanding.
+    return _named_market(message) is not None and _BARE_STRATEGY.search(message) is not None
 
 
 def _universe_for_thesis(text: str) -> Universe | None:
+    basket = _us_family_basket(text)
+    if basket is not None:
+        return basket
     parsed = _parse_universe(text)
     if parsed is not None:
         return parsed

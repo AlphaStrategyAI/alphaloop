@@ -991,7 +991,10 @@ describe("symbol resolution call chain", () => {
     expect(screen.getByTestId("price-source-akshare_sina_daily")).not.toBeChecked();
     expect(run).toBeDisabled();
     expect(run).toHaveAttribute("data-run-blocked", "source");
-    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent("待选择");
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(
+      "还没选数据源。先在确认卡上选一个，再开跑。",
+    );
+    expect(screen.getByTestId("confirm-data-meta")).toHaveTextContent("待选择");
     fireEvent.click(run);
     expect(invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
   });

@@ -17,6 +17,7 @@ FAMILY_REPICK_TEMPLATE = "已改用{family}。你原来的论点没有采纳，�
 FAMILY_FOLLOWUP = "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。"
 MEAN_REVERSION_ACK_REQUIRED = "MEAN_REVERSION_ACK_REQUIRED"
 MEAN_REVERSION_ACK_MESSAGE = "先确认是否按均值回归继续，再开跑。"
+MEAN_REVERSION_DECLINE_NOTICE = "好的，不按均值回归跑。研究留在草稿，可以改选策略族或换个论点。"
 
 
 def family_repick_notice(family_id: str) -> str:
@@ -43,8 +44,13 @@ def thesis_is_blocked_family(text: str | None) -> bool:
 
 
 _ACK = re.compile(
-    r"(?:好的?|可以|确认|继续|是|要|按均值回归继续|就按均值回归继续|yes|yeah|yep|ok|okay)"
+    r"(?:好的?|可以|确认|继续|是|要|按均值回归继续|就按均值回归继续|"
+    r"continue with mean reversion|yes|yeah|yep|ok|okay)"
     r"[。！!？?\s]*",
+    re.IGNORECASE,
+)
+_DECLINE = re.compile(
+    r"(?:不继续|don't continue)[。！!？?\s]*",
     re.IGNORECASE,
 )
 
@@ -52,6 +58,11 @@ _ACK = re.compile(
 def is_mean_reversion_ack(text: str) -> bool:
     """A bare yes, including 「按均值回归继续」. Not an explicit family choice."""
     return _ACK.fullmatch(text.strip()) is not None
+
+
+def is_mean_reversion_decline(text: str) -> bool:
+    """「不继续」 / "Don't continue". Not an acknowledgement."""
+    return _DECLINE.fullmatch(text.strip()) is not None
 
 
 def explicit_family_choice(text: str):

@@ -5,7 +5,7 @@ import type {MessageParams} from "./translate";
 export type CopyFn = (key: MessageKey, params?: MessageParams) => string;
 
 /** Glossary display names. Ids are what the engine stores; zh names appear in source sentences. */
-const FAMILY_ID_KEY: Record<string, MessageKey> = {
+export const FAMILY_ID_KEY: Record<string, MessageKey> = {
   low_volatility: "glossary.lowVolatility",
   stock_bond_rebalance: "glossary.stockBondRebalance",
   mean_reversion: "glossary.meanReversion",
@@ -24,6 +24,15 @@ const FAMILY_ZH_KEY: Record<string, MessageKey> = {
 export function familyDisplayName(idOrZh: string, t: CopyFn): string {
   const key = FAMILY_ID_KEY[idOrZh] ?? FAMILY_ZH_KEY[idOrZh];
   return key ? t(key) : idOrZh;
+}
+
+/** Glossary name inside a sentence. English stays lowercase; chips keep the title case. */
+export function familyMidSentenceName(idOrZh: string, t: CopyFn): string {
+  const name = familyDisplayName(idOrZh, t);
+  if (/[A-Za-z]/.test(name) && !/[\u3400-\u9fff]/.test(name)) {
+    return name.toLocaleLowerCase("en-US");
+  }
+  return name;
 }
 
 const EXACT: Record<string, MessageKey> = {
@@ -59,6 +68,7 @@ const EXACT: Record<string, MessageKey> = {
   "延续锁定论点下的参数/模型迭代": "ui.copy.lockedIteration",
   "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？": "ui.copy.meanReversionQuestion",
   "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。": "ui.dialogue.familyFollowUp",
+  "好的，不按均值回归跑。研究留在草稿，可以改选策略族或换个论点。": "ui.dialogue.declinedMeanReversion",
   "原理想靠什么赚钱？例如：美股大市值股票的均值回归。": "ui.dialogue.askThesis",
   "研究哪类资产？例如：美股股票；也可以说「SPY、QQQ」指定标的。": "ui.dialogue.askUniverse",
   "最多允许多少有效研究时间？例如：12 小时，或 30 分钟。暂停和等待确认不计时。": "ui.dialogue.askHours",
@@ -166,7 +176,7 @@ function paramPiece(piece: string, t: CopyFn): string {
 const RULES: Rule[] = [
   {
     re: /^已改用(.+)。你原来的论点没有采纳，这一族的方向和你的原话不同。$/,
-    render: (m, t) => t("ui.copy.familyRepick", {family: familyDisplayName(m[1], t)}),
+    render: (m, t) => t("ui.copy.familyRepick", {family: familyMidSentenceName(m[1], t)}),
   },
   {
     re: /^美股大市值池 · (\d+) 只 · 名单日 (\d{4}-\d{2}-\d{2})$/,

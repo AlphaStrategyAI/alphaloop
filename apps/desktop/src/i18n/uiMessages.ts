@@ -96,6 +96,13 @@ export function buildUiMessages(copy: Copy) {
         "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。",
         "That didn't match a supported strategy family. You can say low volatility, stock-bond rebalance, mean reversion, fundamental factor, or all weather.",
       ),
+      continueMeanReversion: copy("按均值回归继续", "Continue with mean reversion"),
+      dontContinue: copy("不继续", "Don't continue"),
+      pickFamily: copy("改选策略族：", "Pick a strategy family:"),
+      declinedMeanReversion: copy(
+        "好的，不按均值回归跑。研究留在草稿，可以改选策略族或换个论点。",
+        "OK, it won't run as mean reversion. The study stays a draft. You can pick another strategy family or change your thesis.",
+      ),
     },
     confirm: {
       eyebrow: copy("确认开跑", "Confirm to run"),
@@ -132,6 +139,10 @@ export function buildUiMessages(copy: Copy) {
       ),
       footnote: copy("确认开跑前锁定清单版本与数据区间。", "The list version and the data window lock before you confirm the run."),
       sourcePending: copy("待选择", "Not selected"),
+      noDataSource: copy(
+        "还没选数据源。先在确认卡上选一个，再开跑。",
+        "No data source selected yet. Pick one on the confirmation card before running.",
+      ),
       chooseSource: copy("选择{{source}}", "Choose {{source}}"),
       unlicensedNotice: copy(
         "数据来自对公开网页的自动采集，未获数据方许可，仅供个人研究。",

@@ -17,10 +17,12 @@ from engine.research.run_gate import evaluate_run_gate
 from engine.research.runtime import EnginePaths
 from engine.research.source_acknowledgement import record_acknowledgement
 from engine.research.store import SQLiteStore
+from engine.research.families import PRODUCT_FAMILY_IDS
 from engine.research.thesis_scope import (
     CONFIRM_CARD_NOTICE,
     FAMILY_FOLLOWUP,
     MEAN_REVERSION_ACK_MESSAGE,
+    MEAN_REVERSION_DECLINE_NOTICE,
     MEAN_REVERSION_ONLY_NOTICE,
     family_repick_notice,
 )
@@ -252,6 +254,164 @@ def test_blocked_family_shows_unsupported_notice_not_the_follow_up(tmp_path: Pat
         view = service.view_for(f"#/research/{research_id}")
         assert view["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE, thesis
         assert view.get("repickedFamily") in (None, "")
+
+
+def _decision(service: ResearchCommandService, research_id: str) -> dict[str, object]:
+    loaded = service.store.load(research_id)
+    return {
+        "thesis": loaded.brief.thesis.value,
+        "adopted": loaded.mean_reversion_adopted,
+        "declined": loaded.mean_reversion_declined,
+        "repick": loaded.repicked_family,
+        "status": loaded.status,
+        "pending": loaded.pending_non_mr_thesis,
+        "dialogue": [turn.text for turn in loaded.dialogue],
+    }
+
+
+def test_ack_button_phrase_and_typed_yes_write_the_same_record(tmp_path: Path) -> None:
+    phrase = "按均值回归继续"
+    first = _service(tmp_path)
+    first_id = _fill(first, "美股低波策略")
+    before = first.view_for(f"#/research/{first_id}")
+    assert before["chatEnabled"] is True
+    assert before["meanReversionChoice"] is True
+    _say(first, first_id, phrase)
+    second = _service(tmp_path)
+    second_id = _fill(second, "美股低波策略")
+    _say(second, second_id, phrase)
+    assert _decision(first, first_id) == _decision(second, second_id)
+    english = _service(tmp_path)
+    english_id = _fill(english, "美股低波策略")
+    _say(english, english_id, "Continue with mean reversion")
+    zh = _decision(first, first_id)
+    en = _decision(english, english_id)
+    assert en["adopted"] is True and zh["adopted"] is True
+    assert en["thesis"] == zh["thesis"] == "美股低波策略"
+    assert en["declined"] is False and en["status"] is ResearchStatus.DRAFT
+    assert en["repick"] == zh["repick"]
+    view = first.view_for(f"#/research/{first_id}")
+    assert view["meanReversionChoice"] is False
+    assert view["runGate"]["code"] != "MEAN_REVERSION_ACK_REQUIRED"
+
+
+def test_decline_button_phrase_stays_draft_and_opens_chips(tmp_path: Path) -> None:
+    decisions = []
+    for phrase in ("不继续", "Don't continue"):
+        service = _service(tmp_path)
+        research_id = _fill(service, "美股低波策略")
+        _say(service, research_id, phrase)
+        loaded = service.store.load(research_id)
+        assert loaded.status is ResearchStatus.DRAFT
+        assert loaded.mean_reversion_adopted is False
+        assert loaded.mean_reversion_declined is True
+        assert loaded.brief.thesis.value == "美股低波策略"
+        assert loaded.dialogue[-1].text == MEAN_REVERSION_DECLINE_NOTICE
+        view = service.view_for(f"#/research/{research_id}")
+        assert view["chatEnabled"] is True
+        assert view["meanReversionChoice"] is False
+        assert view["familyChipIds"] == list(PRODUCT_FAMILY_IDS)
+        assert view["runGate"]["runnable"] is False
+        decisions.append(_decision(service, research_id))
+    assert decisions[0]["adopted"] == decisions[1]["adopted"]
+    assert decisions[0]["declined"] == decisions[1]["declined"]
+    assert decisions[0]["thesis"] == decisions[1]["thesis"]
+    assert decisions[0]["status"] == decisions[1]["status"]
+
+
+def test_family_chips_follow_market_and_a_re_pick_uses_the_same_handler(tmp_path: Path) -> None:
+    us = _service(tmp_path)
+    us_id = _fill(us, "美股动量策略")
+    us_view = us.view_for(f"#/research/{us_id}")
+    assert us_view["chatEnabled"] is True
+    assert us_view["familyChipIds"] == list(PRODUCT_FAMILY_IDS)
+    assert us_view["meanReversionChoice"] is False
+    cn = _service(tmp_path)
+    cn_id = _fill(cn, "A股动量策略")
+    cn_view = cn.view_for(f"#/research/{cn_id}")
+    assert cn_view["familyChipIds"] == ["mean_reversion"]
+    _say(us, us_id, "均值回归")
+    repicked = us.store.load(us_id)
+    assert repicked.brief.thesis.value == "美股动量策略"
+    assert repicked.repicked_family == "mean_reversion"
+    assert repicked.mean_reversion_adopted is True
+    view = us.view_for(f"#/research/{us_id}")
+    assert view["meanReversionOnlyNotice"] == family_repick_notice("mean_reversion")
+    assert view["familyChipIds"] == []
+    ready = evaluate_run_gate(
+        repicked,
+        data_source_id="yahoo_daily",
+        unlicensed_acknowledged=True,
+        settings_path=us.paths.data.settings_file,
+    )
+    assert ready.runnable is True
+    other = _service(tmp_path)
+    other_id = _fill(other, "美股动量策略")
+    _say(other, other_id, "Low volatility")
+    chosen = other.store.load(other_id)
+    assert chosen.repicked_family == "low_volatility"
+    assert chosen.mean_reversion_adopted is False
+    assert chosen.brief.thesis.value == "美股动量策略"
+    card = other.view_for(f"#/research/{other_id}")
+    assert card["meanReversionOnlyNotice"] == family_repick_notice("low_volatility")
+    assert card["meanReversionChoice"] is True
+    assert card["runGate"]["code"] == "MEAN_REVERSION_ACK_REQUIRED"
+
+
+def test_us_volatility_squeeze_asks_the_family_follow_up(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = service.handle({"type": "create_draft"})["research_id"]
+    _say(service, research_id, "US volatility squeeze strategy")
+    loaded = service.store.load(research_id)
+    assert loaded.brief.thesis.value is None
+    assert loaded.pending_non_mr_thesis == "US volatility squeeze strategy"
+    assert "没能理解你的意思" not in loaded.dialogue[-1].text
+    assert loaded.dialogue[-1].text == FAMILY_FOLLOWUP
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["kind"] == "draft"
+    assert view["familyChipIds"] == list(PRODUCT_FAMILY_IDS)
+    assert view["chatEnabled"] is True
+
+
+def test_stock_bond_and_all_weather_lock_the_same_market_in_zh_and_en(tmp_path: Path) -> None:
+    pairs = (
+        (("股债再平衡", "stock-bond rebalance"), "US", "fund", ("SPY", "AGG"), "美股 · 基金"),
+        (
+            ("全天候", "all weather"),
+            "US",
+            "fund",
+            ("SPY", "TLT", "IEF", "GLD", "DBC"),
+            "美股 · 基金",
+        ),
+        (("A股股债再平衡", "China stock-bond rebalance"), "CN", "equity", (), "A 股 · 股票"),
+    )
+    for theses, market, asset, symbols, label in pairs:
+        seen = []
+        for thesis in theses:
+            service = _service(tmp_path)
+            research_id = service.handle({"type": "create_draft"})["research_id"]
+            _say(service, research_id, thesis)
+            loaded = service.store.load(research_id)
+            universe = loaded.brief.universe.value
+            assert universe is not None, thesis
+            assert universe.market_unspecified is False, thesis
+            assert universe.market.value == market, thesis
+            assert universe.asset_class.value == asset, thesis
+            assert universe.symbols == symbols, thesis
+            listing = service.view_for("#/research")
+            row = next(item for item in listing["rows"] if item["id"] == research_id)
+            assert row["universeLabel"] == label, thesis
+            seen.append((universe.market.value, universe.asset_class.value, universe.symbols))
+        assert seen[0] == seen[1]
+
+
+def test_unlocked_universe_list_row_says_not_selected(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research_id = service.handle({"type": "create_draft"})["research_id"]
+    listing = service.view_for("#/research")
+    row = next(item for item in listing["rows"] if item["id"] == research_id)
+    assert row["universeLabel"] == "待选择"
+    assert row["universeLabel"] != "A 股 · 股票"
 
 
 def test_unrecognized_family_asks_instead_of_running_mean_reversion(tmp_path: Path) -> None:

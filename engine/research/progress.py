@@ -72,17 +72,17 @@ def list_items(
         if status_filter is not None and item.status is not status_filter:
             continue
         universe = item.brief.universe.value
+        if universe is None or universe.market_unspecified:
+            universe_label = "待选择"
+        else:
+            universe_label = f"{_MARKET[universe.market]} · {_ASSET[universe.asset_class]}"
         rows.append(
             ResearchListItem(
                 research_id=item.research_id,
                 # Empty means no stored thesis. The desktop renders the untitled label.
                 # A saved title that is still the old Chinese label is mapped there too.
                 title=(item.brief.thesis.value or ""),
-                universe_label=(
-                    f"{_MARKET[universe.market]} · {_ASSET[universe.asset_class]}"
-                    if universe is not None
-                    else "未锁定"
-                ),
+                universe_label=universe_label,
                 status=item.status,
                 list_status=list_row_status(item),
                 created_at=item.created_at,

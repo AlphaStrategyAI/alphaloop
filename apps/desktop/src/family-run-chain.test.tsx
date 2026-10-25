@@ -8,13 +8,14 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {bindDesktopApi} from "./api-bind";
 import {confirmRunEnginePayload} from "./confirmRunCommand";
+import {sendDialogueEnginePayload} from "./dialogueCommand";
 import type {DesktopApi, DesktopView} from "./contracts";
 import {enCatalog, isFinalMessageKey, zhCatalog} from "./i18n/catalog";
 import {I18nProvider} from "./i18n/I18nProvider";
 import {localizeKnownCopy} from "./i18n/productCopy";
 import {translate} from "./i18n/translate";
 import {CompletedScreen} from "./screens/CompletedScreen";
-import {ConfirmRunCard} from "./screens/ConfirmRunScreen";
+import {ConfirmRunCard, ConfirmRunScreen} from "./screens/ConfirmRunScreen";
 import {GlossaryScreen} from "./screens/GlossaryScreen";
 import {MethodDetail} from "./screens/MethodsScreen";
 
@@ -160,7 +161,9 @@ describe("family run gate on the confirm card", () => {
       runGate: {runnable: false, code: "DATA_SOURCE_UNBOUND"},
     }));
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
-    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent("Not selected");
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(
+      "No data source selected yet. Pick one on the confirmation card before running.",
+    );
     fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
     const button = screen.getByTestId("confirm-run-start");
     expect(button).toBeEnabled();
@@ -266,9 +269,11 @@ describe("disclosed family stays disabled until the user answers yes", () => {
 describe("family re-pick names the chosen family", () => {
   it("renders the glossary name in zh and en, with no CJK in English", () => {
     const cases = [
-      ["mean_reversion", "均值回归", "Mean reversion"],
-      ["low_volatility", "低波", "Low volatility"],
-      ["stock_bond_rebalance", "股债再平衡", "Stock-bond rebalance"],
+      ["low_volatility", "低波", "low volatility"],
+      ["stock_bond_rebalance", "股债再平衡", "stock-bond rebalance"],
+      ["mean_reversion", "均值回归", "mean reversion"],
+      ["fundamental_factor", "基本面因子", "fundamental factor"],
+      ["all_weather", "全天候", "all weather"],
     ] as const;
     for (const [familyId, zhName, enName] of cases) {
       const sentence = `已改用${zhName}。你原来的论点没有采纳，这一族的方向和你的原话不同。`;
@@ -328,6 +333,103 @@ describe("family re-pick names the chosen family", () => {
       expect(notice).not.toContain(enCatalog.ui.dialogue.familyFollowUp);
       cleanup();
     }
+  });
+});
+
+describe("family answers on the confirm card", () => {
+  const answered = card({
+    chatEnabled: true,
+    meanReversionChoice: true,
+    familyChipIds: [],
+    runGate: {runnable: false, code: "MEAN_REVERSION_ACK_REQUIRED"},
+  });
+
+  function renderAnswer(language: typeof ZH | typeof EN, view = answered) {
+    const sent: {researchId: string; message: string}[] = [];
+    const raw = api(async () => undefined);
+    raw.sendDialogue = async (researchId, message) => {
+      sent.push({researchId, message});
+    };
+    const bound = bindDesktopApi(raw, {refresh: async () => undefined, onError: () => undefined});
+    const shown = render(
+      <I18nProvider initial={language}>
+        <ConfirmRunScreen api={bound} view={view} />
+      </I18nProvider>,
+    );
+    return {sent, ...shown};
+  }
+
+  it("keeps the chat input enabled and sends both answers through send_dialogue", () => {
+    const zh = renderAnswer(ZH);
+    expect(screen.getByTestId("dialogue-input")).toBeEnabled();
+    expect(screen.getByTestId("mean-reversion-continue")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("mean-reversion-decline")).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByTestId("mean-reversion-continue"));
+    fireEvent.click(screen.getByTestId("mean-reversion-decline"));
+    expect(zh.sent.map((item) => sendDialogueEnginePayload(item.researchId, item.message))).toEqual([
+      sendDialogueEnginePayload("r-family", "按均值回归继续"),
+      sendDialogueEnginePayload("r-family", "不继续"),
+    ]);
+    zh.unmount();
+
+    const en = renderAnswer(EN);
+    expect(screen.getByTestId("dialogue-input")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("mean-reversion-continue"));
+    fireEvent.click(screen.getByTestId("mean-reversion-decline"));
+    expect(en.sent.map((item) => item.message)).toEqual([
+      "Continue with mean reversion",
+      "Don't continue",
+    ]);
+    en.unmount();
+
+    renderAnswer(EN, card({chatEnabled: false, runGate: {runnable: true}}));
+    expect(screen.queryByTestId("dialogue-input")).toBeNull();
+  });
+
+  it("renders glossary-order chips with none preselected", () => {
+    const ids = [
+      "low_volatility",
+      "stock_bond_rebalance",
+      "mean_reversion",
+      "fundamental_factor",
+      "all_weather",
+    ];
+    const zh = renderAnswer(ZH, card({
+      chatEnabled: true,
+      familyChipIds: ids,
+      runGate: {runnable: false, code: "STRATEGY_FAMILY_NOT_RUNNABLE"},
+    }));
+    expect(screen.getByTestId("family-chip-label")).toHaveTextContent("改选策略族：");
+    const buttons = ids.map((id) => screen.getByTestId(`family-chip-${id}`));
+    expect(buttons.map((button) => button.getAttribute("data-family-id"))).toEqual(ids);
+    for (const button of buttons) {
+      expect(button).toHaveAttribute("aria-pressed", "false");
+    }
+    fireEvent.click(screen.getByTestId("family-chip-mean_reversion"));
+    expect(zh.sent[0]).toEqual({researchId: "r-family", message: "均值回归"});
+    expect(sendDialogueEnginePayload(zh.sent[0].researchId, zh.sent[0].message).type).toBe("send_dialogue");
+    zh.unmount();
+
+    renderAnswer(EN, card({
+      chatEnabled: true,
+      familyChipIds: ["mean_reversion"],
+      runGate: {runnable: false, code: "STRATEGY_FAMILY_NOT_RUNNABLE"},
+    }));
+    expect(screen.getByTestId("family-chip-label")).toHaveTextContent("Pick a strategy family:");
+    expect(screen.getAllByTestId(/family-chip-/).filter((node) => node.getAttribute("data-family-id"))).toHaveLength(1);
+    expect(screen.getByTestId("family-chip-mean_reversion")).toHaveTextContent("Mean reversion");
+    expect(screen.getByTestId("family-chip-mean_reversion")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("states that no data source is selected without changing the field value", () => {
+    renderAnswer(EN, card({
+      chatEnabled: false,
+      runGate: {runnable: false, code: "DATA_SOURCE_UNBOUND"},
+    }));
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(
+      "No data source selected yet. Pick one on the confirmation card before running.",
+    );
+    expect(screen.getByTestId("confirm-run-blocked-reason")).not.toHaveTextContent("Not selected");
   });
 });
 

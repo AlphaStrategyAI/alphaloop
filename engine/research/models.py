@@ -513,6 +513,7 @@ class Research:
     coverage_max_missing_pct_scratch: float | None = None
     pending_non_mr_thesis: str | None = None
     mean_reversion_adopted: bool = False
+    mean_reversion_declined: bool = False
     repicked_family: str = ""
     required_secret_ids: tuple[str, ...] = ()
     construction_schedule: str = "legacy_zero"

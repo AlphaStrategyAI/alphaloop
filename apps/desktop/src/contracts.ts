@@ -156,6 +156,9 @@ type ViewBody =
       researchId: string;
       dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
+      chatEnabled?: boolean;
+      meanReversionChoice?: boolean;
+      familyChipIds?: readonly string[];
     }
   | {
       kind: "confirm_run";
@@ -163,6 +166,10 @@ type ViewBody =
       dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
       chatEnabled?: boolean;
+      /** Show 「按均值回归继续」 and 「不继续」. Neither is preselected. */
+      meanReversionChoice?: boolean;
+      /** Glossary-order family ids. Empty when the chips are hidden. */
+      familyChipIds?: readonly string[];
       symbolSelection?: SymbolSelectionSummary;
       symbolResolution?: SymbolResolution | null;
       confirmDataNotice?: string | null;
