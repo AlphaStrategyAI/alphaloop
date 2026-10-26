@@ -1,70 +1,91 @@
+English | [简体中文](README.zh-CN.md)
+
 # alphaloop
 
-本机优先的投资策略工坊：你给出一个大致方向，它在你自己的机器上做历史研究，交出一份可以检查的策略包。alphaloop 不下单。
+A local workshop for a daily equity idea. You describe the study. AlphaLoop runs it on your machine and keeps a file of every round and every failed check. It does not send orders.
 
-## 当前能做
+Today that study is mean reversion. You confirm the card, the engine iterates, and you leave with either a strategy pack or a research record that says why the pack stayed locked.
 
-- 在桌面应用里用对话把一项研究谈清楚，确认后用冻结的验证方法做历史回测。
-- 新研究的默认标的池是仓库里的版本化清单：美股大市值（`us_equity_large_cap_v2`，标普 500 生成日成分）和 A 股大市值（`cn_equity_large_cap_v2`，沪深 300 生成日成份），各不少于 100 只。旧研究仍加载各 40 只的 `us_equity_large_cap_v1` / `cn_equity_large_cap_v1`，成员不改。池不是数据源，不预选 Yahoo 或 AkShare。用户写出代码可以覆盖默认池。
-- 导出策略包或研究记录。包里的回测是历史假设业绩，不是实盘业绩，也不是对未来的承诺。
-- 引擎里实现的策略族只有截面均值回归。
+![AlphaLoop, ready for a new study](docs/readme-assets/01-research-list.png)
 
-## 当前不能做
+![Name it, confirm it, let it iterate, keep the file](docs/readme-assets/study-loop.gif)
 
-- 不下单，不接券商，不跑模拟盘。
-- 没有 `US-EQ-LIQUID`，没有本机 parquet。设计稿上的 128 只当时和本地导入同列 P1；M2 的股票默认池是另一份生成日名单，不少于 100 只。本地 CSV 导入在 M2，Parquet 放到 M2 之后。
-- 论点文字不会把策略换成动量或其他族。对话、确认卡和完成页会说明 V1 只做均值回归（[#133](https://github.com/AlphaStrategyAI/alphaloop/pull/133)）。
-- 门禁展示名是「分段稳健性检验」「集中度」。旧词「走样检验」「拥挤度」只在对话里当别名。左栏有「术语」页（[#129](https://github.com/AlphaStrategyAI/alphaloop/pull/129)）。
-- 联网时，默认设定下回撤等门禁通常仍可能不通过。无发布日的资料不作为证据，时点一致性不再因此恒败（[#132](https://github.com/AlphaStrategyAI/alphaloop/pull/132)，pit-v2）。完成页「本研究累计」与导出 `rounds.json` 用同一把研究窗口键（[#131](https://github.com/AlphaStrategyAI/alphaloop/pull/131)）。
+## Start
 
-## 快速开始
-
-需要 Python 3.12。
+Python 3.12, Git, Node.js 22, Rust, and a system webview. Building the engine also needs `python3.12-venv`. There is no installer, and the package is not on PyPI.
 
 ```bash
-pip install -e ".[dev]"
-python -m pytest -q -m "not network"
+git clone https://github.com/AlphaStrategyAI/alphaloop.git
+cd alphaloop
+python3 -m pip install -e ".[dev]"
+bash scripts/build_sidecar.sh
+python3 scripts/stage_sidecar.py --target linux --source dist/alphaloop-engine --tauri-root apps/desktop/src-tauri
+cd apps/desktop && npm ci && npm run tauri dev
 ```
 
-桌面（Node 22；`npm test` 含 vitest 与 `tsc --noEmit`）：
+Use `--target macos` or `--target windows` on those systems. On Linux, install WebKitGTK 4.1 before the desktop build. Open a study from **New research**. The command line only starts the engine and prints status. Stop it before the desktop app if both would share the same lock.
 
-```bash
-cd apps/desktop
-npm ci
-npm test
-```
+## What you get
 
-本机桌面：`cd apps/desktop && npm run tauri dev`（需要 Rust 与系统 WebView）。CLI 只有启动和看状态：安装后 `alphaloop start`、`alphaloop status`。引擎入口是 `alphaloop-engine`。
+- **The work stays on your computer.** The study, the snapshots, and the export live in a local folder. There is no account and no hosted service.
+- **You see the trade before it runs.** The confirm card shows the names, the window, the data source, and the cost. US equities are 5 bp one way, US funds 1 bp, China A-share equities 20 bp, A-share funds 5 bp.
+- **The fill is the previous bar.** The signal is scored, then shifted one bar before the weights. You do not trade the same close you just measured.
+- **Small changes continue. A new idea waits.** Up to five rounds run on their own. Each one adds five days to the lookback, starting from 20 days, entry z of 1.0, long only. If the economic logic changes, the run stops for you.
+- **The file remembers the tries.** The round count is stored and exported. More rounds do not loosen a gate.
+- **A strategy pack is earned.** It exports only when the study is finished, the frozen checks passed, nothing is waiting, and the point-in-time check ran and passed. Otherwise you still get a research record that names the failed check. The backtest inside is a historical hypothesis, not a forecast and not a live result.
 
-联网验收不是默认 CI。带网络的测试要显式打开 `ALPHALOOP_ACCEPTANCE_NETWORK=1`，并且不要用 `-m "not network"` 把它滤掉。
+Default lists ship with the app: S&P 500 names and CSI 300 names, each taken on the day the list was built (503 and 300 names). That is not membership at the time. History before that day carries survivorship bias, and the screen says so. Type tickers and the list is replaced. A single name uses its own rolling dispersion. Several names use a cross-section.
 
-## 数据与联网
+![The confirm card shows the names, the window, the source, and the cost](docs/readme-assets/02-confirm-to-run.png)
 
-| 用途 | 来源 |
-| --- | --- |
-| 美股日线、美股基准 | Yahoo Finance（`yfinance`） |
-| A 股日线、A 股基准 | AkShare（新浪优先） |
-| 公开论文 / 发行人清单 | Crossref、SEC EDGAR |
-| 本机材料 | `materials/` 下的 Markdown |
+## What a finished study looks like
 
-这些调用需要网络。抓取失败或数据不全时，研究按覆盖底线处理，不会改用一套仓库里不存在的 parquet 池。
+A real mean-reversion run on one US name can end like this. Three checks failed. Point-in-time passed. The strategy pack stayed locked, and the export was a research record.
 
-## 文档
+The empty circle beside "Every selected verification method passed" means that check failed. The green re-verification chip can be on even when nothing was re-checked. An empty list passes. The market scorecard runs even if you did not name it.
 
-- [产品定位](./docs/requirements/product-positioning.md)
-- [产品设计 v0.0.1](./docs/requirements/product-design-v0_0_1.md)
-- [界面设计 v0.0.1](./docs/requirements/ui-design-v0_0_1.md)（03 / 05 / 06 与代码不一致处已标注，不重画）
-- [V1 交付收口](./docs/requirements/v1-cut-line.md)
-- [术语表](./docs/GLOSSARY.md) — 展示名（分段稳健性检验、集中度、试验次数与累计 M、基准与成本口径）
-- [Tech Pulse 界面说明](./apps/desktop/docs/tech-pulse-ui.md)
+![Completed study. The strategy pack stayed locked.](docs/readme-assets/04-completed-gates.png)
 
-## 已知限制
+Point-in-time only asks whether a cited source was published by the end of the backtest. Undated notes are dropped. They do not fail the check, and a study can pass with no outside evidence. The check does not cover who was in the index, how prices were adjusted, or restated financials. A pass does not clear survivorship bias.
 
-- 默认实现层预算是 5 轮（`ALPHALOOP_MAX_TRIALS`）。设计稿若画 6/6 轮或 M=8，与代码不符。
-- 股票基准是价格指数，策略收益按复权总回报计算，两者不是同一口径。
-- 成本门禁在验证器里按换手近似，回测收益序列本身不含逐日费用。
-- 窗口键含确认日。同一想法隔天重开是新窗口；是否改成数据截止日尚未决定。完成页会把「数据窗口截止」和「回测截止（最后交易日）」分开写。
+The five dated sources in that run were keyword hits from a paper index, not a review of the strategy. That is why a point-in-time pass is not a reading list.
+
+## How it is put together
+
+![Desktop, engine, and the files on your disk](docs/readme-assets/architecture.svg)
+
+You work in the desktop app. The engine collects daily bars, simulates, and scores a frozen set of checks. Everything it keeps is under your data folder. On Linux that is `~/.local/share/ai.alphastrategy.alphaloop`, unless you set `ALPHALOOP_DATA_ROOT`.
+
+Daily bars come from Yahoo Finance for US names and AkShare for China A-shares. Papers come from Crossref. Filings come from SEC EDGAR. Your own notes are a local folder. These feeds are unofficial or limited to research use. The app selects them for you and does not yet ask you to acknowledge that. The name on the card is not a data license.
+
+## Now, and next
+
+![What runs today, and what is only planned](docs/readme-assets/today-and-direction.svg)
+
+**Now.** Mean reversion on daily US and China A-share names. Five settings, a local run, a round count, and an export that fails closed.
+
+**Planned, not running.** A rougher idea left to work for a long time. Low volatility, stock and bond rebalance, fundamental factors, and all-weather. A verifier library that grows from study to study. Momentum is not offered in the meantime, and it is not quietly replaced by mean reversion. Orders stay out of the product. The direction is written in [product positioning](docs/requirements/product-positioning.md). What ships now is spelled out in the [delivery note](docs/requirements/v1-cut-line.md).
+
+## When to use something else
+
+Use AlphaLoop when you want a daily equity study with a trial ledger on your own machine.
+
+Use something else when you need a broker, a paper account, or minute and tick bars. Use a sweep library such as [vectorbt](https://github.com/polakowo/vectorbt) when you want to try a large grid of parameters. Use a hosted desk such as [JoinQuant](https://www.joinquant.com/) or [RiceQuant](https://www.ricequant.com/doc/quant/) when the research should live in the browser. Use [zipline-reloaded](https://github.com/stefan-jansen/zipline-reloaded), [backtrader](https://github.com/mementum/backtrader), [LEAN](https://github.com/QuantConnect/Lean), or [Qlib](https://github.com/microsoft/qlib) when you want to extend a backtest engine or a model pipeline in code.
+
+## Before you trust a figure
+
+Adjusted prices are not the same thing as the index you are compared with. US names use adjusted Yahoo prices. A-share names use forward-adjusted prices. The benchmark is still a price index.
+
+The cost on the card and the cost in the turnover check are different. The card's cost is already in the return. The check then subtracts again, 10 bp in the US and 20 bp for A-shares, times annualized turnover. Do not add those two rates together.
+
+A-share results do not model next-day settlement or price limits. Fills in the market can be worse. The finished screen says so.
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE).
+MIT. Copyright (c) 2026 AlphaStrategyAI. The text is in [LICENSE](LICENSE). It covers this code, not the market data. There is no paid plan and no support contract.
+
+There is no task list for contributors. If the app disagrees with this page, open an [issue](https://github.com/AlphaStrategyAI/alphaloop/issues) with the command and the status output. A secret belongs in the desktop vault, not in an issue. The settings page that works is the interface language.
+
+- [Glossary](docs/GLOSSARY.md)
+- [Settings](docs/requirements/settings-config-v1.md)
+- [Paths](docs/requirements/paths-contract.md)

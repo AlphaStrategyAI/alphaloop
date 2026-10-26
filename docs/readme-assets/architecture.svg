@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="420" viewBox="0 0 1100 420" role="img" aria-label="AlphaLoop runs on your machine: desktop, engine, and local files.">
+  <rect width="1100" height="420" rx="0" fill="#07090C"/>
+  <text x="40" y="48" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="22" font-weight="700">On your machine</text>
+  <text x="230" y="48" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">Nothing is hosted. Nothing is sent to a broker.</text>
+
+  <rect x="40" y="80" width="300" height="250" rx="16" fill="#12181F" stroke="#5EEAD4" stroke-width="1.5"/>
+  <text x="64" y="116" fill="#5EEAD4" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="13" letter-spacing="1">DESKTOP</text>
+  <text x="64" y="150" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="18" font-weight="700">You name the study</text>
+  <text x="64" y="182" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Thesis, universe, time,</text>
+  <text x="64" y="204" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">verifiers, coverage</text>
+  <text x="64" y="244" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Confirm the card</text>
+  <text x="64" y="276" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Read the gates</text>
+  <text x="64" y="308" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Export the file</text>
+
+  <rect x="400" y="80" width="300" height="250" rx="16" fill="#12181F" stroke="#2E3844" stroke-width="1.5"/>
+  <text x="424" y="116" fill="#5EEAD4" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="13" letter-spacing="1">ENGINE</text>
+  <text x="424" y="150" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="18" font-weight="700">It runs the rounds</text>
+  <text x="424" y="182" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Gather daily bars</text>
+  <text x="424" y="206" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Shift the signal one bar</text>
+  <text x="424" y="230" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Score the frozen checks</text>
+  <text x="424" y="254" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Add 5 days of lookback</text>
+  <text x="424" y="290" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Stop if the idea changes</text>
+
+  <rect x="760" y="80" width="300" height="250" rx="16" fill="#12181F" stroke="#2E3844" stroke-width="1.5"/>
+  <text x="784" y="116" fill="#5EEAD4" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="13" letter-spacing="1">YOUR DISK</text>
+  <text x="784" y="150" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="18" font-weight="700">You keep the record</text>
+  <text x="784" y="182" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">SQLite study</text>
+  <text x="784" y="206" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Round count</text>
+  <text x="784" y="230" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Research record, always</text>
+  <text x="784" y="254" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Strategy pack, if gates pass</text>
+  <text x="784" y="290" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">No broker connection</text>
+
+  <text x="40" y="370" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Daily bars: Yahoo Finance for US names, AkShare for China A-shares. Papers: Crossref. Filings: SEC EDGAR. Notes: a local folder.</text>
+  <text x="40" y="396" fill="#5EEAD4" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Mean reversion runs today. The other family names are in the code and will not start.</text>
+</svg>

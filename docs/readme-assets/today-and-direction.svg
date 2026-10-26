@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="What AlphaLoop does now, and what is planned but not running yet.">
+  <rect width="1100" height="360" fill="#07090C"/>
+  <text x="40" y="46" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="22" font-weight="700">Now, and what comes next</text>
+
+  <rect x="40" y="72" width="490" height="250" rx="16" fill="#12181F" stroke="#5EEAD4" stroke-width="1.5"/>
+  <text x="64" y="108" fill="#5EEAD4" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="13" letter-spacing="1">NOW</text>
+  <text x="64" y="146" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">Mean reversion, daily bars</text>
+  <text x="64" y="178" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">Five settings, then a local run</text>
+  <text x="64" y="210" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">Up to 5 rounds, lookback plus 5 days</text>
+  <text x="64" y="242" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">Gates written into the export</text>
+  <text x="64" y="274" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">No orders</text>
+
+  <rect x="570" y="72" width="490" height="250" rx="16" fill="#12181F" stroke="#2E3844" stroke-width="1.5"/>
+  <text x="594" y="108" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="13" letter-spacing="1">PLANNED</text>
+  <text x="594" y="146" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">A rough idea, a long unattended run</text>
+  <text x="594" y="178" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">Low volatility, stock-bond, fundamentals</text>
+  <text x="594" y="210" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">All-weather</text>
+  <text x="594" y="242" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">A verifier library that gets thicker</text>
+  <text x="594" y="274" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="16">Still no orders. That stays out.</text>
+</svg>
