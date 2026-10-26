@@ -4,7 +4,7 @@
 
 | 日期 | 变更内容 |
 | --- | --- |
-| 2026-10-25 | 产品锁定（#154 于 2026-10-26 合入 main `1c1533d`）：确认卡在均值回归知情确认、改选族、策略族追问未答时保持对话可输入；按钮「按均值回归继续」/「不继续」与族 chips 与打字同路径；低波/基本面/股债/全天候须显式同意才走披露的均值回归；动量/趋势/突破不询问继续均值回归；股债与全天候未点名市场时锁定美股基金，列表行「美股 · 基金」；不按界面语言推断市场。 |
+| 2026-10-25 | 产品锁定（#154 于 2026-10-26 合入 main `1c1533d`）：`reply_open` 在知情确认或族 chips 任一出现时保持对话可输入。按钮「按均值回归继续」/「不继续」只属于披露路径（`MEAN_REVERSION_ACK_REQUIRED`）和改选到非均值回归族之后；动量/趋势/突破、追问未答、以及拒绝继续之后只出族 chips。低波/基本面/股债/全天候须显式同意才走披露的均值回归。股债与全天候未点名市场时锁定美股基金，列表行「美股 · 基金」；不按界面语言推断市场。 |
 | 2026-10-19 | 股票默认池按生成日名单扩到不少于 100 只。新研究用这一版。旧的 40 只池不改，只给已经引用它的研究。免费时点成分仍然没有。 |
 | 2026-10-19 | 用户更正：新建研究遇到混池时，可以按市场拆成两份草稿。这两份不带 `derived_from`，试验轮数从零开始。旧混池的复制草稿仍继承全部已试轮数。 |
 | 2026-10-19 | 用户锁定：单票 5% 只在本次可投资只数不少于 20 时生效。少于 20 只豁免，确认卡不得写「单票 ≤5%」。成本假设仍然展示。 |
@@ -511,6 +511,8 @@ M2 新研究不另指定池子时，用该市场的股票默认池。一池只�
 - 中文：已改用{{family}}。你原来的论点没有采纳，这一族的方向和你的原话不同。
 - 英文：Switched to {{family}}. Your original thesis was not adopted, and this family's direction differs from what you said.
 
+`{{family}}` 由界面的 `familyMidSentenceName` 填入。英文取术语表展示名，再用 `toLocaleLowerCase("en-US")` 收成句中小写；改选均值回归时是 “Switched to mean reversion. …”。中文保持术语表展示名，不改写。
+
 用户确认的是改选之后的族。产品不把改选前的原话继续当作本次逻辑。
 
 **披露后须知情确认的族。** 低波、基本面因子、股债再平衡、全天候（美股与 A 股论点一样）可以走已披露的均值回归路径，但必须用户显式回答「是」。未答时引擎闸门为 `MEAN_REVERSION_ACK_REQUIRED`，文案：
@@ -518,7 +520,7 @@ M2 新研究不另指定池子时，用该市场的股票默认池。一池只�
 - 中文：先确认是否按均值回归继续，再开跑。
 - 英文：Confirm whether to continue with mean reversion before running.
 
-Run 保持禁用，直到用户点「按均值回归继续」/Continue with mean reversion，或用同等打字回答。点「不继续」/Don't continue 之后，研究留在草稿，回复用 `ui.dialogue.declinedMeanReversion`。
+Run 保持禁用，直到用户点「按均值回归继续」/Continue with mean reversion，或用同等打字回答。点「不继续」/Don't continue 之后，研究留在草稿，回复用 `ui.dialogue.declinedMeanReversion`，这两枚按钮收起，接着只出第 4.5.1 节的族 chips。
 
 ### 4.4 命中多个
 
@@ -559,12 +561,30 @@ Run 保持禁用，直到用户点「按均值回归继续」/Continue with mean
 
 ### 4.5.1 确认卡上的回答控件（B1，2026-10-25）
 
-在 `MEAN_REVERSION_ACK_REQUIRED`、`STRATEGY_FAMILY_NOT_RUNNABLE`，或策略族追问未答时：
+控件由 `engine/research/family_choice.py` 分开决定。知情确认按钮和族 chips 不挂在同一组闸门上。对话是否为这条回答开着，看 `reply_open`：`show_ack` 或 `show_chips` 有一个为真即可。打字和点按钮走同一条处理。回复按「回答确认问题 / 改选族」处理，不当作新论点。
 
-1. **对话保持可输入。** 确认卡阶段 `chatEnabled` 为真。用户的回复按「回答确认问题 / 改选族」处理，不当作新论点。
-2. **知情确认按钮**（无一预选，`aria-pressed` 为 false）：「按均值回归继续」/Continue with mean reversion，以及「不继续」/Don't continue。点「不继续」后研究留在草稿，助手回复用 `ui.dialogue.declinedMeanReversion`。
-3. **改选策略族 chips**，标签为「改选策略族："/Pick a strategy family:。只列出该市场可开跑的族，顺序与术语表一致。A 股在 M2 只提供均值回归一枚 chip。
-4. **按钮与打字走同一路径**，记入同一条对话处理（见 `engine/research/family_choice.py` 的 `reply_open`）。
+**知情确认按钮（`show_ack`，界面字段 `meanReversionChoice`）。** 只给披露路径，以及改选到均值回归以外的族之后。分类结果是 `disclose` 时闸门为 `MEAN_REVERSION_ACK_REQUIRED`（低波、基本面因子、股债再平衡、全天候）。`repicked_family` 有值且不是 `mean_reversion` 时，代码同样打开 `show_ack`，因为改选后的族仍要这道确认。改选到 `mean_reversion` 时直接采纳，不再出这两枚按钮。`mean_reversion_adopted` 或 `mean_reversion_declined` 为真时按钮收起。
+
+两枚都没有预选（`aria-pressed` 为 false）：
+
+- 「按均值回归继续」/Continue with mean reversion（`ui.dialogue.continueMeanReversion`）
+- 「不继续」/Don't continue（`ui.dialogue.dontContinue`）
+
+点「不继续」后研究留在草稿，助手回复 `ui.dialogue.declinedMeanReversion`。`mean_reversion_declined` 使 `show_ack` 关闭、`show_chips` 打开，接下来只有族 chips。
+
+**族 chips（`show_chips`）。** 只出 chips，不出「按均值回归继续」或「不继续」。下面任一为真就出 chips：
+
+- `mean_reversion_declined`（已经拒绝按均值回归继续）
+- `pending_non_mr_thesis`（策略族追问还没答）
+- `classify_thesis` 的结果是 `block`（动量、趋势、突破；闸门 `STRATEGY_FAMILY_NOT_RUNNABLE`）
+
+动量、趋势、突破不得出现「按均值回归继续」。`repicked_family` 有值时 chips 收起，换成第 4.3 节的 `ui.copy.familyRepick`。
+
+标签是 `ui.dialogue.pickFamily`：「改选策略族：」/ "Pick a strategy family:"。无一预选。
+
+`chip_ids`：市场已锁定为中国大陆时只有 `["mean_reversion"]`。美股以及市场未锁定时，按 `PRODUCT_FAMILY_IDS` 的术语表顺序列出五枚：`low_volatility`、`stock_bond_rebalance`、`mean_reversion`、`fundamental_factor`、`all_weather`。
+
+**对话保持可输入。** `reply_open` = `show_ack` 或 `show_chips`。这条为真时，确认卡上的对话保持可输入。
 
 ### 4.5.2 股债与全天候的市场锁定（N4，2026-10-25）
 
