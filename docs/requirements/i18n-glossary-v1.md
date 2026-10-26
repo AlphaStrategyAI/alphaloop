@@ -2,6 +2,9 @@
 
 **状态：W1 已锁定（产品定稿）。**
 
+
+2026-10-25 变更：补强「A 股」半角空格规则（与 `locked-glossary.json`、#153 测试一致）。#154 界面定稿词（年化超额 / Annualized excess return、最大回撤 / Maximum drawdown、未命名研究 / Untitled study、验证方法全部通过 / All validation methods passed、验证未全部通过 / Not all validation methods passed、美股 · 基金 / US · funds、按均值回归继续 / Continue with mean reversion、不继续 / Don't continue、改选策略族： / Pick a strategy family:、还没选数据源… / No data source selected yet…）见 `uiMessages.ts` 与 `FINAL_MESSAGE_KEYS`；未升入本锁定表与 `locked-glossary.json`，避免破坏 `test_i18n_glossary_lock.py`。升格须另开含 JSON 与测试的 PR。
+
 这张表里的词已经由产品定稿，不允许用占位英文。已定词与 [设置功能](./settings-config-v1.md) 第 4.4 节一致。量化术语的英文用业内通用说法。
 
 查询和摘录日是 2026-10-19。中文含义以策略族规格、设置功能和 `docs/GLOSSARY.md` 为准。
@@ -30,7 +33,7 @@
 | 确认卡 | Confirmation card | 已定。开跑或等待确认时给人看的那张卡。 |
 | 策略包 | Strategy pack | 可交接的策略导出。机器字段和数据指纹不随界面语言改变。 |
 | 研究记录 | Research record | 一次研究留下的记录。用户原文和当时的模型文字保持原样。 |
-| A 股 | China A-shares | 已定。中国大陆股票市场。与美股分开，不放进同一个新研究的池。 |
+| A 股 | China A-shares | 已定。中国大陆股票市场。与美股分开，不放进同一个新研究的池。中文必须写成「A 股」（A 与股之间半角空格），不得写成「A股」。解析器可接受两种写法；界面与文档只输出带空格的写法。 |
 | 可开跑 / 开跑就绪 | Ready to run | 已定。确认开跑可以提交时的状态。两个中文写法用同一英文。 |
 | 开跑 | Run | 已定。用户确认后让研究开始自主推进的动作。 |
 | 知情确认 | Acknowledgment | 已定。用户按来源确认一次：了解数据未经许可，且仅用于个人研究。动作写法用 acknowledge。 |
