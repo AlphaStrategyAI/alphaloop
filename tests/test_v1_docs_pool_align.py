@@ -1,4 +1,9 @@
-"""P0-6a: README, cut-line, and screen notes match the 40-name pools."""
+"""P0-6a: cut-line and screen notes match the 40-name pools.
+
+The README is the bilingual product page. English is the default file.
+Chinese lives in README.zh-CN.md. Both describe the lists that ship
+(503 and 300 names), not the legacy 40-name pools.
+"""
 
 from __future__ import annotations
 
@@ -37,17 +42,29 @@ def test_checked_in_pools_are_forty_names_and_not_a_parquet_universe() -> None:
 
 
 def test_readme_describes_the_shipped_product() -> None:
-    text = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "empty skeleton" not in text
-    assert "40" in text
-    assert "均值回归" in text
-    assert "不下单" in text
-    assert "P1" in text
-    assert "parquet" in text
-    assert "pytest" in text
-    assert "#129" in text
-    assert "#132" in text
-    assert "#133" in text
+    english = (ROOT / "README.md").read_text(encoding="utf-8")
+    chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+
+    assert "empty skeleton" not in english
+    assert "empty skeleton" not in chinese
+    assert english.startswith("English | [简体中文](README.zh-CN.md)")
+    assert "[English](README.md)" in chinese
+    assert "均值回归" not in english
+    assert "不下单" not in english
+    assert "mean reversion" in english.lower()
+    assert "does not send orders" in english
+    assert "503" in english
+    assert "300" in english
+    assert "AlphaStrategyAI" in english
+
+    assert "均值回归" in chinese
+    assert "不下单" in chinese
+    assert "503" in chinese
+    assert "300" in chinese
+    assert "AlphaStrategyAI" in chinese
+
+    assert "Copyright (c) 2026 AlphaStrategyAI" in license_text
 
 
 def test_cut_line_locks_forty_names_and_three_part_acceptance() -> None:
