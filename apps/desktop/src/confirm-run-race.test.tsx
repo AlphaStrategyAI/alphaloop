@@ -44,6 +44,13 @@ function makeApi(overrides: Partial<DesktopApi>): DesktopApi {
     reviseMethod: vi.fn(),
     createMethod: vi.fn(),
     ...overrides,
+    setResearchSymbol: overrides.setResearchSymbol ?? vi.fn(async () => undefined),
+    answerSymbolAsk: overrides.answerSymbolAsk ?? vi.fn(async () => undefined),
+    useHintedSymbol: overrides.useHintedSymbol ?? vi.fn(async () => undefined),
+    revertSymbolAsk: overrides.revertSymbolAsk ?? vi.fn(async () => undefined),
+    removeMarketSide: overrides.removeMarketSide ?? vi.fn(async () => undefined),
+    dismissMismatchedSymbol: vi.fn(async () => undefined),
+    chooseDefaultMarket: vi.fn(async () => undefined),
   };
 }
 
@@ -68,7 +75,10 @@ describe("confirm run race", () => {
     );
 
     fireEvent.click(screen.getByTestId("confirm-run-start"));
-    await waitFor(() => expect(api.confirmRun).toHaveBeenCalledWith("r-confirm"));
+    await waitFor(() => expect(api.confirmRun).toHaveBeenCalledWith("r-confirm", {
+      dataSourceId: undefined,
+      unlicensedAcknowledged: undefined,
+    }));
 
     window.location.hash = "#/research";
     window.dispatchEvent(new HashChangeEvent("hashchange"));

@@ -24,6 +24,26 @@ function Harness({route}: {route: string}) {
 }
 
 describe("settings language", () => {
+  it("says local file import arrives in M2 on the data sources page", async () => {
+    const port = createMemoryLanguagePort({preference: "zh", systemLocale: "zh-CN"});
+    const zh = render(
+      <I18nProvider port={port} initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
+        <SettingsPage route="#/settings/data" />
+      </I18nProvider>,
+    );
+    expect(await screen.findByTestId("settings-later")).toHaveTextContent("本地文件导入将在 M2 提供。");
+    zh.unmount();
+
+    render(
+      <I18nProvider port={port} initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <SettingsPage route="#/settings/data" />
+      </I18nProvider>,
+    );
+    const later = await screen.findByTestId("settings-later");
+    expect(later).toHaveTextContent("Local file import arrives in M2.");
+    expect(later.querySelector("[data-i18n-placeholder]")).toBeNull();
+  });
+
   it("persists the preference and restores it on the next mount", async () => {
     const port = createMemoryLanguagePort({preference: "system", systemLocale: "zh-CN"});
     const first = render(
@@ -117,5 +137,15 @@ describe("settings language", () => {
     expect(fetchView).not.toHaveBeenCalled();
     expect(screen.getByRole("radio", {name: "中文"})).toBeChecked();
     expect(screen.getByRole("radio", {name: /跟随系统/})).toHaveAccessibleName(expect.stringContaining("English"));
+  });
+
+  it("shows the baked version and commit on the about card", async () => {
+    render(
+      <I18nProvider initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <SettingsPage route="#/settings/general" />
+      </I18nProvider>,
+    );
+    expect(await screen.findByTestId("about-version")).toHaveTextContent("Version 0.9.1");
+    expect(screen.getByTestId("about-sha")).toHaveTextContent("Commit unknown");
   });
 });

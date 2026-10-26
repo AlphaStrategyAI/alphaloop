@@ -20,10 +20,106 @@ export function lookupMessage(catalog: unknown, key: string): string | undefined
   return current;
 }
 
-export function interpolate(template: string, params?: MessageParams): string {
-  if (!params) return template;
-  return template.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (match, name: string) => {
-    const value = params[name];
+function isCount(value: string | number): boolean {
+  if (typeof value === "number") return Number.isFinite(value);
+  return /^\d+(?:\.\d+)?$/.test(value);
+}
+
+/** English count words derived from numeric params. Chinese templates do not reference them. */
+function withCountWords(params: MessageParams): MessageParams {
+  const extra: MessageParams = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (!isCount(value)) continue;
+    const one = Number(value) === 1;
+    extra[`${key}Noun`] = one ? "name" : "names";
+    extra[`${key}SymbolNoun`] = one ? "symbol" : "symbols";
+    extra[`${key}Remain`] = one ? "remains" : "remain";
+    extra[`${key}Isnt`] = one ? "isn't" : "aren't";
+    extra[`${key}It`] = one ? "it" : "them";
+  }
+  return {...extra, ...params};
+}
+
+/** English uses `one` only for 1. Zero and every other count use `other`. Chinese does not branch. */
+export function pluralCategory(locale: Locale, value: string | number): "one" | "other" {
+  if (locale === "en" && Number(value) === 1) return "one";
+  return "other";
+}
+
+type PluralBlock = {
+  end: number;
+  name: string;
+  branches: Partial<Record<"one" | "other", string>>;
+};
+
+function parsePluralBlock(template: string, open: number): PluralBlock | null {
+  const head = /^\{\{\s*([A-Za-z0-9_]+)\s*,\s*plural\s*,/.exec(template.slice(open));
+  if (!head) return null;
+  let index = open + head[0].length;
+  const branches: PluralBlock["branches"] = {};
+  while (index < template.length) {
+    while (template[index] === " " || template[index] === "\n") index += 1;
+    if (template.startsWith("}}", index)) {
+      return {end: index + 2, name: head[1], branches};
+    }
+    const category = /^(one|other)\s*\{/.exec(template.slice(index));
+    if (!category) return null;
+    index += category[0].length;
+    let depth = 1;
+    const start = index;
+    while (index < template.length && depth > 0) {
+      const char = template[index];
+      if (char === "{") depth += 1;
+      else if (char === "}") depth -= 1;
+      if (depth > 0) index += 1;
+    }
+    if (depth !== 0) return null;
+    branches[category[1] as "one" | "other"] = template.slice(start, index);
+    index += 1;
+  }
+  return null;
+}
+
+/**
+ * ICU-style plural blocks: `{{name, plural, one {# item} other {# items}}}`.
+ * `#` is the count. A branch may still contain `{{placeholders}}`.
+ */
+export function applyPlurals(template: string, params: MessageParams | undefined, locale: Locale): string {
+  let out = "";
+  let index = 0;
+  while (index < template.length) {
+    const open = template.indexOf("{{", index);
+    if (open < 0) {
+      out += template.slice(index);
+      break;
+    }
+    out += template.slice(index, open);
+    const block = parsePluralBlock(template, open);
+    if (!block) {
+      out += "{{";
+      index = open + 2;
+      continue;
+    }
+    const value = params?.[block.name];
+    if (value === undefined || !isCount(value)) {
+      out += template.slice(open, block.end);
+      index = block.end;
+      continue;
+    }
+    const category = pluralCategory(locale, value);
+    const branch = block.branches[category] ?? block.branches.other ?? block.branches.one ?? "";
+    out += branch.replace(/(?<![A-Za-z0-9_])#(?![A-Za-z0-9_])/g, String(value));
+    index = block.end;
+  }
+  return out;
+}
+
+export function interpolate(template: string, params?: MessageParams, locale: Locale = "en"): string {
+  const values = params ? withCountWords(params) : undefined;
+  const expanded = applyPlurals(template, values, locale);
+  if (!values) return expanded;
+  return expanded.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (match, name: string) => {
+    const value = values[name];
     return value === undefined ? match : String(value);
   });
 }
@@ -41,7 +137,7 @@ export function translate(
   const template =
     lookupMessage(catalogs[locale], key) ?? lookupMessage(catalogs[other], key);
   if (!template || template === key) return HARD_FALLBACK[locale];
-  const rendered = interpolate(template, params);
+  const rendered = interpolate(template, params, locale);
   if (rendered === key) return HARD_FALLBACK[locale];
   return rendered;
 }

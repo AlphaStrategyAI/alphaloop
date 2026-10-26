@@ -4,6 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {localizeEngineSurface} from "../i18n/engineSurface";
 import {localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
@@ -16,8 +17,10 @@ import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 export function MethodDetail({api, method}: {api: DesktopApi; method: ValidationMethod}) {
-  const {t} = useI18n();
+  const {t, resolved} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
+  const surface = (text: string | null | undefined) =>
+    text ? localizeEngineSurface(copyText(text), t, resolved) : "";
   const [reviseOpen, setReviseOpen] = useState(false);
   const [reviseBody, setReviseBody] = useState(
     method.definitionDisplay ?? method.description,
@@ -28,18 +31,20 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
   return (
     <section className="method-detail">
       <h1>{copyText(method.name)}</h1>
-      {method.category && <span className="method-category-badge">{method.category}</span>}
+      {method.category && <span className="method-category-badge">{surface(method.category)}</span>}
       {method.description && !method.description.trim().startsWith("{") ? (
-        <p>{method.description}</p>
+        <p>{surface(method.description)}</p>
       ) : null}
       <div className="method-definition-display" data-testid="method-definition-display">
-        {method.definitionDisplay ?? method.description}
+        {surface(method.definitionDisplay ?? method.description)}
       </div>
       <details className="method-advanced">
         <summary>{t("ui.methods.advanced")}</summary>
         <code className="revision-id" title={method.revision}>{method.revision}</code>
       </details>
-      {method.usageCount != null && <p>{t("ui.methods.used", {count: method.usageCount})}</p>}
+      {method.usageCount != null && (
+        <p>{t("ui.methods.used", {count: method.usageCount})}</p>
+      )}
       {method.dimensions && method.dimensions.length > 0 && (
         <div className="scorecard-dimensions" data-testid="scorecard-dimensions">
           <p className="eyebrow">{t("ui.methods.dimensions")}</p>
@@ -56,11 +61,11 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
             <tbody>
               {method.dimensions.map((dim) => (
                 <tr key={`${dim.kind}-${dim.name}`}>
-                  <td>{dim.kindLabel ?? dim.kind}</td>
-                  <td>{dim.name}</td>
+                  <td>{surface(dim.kindLabel ?? dim.kind)}</td>
+                  <td>{surface(dim.name)}</td>
                   <td>{dim.passThreshold}</td>
-                  <td>{comparisonLabel(dim)}</td>
-                  <td>{dim.failureDisplay}</td>
+                  <td>{surface(comparisonLabel(dim))}</td>
+                  <td>{surface(dim.failureDisplay)}</td>
                 </tr>
               ))}
             </tbody>
@@ -130,7 +135,9 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
             <small className="revision-label">
               {copyText((method as {revisionLabel?: string}).revisionLabel) || t("ui.methods.builtin")}
             </small>
-            {method.usageCount != null ? <small>{t("ui.methods.used", {count: method.usageCount})}</small> : null}
+            {method.usageCount != null ? (
+              <small>{t("ui.methods.used", {count: method.usageCount})}</small>
+            ) : null}
           </a>
         ))}
       </aside>

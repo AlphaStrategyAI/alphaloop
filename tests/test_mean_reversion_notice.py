@@ -31,7 +31,7 @@ def _service(tmp_path: Path) -> ResearchCommandService:
     return ResearchCommandService(store, EnginePaths.for_colocated_root(tmp_path))
 
 
-def test_momentum_thesis_is_not_locked_until_the_user_confirms(tmp_path: Path) -> None:
+def test_momentum_thesis_reaches_the_card_and_cannot_run(tmp_path: Path) -> None:
     service = _service(tmp_path)
     service.store.create(new_research("r-draft", NOW))
     service.handle(
@@ -42,15 +42,10 @@ def test_momentum_thesis_is_not_locked_until_the_user_confirms(tmp_path: Path) -
         }
     )
     loaded = service.store.load("r-draft")
-    assert loaded.brief.thesis.value is None
-    assert NOTICE in loaded.dialogue[-1].text
-
-    service.handle(
-        {"type": "send_dialogue", "research_id": "r-draft", "message": "按均值回归继续"}
-    )
-    locked = service.store.load("r-draft")
-    assert locked.brief.thesis.value == "美股动量策略"
-    assert NOTICE not in locked.dialogue[-1].text
+    assert loaded.brief.thesis.value == "美股动量策略"
+    assert loaded.mean_reversion_adopted is False
+    assert all("没能理解你的意思" not in turn.text for turn in loaded.dialogue)
+    assert NOTICE not in loaded.dialogue[-1].text
 
 
 def test_mean_reversion_thesis_locks_without_the_notice(tmp_path: Path) -> None:

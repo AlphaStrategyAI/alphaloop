@@ -19,7 +19,7 @@ _FIELD_LABELS: dict[str, str] = {
     "top_bucket_pct": "头部桶占比（%）",
     "sharpe_impact_min": "夏普影响下限",
     "us_cost_bp": "美股成本（bp）",
-    "cn_cost_bp": "A股成本（bp）",
+    "cn_cost_bp": "A 股成本（bp）",
     "net_excess_min_exclusive": "净超额下限（不含等于）",
     "category": "类别",
     "scope": "检查范围",

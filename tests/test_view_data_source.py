@@ -21,10 +21,6 @@ from engine.research.store import SQLiteStore
 from engine.research.universe_validation import ensure_runnable_universe
 from tests.test_state_machine import NOW, locked_brief
 
-YAHOO = "雅虎日线"
-AKSHARE = "AkShare 日线（新浪优先）"
-
-
 class _ProbeLoader:
     def __init__(self) -> None:
         self.calls = 0
@@ -93,18 +89,26 @@ def test_view_source_follows_symbols_and_does_not_probe(
     assert cn["kind"] == "confirm_run"
     assert us["kind"] == "confirm_run"
     assert mixed["kind"] == "confirm_run"
-    assert cn["symbolSelection"]["dataSource"] == AKSHARE
-    assert us["symbolSelection"]["dataSource"] == YAHOO
-    assert mixed["symbolSelection"]["dataSource"] == YAHOO
-    assert store.load("r-cn").data_source_id == AKSHARE_SINA_DATA_SOURCE_ID
-    assert store.load("r-us").data_source_id == "yahoo_daily"
+    assert cn["symbolSelection"]["dataSource"] == "待选择"
+    assert us["symbolSelection"]["dataSource"] == "待选择"
+    assert mixed["symbolSelection"]["dataSource"] == "待选择"
+    assert cn["symbolSelection"]["dataSourcePending"] is True
+    assert us["symbolSelection"]["offeredDataSourceId"] == "yahoo_daily"
+    assert cn["symbolSelection"]["offeredDataSourceId"] == AKSHARE_SINA_DATA_SOURCE_ID
+    assert mixed["symbolSelection"]["offeredDataSourceId"] == "yahoo_daily"
+    assert store.load("r-cn").data_source_id == ""
+    assert store.load("r-us").data_source_id == ""
     assert cn.get("confirmDataNotice") is None
 
 
 def test_confirm_pin_uses_the_same_symbol_mapping() -> None:
+    from engine.research.user_errors import UserFacingError
+
     symbols = ("600519.SH", "000858.SZ")
-    research = _confirm_draft("r-pin", Market.US, symbols)
-    updated = ensure_runnable_universe(research)
     assert data_source_id_for_symbols(symbols, Market.US) == AKSHARE_SINA_DATA_SOURCE_ID
-    assert updated.data_source_id == AKSHARE_SINA_DATA_SOURCE_ID
     assert data_source_id_for_symbols(("AAPL", "MSFT"), Market.US) == "yahoo_daily"
+    updated = ensure_runnable_universe(_confirm_draft("r-pin", Market.CN, symbols))
+    assert updated.data_source_id == ""
+    with pytest.raises(UserFacingError) as exc:
+        ensure_runnable_universe(_confirm_draft("r-pin-us", Market.US, symbols))
+    assert exc.value.code == "SYMBOL_MARKET_MISMATCH"

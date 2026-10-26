@@ -397,6 +397,38 @@ class SQLiteStore:
         data = json.loads(payload)
         if isinstance(data, dict):
             data.setdefault("pending_non_mr_thesis", None)
+            data.setdefault("mean_reversion_adopted", False)
+            data.setdefault("mean_reversion_declined", False)
+            data.setdefault("repicked_family", "")
+            data.setdefault("symbol_probe_symbols", [])
+            data.setdefault("symbol_probe_missing", [])
+            data.setdefault("symbol_probe_unavailable", False)
+            data.setdefault("dismissed_symbol_tokens", [])
+            data.setdefault("market_switch_market", "")
+            data.setdefault("market_switch_benchmark", "")
+            universe = (
+                data.get("brief", {}).get("universe", {}).get("value")
+                if isinstance(data.get("brief"), dict)
+                else None
+            )
+            if isinstance(universe, dict):
+                universe.setdefault("unresolved_tokens", [])
+                universe.setdefault("inferred_symbols", [])
+                universe.setdefault("symbol_asks", [])
+                universe.setdefault("symbol_ask_answers", [])
+                universe.setdefault("ticker_hints", [])
+                universe.setdefault("market_mismatches", [])
+                universe.setdefault("unrecognized_tokens", [])
+                universe.setdefault("market_unspecified", False)
+                asks = universe.get("symbol_asks") or []
+                normalized = []
+                for item in asks:
+                    if isinstance(item, list) and len(item) == 2:
+                        normalized.append([item[0], item[1], "ask"])
+                    else:
+                        normalized.append(item)
+                universe["symbol_asks"] = normalized
+                universe.setdefault("recognition_hidden", False)
         return CONVERTER.structure(data, Research)
 
     def create(self, research: Research) -> None:

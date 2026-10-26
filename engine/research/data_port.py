@@ -64,7 +64,16 @@ def data_port_for_symbols(symbols: tuple[str, ...]) -> BoundDataPort:
 
     This is the historical fetch split, not a new default selection. Callers that
     do not yet have a research source id (pool shrink before confirm) use it.
+
+    ``ALPHALOOP_OFFLINE_MARKET_DATA=1`` returns synthetic bars instead. The flag
+    defaults off, so a normal launch still uses Yahoo and AkShare.
     """
+    from engine.research.offline_market_data import offline_market_data_enabled
+
+    if offline_market_data_enabled():
+        from engine.research.offline_market_data import OfflineMarketDataAdapter
+
+        return BoundDataPort(OfflineMarketDataAdapter())
     from engine.research.gather import AkShareDataAdapter, YahooDataAdapter
     from engine.research.planned_data_window import is_cn_listed_symbol
 

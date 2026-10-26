@@ -13,6 +13,13 @@ const api: DesktopApi = {
   fetchView: vi.fn(async () => listView),
   createDraft: vi.fn(),
   confirmRun: vi.fn(),
+  setResearchSymbol: vi.fn(async () => undefined),
+  answerSymbolAsk: vi.fn(async () => undefined),
+  useHintedSymbol: vi.fn(async () => undefined),
+  revertSymbolAsk: vi.fn(async () => undefined),
+  removeMarketSide: vi.fn(async () => undefined),
+  dismissMismatchedSymbol: vi.fn(async () => undefined),
+  chooseDefaultMarket: vi.fn(async () => undefined),
   unlockBrief: vi.fn(),
   sendDialogue: vi.fn(),
   pauseResearch: vi.fn(),
@@ -52,5 +59,13 @@ describe("sidecar supervision UI", () => {
     });
     fireEvent.click(screen.getByRole("button", {name: "重启引擎"}));
     expect(restartSidecar).toHaveBeenCalled();
+  });
+
+  it("shows a test-data badge only when the engine marks synthetic prices", () => {
+    const {unmount} = render(<App api={api} initialView={{...listView, testData: true}} />);
+    expect(screen.getByTestId("test-data-badge")).toHaveTextContent("测试数据");
+    unmount();
+    render(<App api={api} initialView={listView} />);
+    expect(screen.queryByTestId("test-data-badge")).not.toBeInTheDocument();
   });
 });

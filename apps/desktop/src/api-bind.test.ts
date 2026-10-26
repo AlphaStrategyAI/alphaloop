@@ -13,6 +13,13 @@ describe("bindDesktopApi", () => {
       fetchView,
       createDraft: vi.fn(),
       confirmRun: vi.fn(),
+      setResearchSymbol: vi.fn(),
+      answerSymbolAsk: vi.fn(),
+      useHintedSymbol: vi.fn(),
+      revertSymbolAsk: vi.fn(),
+      removeMarketSide: vi.fn(),
+      dismissMismatchedSymbol: vi.fn(),
+      chooseDefaultMarket: vi.fn(),
       unlockBrief,
       sendDialogue: vi.fn(),
       pauseResearch: vi.fn(),
@@ -32,8 +39,8 @@ describe("bindDesktopApi", () => {
     const refresh = vi.fn(async () => undefined);
     const bound = bindDesktopApi(api, {onError, refresh});
 
-    await bound.unlockBrief("r-1");
-    expect(unlockBrief).toHaveBeenCalledWith("r-1", undefined);
+    await bound.unlockBrief("r-1", "thesis");
+    expect(unlockBrief).toHaveBeenCalledWith("r-1", "thesis");
     expect(refresh).toHaveBeenCalled();
 
     const failing = vi.fn(async () => {

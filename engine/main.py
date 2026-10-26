@@ -26,14 +26,28 @@ from engine.dialogue.pool_errors import (
     record_transient_confirm_notice,
     reopen_after_pool_failure,
 )
-from engine.research.confirm_view import confirm_data_notice, symbol_selection_payload
+from engine.research.confirm_view import (
+    confirm_data_notice,
+    symbol_resolution_payload,
+    symbol_selection_payload,
+)
 from engine.research.data_availability import MARKET_DATA_FAILURE_CODES
 from engine.research.universe_pool import (
     materialize_default_pool,
     pin_draft_data_source,
     pool_resolvable,
 )
-from engine.research.universe_validation import ensure_runnable_universe
+from engine.research.universe_validation import (
+    answer_symbol_ask,
+    apply_symbol_edit,
+    choose_default_market,
+    dismiss_mismatched_symbol,
+    ensure_runnable_universe,
+    refresh_symbol_probe,
+    remove_market_side,
+    revert_symbol_ask,
+    use_hinted_symbol,
+)
 from engine.i18n.errors import build_error_envelope, redact_technical_detail
 from engine.i18n.locale import (
     normalize_request_locale,
@@ -87,7 +101,11 @@ from engine.research.display_names import (
 )
 from engine.research.glossary import glossary_entries, glossary_intro
 from engine.research.symbol_selection_display import format_symbol_selection_summary
-from engine.research.time_display import format_effective_display, format_remaining_display
+from engine.research.time_display import (
+    format_remaining_display,
+    format_seconds,
+    remaining_seconds,
+)
 from engine.research.data_window import late_pass_presentation, trial_tracking_for_view
 from engine.research.run_errors import apply_run_failure, max_consecutive_run_errors
 from engine.research.honest_stop import (
@@ -96,6 +114,7 @@ from engine.research.honest_stop import (
     completed_presentation,
     high_suspicion_round_threshold,
     running_budget_hint,
+    run_stop_reason,
     trial_budget_increment,
     trial_budget_view,
     validate_continue_iterate_confirm,
@@ -405,6 +424,10 @@ class ResearchCommandService:
             payload["marketDataProgress"] = progress
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
+        from engine.research.offline_market_data import offline_market_data_enabled
+
+        if offline_market_data_enabled():
+            payload["testData"] = True
         return self._attach_notify(payload)
 
     @staticmethod
@@ -426,12 +449,47 @@ class ResearchCommandService:
     def _remaining(research: Research) -> str:
         return format_remaining_display(research)
 
+    def _displayed_effective_seconds(self, research: Research) -> float:
+        extra = 0.0
+        if (
+            self.budget is not None
+            and research.status is ResearchStatus.RUNNING
+        ):
+            extra = self.budget.elapsed_open()
+        return max(0.0, research.effective_seconds) + extra
+
+    def _time_fields(self, research: Research) -> dict[str, Any]:
+        shown = self._displayed_effective_seconds(research)
+        # The open slice is display-only. Remaining stays on the stored total
+        # so a poll cannot move the budget before the slice is committed.
+        fields: dict[str, Any] = {
+            "effective": format_seconds(shown),
+            "effectiveSeconds": shown,
+            "remaining": self._remaining(research),
+        }
+        remaining = remaining_seconds(research)
+        if remaining is not None:
+            fields["remainingSeconds"] = remaining
+        return fields
+
+    def _attach_unlicensed_choice(self, selection: dict[str, Any], research: Research) -> None:
+        from engine.research.price_source_choice import apply_price_source_choice
+
+        universe = research.brief.universe.value
+        apply_price_source_choice(
+            selection,
+            market=universe.market if universe is not None else None,
+            explicit_source_id=research.data_source_id,
+            settings_path=self.paths.data.settings_file,
+        )
+
     @staticmethod
     def _sources(research: Research) -> str:
         if research.versions and research.versions[-1].rounds:
             evidence = research.versions[-1].rounds[-1].accepted_attempt.evidence_paths
             if evidence:
                 return "公开资料已落成本机材料"
+            return "未找到相关资料"
         return "公开资料与本机材料"
 
     @staticmethod
@@ -678,22 +736,41 @@ class ResearchCommandService:
         research = self.store.load(research_id)
         if research.status.value == "draft":
             materialized = pin_draft_data_source(materialize_default_pool(research))
+            if all_slots_locked(materialized.brief):
+                materialized = refresh_symbol_probe(materialized)
             if (
                 materialized.brief != research.brief
                 or materialized.data_source_id != research.data_source_id
+                or materialized.symbol_probe_symbols != research.symbol_probe_symbols
+                or materialized.symbol_probe_missing != research.symbol_probe_missing
+                or materialized.symbol_probe_unavailable != research.symbol_probe_unavailable
             ):
                 self.store.save(materialized, research.updated_at)
                 research = materialized
             view_kind = "confirm_run" if all_slots_locked(research.brief) else "draft"
+            universe = research.brief.universe.value
+            named_symbols = universe is not None and (
+                universe.user_symbols_override or bool(universe.unresolved_tokens)
+            )
+            from engine.research.family_choice import family_choice_payload, reply_open
+
+            family_reply = reply_open(research)
+            chat_enabled = view_kind == "draft" or not pool_resolvable(research) or family_reply
+            if view_kind == "confirm_run" and named_symbols and not family_reply:
+                chat_enabled = False
             body: dict[str, Any] = {
                 "kind": view_kind,
                 "researchId": research_id,
                 "dialogue": [dialogue_turn_view(turn) for turn in research.dialogue],
                 "settings": self._settings(research),
-                "chatEnabled": view_kind == "draft" or not pool_resolvable(research),
+                "chatEnabled": chat_enabled,
+                **family_choice_payload(research),
             }
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
+                resolution = symbol_resolution_payload(research)
+                if resolution is not None:
+                    body["symbolResolution"] = resolution
                 fetch_notice = confirm_data_notice(research)
                 if fetch_notice:
                     body["confirmDataNotice"] = fetch_notice["text"]
@@ -701,13 +778,51 @@ class ResearchCommandService:
                         body["confirmDataNoticeCode"] = fetch_notice["code"]
                         body["confirmDataNoticeParams"] = fetch_notice.get("params") or {}
                 notice = mean_reversion_only_notice(
-                    str(research.brief.thesis.value or "")
+                    str(research.brief.thesis.value or ""),
+                    adopted=research.mean_reversion_adopted,
+                    repicked_family=research.repicked_family,
                 )
                 if notice:
                     body["meanReversionOnlyNotice"] = notice
+                if research.repicked_family:
+                    body["repickedFamily"] = research.repicked_family
                 construction = construction_notice_for(research)
                 if construction:
                     body["constructionNotice"] = construction
+                if universe is not None and not universe.market_unspecified:
+                    body["market"] = universe.market.value
+                if research.market_switch_market:
+                    body["marketSwitch"] = {
+                        "market": research.market_switch_market,
+                        "benchmark": research.market_switch_benchmark,
+                    }
+                if universe is not None and universe.market_unspecified:
+                    from engine.research.models import AssetClass, Market
+                    from engine.research.symbol_pool import pool_for_market
+
+                    cn_pool = pool_for_market(Market.CN, AssetClass.EQUITY, AssetClass.EQUITY)
+                    us_pool = pool_for_market(Market.US, AssetClass.EQUITY, AssetClass.EQUITY)
+                    body["marketChoice"] = {
+                        "pending": True,
+                        "cnCount": len(cn_pool.symbols) if cn_pool is not None else 0,
+                        "usCount": len(us_pool.symbols) if us_pool is not None else 0,
+                    }
+                elif universe is not None:
+                    from engine.metrics import benchmark_for
+
+                    body["benchmarkName"] = benchmark_for(universe).name
+                selection = body.get("symbolSelection")
+                if isinstance(selection, dict):
+                    self._attach_unlicensed_choice(selection, research)
+                from engine.research.run_gate import evaluate_run_gate
+
+                gate = evaluate_run_gate(
+                    research,
+                    data_source_id=research.data_source_id,
+                    unlicensed_acknowledged=False,
+                    settings_path=self.paths.data.settings_file,
+                )
+                body["runGate"] = {"runnable": gate.runnable, "code": gate.code}
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -732,8 +847,7 @@ class ResearchCommandService:
                 "researchId": research_id,
                 "status": research.status.value,
                 "version": version,
-                "effective": format_effective_display(research),
-                "remaining": self._remaining(research),
+                **self._time_fields(research),
                 "effectiveTimeHint": (
                     "有效研究时间计入「运行中」状态下的采集、建模与验证执行；"
                     "暂停、等待确认与列表轮询间隔不计入。"
@@ -816,13 +930,17 @@ class ResearchCommandService:
                 "kind": "completed",
                 "researchId": research_id,
                 "version": version_number,
-                "effective": format_effective_display(research),
-                "remaining": self._remaining(research),
+                **self._time_fields(research),
+                "stopReason": run_stop_reason(research),
+                "sources": self._sources(research),
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),
                 "meanReversionOnlyNotice": mean_reversion_only_notice(
-                    str(research.brief.thesis.value or "")
+                    str(research.brief.thesis.value or ""),
+                    adopted=research.mean_reversion_adopted,
+                    repicked_family=research.repicked_family,
                 ),
+                "repickedFamily": research.repicked_family or None,
                 "cnExecutionNotice": cn_execution_notice_for(research),
                 "universeLabel": subtitle,
                 "subtitle": presentation.summary,
@@ -875,7 +993,14 @@ class ResearchCommandService:
             research,
         )
 
-    def _confirm_run(self, research_id: str, now: datetime) -> dict[str, Any]:
+    def _confirm_run(
+        self,
+        research_id: str,
+        now: datetime,
+        *,
+        data_source_id: str | None = None,
+        unlicensed_acknowledged: bool = False,
+    ) -> dict[str, Any]:
         """Start a draft, or return the current view when that research is already running.
 
         The per-research lock covers the probe and the write. It is not process-wide:
@@ -889,6 +1014,49 @@ class ResearchCommandService:
                 view["research_id"] = research.research_id
                 view["status"] = research.status.value
                 return view
+            from engine.research.run_gate import evaluate_run_gate
+            from engine.research.source_acknowledgement import (
+                acknowledged_at,
+                is_unlicensed_source,
+                record_acknowledgement,
+            )
+            from engine.research.universe_pool import pool_resolvable
+
+            requested = data_source_id.strip() if isinstance(data_source_id, str) else ""
+            source = requested or research.data_source_id
+            # A draft that still has no symbols keeps the existing pool question.
+            # The source gate applies once there is something to price.
+            # Preselection is the same rule as the confirm card: one licensed
+            # configured source, never Yahoo or AkShare, never the last pick.
+            if pool_resolvable(research) and not source:
+                from engine.research.price_source_choice import (
+                    available_price_sources,
+                    preselect_price_source,
+                )
+
+                universe = research.brief.universe.value
+                if universe is not None:
+                    source = preselect_price_source(
+                        available_price_sources(universe.market, self.paths.data.settings_file)
+                    ) or ""
+            gate = evaluate_run_gate(
+                research,
+                data_source_id=source,
+                unlicensed_acknowledged=unlicensed_acknowledged,
+                settings_path=self.paths.data.settings_file,
+            )
+            if not gate.runnable:
+                raise UserFacingError(
+                    gate.code or "DATA_SOURCE_UNBOUND",
+                    gate.message or "",
+                    params=gate.params or None,
+                )
+            if source and is_unlicensed_source(source):
+                settings = self.paths.data.settings_file
+                if acknowledged_at(source, settings) is None:
+                    record_acknowledgement(source, now, settings)
+            if source != research.data_source_id:
+                research = replace(research, data_source_id=source)
             expected_at = research.updated_at
             try:
                 research = ensure_runnable_universe(research)
@@ -1008,7 +1176,46 @@ class ResearchCommandService:
             )
             return {"revision_hash": updated_method.revision_hash}
         if kind == "confirm_run":
-            return self._confirm_run(str(request["research_id"]), now)
+            raw_source = request.get("data_source_id")
+            return self._confirm_run(
+                str(request["research_id"]),
+                now,
+                data_source_id=raw_source if isinstance(raw_source, str) else None,
+                unlicensed_acknowledged=bool(request.get("unlicensed_acknowledged")),
+            )
+        if kind == "set_research_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = apply_symbol_edit(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "answer_symbol_ask":
+            research = self.store.load(str(request["research_id"]))
+            updated = answer_symbol_ask(
+                research,
+                str(request["token"]),
+                bool(request["accept"]),
+                now,
+            )
+            return self._save(research, updated)
+        if kind == "use_hinted_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = use_hinted_symbol(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "revert_symbol_ask":
+            research = self.store.load(str(request["research_id"]))
+            updated = revert_symbol_ask(research, str(request["token"]), now)
+            return self._save(research, updated)
+        if kind == "remove_market_side":
+            research = self.store.load(str(request["research_id"]))
+            updated = remove_market_side(research, str(request["side"]), now)
+            return self._save(research, updated)
+        if kind == "dismiss_mismatched_symbol":
+            research = self.store.load(str(request["research_id"]))
+            updated = dismiss_mismatched_symbol(research, str(request["symbol"]), now)
+            return self._save(research, updated)
+        if kind == "choose_default_market":
+            research = self.store.load(str(request["research_id"]))
+            updated = choose_default_market(research, str(request["market"]), now)
+            return self._save(research, updated)
 
         research = self.store.load(request["research_id"])
         if kind == "delete_research":
@@ -1439,7 +1646,29 @@ def advance_running_research(
         )
 
 
+def configure_engine_file_log(path: Path) -> logging.Handler:
+    """Append engine logs to the contracted ``engine.log``. Returns the handler."""
+    from engine.research.build_info import read_build_info
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(path, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
+    version, sha = read_build_info()
+    logging.getLogger("alphaloop.engine").info("alphaloop %s %s", version, sha)
+    return handler
+
+
 def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
+    configure_engine_file_log(paths.data.engine_log)
+    from engine.research.offline_market_data import offline_market_data_enabled
+
+    if offline_market_data_enabled():
+        logging.getLogger("alphaloop.engine").warning(
+            "ALPHALOOP_OFFLINE_MARKET_DATA=1: synthetic market data is on; not for a release"
+        )
     try:
         lock = EngineLock.acquire(paths.runtime, owner_kind)
     except RuntimeError:

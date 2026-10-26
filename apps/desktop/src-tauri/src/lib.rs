@@ -15,7 +15,7 @@ pub use sidecar_policy::{RestartPolicy, SidecarUiPhase, SidecarUiState};
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread,
 };
 
@@ -37,6 +37,44 @@ struct Handshake {
     auth_token: String,
 }
 
+/// Hide the console. A windowed parent that spawns a `console=True` PyInstaller
+/// exe otherwise allocates a console, and the bootloader rebinds stdout away
+/// from the pipe. The parent then sees EOF and reports "exited before handshake"
+/// with empty stderr.
+#[cfg_attr(not(windows), allow(dead_code))]
+const WINDOWS_CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+fn engine_command(executable: &std::path::Path) -> Command {
+    let mut command = Command::new(executable);
+    if let Some(directory) = executable.parent() {
+        // PyInstaller onedir resolves `_internal` next to the executable. Native
+        // extensions still search the process working directory, which for a
+        // double-clicked app is not the bundle folder.
+        command.current_dir(directory);
+    }
+    command
+        .args(["--owner", "desktop"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(WINDOWS_CREATE_NO_WINDOW);
+    }
+    command
+}
+
+fn describe_handshake_failure(executable: &std::path::Path, status: &str, stderr: &str) -> String {
+    let stderr = stderr.trim();
+    let stderr = if stderr.is_empty() { "(empty)" } else { stderr };
+    let stderr: String = stderr.chars().take(4000).collect();
+    format!(
+        "engine exited before handshake (exe {}, status {status}, stderr {stderr})",
+        executable.display()
+    )
+}
+
 pub fn start_desktop_sidecar(
     app: tauri::AppHandle,
     supervisor: Arc<EngineSupervisor>,
@@ -53,26 +91,67 @@ pub fn start_desktop_sidecar(
         } else {
             "alphaloop-engine"
         });
-    let mut child = Command::new(executable)
-        .args(["--owner", "desktop"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+    let mut child = engine_command(&executable)
         .spawn()
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| format!("failed to spawn {}: {error}", executable.display()))?;
     let stderr = child.stderr.take().ok_or("engine stderr was not piped")?;
     let stderr_vault = vault.clone();
-    thread::spawn(move || {
-        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-            eprintln!("alphaloop-engine stderr: {}", stderr_vault.redact(&line));
+    let stderr_text = Arc::new(Mutex::new(String::new()));
+    let stderr_for_thread = stderr_text.clone();
+    let stderr_thread = thread::spawn(move || {
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match reader.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {
+                    let redacted = stderr_vault.redact(line.trim_end());
+                    let message = format!("alphaloop-engine stderr: {redacted}");
+                    eprintln!("{message}");
+                    append_desktop_log(&message);
+                    if let Ok(mut buffer) = stderr_for_thread.lock() {
+                        buffer.push_str(&redacted);
+                        buffer.push('\n');
+                    }
+                }
+                Err(error) => {
+                    append_desktop_log(&format!("alphaloop-engine stderr read failed: {error}"));
+                    break;
+                }
+            }
         }
     });
     let stdout = child.stdout.take().ok_or("engine stdout was not piped")?;
     let mut lines = BufReader::new(stdout).lines();
-    let first = lines
-        .next()
-        .ok_or("engine exited before handshake")?
-        .map_err(|error| error.to_string())?;
+    let first = match lines.next() {
+        Some(Ok(line)) => line,
+        Some(Err(error)) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = stderr_thread.join();
+            return Err(format!("engine stdout read failed: {error}"));
+        }
+        None => {
+            let status = match child.try_wait() {
+                Ok(Some(status)) => status.to_string(),
+                Ok(None) => {
+                    let _ = child.kill();
+                    match child.wait() {
+                        Ok(status) => format!("killed after stdout closed ({status})"),
+                        Err(error) => format!("killed after stdout closed (wait error {error})"),
+                    }
+                }
+                Err(error) => format!("wait error {error}"),
+            };
+            let _ = stderr_thread.join();
+            let stderr = stderr_text
+                .lock()
+                .map(|text| text.clone())
+                .unwrap_or_else(|poisoned| poisoned.into_inner().clone());
+            return Err(describe_handshake_failure(&executable, &status, &stderr));
+        }
+    };
     let handshake: Handshake = match serde_json::from_str(&first) {
         Ok(handshake) => handshake,
         Err(error) => {
@@ -92,6 +171,10 @@ pub fn start_desktop_sidecar(
         auth_token: handshake.auth_token.clone(),
     };
     connection.set(handshake.endpoint, handshake.auth_token)?;
+    append_desktop_log(&format!(
+        "alphaloop-engine handshake status={} pid={}",
+        handshake.status, handshake.pid
+    ));
     let on_exit = {
         let app_handle = app.clone();
         let supervisor = supervisor.clone();
@@ -126,12 +209,27 @@ pub fn start_desktop_sidecar(
     }
     thread::spawn(move || {
         for line in lines.map_while(Result::ok) {
-            eprintln!("alphaloop-engine: {line}");
+            let message = format!("alphaloop-engine: {line}");
+            eprintln!("{message}");
+            append_desktop_log(&message);
         }
     });
     runtime.mark_running();
     tauri::async_runtime::block_on(commands::push_installed_secrets(&connection, &vault));
     Ok(())
+}
+
+fn append_desktop_log(line: &str) {
+    let path = crate::ui_language::data_root().join("desktop.log");
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let mut file = match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        Ok(file) => file,
+        Err(_) => return,
+    };
+    use std::io::Write;
+    let _ = writeln!(file, "{line}");
 }
 
 fn schedule_sidecar_restart(
@@ -152,7 +250,24 @@ fn schedule_sidecar_restart(
     );
 }
 
+#[cfg(windows)]
+fn detach_inherited_console() {
+    // msedgedriver is a console process. WebView2 keeps that console as a
+    // visible ConsoleWindowClass window. A double-clicked app has none;
+    // detaching is a no-op in that case.
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn FreeConsole() -> i32;
+    }
+    unsafe {
+        FreeConsole();
+    }
+}
+
 pub fn run() {
+    #[cfg(windows)]
+    detach_inherited_console();
+
     let supervisor = Arc::new(EngineSupervisor::default());
     let vault = Arc::new(SecretVault::open_default());
     let connection = EngineConnection::with_redactor({
@@ -178,6 +293,13 @@ pub fn run() {
             commands::market_data_progress,
             commands::create_draft,
             commands::confirm_run,
+            commands::set_research_symbol,
+            commands::answer_symbol_ask,
+            commands::use_hinted_symbol,
+            commands::revert_symbol_ask,
+            commands::remove_market_side,
+            commands::dismiss_mismatched_symbol,
+            commands::choose_default_market,
             commands::unlock_brief,
             commands::send_dialogue,
             commands::pause_research,
@@ -219,7 +341,12 @@ pub fn run() {
                 sidecar_runtime.clone(),
                 sidecar_vault.clone(),
             ) {
-                eprintln!("alphaloop sidecar startup failed: {}", sidecar_vault.redact(&error));
+                let message = format!(
+                    "alphaloop sidecar startup failed: {}",
+                    sidecar_vault.redact(&error)
+                );
+                eprintln!("{message}");
+                append_desktop_log(&message);
                 sidecar_restart::schedule_sidecar_recovery(
                     handle,
                     sidecar,
@@ -248,4 +375,44 @@ pub fn run() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod engine_spawn_tests {
+    use super::{describe_handshake_failure, engine_command, WINDOWS_CREATE_NO_WINDOW};
+    use std::path::Path;
+
+    #[test]
+    fn windows_spawn_hides_the_console() {
+        assert_eq!(WINDOWS_CREATE_NO_WINDOW, 0x0800_0000);
+    }
+
+    #[test]
+    fn engine_starts_in_its_bundle_directory() {
+        let executable = Path::new("/opt/alphaloop/engine/alphaloop-engine/alphaloop-engine");
+        let command = engine_command(executable);
+        assert_eq!(
+            command.get_current_dir(),
+            Some(Path::new("/opt/alphaloop/engine/alphaloop-engine"))
+        );
+    }
+
+    #[test]
+    fn handshake_failure_records_status_and_stderr() {
+        let message = describe_handshake_failure(
+            Path::new("alphaloop-engine.exe"),
+            "exit code: 0xc0000135",
+            "Failed to load Python DLL",
+        );
+        assert!(message.contains("exited before handshake"));
+        assert!(message.contains("exit code: 0xc0000135"));
+        assert!(message.contains("Failed to load Python DLL"));
+        assert!(message.contains("alphaloop-engine.exe"));
+    }
+
+    #[test]
+    fn handshake_failure_marks_empty_stderr() {
+        let message = describe_handshake_failure(Path::new("alphaloop-engine.exe"), "exit code: 1", "");
+        assert!(message.contains("stderr (empty)"));
+    }
 }

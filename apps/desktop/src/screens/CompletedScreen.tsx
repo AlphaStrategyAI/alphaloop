@@ -4,10 +4,13 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
+import {I18nText} from "../i18n/I18nText";
+import {LogicStatementText} from "../i18n/logicStatement";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {localizeKnownCopy} from "../i18n/productCopy";
+import {familyMidSentenceName, localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
+import {formatDuration} from "../duration";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
 import {listRowStatusKey} from "../listStatusDisplay";
@@ -112,6 +115,19 @@ function pitGateLabel(detail: PitDetail | null | undefined, passed: boolean, t: 
   return t("ui.pit.failed");
 }
 
+function PitFailureText({text, title}: {text: string; title?: string | null}) {
+  if (!title) return text;
+  const index = text.indexOf(title);
+  if (index < 0) return text;
+  return (
+    <>
+      {text.slice(0, index)}
+      <span data-user-content="true">{title}</span>
+      {text.slice(index + title.length)}
+    </>
+  );
+}
+
 function pitFailureCopy(detail: PitDetail | null | undefined, t: Translate): string | null {
   if (!detail || detail.passed) return null;
   if (detail.executed === false) {
@@ -130,7 +146,18 @@ function pitFailureCopy(detail: PitDetail | null | undefined, t: Translate): str
     : t("ui.pit.noPublished");
   const cutoff = detail.backtestCutoff ? t("ui.pit.cutoff", {date: detail.backtestCutoff}) : t("ui.pit.noCutoff");
   const doiPart = doi ? t("ui.pit.doiPart", {doi}) : "";
-  return t("ui.pit.firstViolation", {count, title, doiPart, when, cutoff});
+  return t("ui.pit.firstViolation", {
+    count,
+    title,
+    doiPart,
+    when,
+    cutoff,
+  });
+}
+
+function formatMetricPercent(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "";
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "completed"}>}) {
@@ -178,7 +205,12 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
   };
   const pitLabel = pitGateLabel(view.pitDetail, view.eligibility.pitExecutedAndPassed, t);
   const checks = [
-    [t("ui.completed.gateMethods"), view.eligibility.allMethodsPassed],
+    [
+      view.eligibility.allMethodsPassed
+        ? t("ui.completed.methodsPassed")
+        : t("ui.completed.methodsFailed"),
+      view.eligibility.allMethodsPassed,
+    ],
     [t("ui.completed.gatePending"), view.eligibility.noPendingConfirm],
     [t("ui.completed.gateReverify"), view.eligibility.reverifiesPassed],
     [pitLabel, view.eligibility.pitExecutedAndPassed],
@@ -235,9 +267,31 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         )}
         <h1 data-testid="completed-focus-title">{eligible ? t("ui.completed.title") : t("ui.completed.title")}</h1>
         <p className="completed-focus-headline">{headline}</p>
-        {view.meanReversionOnlyNotice && (
-          <p className="confirm-lead" data-testid="mean-reversion-only-notice">
-            {copyText(view.meanReversionOnlyNotice)}
+        {view.metrics && (view.metrics.excessAnn != null || view.metrics.maxDrawdown != null || view.metrics.maxDD != null) && (
+          <dl className="completed-metrics" data-testid="completed-metrics">
+            {view.metrics.excessAnn != null && (
+              <div>
+                <dt>{t("ui.completed.excessAnn")}</dt>
+                <dd data-testid="completed-excess-ann">{formatMetricPercent(view.metrics.excessAnn)}</dd>
+              </div>
+            )}
+            {(view.metrics.maxDrawdown ?? view.metrics.maxDD) != null && (
+              <div>
+                <dt>{t("ui.completed.maxDrawdown")}</dt>
+                <dd data-testid="completed-max-dd">{formatMetricPercent(view.metrics.maxDrawdown ?? view.metrics.maxDD)}</dd>
+              </div>
+            )}
+          </dl>
+        )}
+        {(view.repickedFamily || view.meanReversionOnlyNotice) && (
+          <p
+            className="confirm-lead"
+            data-testid="mean-reversion-only-notice"
+            data-repick-family={view.repickedFamily || undefined}
+          >
+            {view.repickedFamily
+              ? t("ui.copy.familyRepick", {family: familyMidSentenceName(view.repickedFamily, t)})
+              : copyText(view.meanReversionOnlyNotice)}
           </p>
         )}
         {view.cnExecutionNotice && (
@@ -249,6 +303,20 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         {view.honestStopHint && (
           <p className="honest-stop-hint" data-testid="honest-stop-hint">{copyText(view.honestStopHint)}</p>
         )}
+        {view.stopReason === "round_cap" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">
+            {t("ui.copy.stopRoundCap", {
+              used: view.trialBudget?.used ?? 0,
+              budget: view.trialBudget?.budget ?? 0,
+            })}
+          </p>
+        )}
+        {view.stopReason === "time_budget" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">{t("ui.copy.stopTimeBudget")}</p>
+        )}
+        {view.stopReason === "early_stop" && (
+          <p className="honest-stop-hint" data-testid="stop-reason">{t("ui.copy.stopEarly")}</p>
+        )}
         <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
           {checks.map(([label, passed]) => (
             <span className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`} key={label}>
@@ -258,17 +326,30 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         </div>
         {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note || pitFailure) && (
           <p className="materials-note" data-testid="pit-detail">
-            {pitFailure ? <span data-testid="pit-failure-reason">{pitFailure}</span> : null}
+            {pitFailure ? (
+              <span data-testid="pit-failure-reason">
+                <PitFailureText text={pitFailure} title={view.pitDetail?.firstViolation?.title} />
+              </span>
+            ) : null}
             {view.pitDetail.note ? `${copyText(view.pitDetail.note)}${t("ui.pit.sentenceStop")}` : ""}
             {view.pitDetail.executed ? (
               <>
-                {t("ui.pit.trusted", {count: view.pitDetail.evidenceUsed ?? 0})}
+                {t("ui.pit.trusted", {
+                  count: view.pitDetail.evidenceUsed ?? 0,
+                })}
                 {(view.pitDetail.undatedExcluded?.length ?? 0) > 0
-                  ? t("ui.pit.undated", {count: view.pitDetail.undatedExcluded?.length ?? 0})
+                  ? t("ui.pit.undated", {
+                      count: view.pitDetail.undatedExcluded?.length ?? 0,
+                    })
                   : ""}
                 {t("ui.pit.sentenceStop")}{copyText(view.pitDetail.scope)}
               </>
             ) : null}
+          </p>
+        )}
+        {view.sources && (
+          <p className="materials-note" data-testid="completed-sources">
+            {t("ui.running.sources", {sources: copyText(view.sources)})}
           </p>
         )}
         <p className="workbench-summary completed-meta" data-testid="completed-workbench-header">
@@ -278,8 +359,20 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {view.windowCumulativeLabel && view.windowCumulativeLabel !== view.workbenchHeaderSummary
             ? ` · ${copyText(view.windowCumulativeLabel)}`
             : ""}
-          {view.effective ? ` · ${t("ui.running.effectiveOnly", {effective: copyText(view.effective)})}` : ""}
-          {view.remaining ? ` · ${t("ui.running.remaining", {remaining: copyText(view.remaining)})}` : ""}
+          {view.effective || view.effectiveSeconds != null
+            ? ` · ${t("ui.running.effectiveOnly", {
+                effective: view.effectiveSeconds != null
+                  ? formatDuration(view.effectiveSeconds, t)
+                  : copyText(view.effective),
+              })}`
+            : ""}
+          {view.remaining || view.remainingSeconds != null
+            ? ` · ${t("ui.running.remaining", {
+                remaining: view.remainingSeconds != null
+                  ? formatDuration(view.remainingSeconds, t)
+                  : copyText(view.remaining),
+              })}`
+            : ""}
         </p>
         {showFailedGateLine && (
           <p className="failed-gates-line" data-testid="failed-gates-line">
@@ -290,7 +383,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         )}
         {eligible && view.title && (
           <section className="completed-strategy-summary">
-            <h2>{view.title}</h2>
+            <h2 data-user-content="true">{view.title}</h2>
           </section>
         )}
         <div className="completed-export-actions" data-testid="completed-export-actions">
@@ -449,6 +542,11 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {view.symbolSelection.listNote ? (
             <p data-testid="symbol-selection-note">{copyText(view.symbolSelection.listNote)}</p>
           ) : null}
+          {view.symbolSelection.isDefaultPool || view.symbolSelection.source === "default_pool" ? (
+            <p data-testid="survivorship-hint">
+              <I18nText k="ui.copy.survivorshipHint" />
+            </p>
+          ) : null}
           {view.symbolSelection.listNote && view.symbolSelection.listVersion ? (
             <p data-testid="symbol-selection-version">
               {t("ui.confirm.listVersion", {version: view.symbolSelection.listVersion})}
@@ -520,7 +618,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             {view.windowCumulativeLabel
               ? copyText(view.windowCumulativeLabel)
               : t("ui.completed.iterateFallback", {n: view.latePassPresentation.cumulativeRoundsOnWindow})}
-            ；{t("ui.completed.priorLead", {round: view.latePassPresentation.conclusionRoundId})}
+            {t("ui.copy.clauseJoin")}{t("ui.completed.priorLead", {round: view.latePassPresentation.conclusionRoundId})}
           </p>
           <ul>
             {view.latePassPresentation.priorFailureRecords.map((record) => (
@@ -552,7 +650,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {view.rounds.map((round, index) => (
             <article className="round-card" key={round.roundId} data-testid="completed-round-card">
               <small>{t("ui.completed.roundN", {n: (view.rounds?.length ?? 0) - index})}</small>
-              <p>{round.logicStatement.statement}</p>
+              <p data-testid="logic-statement"><LogicStatementText text={round.logicStatement.statement} /></p>
               {round.logicStatement.changeDescription && (
                 <p className="change-note">{copyText(round.logicStatement.changeDescription)}</p>
               )}

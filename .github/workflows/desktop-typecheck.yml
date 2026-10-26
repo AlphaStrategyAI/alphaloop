@@ -8,25 +8,30 @@ on:
 
 jobs:
   typecheck-and-build:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/desktop
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
       - name: Frontend i18n scan (strict on files this diff touches)
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           cd "$GITHUB_WORKSPACE"
-          if [ -n "${{ github.base_ref }}" ]; then
-            git fetch origin "${{ github.base_ref }}" --depth=1
+          if [ -n "$BASE_REF" ]; then
+            git fetch origin "$BASE_REF" --depth=1
           fi
           python3 scripts/i18n_frontend_scan.py
       - name: TypeScript check

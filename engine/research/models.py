@@ -108,6 +108,15 @@ class Universe:
     symbols: tuple[str, ...]
     symbol_list_version: str | None = None
     user_symbols_override: bool = False
+    unresolved_tokens: tuple[str, ...] = ()
+    inferred_symbols: tuple[tuple[str, str], ...] = ()
+    symbol_asks: tuple[tuple[str, str, str], ...] = ()
+    symbol_ask_answers: tuple[tuple[str, str, str, bool], ...] = ()
+    ticker_hints: tuple[tuple[str, str], ...] = ()
+    market_mismatches: tuple[tuple[str, str], ...] = ()
+    unrecognized_tokens: tuple[str, ...] = ()
+    recognition_hidden: bool = False
+    market_unspecified: bool = False
 
     def __post_init__(self) -> None:
         if self.asset_class is not AssetClass.FUND and self.underlying_asset_class is not self.asset_class:
@@ -492,7 +501,7 @@ class Research:
     symbol_list_version: str | None = None
     data_window_start: date | None = None
     data_window_end: date | None = None
-    data_source_id: str = "yahoo_daily"
+    data_source_id: str = ""
     last_run_error: str | None = None
     last_run_error_code: str | None = None
     last_run_error_params: dict[str, Any] | None = None
@@ -503,8 +512,17 @@ class Research:
     coverage_min_years_scratch: int | None = None
     coverage_max_missing_pct_scratch: float | None = None
     pending_non_mr_thesis: str | None = None
+    mean_reversion_adopted: bool = False
+    mean_reversion_declined: bool = False
+    repicked_family: str = ""
     required_secret_ids: tuple[str, ...] = ()
     construction_schedule: str = "legacy_zero"
+    symbol_probe_symbols: tuple[str, ...] = ()
+    symbol_probe_missing: tuple[str, ...] = ()
+    symbol_probe_unavailable: bool = False
+    dismissed_symbol_tokens: tuple[str, ...] = ()
+    market_switch_market: str = ""
+    market_switch_benchmark: str = ""
 
 
 def new_research(research_id: str, now: datetime) -> Research:

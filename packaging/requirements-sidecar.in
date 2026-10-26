@@ -1,0 +1,24 @@
+# Third-party packages for the PyInstaller sidecar.
+# The alphaloop tree itself is installed with --no-deps from this repo.
+# Regenerate with:
+#   python3 -m piptools compile --generate-hashes --resolver=backtracking \
+#     --output-file packaging/requirements-sidecar.txt packaging/requirements-sidecar.in
+akshare
+mini-racer
+cattrs
+httpx
+jsonschema
+numpy
+pandas
+platformdirs
+portalocker
+yfinance
+pyinstaller
+# Platform-only dependencies of PyInstaller and akshare. Listed directly so
+# the hashed lock pins them on every OS, not only the OS that compiled it.
+macholib
+pefile
+pywin32-ctypes
+colorama
+setuptools
+wheel

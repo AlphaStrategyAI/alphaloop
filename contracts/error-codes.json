@@ -38,5 +38,61 @@
   "MARKET_DATA_SHELL_TIMEOUT": {
     "params": [],
     "legacyZh": "行情请求在壳层等待时超时，引擎还没返回。请稍后重试。（MARKET_DATA_TIMEOUT）"
+  },
+  "SYMBOL_UNRESOLVED": {
+    "params": ["token"],
+    "legacyZh": "无法确认「{{token}}」属于哪个交易所。请选择交易所，或输入带后缀的完整代码。"
+  },
+  "SYMBOL_NO_DATA": {
+    "params": ["symbol"],
+    "legacyZh": "所选数据源没有 {{symbol}} 的行情，无法开跑。请改代码或换数据源。"
+  },
+  "SYMBOL_ETF_UNSUPPORTED": {
+    "params": ["symbol"],
+    "legacyZh": "所选数据源暂不支持 A 股 ETF 行情（{{symbol}}），无法开跑。"
+  },
+  "SYMBOL_EDIT_NOT_DRAFT": {
+    "params": [],
+    "legacyZh": "只有草稿上的确认卡可以改标的。"
+  },
+  "SYMBOL_ASK_PENDING": {
+    "params": [],
+    "legacyZh": "先确认上面的代码再开跑。"
+  },
+  "SYMBOL_AMOUNT_LIKE": {
+    "params": ["token", "symbol"],
+    "legacyZh": "「{{token}}」看起来像金额，也可能是代码 {{symbol}}。要把它当作标的吗？"
+  },
+  "SYMBOL_MIXED_MARKETS": {
+    "params": ["cn_symbols", "us_symbols"],
+    "legacyZh": "一次研究只能用同一个市场的标的，这里既有 A 股（{{cn_symbols}}），也有美股（{{us_symbols}}）。请删掉其中一边。"
+  },
+  "SYMBOL_MARKET_MISMATCH": {
+    "params": ["market", "marketEn", "symbols", "n"],
+    "legacyZh": "描述里的市场是 {{market}}，但 {{symbols}} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
+  },
+  "SYMBOL_SOURCE_MISMATCH": {
+    "params": ["source", "market", "sourceEn", "marketEn"],
+    "legacyZh": "所选数据源 {{source}} 不提供{{market}}行情，和这些标的对不上，无法开跑。请换一个{{market}}数据源。"
+  },
+  "MARKET_CHOICE_PENDING": {
+    "params": [],
+    "legacyZh": "描述里没有写市场。这次研究用哪个市场的默认池？"
+  },
+  "DATA_SOURCE_UNBOUND": {
+    "params": [],
+    "legacyZh": "这项研究还没有可用的数据来源。"
+  },
+  "UNLICENSED_SOURCE_UNACKNOWLEDGED": {
+    "params": [],
+    "legacyZh": "使用未经许可的数据前，请确认仅用于个人研究。"
+  },
+  "STRATEGY_FAMILY_NOT_RUNNABLE": {
+    "params": [],
+    "legacyZh": "这一族还不能开跑。"
+  },
+  "MEAN_REVERSION_ACK_REQUIRED": {
+    "params": [],
+    "legacyZh": "先确认是否按均值回归继续，再开跑。"
   }
 }

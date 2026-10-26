@@ -79,6 +79,11 @@ def test_list_items_include_universe_timestamps_and_status_filter() -> None:
     assert list_items((research,), ResearchStatus.DRAFT)[0].research_id == "r-1"
 
 
+def test_missing_thesis_list_title_is_empty() -> None:
+    research = new_research("r-empty", NOW)
+    assert list_items((research,), None)[0].title == ""
+
+
 def test_thesis_hint_is_non_blocking() -> None:
     hint = thesis_divergence_hint("低波动量价回归", "用宏观利率做国债久期")
     assert hint == "这也可以作为一条新研究重新开始。"

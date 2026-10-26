@@ -74,6 +74,8 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
     <div
       className="secret-vault-backdrop"
       data-testid="secret-vault"
+      data-backend={status?.backend ?? ""}
+      data-locked={locked ? "true" : "false"}
       role="presentation"
       style={{position: "fixed", inset: 0, zIndex: 80, pointerEvents: "auto"}}
       onMouseDown={(event) => {
@@ -100,7 +102,11 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             <button type="button" onClick={() => void invoke("secret_choose_fallback", {choice: "memory"}).then(() => refresh())}>
               <I18nText k="ui.secrets.memory" />
             </button>
-            <button type="button" onClick={() => void invoke("secret_choose_fallback", {choice: "passphrase"}).then(() => refresh())}>
+            <button
+              type="button"
+              data-testid="secret-choose-passphrase"
+              onClick={() => void invoke("secret_choose_fallback", {choice: "passphrase"}).then(() => refresh())}
+            >
               <I18nText k="ui.secrets.passphraseFile" />
             </button>
           </div>
@@ -144,12 +150,13 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
           {locked ? (
             <button
               type="button"
+              data-testid="secret-unlock"
               onClick={() => void invoke("secret_unlock", {passphrase}).then(() => refresh())}
             >
               <I18nText k="ui.secrets.unlock" />
             </button>
           ) : null}
-          <button type="submit" disabled={status?.backend === "needs_choice"}>
+          <button type="submit" data-testid="secret-save" disabled={status?.backend === "needs_choice"}>
             <I18nText k="ui.secrets.save" />
           </button>
           <button

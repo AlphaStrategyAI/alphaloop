@@ -4,7 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {localizeKnownCopy} from "../i18n/productCopy";
+import {localizeKnownCopy, researchListTitle} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -58,6 +58,7 @@ export function StatusPill({status}: {status: ResearchListDisplayStatus}) {
 export function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
   const {t} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
+  const researchTitle = (title: string) => researchListTitle(title, t);
   const deleteWarning = t("ui.list.deleteBody");
   const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
   const awaitingCards = [
@@ -116,7 +117,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             <span className="list-pinned-meta">{t("ui.list.frozen")}</span>
           </div>
           <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
-            <h2>{item.title}</h2>
+            <h2>{researchTitle(item.title)}</h2>
             <p>
               <span>{item.universeLabel ? copyText(item.universeLabel) : t("ui.list.unlocked")}</span>
               {item.createdAt
@@ -129,7 +130,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
               {t("ui.list.openCard")}
             </OpenResearchLink>
             <span className="list-pinned-hint">{t("ui.list.clickCard")}</span>
-            <button type="button" className="text-button" onClick={() => askDelete(item.id)}>
+            <button type="button" className="text-button" data-testid="delete-research" onClick={() => askDelete(item.id)}>
               {t("ui.list.delete")}
             </button>
           </div>
@@ -147,7 +148,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             <StatusPill status="confirm_run" />
           </div>
           <OpenResearchLink className="awaiting-primary-body" researchId={item.id}>
-            <h2>{item.title}</h2>
+            <h2>{researchTitle(item.title)}</h2>
             <p>{item.universeLabel ? copyText(item.universeLabel) : t("ui.list.briefReady")}</p>
           </OpenResearchLink>
           <div className="list-pinned-actions">
@@ -162,10 +163,12 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
           <article
             className={`research-row${row.status === "ended" ? " research-row--failed" : ""}`}
             data-testid="research-row"
+            data-research-id={row.id}
+            data-status={row.status}
             key={row.id}
           >
             <div>
-              <h3>{row.title}</h3>
+              <h3>{researchTitle(row.title)}</h3>
               <p>
                 <span>{row.universeLabel ? copyText(row.universeLabel) : t("ui.list.unlocked")}</span>
                 {row.createdAt ? ` · ${formatResearchTimestamp(row.createdAt)}` : ""}
@@ -174,7 +177,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             </div>
             <div className="row-actions">
               <OpenResearchLink researchId={row.id}>{t("ui.list.enter")}</OpenResearchLink>
-              <button onClick={() => askDelete(row.id)}>{t("ui.list.delete")}</button>
+              <button type="button" data-testid="delete-research" onClick={() => askDelete(row.id)}>{t("ui.list.delete")}</button>
               <StatusPill status={row.status} />
             </div>
           </article>

@@ -6,6 +6,8 @@ from enum import StrEnum
 from typing import Any
 
 from engine.dialogue.prompts import QUESTIONS, SlotName
+from engine.research.coverage_parse import merge_coverage_floor
+from engine.research.family_intent import classify_thesis, thesis_mentions_strategy
 from engine.research.models import (
     AssetClass,
     CoverageFloor,
@@ -14,7 +16,8 @@ from engine.research.models import (
     Research,
     Universe,
 )
-from engine.research.coverage_parse import merge_coverage_floor, parse_coverage_parts
+from engine.research.symbol_identity import extract_symbol_mentions
+from engine.research.symbol_mentions import universe_with_mentions
 from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT
 
 
@@ -44,44 +47,91 @@ METHOD_WORDS = {
 }
 
 
-def _extract_tickers(text: str) -> tuple[str, ...]:
-    found: list[str] = []
-    for token in re.split(r"[、,，\s]+", text):
-        token = token.strip().upper()
-        if re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z])?", token):
-            found.append(token)
-        elif re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", token):
-            found.append(token)
-    return tuple(dict.fromkeys(found))
+def _cn_mention(mention: object) -> bool:
+    raw = getattr(mention, "raw", "")
+    canonical = getattr(mention, "canonical", None) or ""
+    if re.fullmatch(r"\d{6}(?:\.[A-Za-z]{2})?", raw):
+        return True
+    return canonical.endswith((".SH", ".SZ", ".BJ"))
+
+
+_CN_MARKET = re.compile(r"A\s*股|中国|沪深|China|\bCN\b", re.IGNORECASE)
+_US_MARKET = re.compile(r"美股|美国|\bUS\b", re.IGNORECASE)
+_BARE_STRATEGY = re.compile(r"volatility|squeeze|策略", re.IGNORECASE)
+_US_FAMILY_BASKETS = {
+    "stock_bond_rebalance": ("SPY", "AGG"),
+    "all_weather": ("SPY", "TLT", "IEF", "GLD", "DBC"),
+}
+
+
+def _named_market(message: str) -> Market | None:
+    if _CN_MARKET.search(message):
+        return Market.CN
+    if _US_MARKET.search(message):
+        return Market.US
+    return None
+
+
+def _us_family_basket(message: str) -> Universe | None:
+    """Stock-bond and all-weather with no China market lock the US fund baskets."""
+    hit = classify_thesis(message)
+    symbols = _US_FAMILY_BASKETS.get(hit.family_id)
+    if symbols is None or hit.outcome != "disclose":
+        return None
+    if _CN_MARKET.search(message):
+        return None
+    mentions = extract_symbol_mentions(message)
+    if any(_cn_mention(mention) for mention in mentions):
+        return None
+    named = tuple(
+        mention.canonical
+        for mention in mentions
+        if mention.kind == "symbol" and mention.canonical and not _cn_mention(mention)
+    )
+    return Universe(
+        Market.US,
+        AssetClass.FUND,
+        AssetClass.EQUITY,
+        named or symbols,
+        user_symbols_override=True,
+    )
 
 
 def _parse_universe(message: str) -> Universe | None:
-    market = Market.US if re.search(r"美股|美国|US", message, re.IGNORECASE) else None
-    market = Market.CN if re.search(r"A股|中国|沪深|CN", message, re.IGNORECASE) else market
+    market = _named_market(message)
     if re.search(r"基金|ETF", message, re.IGNORECASE):
         asset = AssetClass.FUND
         underlying = AssetClass.BOND if "债" in message else AssetClass.EQUITY
-    elif "债" in message:
+    elif "债" in message and classify_thesis(message).family_id != "stock_bond_rebalance":
         asset = AssetClass.BOND
         underlying = AssetClass.BOND
-    elif re.search(r"股|股票", message):
+    elif re.search(r"股|股票|stocks|equities|equity", message, re.IGNORECASE):
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
+    elif thesis_mentions_strategy(message):
+        # A named family with a market and no asset word still has a universe.
+        # The card says which strategy will actually run.
         asset = AssetClass.EQUITY
         underlying = AssetClass.EQUITY
     else:
         asset = None
         underlying = None
+    mentions = extract_symbol_mentions(message)
+    if market is None and any(_cn_mention(mention) for mention in mentions):
+        market = Market.CN
+    if market is None and any(
+        mention.canonical and not _cn_mention(mention) for mention in mentions
+    ):
+        market = Market.US
+    if asset is None and mentions:
+        asset = AssetClass.EQUITY
+        underlying = AssetClass.EQUITY
     if market is None or asset is None or underlying is None:
         return None
-    tickers = _extract_tickers(message)
-    if tickers:
-        return Universe(
-            market,
-            asset,
-            underlying,
-            tickers,
-            user_symbols_override=True,
-        )
-    return Universe(market, asset, underlying, ())
+    blank = Universe(market, asset, underlying, ())
+    if mentions:
+        return universe_with_mentions(blank, mentions)
+    return blank
 
 
 def _parse_hours(message: str) -> float | None:
@@ -118,19 +168,57 @@ def _parse_methods(message: str) -> tuple[MethodRef, ...]:
 
 _STRATEGY_HINT = re.compile(
     r"均值|回归|动量|套利|波动|多空|轮动|价值|成长|利差|收缩|修复|量价"
+    r"|基本面|因子|估值|股债|再平衡|全天候|低波|趋势|突破"
+    r"|momentum|trend|breakout|fundamental|factor|valuation|rebalance"
+    r"|all[\s\-]*weather|low[\s\-]*vol|mean[\s\-]*reversion|reversal|arbitrage|growth"
+    r"|60\s*[/／]\s*40",
+    re.IGNORECASE,
 )
-_MARKET_HINT = re.compile(r"美股|美国|A股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
+_MARKET_HINT = re.compile(r"美股|美国|A\s*股|中国|沪深|股|债|基金|ETF", re.IGNORECASE)
 
 
 def _thesis_acceptable(message: str) -> bool:
     if _parse_universe(message) is not None:
         return True
-    return bool(_STRATEGY_HINT.search(message) and _MARKET_HINT.search(message))
+    # A strategy with no named market is still a thesis. The card asks which
+    # market's default pool to use. Nothing is preselected.
+    if _STRATEGY_HINT.search(message) is not None:
+        return True
+    if thesis_mentions_strategy(message):
+        return True
+    # A market plus strategy language outside the closed lexicon is still a thesis.
+    # The dialogue asks which family instead of the generic misunderstanding.
+    return _named_market(message) is not None and _BARE_STRATEGY.search(message) is not None
+
+
+def _universe_for_thesis(text: str) -> Universe | None:
+    basket = _us_family_basket(text)
+    if basket is not None:
+        return basket
+    parsed = _parse_universe(text)
+    if parsed is not None:
+        return parsed
+    if _STRATEGY_HINT.search(text) is None and not thesis_mentions_strategy(text):
+        return None
+    blank = Universe(
+        Market.CN,
+        AssetClass.EQUITY,
+        AssetClass.EQUITY,
+        (),
+        market_unspecified=True,
+    )
+    mentions = extract_symbol_mentions(text)
+    if not mentions:
+        return blank
+    return universe_with_mentions(blank, mentions)
 
 
 def _parse_thesis(message: str) -> str | None:
     text = message.strip()
-    if len(text) < 4 or not _thesis_acceptable(text):
+    # 全天候 is three characters and is still a thesis. Other fragments stay rejected.
+    if len(text) < 4 and not thesis_mentions_strategy(text):
+        return None
+    if not text or not _thesis_acceptable(text):
         return None
     return text
 
@@ -141,7 +229,7 @@ def _fill_slot(active: SlotName, text: str) -> list[tuple[str, Any]]:
         thesis = _parse_thesis(text)
         if thesis:
             updates.append(("thesis", thesis))
-        universe = _parse_universe(text)
+        universe = _universe_for_thesis(text)
         if universe is not None:
             updates.append(("universe", universe))
     elif active is SlotName.UNIVERSE:
@@ -170,7 +258,9 @@ def _extras_from_any_slot(text: str, brief_filled: set[str]) -> list[tuple[str, 
         if thesis and _parse_universe(text) is None:
             pass
     if "universe" not in brief_filled:
-        universe = _parse_universe(text)
+        universe = (
+            _universe_for_thesis(text) if "thesis" not in brief_filled else _parse_universe(text)
+        )
         if universe is not None:
             extras.append(("universe", universe))
     if "max_effective_hours" not in brief_filled:
@@ -199,7 +289,9 @@ def interpret(
 ) -> Intent:
     text = message.strip()
     if not text:
-        prompt = QUESTIONS.get(active_slot, "请输入与五项研究设定有关的信息。") if active_slot else ""
+        prompt = (
+            QUESTIONS.get(active_slot, "请输入与五项研究设定有关的信息。") if active_slot else ""
+        )
         return Intent(IntentKind.OFF_TOPIC, response=prompt or "请输入与五项研究设定有关的信息。")
     if "解锁" in text:
         return Intent(IntentKind.OFF_TOPIC, response="在确认开跑卡上点「改一改」即可调整单项设定。")
@@ -207,7 +299,13 @@ def interpret(
     brief = research.brief
     filled = {
         name
-        for name in ("thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor")
+        for name in (
+            "thesis",
+            "universe",
+            "max_effective_hours",
+            "round1_methods",
+            "coverage_floor",
+        )
         if getattr(brief, name).value is not None
     }
 
@@ -230,9 +328,7 @@ def interpret(
     if active_slot is not None:
         return Intent(
             IntentKind.OFF_TOPIC,
-            response=(
-                f"没能理解你的意思。{QUESTIONS[active_slot]}"
-            ),
+            response=(f"没能理解你的意思。{QUESTIONS[active_slot]}"),
         )
     return Intent(
         IntentKind.OFF_TOPIC,

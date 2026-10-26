@@ -16,6 +16,12 @@ class TimeBudget:
         if self._started is None:
             self._started = self.monotonic()
 
+    def elapsed_open(self) -> float:
+        """Seconds since begin, without closing the slice. Zero when idle."""
+        if self._started is None:
+            return 0.0
+        return max(0.0, self.monotonic() - self._started)
+
     def finish(self, research: Research) -> Research:
         if self._started is None:
             self._started = None

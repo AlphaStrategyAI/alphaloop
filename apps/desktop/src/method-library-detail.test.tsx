@@ -30,7 +30,7 @@ const FIXTURES: ValidationMethod[] = [
     revision: "ghi",
     revisionLabel: "换手成本 · 内置第 1 版",
     description: "在换手成本下检验净超额是否仍为正。",
-    definitionDisplay: "用途：在换手成本下检验净超额是否仍为正。\n美股成本（bp）：10\nA股成本（bp）：20",
+    definitionDisplay: "用途：在换手成本下检验净超额是否仍为正。\n美股成本（bp）：10\nA 股成本（bp）：20",
     usageCount: 2,
   },
 ];

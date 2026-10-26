@@ -706,6 +706,7 @@ class RoutingDataAdapter:
 class GatherBatch:
     materials: tuple[Material, ...]
     failures: tuple[str, ...]
+    no_relevant_materials: bool = False
 
 
 def gather_materials(query: str, ports: tuple[MaterialPort, ...]) -> GatherBatch:
@@ -726,7 +727,14 @@ def gather_materials(query: str, ports: tuple[MaterialPort, ...]) -> GatherBatch
         if item.material_id not in seen:
             seen.add(item.material_id)
             unique.append(item)
-    return GatherBatch(tuple(unique), tuple(failures))
+    from engine.research.material_relevance import relevant_papers, strategy_key_terms
+
+    papers = [item for item in unique if item.source == "papers"]
+    kept = list(relevant_papers(unique, query))
+    no_relevant = bool(strategy_key_terms(query)) and bool(papers) and not any(
+        item.source == "papers" for item in kept
+    )
+    return GatherBatch(tuple(kept), tuple(failures), no_relevant_materials=no_relevant)
 
 
 def gather(query: str, ports: tuple[MaterialPort, ...]) -> tuple[Material, ...]:

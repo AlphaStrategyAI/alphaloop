@@ -1,7 +1,39 @@
+import {formatEngineDuration} from "../duration";
 import type {MessageKey} from "./I18nProvider";
 import type {MessageParams} from "./translate";
 
 export type CopyFn = (key: MessageKey, params?: MessageParams) => string;
+
+/** Glossary display names. Ids are what the engine stores; zh names appear in source sentences. */
+export const FAMILY_ID_KEY: Record<string, MessageKey> = {
+  low_volatility: "glossary.lowVolatility",
+  stock_bond_rebalance: "glossary.stockBondRebalance",
+  mean_reversion: "glossary.meanReversion",
+  fundamental_factor: "glossary.fundamentalFactor",
+  all_weather: "glossary.allWeather",
+};
+
+const FAMILY_ZH_KEY: Record<string, MessageKey> = {
+  "低波": "glossary.lowVolatility",
+  "股债再平衡": "glossary.stockBondRebalance",
+  "均值回归": "glossary.meanReversion",
+  "基本面因子": "glossary.fundamentalFactor",
+  "全天候": "glossary.allWeather",
+};
+
+export function familyDisplayName(idOrZh: string, t: CopyFn): string {
+  const key = FAMILY_ID_KEY[idOrZh] ?? FAMILY_ZH_KEY[idOrZh];
+  return key ? t(key) : idOrZh;
+}
+
+/** Glossary name inside a sentence. English stays lowercase; chips keep the title case. */
+export function familyMidSentenceName(idOrZh: string, t: CopyFn): string {
+  const name = familyDisplayName(idOrZh, t);
+  if (/[A-Za-z]/.test(name) && !/[\u3400-\u9fff]/.test(name)) {
+    return name.toLocaleLowerCase("en-US");
+  }
+  return name;
+}
 
 const EXACT: Record<string, MessageKey> = {
   "研究已完成，可导出策略包": "ui.copy.headlineExport",
@@ -10,6 +42,7 @@ const EXACT: Record<string, MessageKey> = {
   "当前冻结验证已全部通过（含时点第四关）。可导出策略包；alphaloop 不提供执行入口。": "ui.copy.summaryEligible",
   "取自标普 500 在名单日的成分，非时点成分": "ui.copy.usLargeNote",
   "取自沪深 300 在名单日的成分，非时点成分": "ui.copy.cnLargeNote",
+  "股票池是名单日的成分，回看更早的历史含幸存者偏差。": "ui.copy.survivorshipHint",
   "雅虎日线": "ui.copy.yahoo",
   "AkShare 日线（新浪优先）": "ui.copy.akshare",
   "未模拟 T+1 与涨跌停，实际成交可能更差": "ui.copy.cnExecution",
@@ -21,6 +54,8 @@ const EXACT: Record<string, MessageKey> = {
   "时点一致性未执行，暂不能导出策略包": "ui.copy.blockPitMissing",
   "公开资料与本机材料": "ui.running.sourcesFallback",
   "公开资料已落成本机材料": "ui.copy.sourcesSaved",
+  "未找到相关资料": "ui.copy.noRelevantMaterials",
+  "待选择": "ui.confirm.sourcePending",
   "有效研究时间计入「运行中」状态下的采集、建模与验证执行；暂停、等待确认与列表轮询间隔不计入。": "ui.copy.effectiveHint",
   "未锁定": "ui.list.unlocked",
   "查资料": "ui.copy.actionGather",
@@ -29,6 +64,22 @@ const EXACT: Record<string, MessageKey> = {
   "迭代": "ui.copy.actionIterate",
   "验证": "glossary.verification",
   "这些是界面和导出包里使用的展示名。方法的 id 与修订号没有改，计算也没有改。对话里仍可输入旧称，会解析成同一个方法。": "ui.copy.glossaryIntro",
+  "未命名研究": "ui.list.untitled",
+  "延续锁定论点下的参数/模型迭代": "ui.copy.lockedIteration",
+  "V1 只支持截面均值回归（反转）；你的论点会被记录但不会改变策略。要按均值回归继续吗？": "ui.copy.meanReversionQuestion",
+  "没能对上已支持的策略族。可以说低波、股债再平衡、均值回归、基本面因子或全天候。": "ui.dialogue.familyFollowUp",
+  "好的，不按均值回归跑。研究留在草稿，可以改选策略族或换个论点。": "ui.dialogue.declinedMeanReversion",
+  "原理想靠什么赚钱？例如：美股大市值股票的均值回归。": "ui.dialogue.askThesis",
+  "研究哪类资产？例如：美股股票；也可以说「SPY、QQQ」指定标的。": "ui.dialogue.askUniverse",
+  "最多允许多少有效研究时间？例如：12 小时，或 30 分钟。暂停和等待确认不计时。": "ui.dialogue.askHours",
+  "第一轮用哪些冻结验证方法？例如：分段稳健性检验、样本外稳定、集中度、换手成本。": "ui.dialogue.askMethods",
+  "最低数据覆盖？例如：至少 25 个、10 年、缺失不超过 5%。": "ui.dialogue.askCoverage",
+  "在确认开跑卡上点「改一改」即可调整单项设定。": "ui.dialogue.unlockOnCard",
+  "五项研究设定已齐全，请检查确认开跑卡。": "ui.dialogue.slotsReady",
+  "试验次数（X/N）与累计 M": "ui.glossaryBody.trialTerm",
+  "冻结验证方法": "ui.glossaryBody.frozenTerm",
+  "基准口径": "ui.glossaryBody.benchmarkTerm",
+  "成本（bp）": "ui.glossaryBody.costTerm",
 };
 
 /** Longer labels first so a prefix does not swallow a more specific name. */
@@ -37,6 +88,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["冻结验证方法未全部通过", "ui.copy.gateMethods"],
   ["重新验证未全部通过", "ui.copy.gateReverify"],
   ["美股大市值（版本 1）", "ui.copy.usLargeV1"],
+  ["A 股大市值（版本 1）", "ui.copy.cnLargeV1"],
   ["A股大市值（版本 1）", "ui.copy.cnLargeV1"],
   ["分段稳健性检验", "ui.copy.walk"],
   ["研究状态未完成", "ui.copy.gateCompleted"],
@@ -47,6 +99,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["默认标的池", "ui.copy.defaultTail"],
   ["仍有待确认项", "ui.copy.gatePending"],
   ["美股大市值", "ui.copy.usLargeShort"],
+  ["A 股大市值", "ui.copy.cnLargeShort"],
   ["A股大市值", "ui.copy.cnLargeShort"],
   ["市场计分卡", "ui.copy.scorecard"],
   ["时点一致性", "ui.copy.pit"],
@@ -59,6 +112,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["特征集", "ui.copy.features"],
   ["模型族", "ui.copy.modelFamily"],
   ["均值回归", "ui.copy.meanReversion"],
+  ["延续锁定论点下的参数/模型迭代", "ui.copy.lockedIteration"],
   ["集中度", "ui.copy.crowding"],
 ];
 
@@ -91,17 +145,39 @@ function gates(raw: string, t: CopyFn): string {
   return raw.split("、").map((part) => gateToken(part, t)).join(t("ui.copy.gateJoiner"));
 }
 
+function coverageSentence(
+  kind: "now" | "floor",
+  assets: string,
+  years: string,
+  missing: string,
+  t: CopyFn,
+): string {
+  const key = kind === "now" ? "ui.copy.coverageNow" : "ui.copy.coverageFloor";
+  return t(key, {assets, years, missing});
+}
+
 function paramPiece(piece: string, t: CopyFn): string {
-  const match = /^(.+?)：(.*) → (.*)$/.exec(piece.trim());
-  if (!match) return exactLabel(piece.trim(), t);
-  return t("ui.copy.paramChange", {
-    name: exactLabel(match[1], t),
-    before: match[2],
-    after: match[3],
-  });
+  const trimmed = piece.trim();
+  const match = /^(.+?)：(.*) → (.*)$/.exec(trimmed);
+  if (match) {
+    return t("ui.copy.paramChange", {
+      name: exactLabel(match[1], t),
+      before: match[2],
+      after: match[3],
+    });
+  }
+  const initial = /^初始 (.+) 规格$/.exec(trimmed);
+  if (initial) {
+    return t("ui.copy.initialSpec", {family: exactLabel(initial[1].trim(), t)});
+  }
+  return exactLabel(trimmed, t);
 }
 
 const RULES: Rule[] = [
+  {
+    re: /^已改用(.+)。你原来的论点没有采纳，这一族的方向和你的原话不同。$/,
+    render: (m, t) => t("ui.copy.familyRepick", {family: familyMidSentenceName(m[1], t)}),
+  },
   {
     re: /^美股大市值池 · (\d+) 只 · 名单日 (\d{4}-\d{2}-\d{2})$/,
     render: (m, t) => t("ui.copy.usLarge", {count: m[1], date: m[2]}),
@@ -122,7 +198,7 @@ const RULES: Rule[] = [
   },
   {
     re: /^(\d+) 只 · ([^·]+) · ([^·]+)$/,
-    render: (m, t) => t(m[1] === "1" ? "ui.copy.userLineOne" : "ui.copy.userLine", {
+    render: (m, t) => t("ui.copy.userLine", {
       count: m[1],
       listName: exactLabel(m[2], t),
       tail: exactLabel(m[3], t),
@@ -205,30 +281,38 @@ const RULES: Rule[] = [
     }),
   },
   {
-    re: /^变更：(.+)$/,
-    render: (m, t) => t("ui.copy.changeLine", {text: m[1]}),
+    re: /^没能理解你的意思。(.*)$/,
+    render: (m, t) => `${t("ui.dialogue.misunderstood")}${localizeKnownCopy(m[1], t)}`,
   },
   {
-    re: /^(\d+(?:\.\d+)?) 小时$/,
-    render: (m, t) => t("ui.copy.hours", {n: m[1]}),
+    re: /^变更：(.+)$/,
+    render: (m, t) => t("ui.copy.changeLine", {text: exactLabel(m[1], t)}),
   },
   {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%；底线 (.+)$/,
     render: (m, t) => t("ui.copy.coverageWithFloor", {
-      current: t("ui.copy.coverageNow", {assets: m[1], years: m[2], missing: m[3]}),
+      current: coverageSentence("now", m[1], m[2], m[3], t),
       floor: localizeKnownCopy(m[4], t),
     }),
   },
   {
     re: /^当前 (\d+) 个标的、([\d.]+) 年数据，缺失 ([\d.]+)%$/,
-    render: (m, t) => t("ui.copy.coverageNow", {assets: m[1], years: m[2], missing: m[3]}),
+    render: (m, t) => coverageSentence("now", m[1], m[2], m[3], t),
   },
   {
     re: /^至少 (\d+) 个标的、([\d.]+) 年数据，缺失不超过 ([\d.]+)%$/,
-    render: (m, t) => t("ui.copy.coverageFloor", {assets: m[1], years: m[2], missing: m[3]}),
+    render: (m, t) => coverageSentence("floor", m[1], m[2], m[3], t),
   },
   {
-    re: /^(美股|A股) · (股票|债券|基金)(?:（(.+)）)?$/,
+    re: /^至少 (\d+) 个标的、([\d.]+) 年、缺失不超过 ([\d.]+)%$/,
+    render: (m, t) => coverageSentence("floor", m[1], m[2], m[3], t),
+  },
+  {
+    re: /^至少 (\d+) 个标的$/,
+    render: (m, t) => t("ui.copy.coverageFloorShort", {assets: m[1]}),
+  },
+  {
+    re: /^(美股|A\s*股) · (股票|债券|基金)(?:（(.+)）)?$/,
     render: (m, t) => {
       const line = t("ui.copy.universe", {
         market: t(m[1] === "美股" ? "ui.copy.marketUs" : "ui.copy.marketCn"),
@@ -252,10 +336,22 @@ const RULES: Rule[] = [
 ];
 
 /**
+ * List-row title. An empty stored title is untitled. A study saved before that
+ * marker still carries the Chinese catalog string, which lives in `EXACT`.
+ */
+export function researchListTitle(title: string | null | undefined, t: CopyFn): string {
+  const stored = title ?? "";
+  if (!stored.trim() || EXACT[stored] === "ui.list.untitled") return t("ui.list.untitled");
+  return stored;
+}
+
+/**
  * Translate a known engine product sentence. Unrecognized text, including
  * user theses and literature titles, is returned unchanged.
  */
 export function localizeKnownCopy(text: string, t: CopyFn): string {
+  const duration = formatEngineDuration(text, t);
+  if (duration != null) return duration;
   const exact = EXACT[text];
   if (exact) return t(exact);
   const shrunk = SHRINK.exec(text);

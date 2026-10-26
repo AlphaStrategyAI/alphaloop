@@ -95,6 +95,14 @@ h1 { font-size: 36px; }
 p, small { color: var(--mute); }
 button { color: var(--ink); background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-control); padding: 11px 18px; cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
+button.cyan-button:disabled,
+button.cyan-button.is-disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  box-shadow: none;
+}
+.confirm-run-blocked-reason { grid-column: 1 / -1; margin: 0; color: var(--mute); }
 .quiet-button:hover { border-color: var(--mute); }
 .list-header { display: flex; justify-content: space-between; align-items: center; }
 /* Night list: filter chips removed per 小迪 - status via pills on rows only */
@@ -229,6 +237,31 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   background: rgba(248, 113, 113, 0.12);
   color: var(--stop);
   font-size: 14px;
+}
+.symbol-resolution {
+  /* Latin font first so EN curly quotes keep Latin sidebearings, not CJK fullwidth gaps. */
+  font-family: "Noto Serif", "Noto Sans SC", sans-serif;
+  overflow-wrap: break-word;
+}
+.symbol-edit-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+}
+.symbol-edit-label input {
+  min-width: 16em;
+  padding: 8px 10px;
+}
+.symbol-ask,
+.symbol-pool-hint {
+  margin-top: 10px;
+}
+.symbol-ask button,
+.symbol-pool-hint button,
+.symbol-remove {
+  margin-left: 8px;
 }
 .confirm-card, .awaiting-card {
   border: 1px solid var(--cyan);

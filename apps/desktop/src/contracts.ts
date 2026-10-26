@@ -37,6 +37,43 @@ export type BriefSlotName =
   | "round1_methods"
   | "coverage_floor";
 
+export interface SymbolResolution {
+  blocked: boolean;
+  code?:
+    | "SYMBOL_UNRESOLVED"
+    | "SYMBOL_NO_DATA"
+    | "SYMBOL_ETF_UNSUPPORTED"
+    | "SYMBOL_ASK_PENDING"
+    | "SYMBOL_AMOUNT_LIKE"
+    | "SYMBOL_MIXED_MARKETS"
+    | "SYMBOL_MARKET_MISMATCH"
+    | "MARKET_CHOICE_PENDING"
+    | null;
+  token?: string | null;
+  symbol?: string | null;
+  symbols: readonly string[];
+  inferred: readonly {raw: string; symbol: string}[];
+  editable: boolean;
+  asks?: readonly {token: string; symbol: string; kind?: "ask" | "finance" | "amount"}[];
+  answers?: readonly {token: string; symbol: string; kind?: string; accept: boolean}[];
+  hints?: readonly {token: string; symbol: string}[];
+  poolCount?: number | null;
+  cnSymbols?: string | null;
+  usSymbols?: string | null;
+  mismatches?: readonly string[];
+  mismatchMarket?: "US" | "CN" | null;
+  unrecognized?: readonly {token: string}[];
+}
+
+export interface PriceSourceChoice {
+  id: string;
+  label: string;
+  unlicensed: boolean;
+  acknowledgedAt?: string | null;
+  /** Market this row covers. A pick for another market is not a selection. */
+  market?: "CN" | "US" | null;
+}
+
 export interface SymbolSelectionSummary {
   count: number;
   listName: string;
@@ -53,6 +90,14 @@ export interface SymbolSelectionSummary {
   dataEnd: string;
   dataCutoff: string;
   dataSource: string;
+  dataSourceId?: string | null;
+  dataSourcePending?: boolean;
+  /** Engine-owned list. The card does not decide which row is preselected. */
+  priceSources?: readonly PriceSourceChoice[];
+  offeredDataSourceId?: string;
+  offeredDataSource?: string;
+  unlicensedAcknowledgedAt?: string | null;
+  unlicensedAcknowledgementRequired?: boolean;
   droppedForMissingData?: number;
   shrinkNote?: string | null;
   isDefaultPool?: boolean;
@@ -111,6 +156,9 @@ type ViewBody =
       researchId: string;
       dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
+      chatEnabled?: boolean;
+      meanReversionChoice?: boolean;
+      familyChipIds?: readonly string[];
     }
   | {
       kind: "confirm_run";
@@ -118,12 +166,25 @@ type ViewBody =
       dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
       chatEnabled?: boolean;
+      /** Show 「按均值回归继续」 and 「不继续」. Neither is preselected. */
+      meanReversionChoice?: boolean;
+      /** Glossary-order family ids. Empty when the chips are hidden. */
+      familyChipIds?: readonly string[];
       symbolSelection?: SymbolSelectionSummary;
+      symbolResolution?: SymbolResolution | null;
       confirmDataNotice?: string | null;
       confirmDataNoticeCode?: string | null;
       confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
+      /** Family id the user named after an unsupported thesis. The card fills {{family}}. */
+      repickedFamily?: string | null;
       constructionNotice?: string | null;
+      /** Engine gate. Run stays disabled when this code is not a source choice. */
+      runGate?: {runnable: boolean; code?: string | null} | null;
+      market?: "CN" | "US" | null;
+      marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
+      marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
+      benchmarkName?: string | null;
     }
   | {
       kind: "running";
@@ -131,6 +192,8 @@ type ViewBody =
       status: "running" | "paused";
       version: number;
       effective: string;
+      effectiveSeconds?: number;
+      remainingSeconds?: number;
       coverage: string;
       rounds: readonly RoundRecord[];
       currentAction?: string;
@@ -178,11 +241,16 @@ type ViewBody =
       researchId: string;
       version?: number;
       effective?: string;
+      effectiveSeconds?: number;
       remaining?: string;
+      remainingSeconds?: number;
+      stopReason?: "round_cap" | "time_budget" | "early_stop" | null;
+      sources?: string;
       status: "completed" | "ended";
       title: string;
       universeLabel?: string;
       meanReversionOnlyNotice?: string | null;
+      repickedFamily?: string | null;
       cnExecutionNotice?: string | null;
       subtitle?: string;
       resultHeadline?: string;
@@ -247,6 +315,8 @@ export type DesktopView = ViewBody & {
   hostStatus?: HostStatus;
   thesisChangeHint?: string;
   marketDataProgress?: {done: number; total: number; source?: string} | null;
+  /** Set when ALPHALOOP_OFFLINE_MARKET_DATA=1. Absent for a normal launch. */
+  testData?: boolean;
 };
 
 export type MarketDataProgress = {done: number; total: number; source?: string};
@@ -259,7 +329,22 @@ export interface DesktopApi {
     hostStatus?: HostStatus;
   }>;
   createDraft(): Promise<string>;
-  confirmRun(researchId: string): Promise<void>;
+  confirmRun(
+    researchId: string,
+    options?: {dataSourceId?: string; unlicensedAcknowledged?: boolean},
+  ): Promise<void>;
+  /** Confirm-card symbol edit. Both arguments are required; the engine rejects a bare id. */
+  setResearchSymbol(researchId: string, symbol: string): Promise<void>;
+  /** Answer one ambiguous all-caps ticker. `accept` false keeps it as prose. */
+  answerSymbolAsk(researchId: string, token: string, accept: boolean): Promise<void>;
+  /** One click on the default-pool hint. Sets that ticker as the symbol. */
+  useHintedSymbol(researchId: string, symbol: string): Promise<void>;
+  revertSymbolAsk(researchId: string, token: string): Promise<void>;
+  removeMarketSide(researchId: string, side: "cn" | "us"): Promise<void>;
+  /** Drop one symbol the stated market rejected, so the description does not restore it. */
+  dismissMismatchedSymbol(researchId: string, symbol: string): Promise<void>;
+  /** Pick the market when the description named none. Nothing is remembered. */
+  chooseDefaultMarket(researchId: string, market: "CN" | "US"): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
   sendDialogue(researchId: string, message: string): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;

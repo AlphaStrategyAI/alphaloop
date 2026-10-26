@@ -4,6 +4,7 @@
 
 | 日期 | 变更内容 |
 | --- | --- |
+| 2026-10-25 | N4：股债/全天候未点名市场时锁定美股基金，列表「美股 · 基金」；未锁定显示「待选择」，不虚构「A 股 · 股票」。不按界面语言推断市场。 |
 | 2026-10-19 | 旧的 40 只池同样显示幸存者偏差提示，只在显示和导出时渲染，不回写旧记录。维基百科出处放在池详情的来源说明里，确认卡上不放。 |
 | 2026-10-19 | 初稿。新研究的默认池、显示名、幸存者偏差提示和名单来源。名单文件本身依赖 [#138](https://github.com/AlphaStrategyAI/alphaloop/pull/138)，本文不放入那两份代码清单。 |
 
@@ -50,7 +51,8 @@
 
 **英文说明行**
 
-Taken from S&P 500 / CSI 300 membership on the list date; not point-in-time.
+- Taken from S&P 500 membership on the list date; not point-in-time.
+- Based on CSI 300 membership on the list date; not point-in-time.
 
 美股用 S&P 500，A 股用 CSI 300。
 
@@ -66,12 +68,12 @@ Taken from S&P 500 / CSI 300 membership on the list date; not point-in-time.
 
 **英文**
 
-Universe uses the membership on the list date; earlier history carries survivorship bias.
+Uses list-date members; earlier history has survivorship bias.
 
 提示放在三处：
 
-1. 确认卡「将使用的数据」块里，和「未模拟 T+1」并排。
-2. 结论页的同一位置。
+1. 确认卡「将使用的数据」里用三条开跑就绪说明。第一条已经写出名单日成分和幸存者偏差，不再另放这句短提示，也不在确认卡上加「未模拟 T+1」。
+2. 结论页「标的与数据窗口」里放这句短提示。
 3. 研究记录和策略包里的结构化字段，值为 `survivorship_bias_untested`。
 
 旧的 40 只池同样带这个提示。只在显示和导出时渲染，不回写旧记录，不改判定，按遗留中性处理。

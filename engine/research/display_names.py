@@ -42,7 +42,7 @@ DATA_SOURCE: dict[str, str] = {
 
 POOL_VERSION: dict[str, str] = {
     "us_equity_large_cap_v1": "美股大市值（版本 1）",
-    "cn_equity_large_cap_v1": "A股大市值（版本 1）",
+    "cn_equity_large_cap_v1": "A 股大市值（版本 1）",
     "us_equity_large_cap_v2": "美股大市值池 · 503 只 · 名单日 2026-10-16",
     "cn_equity_large_cap_v2": "A 股大市值池 · 300 只 · 名单日 2026-10-19",
 }
@@ -125,6 +125,8 @@ def format_display_number(value: float | int) -> str:
 
 
 def data_source_label(source_id: str) -> str:
+    if not source_id:
+        return "待选择"
     return DATA_SOURCE.get(source_id, source_id)
 
 
@@ -132,7 +134,7 @@ def data_source_label_for_symbols(
     symbols: tuple[str, ...],
     market: object | None = None,
 ) -> str:
-    """User-facing source line. Same per-symbol mapping as confirm-time pinning."""
+    """User-facing labels for the sources a pool could use. Not a selection."""
     from engine.research.planned_data_window import data_source_ids_for_symbols
 
     return "、".join(
