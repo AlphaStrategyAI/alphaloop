@@ -31,5 +31,5 @@
   <text x="784" y="290" fill="#E8EEF5" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">No broker connection</text>
 
   <text x="40" y="370" fill="#94A3B8" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Daily bars: Yahoo Finance for US names, AkShare for China A-shares. Papers: Crossref. Filings: SEC EDGAR. Notes: a local folder.</text>
-  <text x="40" y="396" fill="#5EEAD4" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">0.2.0 runs mean reversion. The other family names are in the code and will not start.</text>
+  <text x="40" y="396" fill="#5EEAD4" font-family="DejaVu Sans, Segoe UI, sans-serif" font-size="14">Mean reversion runs today. The other family names are in the code and will not start.</text>
 </svg>
