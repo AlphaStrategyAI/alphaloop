@@ -7,7 +7,7 @@ import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataC
 import {DialogueTurnBody, EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {localizeKnownCopy} from "../i18n/productCopy";
+import {FAMILY_ID_KEY, familyMidSentenceName, localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -17,6 +17,7 @@ import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
+import {deriveRunGate, runBlockedToken} from "../runGate";
 
 /** A stored pick counts only when this market's catalog still offers it. */
 export function selectedPriceSourceId(input: {
@@ -158,6 +159,73 @@ function DialoguePanel({
   );
 }
 
+function FamilyChoiceControls({
+  researchId,
+  api,
+  meanReversionChoice,
+  familyChipIds,
+}: {
+  researchId: string;
+  api: DesktopApi;
+  meanReversionChoice?: boolean;
+  familyChipIds?: readonly string[];
+}) {
+  const {t} = useI18n();
+  const chips = familyChipIds ?? [];
+  if (!meanReversionChoice && chips.length === 0) return null;
+  const send = (text: string) => {
+    void api.sendDialogue(researchId, text);
+  };
+  return (
+    <div className="family-choice" data-testid="family-choice">
+      {meanReversionChoice && (
+        <div className="family-choice-actions" data-testid="mean-reversion-choice">
+          <button
+            type="button"
+            className="quiet-button"
+            data-testid="mean-reversion-continue"
+            aria-pressed={false}
+            onClick={() => send(t("ui.dialogue.continueMeanReversion"))}
+          >
+            {t("ui.dialogue.continueMeanReversion")}
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            data-testid="mean-reversion-decline"
+            aria-pressed={false}
+            onClick={() => send(t("ui.dialogue.dontContinue"))}
+          >
+            {t("ui.dialogue.dontContinue")}
+          </button>
+        </div>
+      )}
+      {chips.length > 0 && (
+        <div data-testid="family-chips">
+          <p data-testid="family-chip-label">{t("ui.dialogue.pickFamily")}</p>
+          {chips.map((id) => {
+            const key = FAMILY_ID_KEY[id];
+            const label = key ? t(key) : id;
+            return (
+              <button
+                type="button"
+                key={id}
+                className="quiet-button"
+                data-testid={`family-chip-${id}`}
+                data-family-id={id}
+                aria-pressed={false}
+                onClick={() => send(label)}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "draft"}>}) {
   return (
     <div className="draft-layout">
@@ -166,6 +234,12 @@ export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<Desktop
         researchId={view.researchId}
         dialogue={view.dialogue}
         chatEnabled
+      />
+      <FamilyChoiceControls
+        api={api}
+        researchId={view.researchId}
+        meanReversionChoice={view.meanReversionChoice}
+        familyChipIds={view.familyChipIds}
       />
       <Settings values={view.settings} />
     </div>
@@ -242,7 +316,6 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   };
   const dirty = symbolDraft.trim() !== seeded.trim();
   const marketPending = Boolean(view.marketChoice?.pending);
-  const runBlocked = (Boolean(resolution?.blocked) && !dirty) || marketPending;
   const offeredId = sel?.offeredDataSourceId ?? "";
   const catalog = sel?.priceSources ?? [];
   const catalogMode = catalog.length > 0;
@@ -260,8 +333,41 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const ackRequired = catalogMode
     ? Boolean(selectedChoice?.unlicensed && !selectedChoice.acknowledgedAt)
     : unlicensedIds.has(selectedId) && !alreadyAcked;
-  const mustPick = catalogMode || sel?.dataSourcePending === true || sel?.unlicensedAcknowledgementRequired === true;
-  const canRun = (!mustPick || Boolean(selectedId)) && (!ackRequired || acked) && !runBlocked;
+  const sourceChoiceOnCard = catalogMode
+    || Boolean(sel?.dataSourcePending)
+    || Boolean(sel?.unlicensedAcknowledgementRequired);
+  const selectedAcknowledgedAt = catalogMode
+    ? selectedChoice?.acknowledgedAt
+    : alreadyAcked
+      ? sel?.unlicensedAcknowledgedAt
+      : null;
+  const gate = deriveRunGate({
+    serverCode: view.runGate?.code,
+    resolutionBlocked: Boolean(resolution?.blocked) && !dirty,
+    resolutionCode: resolution?.code,
+    marketPending,
+    sourceChoiceOnCard,
+    selectedId,
+    selectedMarket: selectedChoice?.market ?? null,
+    cardMarket,
+    unlicensed: catalogMode
+      ? Boolean(selectedChoice?.unlicensed)
+      : unlicensedIds.has(selectedId),
+    acknowledgedAt: selectedAcknowledgedAt,
+    checkboxAcked: acked,
+  });
+  const canRun = gate.runnable;
+  const symbolKey = (resolution?.symbols ?? sel?.symbols ?? []).join("|");
+  const universeScope = `${view.researchId}|${view.market ?? ""}|${symbolKey}`;
+  const gateScope = `${universeScope}|${selectedId}|${selectedAcknowledgedAt ?? ""}|${gate.code ?? ""}`;
+  useEffect(() => {
+    setPickedSource("");
+    setAcked(false);
+    setRunError(null);
+  }, [universeScope]);
+  useEffect(() => {
+    setRunError(null);
+  }, [gateScope]);
   const startRun = () => {
     if (startingRef.current || !canRun) return;
     startingRef.current = true;
@@ -272,9 +378,12 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         if (symbolDraft.trim() !== seeded.trim()) {
           await commitSymbol(symbolDraft);
         }
+        const needsFreshAck = catalogMode
+          ? Boolean(selectedChoice?.unlicensed && !selectedChoice.acknowledgedAt)
+          : unlicensedIds.has(selectedId) && !alreadyAcked;
         await api.confirmRun(view.researchId, {
           dataSourceId: selectedId || undefined,
-          unlicensedAcknowledged: ackRequired ? true : undefined,
+          unlicensedAcknowledged: needsFreshAck ? true : undefined,
         });
       } catch (error: unknown) {
         setRunError(error instanceof Error ? error.message : String(error));
@@ -369,11 +478,23 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           })}
         </p>
       )}
-      {view.meanReversionOnlyNotice && (
-        <p className="confirm-lead" data-testid="mean-reversion-only-notice">
-          {copyText(view.meanReversionOnlyNotice)}
+      {(view.repickedFamily || view.meanReversionOnlyNotice) && (
+        <p
+          className="confirm-lead"
+          data-testid="mean-reversion-only-notice"
+          data-repick-family={view.repickedFamily || undefined}
+        >
+          {view.repickedFamily
+            ? t("ui.copy.familyRepick", {family: familyMidSentenceName(view.repickedFamily, t)})
+            : copyText(view.meanReversionOnlyNotice)}
         </p>
       )}
+      <FamilyChoiceControls
+        api={api}
+        researchId={view.researchId}
+        meanReversionChoice={view.meanReversionChoice}
+        familyChipIds={view.familyChipIds}
+      />
       {view.constructionNotice && (
         <p className="confirm-lead" data-testid="construction-notice">
           <ConstructionNoticeText text={view.constructionNotice} />
@@ -626,6 +747,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                     onChange={() => {
                       setPickedSource(item.id);
                       setAcked(false);
+                      setRunError(null);
                     }}
                   />
                   <span>{copyText(item.label)}</span>
@@ -718,20 +840,28 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
             {t("ui.confirm.askBeforeRun")}
           </p>
         )}
-        {!canRun && (marketPending || (mustPick && !selectedId)) && (
+        {!canRun && (
           <p id="confirm-run-blocked-reason" className="confirm-run-blocked-reason" data-testid="confirm-run-blocked-reason">
-            {marketPending ? t("ui.confirm.marketChoice") : t("ui.confirm.sourcePending")}
+            {gate.code === "DATA_SOURCE_UNBOUND"
+              ? t("ui.confirm.noDataSource")
+              : gate.code === "MARKET_CHOICE_PENDING"
+                ? t("ui.confirm.marketChoice")
+                : gate.code === "STRATEGY_FAMILY_NOT_RUNNABLE"
+                  ? t("errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE")
+                  : gate.code === "MEAN_REVERSION_ACK_REQUIRED"
+                    ? t("errors.codes.MEAN_REVERSION_ACK_REQUIRED")
+                  : gate.code === "UNLICENSED_SOURCE_UNACKNOWLEDGED"
+                    ? t("errors.codes.UNLICENSED_SOURCE_UNACKNOWLEDGED")
+                    : blockMessage() || t("ui.confirm.sourcePending")}
           </p>
         )}
         <button
           className={canRun ? "cyan-button" : "cyan-button is-disabled"}
           data-testid="confirm-run-start"
-          data-run-blocked={
-            marketPending ? "market" : mustPick && !selectedId ? "source" : resolution?.blocked ? "resolution" : undefined
-          }
+          data-run-blocked={runBlockedToken(gate.code)}
           disabled={starting || saving || !canRun}
           aria-busy={starting || saving}
-          aria-describedby={!canRun && (marketPending || (mustPick && !selectedId)) ? "confirm-run-blocked-reason" : undefined}
+          aria-describedby={!canRun ? "confirm-run-blocked-reason" : undefined}
           onMouseDown={(event) => event.preventDefault()}
           onClick={startRun}
         >

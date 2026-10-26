@@ -1595,6 +1595,148 @@
           }
         ]
       }
+    },
+    {
+      "id": "us-volatility-squeeze",
+      "description": "US volatility squeeze strategy",
+      "outcome": "family_follow_up",
+      "extract": []
+    },
+    {
+      "id": "zh-stock-bond-us-basket",
+      "description": "股债再平衡",
+      "market": "US",
+      "asset": "fund",
+      "extract": [],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": ["SPY", "AGG"],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
+    },
+    {
+      "id": "en-stock-bond-us-basket",
+      "description": "stock-bond rebalance",
+      "market": "US",
+      "asset": "fund",
+      "extract": [
+        {"raw": "bond", "canonical": "BOND", "kind": "hint", "inferred": false}
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": ["SPY", "AGG"],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
+    },
+    {
+      "id": "zh-all-weather-us-basket",
+      "description": "全天候",
+      "market": "US",
+      "asset": "fund",
+      "extract": [],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": ["SPY", "TLT", "IEF", "GLD", "DBC"],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
+    },
+    {
+      "id": "en-all-weather-us-basket",
+      "description": "all weather",
+      "market": "US",
+      "asset": "fund",
+      "extract": [
+        {"raw": "all", "canonical": "ALL", "kind": "hint", "inferred": false}
+      ],
+      "card": {
+        "default_pool": false,
+        "blocked": false,
+        "code": null,
+        "symbols": ["SPY", "TLT", "IEF", "GLD", "DBC"],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
+    },
+    {
+      "id": "zh-stock-bond-explicit-cn",
+      "description": "A股股债再平衡",
+      "market": "CN",
+      "asset": "equity",
+      "extract": [],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
+    },
+    {
+      "id": "en-stock-bond-explicit-cn",
+      "description": "China stock-bond rebalance",
+      "market": "CN",
+      "asset": "equity",
+      "extract": [
+        {"raw": "bond", "canonical": "BOND", "kind": "hint", "inferred": false}
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [{"token": "bond", "symbol": "BOND"}]
+      }
+    },
+    {
+      "id": "zh-all-weather-explicit-cn",
+      "description": "A股全天候",
+      "market": "CN",
+      "asset": "equity",
+      "extract": [],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": []
+      }
+    },
+    {
+      "id": "en-all-weather-explicit-cn",
+      "description": "China all weather",
+      "market": "CN",
+      "asset": "equity",
+      "extract": [
+        {"raw": "all", "canonical": "ALL", "kind": "hint", "inferred": false}
+      ],
+      "card": {
+        "default_pool": true,
+        "blocked": false,
+        "code": null,
+        "symbols": [],
+        "recognized": [],
+        "asks": [],
+        "hints": [{"token": "all", "symbol": "ALL"}]
+      }
     }
   ]
 }

@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from engine.main import ResearchCommandService
+from engine.research.thesis_scope import FAMILY_FOLLOWUP
 from engine.research.models import AssetClass
 from engine.research.pool_data_shrink import set_pool_data_loader
 from engine.research.runtime import EnginePaths
@@ -81,6 +82,27 @@ def test_symbol_regression_corpus(row: dict, tmp_path: Path) -> None:
         for mention in mentions
     ] == row["extract"]
 
+    if row.get("outcome") == "family_follow_up":
+        set_pool_data_loader(_Bars(frozenset()))
+        service = ResearchCommandService(
+            SQLiteStore(tmp_path / "corpus.db"),
+            EnginePaths.for_colocated_root(tmp_path),
+        )
+        research_id = service.handle({"type": "create_draft"})["research_id"]
+        service.handle(
+            {
+                "type": "send_dialogue",
+                "research_id": research_id,
+                "message": row["description"],
+            }
+        )
+        loaded = service.store.load(research_id)
+        assert loaded.brief.thesis.value is None
+        assert loaded.dialogue[-1].text == FAMILY_FOLLOWUP
+        assert "没能理解你的意思" not in loaded.dialogue[-1].text
+        assert service.view_for(f"#/research/{research_id}")["kind"] == "draft"
+        return
+
     view, universe = _card(tmp_path, row["description"], frozenset(row.get("no_bars") or ()))
     assert view["kind"] == "confirm_run"
     if row["market"] == "pending":
@@ -88,6 +110,8 @@ def test_symbol_regression_corpus(row: dict, tmp_path: Path) -> None:
     else:
         assert universe.market_unspecified is False
         assert universe.market.value == row["market"]
+    if "asset" in row:
+        assert universe.asset_class.value == row["asset"]
     resolution = view.get("symbolResolution")
     selection = view.get("symbolSelection")
     card = row["card"]

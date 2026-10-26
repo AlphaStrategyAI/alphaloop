@@ -702,10 +702,14 @@ describe("symbol resolution call chain", () => {
     };
     const zh = renderCard(ZH, mismatch);
     expect(screen.getByTestId("symbol-block-error")).toHaveTextContent(
-      "描述里的市场是A 股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
+      "描述里的市场是 A 股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
     );
     expect(screen.getByTestId("symbol-remove-mismatch-CAPS")).toHaveTextContent("移除 CAPS");
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(
+      "描述里的市场是 A 股，但 CAPS、TECH 不属于这个市场。请删掉这些代码，或改成对应的市场。",
+    );
+    expect(screen.getByTestId("confirm-run-start")).toHaveAttribute("data-run-blocked", "resolution");
     fireEvent.click(screen.getByTestId("symbol-remove-mismatch-CAPS"));
     await waitFor(() =>
       expect(zh.invoke).toHaveBeenCalledWith("dismiss_mismatched_symbol", {
@@ -987,7 +991,10 @@ describe("symbol resolution call chain", () => {
     expect(screen.getByTestId("price-source-akshare_sina_daily")).not.toBeChecked();
     expect(run).toBeDisabled();
     expect(run).toHaveAttribute("data-run-blocked", "source");
-    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent("待选择");
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(
+      "还没选数据源。先在确认卡上选一个，再开跑。",
+    );
+    expect(screen.getByTestId("confirm-data-meta")).toHaveTextContent("待选择");
     fireEvent.click(run);
     expect(invoke).not.toHaveBeenCalledWith("confirm_run", expect.anything());
   });

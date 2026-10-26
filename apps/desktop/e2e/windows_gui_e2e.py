@@ -504,7 +504,14 @@ def assert_run_disabled(driver, reason_needle: str) -> None:
     button = driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
     if button.is_enabled():
         raise AssertionError("Run was enabled before the blocking choice was made")
-    if button.get_attribute("data-run-blocked") not in {"market", "source"}:
+    if button.get_attribute("data-run-blocked") not in {
+        "market",
+        "source",
+        "family",
+        "ack",
+        "unlicensed",
+        "resolution",
+    }:
         raise AssertionError(f"Run is disabled without a block reason: {button.get_attribute('data-run-blocked')}")
     opacity = driver.execute_script("return getComputedStyle(arguments[0]).opacity", button)
     if float(opacity) >= 0.99:
@@ -1173,10 +1180,140 @@ def main() -> int:
         go(session.driver, "#/research")
         return f"unnamed research {unnamed} kept Run disabled until a market is chosen"
 
+    def step_momentum_blocked() -> str:
+        assert session is not None
+        create_until_confirm(
+            session.driver,
+            (
+                "美股动量策略",
+                "4 小时",
+                "走样检验、样本外稳定",
+                "至少 1 个标的、10 年、缺失不超过 5%",
+            ),
+        )
+        from selenium.webdriver.common.by import By
+
+        card = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
+        if "Not supported yet" not in card and "暂不支持" not in card:
+            raise AssertionError(f"momentum card did not say the family is unsupported: {card[:400]}")
+        for banned in (
+            "要按均值回归继续",
+            "Continue with mean reversion",
+            "Continue as mean reversion",
+        ):
+            if banned in card:
+                raise AssertionError(f"momentum card asked to continue as mean reversion: {banned}")
+        needle = "can't run yet" if "Not supported yet" in card else "这一族还不能开跑"
+        assert_run_disabled(session.driver, needle)
+        button = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
+        if button.is_enabled():
+            raise AssertionError("momentum Run was enabled")
+        if button.get_attribute("data-run-blocked") != "family":
+            raise AssertionError("momentum Run was not blocked as a family")
+        assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "momentum confirm card")
+        wait_css(session.driver, "[data-testid=dialogue-input]")
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        chips = session.driver.find_elements(By.CSS_SELECTOR, "[data-family-id]")
+        chip_ids = [item.get_attribute("data-family-id") for item in chips]
+        if chip_ids != [
+            "low_volatility",
+            "stock_bond_rebalance",
+            "mean_reversion",
+            "fundamental_factor",
+            "all_weather",
+        ]:
+            raise AssertionError(f"momentum chips {chip_ids}")
+        for item in chips:
+            if item.get_attribute("aria-pressed") != "false":
+                raise AssertionError("a family chip was preselected")
+        click(session.driver, "[data-testid=family-chip-mean_reversion]")
+        WebDriverWait(session.driver, 30).until(
+            lambda d: "Switched to mean reversion."
+            in d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
+        )
+        after = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
+        if after.get_attribute("data-run-blocked") == "family":
+            raise AssertionError("mean-reversion chip left Run blocked as a family")
+        go(session.driver, "#/research")
+        return "momentum card says it is unsupported, then a mean-reversion chip re-pick is recorded"
+
+    def step_english_reference() -> str:
+        assert session is not None
+        go(session.driver, "#/glossary")
+        wait_css(session.driver, "[data-testid=glossary-page]")
+        assert_no_cjk(session.driver, "[data-testid=glossary-page]", "glossary")
+        go(session.driver, "#/methods")
+        wait_css(session.driver, "[data-testid=method-definition-display]")
+        assert_no_cjk(session.driver, ".methods-layout", "methods")
+        return "English glossary and methods rendered with no CJK"
+
+    def step_disclosed_family_buttons() -> str:
+        assert session is not None
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        messages = (
+            "美股低波策略",
+            "4 小时",
+            "走样检验、样本外稳定",
+            "至少 1 个标的、10 年、缺失不超过 5%",
+        )
+        create_until_confirm(session.driver, messages)
+        wait_css(session.driver, "[data-testid=dialogue-input]")
+        wait_css(session.driver, "[data-testid=mean-reversion-continue]")
+        cont = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=mean-reversion-continue]")
+        decline = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=mean-reversion-decline]")
+        if cont.text.strip() != "Continue with mean reversion" or decline.text.strip() != "Don't continue":
+            raise AssertionError(f"answer buttons {cont.text!r} / {decline.text!r}")
+        if cont.get_attribute("aria-pressed") != "false" or decline.get_attribute("aria-pressed") != "false":
+            raise AssertionError("mean-reversion answers were preselected")
+        assert_run_disabled(
+            session.driver,
+            "Confirm whether to continue with mean reversion before running.",
+        )
+        click(session.driver, "[data-testid=mean-reversion-decline]")
+        WebDriverWait(session.driver, 30).until(
+            lambda d: "OK, it won't run as mean reversion."
+            in d.find_element(By.CSS_SELECTOR, "[data-testid=night-shell]").text
+        )
+        chips = session.driver.find_elements(By.CSS_SELECTOR, "[data-family-id]")
+        chip_ids = [item.get_attribute("data-family-id") for item in chips]
+        if chip_ids != [
+            "low_volatility",
+            "stock_bond_rebalance",
+            "mean_reversion",
+            "fundamental_factor",
+            "all_weather",
+        ]:
+            raise AssertionError(f"chips after decline {chip_ids}")
+        if session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]").is_enabled():
+            raise AssertionError("Run enabled after declining mean reversion")
+        go(session.driver, "#/research")
+        create_until_confirm(session.driver, messages)
+        click(session.driver, "[data-testid=mean-reversion-continue]")
+        WebDriverWait(session.driver, 30).until(
+            lambda d: not d.find_elements(By.CSS_SELECTOR, "[data-testid=mean-reversion-continue]")
+        )
+        assert_run_disabled(
+            session.driver,
+            "No data source selected yet. Pick one on the confirmation card before running.",
+        )
+        go(session.driver, "#/research")
+        return "Don't continue keeps the draft and opens chips; Continue with mean reversion clears that gate"
+
     def step_run_and_export() -> str:
         assert session is not None
         open_confirm_card(session.driver, research_ids["us"])
-        assert_run_disabled(session.driver, "Not selected")
+        from selenium.webdriver.common.by import By
+
+        source_line = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-data-meta]").text
+        if "Not selected" not in source_line:
+            raise AssertionError(f"source field lost Not selected: {source_line}")
+        assert_run_disabled(
+            session.driver,
+            "No data source selected yet. Pick one on the confirmation card before running.",
+        )
         accept_unlicensed_source(session.driver)
         click(session.driver, "[data-testid=confirm-run-start]")
         from selenium.webdriver.support import expected_conditions as EC
@@ -1315,6 +1452,13 @@ def main() -> int:
         run_step("restart and unlock passphrase", "secrets-unlock", step_secrets_unlock)
         run_step("US and A-share confirm cards open their own research", "confirms", step_two_confirms)
         run_step("blocked Run stays disabled before confirm", "blocked-run", step_blocked_run_before_confirm)
+        run_step("momentum card and Run agree the family cannot run", "momentum-blocked", step_momentum_blocked)
+        run_step(
+            "disclosed family buttons and chips share the dialogue handler",
+            "family-buttons",
+            step_disclosed_family_buttons,
+        )
+        run_step("English glossary and methods have no CJK", "en-reference", step_english_reference)
         run_step("run to conclusion and export a file", "conclusion", step_run_and_export)
         run_step("delete a running research; engine stays up", "delete-running", step_delete_running)
         run_step("close and reopen; data persists", "persist", step_persist)

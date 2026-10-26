@@ -397,6 +397,9 @@ class SQLiteStore:
         data = json.loads(payload)
         if isinstance(data, dict):
             data.setdefault("pending_non_mr_thesis", None)
+            data.setdefault("mean_reversion_adopted", False)
+            data.setdefault("mean_reversion_declined", False)
+            data.setdefault("repicked_family", "")
             data.setdefault("symbol_probe_symbols", [])
             data.setdefault("symbol_probe_missing", [])
             data.setdefault("symbol_probe_unavailable", False)

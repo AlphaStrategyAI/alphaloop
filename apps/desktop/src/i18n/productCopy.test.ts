@@ -81,7 +81,7 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
     const csiKeys = leaves(enCatalog)
       .filter(([, text]) => text.includes("CSI 300"))
       .map(([key]) => key);
-    expect(csiKeys).toEqual(["ui.copy.cnLargeNote"]);
+    expect(csiKeys).toEqual(["ui.copy.cnLargeNote", "ui.glossaryBody.benchmark"]);
     expect(zh(V1_LINE)).toBe(V1_LINE);
     expect(en(V1_LINE)).toBe("40 names · US large-cap · version 1 · 2026-10-17 · default universe");
     expect(zh(EXHAUSTED)).toBe(EXHAUSTED);

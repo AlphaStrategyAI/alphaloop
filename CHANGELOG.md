@@ -5,6 +5,22 @@ All notable changes to alphaloop are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-10-24
+
+### Fixed
+
+- M1: a thesis that names fundamentals, stock-bond, all-weather, or low-vol is classified explicitly. The card states that mean reversion is what will run. Papers are filtered by the detected family.
+- M2: a momentum card that says the family is not supported keeps Run disabled and shows that this family cannot run yet.
+- M3: stock-bond and all-weather theses are recognized in the dialogue and reach their card. `STRATEGY_FAMILY_NOT_RUNNABLE` is reachable from that dialogue.
+- M4: the completed page shows annualized excess return and maximum drawdown in Chinese and English.
+- M5: removing one market recomputes the price source from the stored per-source acknowledgement and clears a stale unlicensed-source error.
+- M6: engine dialogue, the round-change line, the default title, method definitions, and glossary bodies are i18n keys. English for the new lines is draft except the default title.
+- M7: a failed study's result chip says the methods did not all pass, instead of the check name.
+
+### Changed
+
+- The desktop app and the Python package are version 0.9.1. The 0.9.0 tag is unchanged.
+
 ## [0.9.0] - 2026-10-23
 
 ### Added

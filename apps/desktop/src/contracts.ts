@@ -156,6 +156,9 @@ type ViewBody =
       researchId: string;
       dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
+      chatEnabled?: boolean;
+      meanReversionChoice?: boolean;
+      familyChipIds?: readonly string[];
     }
   | {
       kind: "confirm_run";
@@ -163,13 +166,21 @@ type ViewBody =
       dialogue: readonly DialogueTurnView[];
       settings: BriefSettings;
       chatEnabled?: boolean;
+      /** Show 「按均值回归继续」 and 「不继续」. Neither is preselected. */
+      meanReversionChoice?: boolean;
+      /** Glossary-order family ids. Empty when the chips are hidden. */
+      familyChipIds?: readonly string[];
       symbolSelection?: SymbolSelectionSummary;
       symbolResolution?: SymbolResolution | null;
       confirmDataNotice?: string | null;
       confirmDataNoticeCode?: string | null;
       confirmDataNoticeParams?: Record<string, string | number> | null;
       meanReversionOnlyNotice?: string | null;
+      /** Family id the user named after an unsupported thesis. The card fills {{family}}. */
+      repickedFamily?: string | null;
       constructionNotice?: string | null;
+      /** Engine gate. Run stays disabled when this code is not a source choice. */
+      runGate?: {runnable: boolean; code?: string | null} | null;
       market?: "CN" | "US" | null;
       marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
       marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
@@ -239,6 +250,7 @@ type ViewBody =
       title: string;
       universeLabel?: string;
       meanReversionOnlyNotice?: string | null;
+      repickedFamily?: string | null;
       cnExecutionNotice?: string | null;
       subtitle?: string;
       resultHeadline?: string;

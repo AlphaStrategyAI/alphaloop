@@ -15,18 +15,33 @@ import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
+const GLOSSARY_BODY: Record<string, MessageKey> = {
+  "pit.consistency": "ui.glossaryBody.pit",
+  trial_counts: "ui.glossaryBody.trials",
+  "overfit.walk": "ui.glossaryBody.walk",
+  "stability.oos": "ui.glossaryBody.stability",
+  "crowding.load": "ui.glossaryBody.crowding",
+  frozen_methods: "ui.glossaryBody.frozen",
+  benchmark: "ui.glossaryBody.benchmark",
+  cost_bp: "ui.glossaryBody.cost",
+};
+
 export function GlossaryScreen({view}: {view: Extract<DesktopView, {kind: "glossary"}>}) {
-  const {t} = useI18n();
+  const {t, resolved} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   return (
     <div className="glossary-page" data-testid="glossary-page">
       <p className="confirm-lead">{copyText(view.intro)}</p>
-      {view.entries.map((entry) => (
-        <details key={entry.id} className="tech-pulse-card glossary-entry" open>
-          <summary>{copyText(entry.term)}</summary>
-          <p>{entry.body}</p>
-        </details>
-      ))}
+      {view.entries.map((entry) => {
+        const bodyKey = GLOSSARY_BODY[entry.id];
+        const body = bodyKey && resolved === "en" ? t(bodyKey) : entry.body;
+        return (
+          <details key={entry.id} className="tech-pulse-card glossary-entry" open>
+            <summary>{copyText(entry.term)}</summary>
+            <p>{body}</p>
+          </details>
+        );
+      })}
     </div>
   );
 }
