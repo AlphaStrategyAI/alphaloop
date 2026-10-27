@@ -917,6 +917,7 @@ mod tests {
         assert_eq!(cleared["data_source_id"], "");
     }
 
+    #[test]
     fn set_research_symbol_request_keeps_the_research_id_and_the_symbol() {
         let body = set_research_symbol_request("r-1", "600519.SH");
         assert_eq!(body["type"], "set_research_symbol");
