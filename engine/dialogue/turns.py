@@ -4,7 +4,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
-from engine.dialogue.intent import Intent, IntentKind, interpret
+from engine.dialogue.intent import APOLOGY_PREFIX, Intent, IntentKind, interpret
 from engine.dialogue.prompts import SlotName
 from engine.dialogue.slots import apply_intent, next_question
 from engine.i18n.errors import redact_technical_detail
@@ -104,6 +104,13 @@ def _apply_coverage_scratch(
         coverage_min_years_scratch=min_years,
         coverage_max_missing_pct_scratch=max_missing,
     )
+
+
+def _apology_once(reply: str) -> str:
+    """A repeated failed turn says it once. The slot reply may already include it."""
+    if reply.startswith(APOLOGY_PREFIX):
+        return reply
+    return f"{APOLOGY_PREFIX}{reply}"
 
 
 def _reask(research: Research) -> str:
@@ -237,7 +244,7 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
     if intent.kind is IntentKind.OFF_TOPIC:
         reply = intent.response or prompt.message
         if research.dialogue and research.dialogue[-1].text == reply:
-            reply = f"没能理解你的意思。{reply}"
+            reply = _apology_once(reply)
     else:
         reply = next_question(updated).message
     last_assistant = next(
@@ -245,5 +252,5 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
         None,
     )
     if reply == last_assistant and intent.kind is IntentKind.OFF_TOPIC:
-        reply = f"没能理解你的意思。{reply}"
+        reply = _apology_once(reply)
     return append_dialogue(updated, DialogueRole.ASSISTANT, reply, now)

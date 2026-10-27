@@ -113,6 +113,10 @@ export function SettingsPage({route}: {route: string}) {
             </p>
           </section>
         </div>
+      ) : tab === "llm" ? (
+        <section className="settings-card" data-testid="settings-llm">
+          <p><I18nText k="settings.llm.later" /></p>
+        </section>
       ) : (
         <section className="settings-card" data-testid="settings-later">
           <p><I18nText k="settings.later.body" /></p>

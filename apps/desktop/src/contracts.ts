@@ -180,7 +180,11 @@ type ViewBody =
       repickedFamily?: string | null;
       constructionNotice?: string | null;
       /** Engine gate. Run stays disabled when this code is not a source choice. */
-      runGate?: {runnable: boolean; code?: string | null} | null;
+      runGate?: {
+        runnable: boolean;
+        code?: string | null;
+        params?: Record<string, string | number>;
+      } | null;
       market?: "CN" | "US" | null;
       marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
       marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
@@ -332,6 +336,12 @@ export interface DesktopApi {
   confirmRun(
     researchId: string,
     options?: {dataSourceId?: string; unlicensedAcknowledged?: boolean},
+  ): Promise<void>;
+  /** Persist the confirm-card price source before Run, so Edit keeps it. */
+  setPriceSource(
+    researchId: string,
+    dataSourceId: string,
+    unlicensedAcknowledged?: boolean,
   ): Promise<void>;
   /** Confirm-card symbol edit. Both arguments are required; the engine rejects a bare id. */
   setResearchSymbol(researchId: string, symbol: string): Promise<void>;

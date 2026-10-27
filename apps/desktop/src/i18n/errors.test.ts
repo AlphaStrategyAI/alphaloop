@@ -98,6 +98,23 @@ describe("error codes", () => {
     );
   });
 
+  it("localizes too few named symbols in the UI language", () => {
+    const params = {count: 1, minimum: 25};
+    expect(localizeError("zh", {code: "UNIVERSE_TOO_FEW_SYMBOLS", params}).summary).toBe(
+      "当前仅 1 个标的，低于最低覆盖要求的 25 个。请调低覆盖底线或增加标的后再开跑。",
+    );
+    expect(localizeError("en", {code: "UNIVERSE_TOO_FEW_SYMBOLS", params}).summary).toBe(
+      "Only 1 name in this study, below the coverage minimum of 25. Lower the coverage floor or add symbols before running.",
+    );
+    expect(localizeError("en", {code: "UNIVERSE_TOO_FEW_SYMBOLS", params}).unmapped).toBe(false);
+    expect(localizeError("zh", {code: "UNIVERSE_TOO_FEW_SYMBOLS", params: {count: 2, minimum: 25}}).summary).toContain(
+      "2",
+    );
+    expect(localizeError("en", {code: "UNIVERSE_TOO_FEW_SYMBOLS", params: {count: 2, minimum: 25}}).summary).toContain(
+      "2 names",
+    );
+  });
+
   it("leaves a legacy message without a code unchanged", () => {
     const localized = localizeError("en", {message: "UNIQUE constraint failed"});
     expect(localized.summary).toBe("UNIQUE constraint failed");

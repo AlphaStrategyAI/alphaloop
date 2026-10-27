@@ -250,6 +250,39 @@ pub async fn create_draft(connection: State<'_, EngineConnection>) -> Result<Str
         .ok_or("create_draft response omitted research_id".into())
 }
 
+pub(crate) fn set_price_source_request(
+    research_id: &str,
+    data_source_id: &str,
+    unlicensed_acknowledged: Option<bool>,
+) -> Value {
+    let mut body = json!({
+        "type": "set_price_source",
+        "research_id": research_id,
+        "data_source_id": data_source_id,
+    });
+    if let Some(acknowledged) = unlicensed_acknowledged {
+        body["unlicensed_acknowledged"] = json!(acknowledged);
+    }
+    body
+}
+
+#[tauri::command]
+pub async fn set_price_source(
+    research_id: String,
+    data_source_id: String,
+    unlicensed_acknowledged: Option<bool>,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        set_price_source_request(&research_id, &data_source_id, unlicensed_acknowledged),
+    )
+    .await
+    .map(|_| ())
+}
+
 pub(crate) fn set_research_symbol_request(research_id: &str, symbol: &str) -> Value {
     json!({
         "type": "set_research_symbol",
@@ -834,7 +867,8 @@ mod tests {
         answer_symbol_ask_request, choose_default_market_request, dismiss_mismatched_symbol_request,
         parse_engine_error_body,
         remove_market_side_request,
-        revert_symbol_ask_request, set_research_symbol_request, use_hinted_symbol_request,
+        revert_symbol_ask_request, set_price_source_request, set_research_symbol_request,
+        use_hinted_symbol_request,
     };
     use serde_json::json;
 
@@ -871,6 +905,18 @@ mod tests {
     }
 
     #[test]
+    fn set_price_source_request_keeps_the_source_and_optional_ack() {
+        let chosen = set_price_source_request("r-1", "yahoo_daily", Some(true));
+        assert_eq!(chosen["type"], "set_price_source");
+        assert_eq!(chosen["research_id"], "r-1");
+        assert_eq!(chosen["data_source_id"], "yahoo_daily");
+        assert_eq!(chosen["unlicensed_acknowledged"], true);
+        let stored = set_price_source_request("r-1", "yahoo_daily", None);
+        assert!(stored.get("unlicensed_acknowledged").is_none());
+        let cleared = set_price_source_request("r-1", "", None);
+        assert_eq!(cleared["data_source_id"], "");
+    }
+
     fn set_research_symbol_request_keeps_the_research_id_and_the_symbol() {
         let body = set_research_symbol_request("r-1", "600519.SH");
         assert_eq!(body["type"], "set_research_symbol");

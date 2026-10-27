@@ -37,14 +37,22 @@ class Intent:
     response: str = ""
 
 
-METHOD_WORDS = {
-    "分段稳健性检验": MethodRef("overfit.walk", "walk-v1"),
-    "走样检验": MethodRef("overfit.walk", "walk-v1"),
-    "样本外稳定": MethodRef("stability.oos", "stability-v1"),
-    "集中度": MethodRef("crowding.load", "crowding-v1"),
-    "拥挤度": MethodRef("crowding.load", "crowding-v1"),
-    "换手成本": MethodRef("cost.turnover", "cost-v1"),
-}
+APOLOGY_PREFIX = "没能理解你的意思。"
+
+# Chinese catalog names, the older dialogue aliases, and the English prompt
+# examples. Matching is case-insensitive; hyphens and spaces are the same.
+_METHOD_PHRASES: tuple[tuple[str, MethodRef], ...] = (
+    ("分段稳健性检验", MethodRef("overfit.walk", "walk-v1")),
+    ("走样检验", MethodRef("overfit.walk", "walk-v1")),
+    ("subperiod robustness check", MethodRef("overfit.walk", "walk-v1")),
+    ("样本外稳定", MethodRef("stability.oos", "stability-v1")),
+    ("out-of-sample stability", MethodRef("stability.oos", "stability-v1")),
+    ("集中度", MethodRef("crowding.load", "crowding-v1")),
+    ("拥挤度", MethodRef("crowding.load", "crowding-v1")),
+    ("concentration", MethodRef("crowding.load", "crowding-v1")),
+    ("换手成本", MethodRef("cost.turnover", "cost-v1")),
+    ("turnover cost", MethodRef("cost.turnover", "cost-v1")),
+)
 
 
 def _cn_mention(mention: object) -> bool:
@@ -135,32 +143,53 @@ def _parse_universe(message: str) -> Universe | None:
 
 
 def _parse_hours(message: str) -> float | None:
-    if re.search(r"半小时", message):
-        return 0.5
-    minutes = re.search(r"(\d+(?:\.\d+)?)\s*分钟", message)
-    if minutes:
-        value = float(minutes.group(1)) / 60.0
-        if not 0 < value <= 720:
-            return None
-        return value
-    hours = re.search(r"(\d+(?:\.\d+)?)\s*小时", message)
-    if hours:
-        value = float(hours.group(1))
-        if not 0 < value <= 720:
-            return None
-        return value
-    return None
+    found: list[tuple[int, float]] = []
+    for match in re.finditer(r"(\d+(?:\.\d+)?)\s*分钟", message):
+        found.append((match.start(), float(match.group(1)) / 60.0))
+    for match in re.finditer(
+        r"(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)\b",
+        message,
+        re.IGNORECASE,
+    ):
+        found.append((match.start(), float(match.group(1)) / 60.0))
+    for match in re.finditer(r"(\d+(?:\.\d+)?)\s*小时", message):
+        found.append((match.start(), float(match.group(1))))
+    for match in re.finditer(
+        r"(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)\b",
+        message,
+        re.IGNORECASE,
+    ):
+        found.append((match.start(), float(match.group(1))))
+    if found:
+        value = min(found, key=lambda item: item[0])[1]
+    elif re.search(r"半小时", message) or re.search(
+        r"\bhalf\s+(?:an?\s+)?hour\b",
+        message,
+        re.IGNORECASE,
+    ):
+        value = 0.5
+    else:
+        return None
+    if not 0 < value <= 720:
+        return None
+    return value
 
 
 def _parse_coverage(message: str, current: CoverageFloor | None = None) -> CoverageFloor | None:
     return merge_coverage_floor(message, current)
 
 
+def _phrase_in(text: str, phrase: str) -> bool:
+    pattern = re.escape(phrase.casefold())
+    pattern = pattern.replace(r"\-", r"[\s\-]+").replace(r"\ ", r"[\s\-]+")
+    return re.search(rf"(?<![a-z0-9]){pattern}(?![a-z0-9])", text.casefold()) is not None
+
+
 def _parse_methods(message: str) -> tuple[MethodRef, ...]:
     methods: list[MethodRef] = []
     seen: set[str] = set()
-    for word, ref in METHOD_WORDS.items():
-        if word in message and ref.method_id not in seen:
+    for phrase, ref in _METHOD_PHRASES:
+        if _phrase_in(message, phrase) and ref.method_id not in seen:
             methods.append(ref)
             seen.add(ref.method_id)
     return tuple(methods)
@@ -328,7 +357,7 @@ def interpret(
     if active_slot is not None:
         return Intent(
             IntentKind.OFF_TOPIC,
-            response=(f"没能理解你的意思。{QUESTIONS[active_slot]}"),
+            response=(f"{APOLOGY_PREFIX}{QUESTIONS[active_slot]}"),
         )
     return Intent(
         IntentKind.OFF_TOPIC,

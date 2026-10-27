@@ -126,6 +126,13 @@ function messages(lang: "zh" | "en") {
           true,
         ),
       },
+      llm: {
+        later: copy(
+          "大模型设置尚未就绪，以后再提供。",
+          "LLM settings are not ready yet. They will come later.",
+          true,
+        ),
+      },
     },
     format: {
       datePattern: copy("YYYY-MM-DD", "YYYY-MM-DD", true),
@@ -245,6 +252,11 @@ function messages(lang: "zh" | "en") {
           "先确认是否按均值回归继续，再开跑。",
           "Confirm whether to continue with mean reversion before running.",
         ),
+        UNIVERSE_TOO_FEW_SYMBOLS: copy(
+          "当前仅 {{count}} 个标的，低于最低覆盖要求的 {{minimum}} 个。请调低覆盖底线或增加标的后再开跑。",
+          "Only {{count}} {{countNoun}} in this study, below the coverage minimum of {{minimum}}. Lower the coverage floor or add symbols before running.",
+          true,
+        ),
       },
     },
     glossary: glossaryMessages(lang),
@@ -311,6 +323,8 @@ export const FINAL_MESSAGE_KEYS = [
   "ui.completed.maxDrawdown",
   "errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE",
   "errors.codes.MEAN_REVERSION_ACK_REQUIRED",
+  "errors.codes.UNIVERSE_TOO_FEW_SYMBOLS",
+  "settings.llm.later",
   "ui.copy.familyRepick",
   "ui.dialogue.familyFollowUp",
   "ui.dialogue.continueMeanReversion",

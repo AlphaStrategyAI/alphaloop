@@ -24,6 +24,7 @@ function api(): DesktopApi {
     removeMarketSide: vi.fn(),
     dismissMismatchedSymbol: vi.fn(),
     chooseDefaultMarket: vi.fn(),
+    setPriceSource: vi.fn(),
     unlockBrief: vi.fn(),
     sendDialogue: vi.fn(),
     pauseResearch: vi.fn(),

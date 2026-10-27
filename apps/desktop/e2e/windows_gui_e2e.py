@@ -511,6 +511,7 @@ def assert_run_disabled(driver, reason_needle: str) -> None:
         "ack",
         "unlicensed",
         "resolution",
+        "coverage",
     }:
         raise AssertionError(f"Run is disabled without a block reason: {button.get_attribute('data-run-blocked')}")
     opacity = driver.execute_script("return getComputedStyle(arguments[0]).opacity", button)

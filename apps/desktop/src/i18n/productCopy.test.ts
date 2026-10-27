@@ -23,6 +23,16 @@ const US_LIST = "美股大市值池 · 503 只 · 名单日 2026-10-16";
 const CN_LIST = "A 股大市值池 · 300 只 · 名单日 2026-10-19";
 const V1_LINE = "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池";
 
+describe("repeated misunderstanding", () => {
+  it("shows the apology once when the engine stacked it", () => {
+    const stacked = "没能理解你的意思。没能理解你的意思。最多允许多少有效研究时间？例如：12 小时，或 30 分钟。暂停和等待确认不计时。";
+    const once = en(stacked);
+    expect(once.match(/I couldn't understand that/g)).toHaveLength(1);
+    expect(once).toContain("30 minutes");
+    expect(once).not.toMatch(/没能理解/);
+  });
+});
+
 describe("catalog keys for secrets and previously hardcoded product copy", () => {
   it("keeps the signed-off same-token finance ask final", () => {
     expect(isFinalMessageKey("ui.confirm.financeAskSame")).toBe(true);

@@ -1,20 +1,6 @@
-/* The mark sits on the element. It does not add to the text's layout width. */
+/* data-i18n-placeholder marks English that is not in the final-key list.
+   The mark is for the catalog scan only. It must not draw a box or a dot:
+   Chinese never gets one, and the English UI matches it. */
 .i18n-placeholder {
-  outline: 1px dashed color-mix(in srgb, currentColor 50%, transparent);
-  outline-offset: 1px;
-  position: relative;
-}
-
-.i18n-placeholder::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.7;
-  transform: translate(40%, -40%);
-  pointer-events: none;
+  outline: none;
 }

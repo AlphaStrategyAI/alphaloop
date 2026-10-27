@@ -118,6 +118,7 @@ function DialoguePanel({
   const {t} = useI18n();
   const heading = title ?? t("ui.dialogue.title");
   const [message, setMessage] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const text = message.trim();
@@ -129,6 +130,12 @@ function DialoguePanel({
       /* mutation error banner */
     }
   };
+  useEffect(() => {
+    const node = inputRef.current;
+    if (!node) return;
+    node.style.height = "auto";
+    node.style.height = `${node.scrollHeight}px`;
+  }, [message]);
   useEffect(() => {
     const node = document.querySelector(".conversation");
     if (node) {
@@ -147,10 +154,18 @@ function DialoguePanel({
       ))}
       {chatEnabled && (
         <form onSubmit={submit}>
-          <input
+          <textarea
+            ref={inputRef}
+            className="dialogue-input"
             data-testid="dialogue-input"
+            rows={1}
             value={message}
             onChange={(event) => setMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.shiftKey) return;
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }}
             placeholder={t("ui.dialogue.placeholder")}
           />
         </form>
@@ -292,18 +307,6 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   };
   const exchangeDigits = resolution?.token?.match(/\d{6}/)?.[0];
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
-  const editSlot = (slot: BriefSlotName) => {
-    void api.unlockBrief(view.researchId, slot).then(() => {
-      requestAnimationFrame(() => {
-        const node = document.querySelector(".conversation");
-        if (node && "scrollTo" in node && typeof node.scrollTo === "function") {
-          node.scrollTo({top: node.scrollHeight, behavior: "smooth"});
-        } else if (node) {
-          node.scrollTop = node.scrollHeight;
-        }
-      });
-    });
-  };
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [pickedSource, setPickedSource] = useState("");
@@ -357,6 +360,34 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     checkboxAcked: acked,
   });
   const canRun = gate.runnable;
+  const rememberSource = (sourceId: string, acknowledged?: boolean) => {
+    const save = acknowledged === undefined
+      ? api.setPriceSource(view.researchId, sourceId)
+      : api.setPriceSource(view.researchId, sourceId, acknowledged);
+    void save.catch(() => undefined);
+  };
+  const editSlot = (slot: BriefSlotName) => {
+    const openEditor = () => {
+      void api.unlockBrief(view.researchId, slot).then(() => {
+        requestAnimationFrame(() => {
+          const node = document.querySelector(".conversation");
+          if (node && "scrollTo" in node && typeof node.scrollTo === "function") {
+            node.scrollTo({top: node.scrollHeight, behavior: "smooth"});
+          } else if (node) {
+            node.scrollTop = node.scrollHeight;
+          }
+        });
+      });
+    };
+    if (!selectedId) {
+      openEditor();
+      return;
+    }
+    const persist = acked
+      ? api.setPriceSource(view.researchId, selectedId, true)
+      : api.setPriceSource(view.researchId, selectedId);
+    void persist.then(openEditor, openEditor);
+  };
   const symbolKey = (resolution?.symbols ?? sel?.symbols ?? []).join("|");
   const universeScope = `${view.researchId}|${view.market ?? ""}|${symbolKey}`;
   const gateScope = `${universeScope}|${selectedId}|${selectedAcknowledgedAt ?? ""}|${gate.code ?? ""}`;
@@ -748,6 +779,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                       setPickedSource(item.id);
                       setAcked(false);
                       setRunError(null);
+                      rememberSource(item.id);
                     }}
                   />
                   <span>{copyText(item.label)}</span>
@@ -778,8 +810,10 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                   data-testid="unlicensed-source-choice"
                   checked={pickedSource === offeredId}
                   onChange={(event) => {
-                    setPickedSource(event.target.checked ? offeredId : "");
+                    const next = event.target.checked ? offeredId : "";
+                    setPickedSource(next);
                     setAcked(false);
+                    rememberSource(next);
                   }}
                 />
                 <span>
@@ -796,7 +830,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
                 type="checkbox"
                 data-testid="unlicensed-ack"
                 checked={acked}
-                onChange={(event) => setAcked(event.target.checked)}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setAcked(checked);
+                  if (checked && selectedId) rememberSource(selectedId, true);
+                }}
               />
               <span>{t("ui.confirm.unlicensedAck")}</span>
             </label>
@@ -842,7 +880,12 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         )}
         {!canRun && (
           <p id="confirm-run-blocked-reason" className="confirm-run-blocked-reason" data-testid="confirm-run-blocked-reason">
-            {gate.code === "DATA_SOURCE_UNBOUND"
+            {gate.code === "UNIVERSE_TOO_FEW_SYMBOLS"
+              ? t("errors.codes.UNIVERSE_TOO_FEW_SYMBOLS", {
+                  count: Number(view.runGate?.params?.count ?? 0),
+                  minimum: Number(view.runGate?.params?.minimum ?? 0),
+                })
+              : gate.code === "DATA_SOURCE_UNBOUND"
               ? t("ui.confirm.noDataSource")
               : gate.code === "MARKET_CHOICE_PENDING"
                 ? t("ui.confirm.marketChoice")

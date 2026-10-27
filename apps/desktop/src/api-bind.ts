@@ -55,6 +55,7 @@ export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
     fetchView: (route) => api.fetchView(route),
     createDraft: bindMethod(api.createDraft, deps),
     confirmRun,
+    setPriceSource: bindMethod(api.setPriceSource, deps),
     setResearchSymbol: bindMethod(api.setResearchSymbol, deps),
     answerSymbolAsk: bindMethod(api.answerSymbolAsk, deps),
     useHintedSymbol: bindMethod(api.useHintedSymbol, deps),

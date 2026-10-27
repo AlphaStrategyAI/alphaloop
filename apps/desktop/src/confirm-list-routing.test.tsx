@@ -86,6 +86,7 @@ function makeApi(fetchView: DesktopApi["fetchView"]): DesktopApi {
   removeMarketSide: vi.fn(async () => undefined),
   dismissMismatchedSymbol: vi.fn(async () => undefined),
   chooseDefaultMarket: vi.fn(async () => undefined),
+  setPriceSource: vi.fn(async () => undefined),
     unlockBrief: vi.fn(async () => undefined),
     sendDialogue: vi.fn(async () => undefined),
     pauseResearch: vi.fn(async () => undefined),

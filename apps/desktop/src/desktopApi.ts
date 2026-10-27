@@ -1,6 +1,7 @@
 import {invoke as tauriInvoke} from "@tauri-apps/api/core";
 
 import {confirmRunInvokeArgs} from "./confirmRunCommand";
+import {setPriceSourceInvokeArgs} from "./setPriceSourceCommand";
 import type {DesktopApi, DesktopView} from "./contracts";
 
 export type DesktopInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -13,6 +14,12 @@ export function createTauriDesktopApi(invoke: DesktopInvoke = tauriInvoke): Desk
     async createDraft() { return invoke<string>("create_draft"); },
     async confirmRun(researchId, options) {
       await invoke("confirm_run", confirmRunInvokeArgs(researchId, options));
+    },
+    async setPriceSource(researchId, dataSourceId, unlicensedAcknowledged) {
+      await invoke(
+        "set_price_source",
+        setPriceSourceInvokeArgs(researchId, dataSourceId, unlicensedAcknowledged),
+      );
     },
     async setResearchSymbol(researchId, symbol) {
       await invoke("set_research_symbol", {researchId, symbol});
@@ -69,6 +76,7 @@ export function createPreviewDesktopApi(preview: DesktopView): DesktopApi {
     async fetchView() { return preview; },
     async createDraft() { return "preview-draft"; },
     async confirmRun() { return undefined; },
+    async setPriceSource() { return undefined; },
     async setResearchSymbol() { return undefined; },
     async answerSymbolAsk() { return undefined; },
     async useHintedSymbol() { return undefined; },

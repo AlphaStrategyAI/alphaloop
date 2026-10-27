@@ -75,5 +75,6 @@ export function runBlockedToken(code: string | null): string | undefined {
   if (code === "STRATEGY_FAMILY_NOT_RUNNABLE") return "family";
   if (code === "MEAN_REVERSION_ACK_REQUIRED") return "ack";
   if (code === "UNLICENSED_SOURCE_UNACKNOWLEDGED") return "unlicensed";
+  if (code === "UNIVERSE_TOO_FEW_SYMBOLS") return "coverage";
   return "resolution";
 }
