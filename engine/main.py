@@ -1193,15 +1193,24 @@ class ResearchCommandService:
         if kind == "set_price_source":
             from engine.research.price_source_choice import remember_price_source
 
-            research = self.store.load(str(request["research_id"]))
-            updated = remember_price_source(
-                research,
-                str(request.get("data_source_id") or ""),
-                unlicensed_acknowledged=bool(request.get("unlicensed_acknowledged")),
-                now=now,
-                settings_path=self.paths.data.settings_file,
-            )
-            return self._save(research, updated)
+            research_id = str(request["research_id"])
+            # Same lock as confirm_run. An acknowledgement that lands while the
+            # run is probing must not bump updated_at under that snapshot.
+            with self._lock_for_research(research_id):
+                research = self.store.load(research_id)
+                updated = remember_price_source(
+                    research,
+                    str(request.get("data_source_id") or ""),
+                    unlicensed_acknowledged=bool(request.get("unlicensed_acknowledged")),
+                    now=now,
+                    settings_path=self.paths.data.settings_file,
+                )
+                if updated is research:
+                    return {
+                        "research_id": research.research_id,
+                        "status": research.status.value,
+                    }
+                return self._save(research, updated)
         if kind == "answer_symbol_ask":
             research = self.store.load(str(request["research_id"]))
             updated = answer_symbol_ask(

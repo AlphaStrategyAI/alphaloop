@@ -183,9 +183,13 @@ def remember_price_source(
     research. A new research still does not inherit it. An empty id clears
     the choice and does not erase a stored acknowledgement.
     """
-    if research.status is not ResearchStatus.DRAFT:
-        raise ValueError("set_price_source is only valid while research is still in draft")
     chosen = source_id.strip()
+    if research.status is not ResearchStatus.DRAFT:
+        # confirm_run may already have stored this source and started. A late
+        # ack for the same source is not a second edit.
+        if not chosen or research.data_source_id == chosen:
+            return research
+        raise ValueError("set_price_source is only valid while research is still in draft")
     if not chosen:
         return replace(research, data_source_id="", updated_at=now)
     universe = research.brief.universe.value

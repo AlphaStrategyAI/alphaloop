@@ -125,7 +125,12 @@ def test_threading_server_list_responds_while_confirm_blocks_on_market_io(
                 _post(
                     endpoint,
                     token,
-                    {"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True},
+                    {
+                        "type": "confirm_run",
+                        "research_id": "r-http",
+                        "data_source_id": "yahoo_daily",
+                        "unlicensed_acknowledged": True,
+                    },
                 ),
                 strict=True,
             )
@@ -190,7 +195,12 @@ def test_progress_stays_visible_while_confirm_holds_the_research(
         target=lambda: _post(
             endpoint,
             token,
-            {"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True},
+            {
+                "type": "confirm_run",
+                "research_id": "r-http",
+                "data_source_id": "yahoo_daily",
+                "unlicensed_acknowledged": True,
+            },
         ),
         name="confirm-progress",
     )
@@ -236,7 +246,14 @@ def test_confirm_run_transient_within_market_deadline(
 
     started = time.monotonic()
     with pytest.raises(UserFacingError) as exc:
-        service.handle({"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True})
+        service.handle(
+            {
+                "type": "confirm_run",
+                "research_id": "r-http",
+                "data_source_id": "yahoo_daily",
+                "unlicensed_acknowledged": True,
+            }
+        )
     elapsed = time.monotonic() - started
     set_pool_data_loader(None)
 
@@ -249,6 +266,85 @@ def test_confirm_run_transient_within_market_deadline(
     view = service.view_for("#/research/r-http")
     assert view["kind"] == "confirm_run"
     assert "MARKET_DATA_TIMEOUT" in view["confirmDataNotice"]
+
+
+def test_set_price_source_during_confirm_probe_does_not_concurrent_write(tmp_path: Path) -> None:
+    """Acking Yahoo while confirm_run is inside the market probe must not lose the run.
+
+    The card fires set_price_source and confirm_run back to back. confirm_run
+    holds the research across the probe; the source save used to bump
+    updated_at underneath that snapshot and the run died with ConcurrentWrite.
+    """
+    loader = _GateLoader()
+    set_pool_data_loader(loader)
+    store = SQLiteStore(tmp_path / "source-race.db")
+    _confirm_ready_in_store(store)
+    service = ResearchCommandService(store, EnginePaths.for_colocated_root(tmp_path))
+    server, endpoint = start_api(service, "test-token")
+    confirm_box: dict[str, tuple[int, dict]] = {}
+    source_box: dict[str, tuple[int, dict]] = {}
+    errors: list[BaseException] = []
+
+    def run_confirm() -> None:
+        try:
+            confirm_box["pair"] = _post(
+                endpoint,
+                "test-token",
+                {
+                    "type": "confirm_run",
+                    "research_id": "r-http",
+                    "data_source_id": "yahoo_daily",
+                    "unlicensed_acknowledged": True,
+                },
+            )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def run_source() -> None:
+        try:
+            assert loader.entered.wait(timeout=2.0)
+            source_box["pair"] = _post(
+                endpoint,
+                "test-token",
+                {
+                    "type": "set_price_source",
+                    "research_id": "r-http",
+                    "data_source_id": "yahoo_daily",
+                    "unlicensed_acknowledged": True,
+                },
+            )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    try:
+        confirm = threading.Thread(target=run_confirm, name="confirm-run")
+        source = threading.Thread(target=run_source, name="set-price-source")
+        confirm.start()
+        assert loader.entered.wait(timeout=2.0)
+        source.start()
+        time.sleep(0.05)
+        loader.release.set()
+        confirm.join(timeout=5.0)
+        source.join(timeout=5.0)
+        assert not confirm.is_alive()
+        assert not source.is_alive()
+        assert errors == []
+        confirm_status, confirm_body = confirm_box["pair"]
+        source_status, source_body = source_box["pair"]
+        assert confirm_status == 200, confirm_body
+        assert confirm_body.get("code") != "internal_error"
+        assert "ConcurrentWrite" not in json.dumps(confirm_body)
+        assert confirm_body["status"] == "running"
+        assert source_status == 200, source_body
+        assert source_body.get("code") != "internal_error"
+        assert "ConcurrentWrite" not in json.dumps(source_body)
+        loaded = store.load("r-http")
+        assert loaded.status is ResearchStatus.RUNNING
+        assert loaded.data_source_id == "yahoo_daily"
+    finally:
+        loader.release.set()
+        server.shutdown()
+        set_pool_data_loader(None)
 
 
 def test_overlapping_confirm_run_returns_success_and_starts_once(tmp_path: Path) -> None:
@@ -267,7 +363,12 @@ def test_overlapping_confirm_run_returns_success_and_starts_once(tmp_path: Path)
                 _post(
                     endpoint,
                     "test-token",
-                    {"type": "confirm_run", "research_id": "r-http", "data_source_id": "yahoo_daily", "unlicensed_acknowledged": True},
+                    {
+                        "type": "confirm_run",
+                        "research_id": "r-http",
+                        "data_source_id": "yahoo_daily",
+                        "unlicensed_acknowledged": True,
+                    },
                 )
             )
         except BaseException as exc:  # noqa: BLE001
