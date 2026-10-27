@@ -31,8 +31,8 @@ The desktop version is one value, checked by `scripts/check_app_version.py`:
    `vX.Y.Z` must equal the `version` in `tauri.conf.json` with a `v` prefix. The release job rejects any other tag, and it rejects a tag that is not an ancestor of `origin/main`.
 
 3. `desktop-release` builds Linux, macOS, and Windows once. The Windows GUI test installs that same NSIS setup. Only after it passes does the workflow open a **draft** GitHub Release marked **prerelease**, with the installers and `SHA256SUMS.txt`. It does not publish the release.
-4. Download the DMG in a browser from the draft so macOS applies quarantine. Confirm the checksums with `sha256sum -c SHA256SUMS.txt`. Replace the placeholder test-results table with the real Windows CI result and the Linux and macOS checklist below.
-5. Publish the draft only after that review. Publishing is a separate manual step.
+4. Download the DMG in a browser from the draft so macOS applies quarantine. 开发小牛 confirms checksums (`sha256sum -c SHA256SUMS.txt`), signing, codesign, and SmartScreen on the package-level REPORT before notifying Master Bot. That check is out of scope for 产品小马. Replace the placeholder test-results table with the real Windows CI result and the Linux and macOS checklist below.
+5. Master Bot asks the user to publish only after 开发小牛 package-level PASS and 产品小马 **全量 PASS** on the product matrix below. Publishing is a separate manual step.
 
 `workflow_dispatch` on `desktop-release` builds the installers, runs the Windows test, and does not create a release.
 
@@ -71,6 +71,18 @@ The Linux package is not signed by a distribution key.
 Pull requests, and the tag release run, execute `windows-e2e` against the NSIS setup from that same workflow. Screenshots are the artifact `windows-e2e-screenshots`. App and engine logs are `windows-e2e-logs`. The job summary lists each step. A skip is not a pass.
 
 The job uses synthetic prices (`ALPHALOOP_OFFLINE_MARKET_DATA=1`). One step uses the default Windows credential manager. A later step sets `ALPHALOOP_SECRETS_BACKEND=passphrase`, which defaults off.
+
+## Product acceptance before publish
+
+Before asking the owner to publish a draft (or to treat a prerelease as ready), the gate order is: tag/draft candidate package → **开发小牛 package-level PASS** (installers, sha/signing/codesign/SmartScreen on their REPORT, new-feature + main regression, self-test/self-fix, then notify Master Bot) → **产品小马** runs the full product matrix in [`docs/requirements/release-acceptance-v1.md`](./requirements/release-acceptance-v1.md) against the candidate installers → Master Bot asks the user to publish.
+
+- That file is the single source of truth for product release acceptance (scenarios, priority, PASS rules). Package sha256, signing, codesign, and SmartScreen verification are 开发小牛's package-level gate and are out of scope for this matrix.
+- CI (including `windows-e2e`) is an entry condition; it does not replace the matrix.
+- Master Bot asks the user to publish only after 开发小牛 package-level PASS and 产品小马 reports **全量 PASS**.
+- When a change alters UI, copy, gates, or settings, 开发小牛 updates the matching rows in the same PR or a follow-up docs PR.
+- Per-release evidence: `docs/reports/YYYY-MM-DD-release-vX.Y.Z-product.md` (draft runs may stay under a local smoke folder until filed).
+
+The short “Manual checklist (Linux and macOS)” below remains a quick smoke aid; it does not supersede the matrix.
 
 ## Manual checklist (Linux and macOS)
 
