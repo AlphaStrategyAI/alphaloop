@@ -5,6 +5,21 @@ All notable changes to alphaloop are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-10-27
+
+### Fixed
+
+- English time, method, and coverage examples in the dialogue parse. A repeated miss apologizes once. Run stays disabled when a named universe is smaller than the coverage floor.
+- Saving the price source holds the same per-research lock as confirm. An acknowledgement that lands while confirm is probing market data no longer fails the run with ConcurrentWrite, and the desktop finishes that source write before it starts the run.
+- Confirm Edit keeps the chosen source together with its acknowledgement.
+- English no longer draws placeholder dashes. The LLM settings tab has its own copy. The chat box wraps long lines.
+- The Windows GUI check sets the dialogue through the textarea's own value setter, so the confirm-card step can start.
+
+### Changed
+
+- The desktop app and the Python package are version 0.9.2. The v0.9.0 and v0.9.1 tags are unchanged.
+- Documentation already on main since 0.9.1: the README is English by default, with a Chinese sibling (#148). The #154 family-gate and confirm-card answers are recorded in the requirements (#155).
+
 ## [0.9.1] - 2026-10-24
 
 ### Fixed

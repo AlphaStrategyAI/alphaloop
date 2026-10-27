@@ -19,4 +19,4 @@ def test_configure_engine_file_log_appends(tmp_path: Path) -> None:
         logging.getLogger().removeHandler(handler)
         handler.close()
     assert "sidecar ready" in text
-    assert "alphaloop 0.9.1" in text
+    assert "alphaloop 0.9.2" in text
