@@ -113,7 +113,22 @@ def _apology_once(reply: str) -> str:
     return f"{APOLOGY_PREFIX}{reply}"
 
 
+def _blocked_intake(research: Research) -> bool:
+    """Momentum, trend, or breakout still waiting on an explicit family re-pick.
+
+    The thesis is not a normal slot. A stored thesis (older drafts) and a
+    pending sentence both count. A re-pick is the only way out.
+    """
+    if research.repicked_family:
+        return False
+    pending = research.pending_non_mr_thesis or ""
+    thesis = research.brief.thesis.value if isinstance(research.brief.thesis.value, str) else ""
+    return classify_thesis(pending).outcome == "block" or classify_thesis(thesis).outcome == "block"
+
+
 def _reask(research: Research) -> str:
+    if _blocked_intake(research):
+        return MOMENTUM_UNSUPPORTED_NOTICE
     if research.pending_non_mr_thesis or (
         not (research.brief.thesis.value or "") and show_chips(research)
     ):
@@ -143,9 +158,16 @@ def _apply_family_repick(research: Research, text: str, choice, now: datetime) -
         mean_reversion_declined=False,
         pending_non_mr_thesis=None,
     )
-    return append_dialogue(
+    updated = append_dialogue(
         updated, DialogueRole.ASSISTANT, family_repick_notice(choice.family_id), now
     )
+    # Intake stopped on the blocked thesis. After an explicit pick, ask for the
+    # next open slot. A card that already has every slot stays on the re-pick line.
+    from engine.research.state_machine import all_slots_locked
+
+    if all_slots_locked(updated.brief):
+        return updated
+    return append_dialogue(updated, DialogueRole.ASSISTANT, next_question(updated).message, now)
 
 
 def process_send_dialogue(research: Research, message: str, now: datetime) -> Research:
@@ -204,22 +226,40 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
         choice = explicit_family_choice(text)
         if choice is not None:
             return _apply_family_repick(research, text, choice, now)
+    # A blocked thesis does not continue into time, methods, coverage, or confirm.
+    # Another sentence is not a new thesis. The user has to pick a supported family.
+    if _blocked_intake(research):
+        with_user = append_dialogue(research, DialogueRole.USER, text, now)
+        return append_dialogue(with_user, DialogueRole.ASSISTANT, MOMENTUM_UNSUPPORTED_NOTICE, now)
     prompt = next_question(research)
     intent = interpret(text, research, prompt.slot)
     unrecognized_thesis: str | None = None
+    blocked_thesis: str | None = None
     if intent.kind is IntentKind.PROVIDE:
         kept: list[tuple[str, object]] = []
         for name, value in intent.updates:
             # An unrecognized thesis is not stored as mean reversion. Ask which family.
-            if (
-                name == "thesis"
-                and isinstance(value, str)
-                and classify_thesis(value).outcome == "none"
-            ):
-                unrecognized_thesis = value
-                continue
+            if name == "thesis" and isinstance(value, str):
+                outcome = classify_thesis(value).outcome
+                if outcome == "none":
+                    unrecognized_thesis = value
+                    continue
+                # Momentum, trend, and breakout are not a parsable thesis slot.
+                if outcome == "block":
+                    blocked_thesis = value
+                    continue
             kept.append((name, value))
-        if unrecognized_thesis is not None:
+        if blocked_thesis is not None:
+            # Keep the market so A-share chips stay mean-reversion only. Drop the
+            # thesis and any time, method, or coverage that rode along in the sentence.
+            unrecognized_thesis = None
+            kept = [item for item in kept if item[0] == "universe"]
+            intent = (
+                Intent(IntentKind.PROVIDE, tuple(kept))
+                if kept
+                else Intent(IntentKind.OFF_TOPIC, response=MOMENTUM_UNSUPPORTED_NOTICE)
+            )
+        elif unrecognized_thesis is not None:
             kept = [item for item in kept if item[0] != "universe"]
             intent = (
                 Intent(IntentKind.PROVIDE, tuple(kept))
@@ -235,6 +275,9 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
         intent = Intent(IntentKind.PROVIDE, kept_updates)
     with_user = append_dialogue(research, DialogueRole.USER, text, now)
     updated = apply_intent(with_user, intent, now)
+    if blocked_thesis is not None:
+        updated = replace(updated, pending_non_mr_thesis=blocked_thesis)
+        return append_dialogue(updated, DialogueRole.ASSISTANT, MOMENTUM_UNSUPPORTED_NOTICE, now)
     updated = _apply_coverage_scratch(updated, text, prompt.slot)
     if unrecognized_thesis is not None:
         updated = replace(updated, pending_non_mr_thesis=unrecognized_thesis)

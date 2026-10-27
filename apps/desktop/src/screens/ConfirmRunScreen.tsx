@@ -917,6 +917,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           </p>
         )}
         <button
+          type="button"
           className={canRun ? "cyan-button" : "cyan-button is-disabled"}
           data-testid="confirm-run-start"
           data-run-blocked={runBlockedToken(gate.code)}

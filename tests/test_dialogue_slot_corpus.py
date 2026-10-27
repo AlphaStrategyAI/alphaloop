@@ -94,9 +94,11 @@ def test_dialogue_slot_corpus(row: dict, tmp_path: Path) -> None:
         assert view["kind"] == row["kind"]
     gate = view.get("runGate") or {}
     if "run_gate" in row:
-        assert gate["code"] == row["run_gate"]
+        # The card's first reason can be the missing source (N3) while confirm_run
+        # with an explicit source still reports the coverage floor.
+        assert gate["code"] == row.get("view_run_gate", row["run_gate"])
         assert gate["runnable"] is False
-    if "run_gate_params" in row:
+    if "run_gate_params" in row and "view_run_gate" not in row:
         assert gate["params"] == row["run_gate_params"]
     if "run_gate_not" in row:
         assert gate.get("code") != row["run_gate_not"]

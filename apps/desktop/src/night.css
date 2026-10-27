@@ -97,9 +97,12 @@ button { color: var(--ink); background: var(--glass); border: 1px solid var(--li
 button:disabled { cursor: not-allowed; opacity: .45; }
 button.cyan-button:disabled,
 button.cyan-button.is-disabled {
-  opacity: .45;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--mute);
+  opacity: .55;
   cursor: not-allowed;
-  filter: grayscale(0.4);
+  filter: none;
   box-shadow: none;
 }
 .confirm-run-blocked-reason { grid-column: 1 / -1; margin: 0; color: var(--mute); }

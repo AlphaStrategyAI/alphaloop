@@ -236,6 +236,27 @@ def _watch_desktop_stdin(stop: threading.Event) -> None:
     stop.set()
 
 
+class SettingsBackedLLM(LLMPort):
+    """Read the endpoint when a review runs, so a settings save does not need a restart."""
+
+    def __init__(self, client: httpx.Client, settings_path: Path) -> None:
+        self._client = client
+        self._settings_path = settings_path
+
+    def complete(self, system: str, user: str) -> str:
+        from engine.research.llm_config import resolve_llm
+
+        resolved = resolve_llm(self._settings_path)
+        if resolved is None:
+            return FailClosedLLM().complete(system, user)
+        return OpenAICompatibleLLM(
+            self._client,
+            resolved.base_url,
+            resolved.api_key,
+            resolved.model,
+        ).complete(system, user)
+
+
 class FailClosedLLM(LLMPort):
     def complete(self, system: str, user: str) -> str:
         return json.dumps(
@@ -274,15 +295,7 @@ def build_loop(
     )
     reviewer_mode = os.environ.get("ALPHALOOP_REVIEWER", "deterministic")
     if reviewer_mode == "subagent":
-        base_url = os.environ.get("ALPHALOOP_LLM_BASE_URL")
-        api_key = os.environ.get("ALPHALOOP_LLM_API_KEY")
-        model = os.environ.get("ALPHALOOP_LLM_MODEL")
-        llm: LLMPort = (
-            OpenAICompatibleLLM(client, base_url, api_key, model)
-            if base_url and api_key and model
-            else FailClosedLLM()
-        )
-        reviewer = SubagentReviewer(llm)
+        reviewer = SubagentReviewer(SettingsBackedLLM(client, paths.data.settings_file))
     else:
         reviewer = DeterministicReviewer()
     builder = DefaultRoundBuilder(

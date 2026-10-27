@@ -49,7 +49,14 @@ export function deriveRunGate(input: {
     return {runnable: false, code: input.resolutionCode};
   }
   const server = input.serverCode || null;
-  if (server && !SOURCE_CODES.has(server)) return {runnable: false, code: server};
+  // Coverage and other non-source codes must not hide a missing price source.
+  // Family, market, and symbol blocks still win: picking a source cannot clear them.
+  if (server && !SOURCE_CODES.has(server) && server !== "UNIVERSE_TOO_FEW_SYMBOLS") {
+    return {runnable: false, code: server};
+  }
+  const sourceOnCard = input.sourceChoiceOnCard || server === "DATA_SOURCE_UNBOUND" || server === "UNIVERSE_TOO_FEW_SYMBOLS";
+  if (!input.selectedId && sourceOnCard) return {runnable: false, code: "DATA_SOURCE_UNBOUND"};
+  if (server === "UNIVERSE_TOO_FEW_SYMBOLS") return {runnable: false, code: server};
   if (!input.sourceChoiceOnCard) return {runnable: true, code: null};
   if (
     input.selectedId

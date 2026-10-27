@@ -5,6 +5,8 @@ import {I18nText} from "../i18n/I18nText";
 import {languageFromSystemLocale, languageName} from "../i18n/locale";
 import {useI18n} from "../i18n/I18nProvider";
 import type {UiLanguagePreference} from "../i18n/types";
+import {LlmSettingsCard} from "./LlmSettingsCard";
+import type {LlmSettingsPort} from "./llmSettingsPort";
 import "./settings.css";
 
 export function settingsTab(route: string): "data" | "llm" | "general" {
@@ -13,7 +15,7 @@ export function settingsTab(route: string): "data" | "llm" | "general" {
   return "general";
 }
 
-export function SettingsPage({route}: {route: string}) {
+export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSettingsPort}) {
   const {t, preference, setPreference, systemLocale} = useI18n();
   const tab = settingsTab(route);
   const followName = languageName(languageFromSystemLocale(systemLocale));
@@ -114,9 +116,7 @@ export function SettingsPage({route}: {route: string}) {
           </section>
         </div>
       ) : tab === "llm" ? (
-        <section className="settings-card" data-testid="settings-llm">
-          <p><I18nText k="settings.llm.later" /></p>
-        </section>
+        <LlmSettingsCard port={llmPort} />
       ) : (
         <section className="settings-card" data-testid="settings-later">
           <p><I18nText k="settings.later.body" /></p>

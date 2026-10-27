@@ -106,6 +106,39 @@
   font-size: 12px;
   color: var(--mute);
 }
+.llm-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.llm-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.llm-field span {
+  color: var(--ink);
+  font-weight: 600;
+}
+.llm-field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  color: var(--ink);
+  background: var(--void);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 10px 12px;
+}
+.llm-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.llm-error {
+  color: var(--stop);
+  margin: 0;
+}
 @media (max-width: 960px) {
   .settings-grid {
     grid-template-columns: minmax(0, 1fr);

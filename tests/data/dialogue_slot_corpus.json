@@ -146,6 +146,7 @@
       "coverage": {"assets": 25, "years": 10, "missing": 5},
       "symbols": ["AAPL"],
       "kind": "confirm_run",
+      "view_run_gate": "DATA_SOURCE_UNBOUND",
       "run_gate": "UNIVERSE_TOO_FEW_SYMBOLS",
       "run_gate_params": {"count": 1, "minimum": 25},
       "confirm_blocked": true,
@@ -174,7 +175,9 @@
         "at least 25 symbols, 10 yrs, missing no more than 5%"
       ],
       "coverage": {"assets": 25, "years": 10, "missing": 5},
+      "view_run_gate": "DATA_SOURCE_UNBOUND",
       "run_gate": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "confirm_blocked": true,
       "no_apology": true
     },
     {
@@ -188,7 +191,10 @@
       "coverage": {"assets": 25, "years": 10, "missing": 5},
       "symbols": ["AAPL"],
       "kind": "confirm_run",
+      "view_run_gate": "DATA_SOURCE_UNBOUND",
       "run_gate": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "run_gate_params": {"count": 1, "minimum": 25},
+      "confirm_blocked": true,
       "no_apology": true
     },
     {

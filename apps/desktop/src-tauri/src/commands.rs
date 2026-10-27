@@ -10,6 +10,7 @@ use crate::secrets::SecretVault;
 use crate::sidecar::EngineSupervisor;
 use crate::sidecar_runtime::SidecarRuntime;
 use crate::start_desktop_sidecar;
+use crate::llm_settings::{self, LlmSettingsSnapshot};
 use crate::ui_language::{self, UiLanguageSnapshot};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
@@ -745,6 +746,25 @@ pub fn set_ui_language(
     let snapshot = ui_language::current_snapshot();
     connection.set_locale(&snapshot.resolved)?;
     Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn get_llm_settings() -> LlmSettingsSnapshot {
+    llm_settings::current_snapshot()
+}
+
+#[tauri::command]
+pub fn set_llm_settings(
+    base_url: String,
+    model: String,
+    privacy_acknowledged: bool,
+) -> Result<LlmSettingsSnapshot, String> {
+    llm_settings::write_llm_settings(
+        &ui_language::settings_file(),
+        &base_url,
+        &model,
+        privacy_acknowledged,
+    )
 }
 
 #[tauri::command]
