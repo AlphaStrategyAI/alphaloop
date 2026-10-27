@@ -63,7 +63,7 @@
 
 | ID | Case | Steps (summary) | Expect | Pri | PASS when |
 | --- | --- | --- | --- | --- | --- |
-| E1 | Momentum / trend / breakout block | Thesis clearly momentum/trend/breakout | Blocked; **no** “continue as mean reversion”; only user-picked supported family | P0 | No silent MR |
+| E1 | Momentum / trend / breakout block | Thesis clearly momentum/trend/breakout (e.g. “Momentum breakout on AAPL…”) | Hard-blocked at intake: unsupported notice, thesis is not accepted as a normal slot, dialogue does **not** continue to the time prompt or confirm/source flow. **No** “continue as mean reversion”. A supported family is used only after the user picks one. Chips are that re-pick (E4/E5), not acceptance of the thesis | P0 | No silent MR; no time-prompt continuation |
 | E2 | Disclose families | Low-vol / fundamental / stock-bond / all-weather (US or A-share as allowed) | Explicit yes (MEAN_REVERSION_ACK) before disclosed MR path; ack buttons only when `show_ack` | P0 | Explicit ack |
 | E3 | Unidentified thesis | Unclassifiable thesis | familyFollowUp / chips; never auto MR | P0 | No MR fallback |
 | E4 | A-share chips | After decline / pending_non_mr / block on A-share | Chips: mean reversion only (glossary order) | P0 | M2 chip set |
@@ -73,7 +73,7 @@
 
 | ID | Case | Steps (summary) | Expect | Pri | PASS when |
 | --- | --- | --- | --- | --- | --- |
-| F1 | No source selected | Confirm card with source Not selected / 待选择 | Run disabled; reason N3: 还没选数据源… / No data source selected yet… | P0 | Run blocked + copy |
+| F1 | No source selected | Confirm card with source Not selected / 待选择, including when the named list is also under the coverage floor | Run is visually disabled and non-actionable; reason is N3 (还没选数据源。先在确认卡上选一个，再开跑。 / No data source selected yet. Pick one on the confirmation card before running.), not a silent click and not only the coverage sentence | P0 | Run blocked + N3 copy |
 | F2 | Unlicensed honesty | Pick Yahoo / AkShare (Sina) | Honesty notice + checkbox; Run stays off until ack | P0 | Ack required |
 | F3 | Edit keeps source | Select source + ack → Edit a slot → return | Source still selected (or clear re-pick UX without stale ack); no ConcurrentWrite / stuck card (#156) | P0 | Regresses #4 + #156 race |
 | F4 | Coverage vs universe floor | One-name thesis + coverage “at least 25” / `至少 25 个` | Run blocked **before** crash **or** mapped localized `UNIVERSE_TOO_FEW_SYMBOLS` (no generic unmapped banner) | P0 | Regresses #3 |
@@ -102,7 +102,7 @@
 | ID | Case | Steps (summary) | Expect | Pri | PASS when |
 | --- | --- | --- | --- | --- | --- |
 | I1 | Data sources page | Settings → Data sources | Real data-source UI / locked placeholders only where intentional | P1 | Not blank wrong page |
-| I2 | LLM page | Settings → LLM / 大模型 | LLM-specific copy (base URL, API key, model, local) — **not** Data-sources M2 placeholder | P0 | Regresses #6 |
+| I2 | LLM page | Settings → LLM / 大模型 | Real fields: base URL, API key, model, and local-provider copy (loopback vs remote). API key goes through the secret vault (`llm-api-key`), not `settings.json`. **Not** “LLM settings are not ready yet…” | P0 | Regresses #6 |
 | I3 | EN dashed boxes | English UI workshop + settings | No light dashed rectangle around every text run | P1 | Regresses #5 |
 | I4 | Chat field long EN | Long English methods sentence in intake | Readable (wrap or scroll without cutting meaning); Enter submits | P2 | Regresses #7 |
 

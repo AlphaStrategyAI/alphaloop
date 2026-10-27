@@ -1185,38 +1185,35 @@ def main() -> int:
 
     def step_momentum_blocked() -> str:
         assert session is not None
-        create_until_confirm(
-            session.driver,
-            (
-                "美股动量策略",
-                "4 小时",
-                "走样检验、样本外稳定",
-                "至少 1 个标的、10 年、缺失不超过 5%",
-            ),
-        )
         from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
 
-        card = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
-        if "Not supported yet" not in card and "暂不支持" not in card:
-            raise AssertionError(f"momentum card did not say the family is unsupported: {card[:400]}")
+        go(session.driver, "#/research")
+        click(session.driver, "[data-testid=new-research-button]")
+        wait_css(session.driver, "[data-testid=dialogue-input]", 40)
+        submit_dialogue(session.driver, "美股动量策略")
+
+        def blocked_intake(driver):
+            if driver.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-run-card]"):
+                return False
+            text = driver.find_element(By.CSS_SELECTOR, ".draft-layout").text
+            return "Not supported yet" in text or "暂不支持" in text
+
+        WebDriverWait(session.driver, 30).until(blocked_intake)
+        body = session.driver.find_element(By.CSS_SELECTOR, ".draft-layout").text
         for banned in (
+            "How much effective research time",
+            "最多允许多少有效研究时间",
             "要按均值回归继续",
             "Continue with mean reversion",
             "Continue as mean reversion",
         ):
-            if banned in card:
-                raise AssertionError(f"momentum card asked to continue as mean reversion: {banned}")
-        needle = "can't run yet" if "Not supported yet" in card else "这一族还不能开跑"
-        assert_run_disabled(session.driver, needle)
-        button = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
-        if button.is_enabled():
-            raise AssertionError("momentum Run was enabled")
-        if button.get_attribute("data-run-blocked") != "family":
-            raise AssertionError("momentum Run was not blocked as a family")
-        assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "momentum confirm card")
-        wait_css(session.driver, "[data-testid=dialogue-input]")
-        from selenium.webdriver.support.ui import WebDriverWait
-
+            if banned in body:
+                raise AssertionError(f"momentum intake continued: {banned}")
+        if session.driver.find_elements(By.CSS_SELECTOR, "[data-testid=mean-reversion-continue]"):
+            raise AssertionError("momentum offered continue as mean reversion")
+        if session.driver.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-run-start]"):
+            raise AssertionError("momentum thesis opened Run")
         chips = session.driver.find_elements(By.CSS_SELECTOR, "[data-family-id]")
         chip_ids = [item.get_attribute("data-family-id") for item in chips]
         if chip_ids != [
@@ -1232,14 +1229,26 @@ def main() -> int:
                 raise AssertionError("a family chip was preselected")
         click(session.driver, "[data-testid=family-chip-mean_reversion]")
         WebDriverWait(session.driver, 30).until(
-            lambda d: "Switched to mean reversion."
-            in d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-card]").text
+            lambda d: "Switched to mean reversion." in d.find_element(By.CSS_SELECTOR, ".draft-layout").text
+            or "已改用均值回归" in d.find_element(By.CSS_SELECTOR, ".draft-layout").text
+        )
+        for message in (
+            "4 小时",
+            "走样检验、样本外稳定",
+            "至少 1 个标的、10 年、缺失不超过 5%",
+        ):
+            if session.driver.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-run-card]"):
+                break
+            submit_dialogue(session.driver, message)
+        WebDriverWait(session.driver, 40).until(
+            lambda d: d.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-run-card]")
         )
         after = session.driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
         if after.get_attribute("data-run-blocked") == "family":
             raise AssertionError("mean-reversion chip left Run blocked as a family")
+        assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "momentum confirm card")
         go(session.driver, "#/research")
-        return "momentum card says it is unsupported, then a mean-reversion chip re-pick is recorded"
+        return "momentum intake is blocked, then a mean-reversion chip re-pick can reach confirm"
 
     def step_english_reference() -> str:
         assert session is not None
@@ -1455,7 +1464,7 @@ def main() -> int:
         run_step("restart and unlock passphrase", "secrets-unlock", step_secrets_unlock)
         run_step("US and A-share confirm cards open their own research", "confirms", step_two_confirms)
         run_step("blocked Run stays disabled before confirm", "blocked-run", step_blocked_run_before_confirm)
-        run_step("momentum card and Run agree the family cannot run", "momentum-blocked", step_momentum_blocked)
+        run_step("momentum intake is hard-blocked, then a re-pick can confirm", "momentum-blocked", step_momentum_blocked)
         run_step(
             "disclosed family buttons and chips share the dialogue handler",
             "family-buttons",

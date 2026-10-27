@@ -1,6 +1,7 @@
 mod commands;
 mod engine_paths;
 mod secrets;
+mod llm_settings;
 mod ui_language;
 mod sidecar;
 mod sidecar_policy;
@@ -319,6 +320,8 @@ pub fn run() {
             commands::restart_engine_sidecar,
             commands::get_ui_language,
             commands::set_ui_language,
+            commands::get_llm_settings,
+            commands::set_llm_settings,
             commands::read_system_locale,
             commands::set_engine_locale,
             commands::secret_store_status,

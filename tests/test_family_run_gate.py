@@ -164,9 +164,32 @@ def test_stock_bond_and_all_weather_are_recognized(tmp_path: Path) -> None:
 
 
 def test_momentum_card_and_confirm_run_agree(tmp_path: Path) -> None:
+    """A momentum thesis never becomes a confirm card through intake.
+
+    A record that already has every slot filled still cannot run.
+    """
+    from dataclasses import replace
+
+    from engine.research.models import Slot, new_research
+    from tests.test_state_machine import locked_brief
+
     service = _service(tmp_path)
-    research_id = _fill(service, "美股动量策略")
-    view = service.view_for(f"#/research/{research_id}")
+    research_id = service.handle({"type": "create_draft"})["research_id"]
+    _say(service, research_id, "美股动量策略")
+    draft = service.view_for(f"#/research/{research_id}")
+    assert draft["kind"] == "draft"
+    assert draft["meanReversionChoice"] is False
+    loaded = service.store.load(research_id)
+    assert loaded.brief.thesis.value is None
+    assert loaded.dialogue[-1].text == MOMENTUM_UNSUPPORTED_NOTICE
+    assert all("最多允许多少有效研究时间" not in turn.text for turn in loaded.dialogue)
+
+    stored = replace(
+        new_research("r-stored-momentum", NOW),
+        brief=replace(locked_brief(), thesis=Slot("美股动量策略", True)),
+    )
+    service.store.create(stored)
+    view = service.view_for("#/research/r-stored-momentum")
     assert view["kind"] == "confirm_run"
     assert view["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE
     assert view["runGate"] == {"runnable": False, "code": "STRATEGY_FAMILY_NOT_RUNNABLE"}
@@ -174,7 +197,7 @@ def test_momentum_card_and_confirm_run_agree(tmp_path: Path) -> None:
         service.handle(
             {
                 "type": "confirm_run",
-                "research_id": research_id,
+                "research_id": "r-stored-momentum",
                 "data_source_id": "yahoo_daily",
                 "unlicensed_acknowledged": True,
             }
@@ -186,16 +209,19 @@ def test_momentum_card_and_confirm_run_agree(tmp_path: Path) -> None:
 def test_momentum_yes_is_not_adoption_and_the_question_is_absent(tmp_path: Path) -> None:
     for answer in ("按均值回归继续", "是", "可以", "yes"):
         service = _service(tmp_path)
-        research_id = _fill(service, "美股趋势突破")
+        research_id = service.handle({"type": "create_draft"})["research_id"]
+        _say(service, research_id, "美股趋势突破")
         _say(service, research_id, answer)
         loaded = service.store.load(research_id)
+        assert loaded.brief.thesis.value is None
         assert loaded.mean_reversion_adopted is False
         assert loaded.repicked_family == ""
         assert loaded.status is ResearchStatus.DRAFT
         assert all(MEAN_REVERSION_ONLY_NOTICE not in turn.text for turn in loaded.dialogue)
+        assert loaded.dialogue[-1].text == MOMENTUM_UNSUPPORTED_NOTICE
         view = service.view_for(f"#/research/{research_id}")
-        assert view["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE
-        assert view["runGate"]["code"] == "STRATEGY_FAMILY_NOT_RUNNABLE"
+        assert view["kind"] == "draft"
+        assert view["meanReversionChoice"] is False
         with pytest.raises(UserFacingError) as exc:
             service.handle(
                 {
@@ -211,8 +237,11 @@ def test_momentum_yes_is_not_adoption_and_the_question_is_absent(tmp_path: Path)
 
 def test_explicit_family_repick_is_the_only_momentum_way_forward(tmp_path: Path) -> None:
     service = _service(tmp_path)
-    research_id = _fill(service, "美股动量策略")
+    research_id = service.handle({"type": "create_draft"})["research_id"]
+    _say(service, research_id, "美股动量策略")
     _say(service, research_id, "选择均值回归")
+    for message in (HOURS, METHODS, FLOOR):
+        _say(service, research_id, message)
     loaded = service.store.load(research_id)
     assert loaded.brief.thesis.value == "美股动量策略"
     assert loaded.repicked_family == "mean_reversion"
@@ -222,7 +251,7 @@ def test_explicit_family_repick_is_the_only_momentum_way_forward(tmp_path: Path)
     assert view["repickedFamily"] == "mean_reversion"
     assert view["meanReversionOnlyNotice"] == notice
     assert notice == "已改用均值回归。你原来的论点没有采纳，这一族的方向和你的原话不同。"
-    assert loaded.dialogue[-1].text == notice
+    assert notice in [turn.text for turn in loaded.dialogue]
     assert MEAN_REVERSION_ONLY_NOTICE not in view["meanReversionOnlyNotice"]
     ready = evaluate_run_gate(
         loaded,
@@ -242,17 +271,52 @@ def test_explicit_family_repick_is_the_only_momentum_way_forward(tmp_path: Path)
     assert started.get("status") == "running"
 
 
+def test_english_momentum_breakout_does_not_continue_into_the_time_prompt(tmp_path: Path) -> None:
+    """E1: the US sentence from product acceptance is not a parsable intake."""
+    service = _service(tmp_path)
+    research_id = service.handle({"type": "create_draft"})["research_id"]
+    _say(service, research_id, "Momentum breakout on AAPL US stock with daily prices.")
+    loaded = service.store.load(research_id)
+    joined = "\n".join(turn.text for turn in loaded.dialogue)
+    assert loaded.brief.thesis.value is None
+    assert loaded.pending_non_mr_thesis == "Momentum breakout on AAPL US stock with daily prices."
+    assert loaded.brief.max_effective_hours.value is None
+    assert loaded.dialogue[-1].text == MOMENTUM_UNSUPPORTED_NOTICE
+    assert "最多允许多少有效研究时间" not in joined
+    assert MEAN_REVERSION_ONLY_NOTICE not in joined
+    assert FAMILY_FOLLOWUP not in joined
+    universe = loaded.brief.universe.value
+    assert universe is not None and universe.market.value == "US"
+    assert "AAPL" in universe.symbols
+    view = service.view_for(f"#/research/{research_id}")
+    assert view["kind"] == "draft"
+    assert view["meanReversionChoice"] is False
+    assert view["familyChipIds"] == list(PRODUCT_FAMILY_IDS)
+    _say(service, research_id, "30 minutes")
+    still = service.store.load(research_id)
+    assert still.brief.max_effective_hours.value is None
+    assert still.brief.thesis.value is None
+    assert service.view_for(f"#/research/{research_id}")["kind"] == "draft"
+
+
 def test_blocked_family_shows_unsupported_notice_not_the_follow_up(tmp_path: Path) -> None:
     """Momentum, trend, and breakout never get the unrecognized-family follow-up."""
-    for thesis in ("美股动量策略", "美股趋势策略", "美股突破策略"):
+    for thesis in ("美股动量策略", "美股趋势策略", "美股突破策略", "momentum breakout"):
         service = _service(tmp_path)
-        research_id = _fill(service, thesis)
+        research_id = service.handle({"type": "create_draft"})["research_id"]
+        _say(service, research_id, thesis)
+        _say(service, research_id, HOURS)
         loaded = service.store.load(research_id)
         joined = "\n".join(turn.text for turn in loaded.dialogue)
         assert FAMILY_FOLLOWUP not in joined, thesis
         assert MEAN_REVERSION_ONLY_NOTICE not in joined, thesis
+        assert "最多允许多少有效研究时间" not in joined, thesis
+        assert loaded.brief.max_effective_hours.value is None, thesis
+        assert loaded.brief.thesis.value is None, thesis
+        assert loaded.dialogue[-1].text == MOMENTUM_UNSUPPORTED_NOTICE, thesis
         view = service.view_for(f"#/research/{research_id}")
-        assert view["meanReversionOnlyNotice"] == MOMENTUM_UNSUPPORTED_NOTICE, thesis
+        assert view["kind"] == "draft", thesis
+        assert view["meanReversionChoice"] is False, thesis
         assert view.get("repickedFamily") in (None, "")
 
 
@@ -321,33 +385,45 @@ def test_decline_button_phrase_stays_draft_and_opens_chips(tmp_path: Path) -> No
 
 def test_family_chips_follow_market_and_a_re_pick_uses_the_same_handler(tmp_path: Path) -> None:
     us = _service(tmp_path)
-    us_id = _fill(us, "美股动量策略")
+    us_id = us.handle({"type": "create_draft"})["research_id"]
+    _say(us, us_id, "美股动量策略")
     us_view = us.view_for(f"#/research/{us_id}")
+    assert us_view["kind"] == "draft"
     assert us_view["chatEnabled"] is True
     assert us_view["familyChipIds"] == list(PRODUCT_FAMILY_IDS)
     assert us_view["meanReversionChoice"] is False
     cn = _service(tmp_path)
-    cn_id = _fill(cn, "A股动量策略")
+    cn_id = cn.handle({"type": "create_draft"})["research_id"]
+    _say(cn, cn_id, "A股动量策略")
     cn_view = cn.view_for(f"#/research/{cn_id}")
+    assert cn_view["kind"] == "draft"
     assert cn_view["familyChipIds"] == ["mean_reversion"]
     _say(us, us_id, "均值回归")
     repicked = us.store.load(us_id)
     assert repicked.brief.thesis.value == "美股动量策略"
     assert repicked.repicked_family == "mean_reversion"
     assert repicked.mean_reversion_adopted is True
+    assert family_repick_notice("mean_reversion") in [turn.text for turn in repicked.dialogue]
+    assert repicked.dialogue[-1].text.startswith("最多允许多少有效研究时间")
+    for message in (HOURS, METHODS, FLOOR):
+        _say(us, us_id, message)
     view = us.view_for(f"#/research/{us_id}")
+    assert view["kind"] == "confirm_run"
     assert view["meanReversionOnlyNotice"] == family_repick_notice("mean_reversion")
     assert view["familyChipIds"] == []
     ready = evaluate_run_gate(
-        repicked,
+        us.store.load(us_id),
         data_source_id="yahoo_daily",
         unlicensed_acknowledged=True,
         settings_path=us.paths.data.settings_file,
     )
     assert ready.runnable is True
     other = _service(tmp_path)
-    other_id = _fill(other, "美股动量策略")
+    other_id = other.handle({"type": "create_draft"})["research_id"]
+    _say(other, other_id, "美股动量策略")
     _say(other, other_id, "Low volatility")
+    for message in (HOURS, METHODS, FLOOR):
+        _say(other, other_id, message)
     chosen = other.store.load(other_id)
     assert chosen.repicked_family == "low_volatility"
     assert chosen.mean_reversion_adopted is False

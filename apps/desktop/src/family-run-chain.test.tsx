@@ -149,6 +149,26 @@ describe("family run gate on the confirm card", () => {
     expect(payloads).toEqual([]);
   });
 
+  it("disables Run with N3 when the server still says the universe is short and no source is selected", () => {
+    const {payloads} = renderCard(EN, card({
+      runGate: {
+        runnable: false,
+        code: "UNIVERSE_TOO_FEW_SYMBOLS",
+        params: {count: 1, minimum: 25},
+      },
+    }));
+    const button = screen.getByTestId("confirm-run-start");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("data-run-blocked", "source");
+    expect(button).toHaveClass("is-disabled");
+    expect(screen.getByTestId("confirm-run-blocked-reason")).toHaveTextContent(
+      "No data source selected yet. Pick one on the confirmation card before running.",
+    );
+    expect(screen.getByTestId("confirm-run-blocked-reason")).not.toHaveTextContent("coverage minimum");
+    fireEvent.click(button);
+    expect(payloads).toEqual([]);
+  });
+
   it("sends an already-acknowledged Yahoo source through api-bind without asking again", async () => {
     const {payloads} = renderCard(EN, card({
       settings: {

@@ -8,6 +8,7 @@ import {I18nProvider} from "../i18n/I18nProvider";
 import {createMemoryLanguagePort} from "../i18n/port";
 import type {UiLanguagePreference} from "../i18n/types";
 import {minimalDesktopApi} from "../test-fixtures";
+import {createMemoryLlmSettingsPort} from "./llmSettingsPort";
 import {SettingsPage} from "./SettingsPage";
 
 afterEach(() => cleanup());
@@ -46,25 +47,33 @@ describe("settings language", () => {
 
   it("does not reuse the data-sources sentence on the LLM tab", async () => {
     const port = createMemoryLanguagePort({preference: "en", systemLocale: "en-US"});
+    const llmPort = createMemoryLlmSettingsPort().port;
     const en = render(
       <I18nProvider port={port} initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
-        <SettingsPage route="#/settings/llm" />
+        <SettingsPage route="#/settings/llm" llmPort={llmPort} />
       </I18nProvider>,
     );
-    const llm = await screen.findByTestId("settings-llm");
-    expect(llm).toHaveTextContent(/not ready/i);
-    expect(llm).not.toHaveTextContent("Local file import arrives in M2.");
-    expect(llm).not.toHaveTextContent("本地文件导入将在 M2 提供。");
-    expect(llm.querySelector("[data-i18n-placeholder]")).toBeNull();
+    const panel = await screen.findByTestId("settings-llm");
+    expect(panel).not.toHaveTextContent(/not ready/i);
+    expect(panel).not.toHaveTextContent("Local file import arrives in M2.");
+    expect(panel).not.toHaveTextContent("本地文件导入将在 M2 提供。");
+    expect(panel.querySelector("[data-i18n-placeholder]")).toBeNull();
+    expect(screen.getByTestId("llm-base-url")).toBeInTheDocument();
+    expect(screen.getByTestId("llm-api-key")).toHaveAttribute("type", "password");
+    expect(screen.getByTestId("llm-model")).toBeInTheDocument();
+    expect(panel).toHaveTextContent("Local model");
     en.unmount();
 
     render(
       <I18nProvider port={port} initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
-        <SettingsPage route="#/settings/llm" />
+        <SettingsPage route="#/settings/llm" llmPort={llmPort} />
       </I18nProvider>,
     );
     const zhLlm = await screen.findByTestId("settings-llm");
-    expect(zhLlm).toHaveTextContent("大模型设置尚未就绪，以后再提供。");
+    expect(zhLlm).toHaveTextContent("接入地址");
+    expect(zhLlm).toHaveTextContent("API 密钥");
+    expect(zhLlm).toHaveTextContent("模型名");
+    expect(zhLlm).toHaveTextContent("本机模型");
     expect(zhLlm).not.toHaveTextContent("本地文件导入将在 M2 提供。");
     expect(screen.getByTestId("settings-tab-llm")).toHaveClass("active");
   });

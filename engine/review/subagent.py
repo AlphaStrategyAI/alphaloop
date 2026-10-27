@@ -51,9 +51,12 @@ class OpenAICompatibleLLM:
     model: str
 
     def complete(self, system: str, user: str) -> str:
+        headers: dict[str, str] = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
         response = self.client.post(
             f"{self.base_url.rstrip('/')}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            headers=headers,
             json={
                 "model": self.model,
                 "temperature": 0,

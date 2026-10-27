@@ -84,9 +84,12 @@ a:hover {
 }
 button.cyan-button:disabled,
 button.cyan-button.is-disabled {
-  opacity: 0.45;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--mute);
+  opacity: 0.55;
   cursor: not-allowed;
-  filter: grayscale(0.4);
+  filter: none;
   box-shadow: none;
 }
 .confirm-run-blocked-reason {

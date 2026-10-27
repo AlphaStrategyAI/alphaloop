@@ -45,6 +45,19 @@ def _from_error(error: UserFacingError) -> RunGate:
     return RunGate(False, error.code, error.message, dict(error.params))
 
 
+def _thesis_for_gate(research: Research) -> str:
+    """The sentence the family gate reads.
+
+    A momentum thesis held only as pending intake is still a block. A re-pick
+    looks at the stored thesis, which the re-pick path keeps as the original words.
+    """
+    stored = research.brief.thesis.value if isinstance(research.brief.thesis.value, str) else ""
+    pending = research.pending_non_mr_thesis or ""
+    if not research.repicked_family and classify_thesis(pending).outcome == "block":
+        return pending
+    return stored
+
+
 def evaluate_run_gate(
     research: Research,
     *,
@@ -71,7 +84,7 @@ def evaluate_run_gate(
         except UserFacingError as error:
             return _from_error(error)
 
-    thesis = str(research.brief.thesis.value or "")
+    thesis = _thesis_for_gate(research)
     hit = classify_thesis(thesis)
     repick = research.repicked_family
     if repick == "mean_reversion":
@@ -84,13 +97,15 @@ def evaluate_run_gate(
     elif hit.outcome == "disclose" and not research.mean_reversion_adopted:
         return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ACK_MESSAGE)
 
+    source = data_source_id.strip()
+    # N3 before the coverage floor. A card with no price source must say so
+    # even when the named list is also shorter than the floor.
+    if pool_resolvable(research) and not source:
+        return RunGate(False, "DATA_SOURCE_UNBOUND", DATA_SOURCE_UNBOUND)
+
     too_few = too_few_named_symbols(research)
     if too_few is not None:
         return _from_error(too_few)
-
-    source = data_source_id.strip()
-    if pool_resolvable(research) and not source:
-        return RunGate(False, "DATA_SOURCE_UNBOUND", DATA_SOURCE_UNBOUND)
     if source and is_unlicensed_source(source):
         stored = acknowledged_at(source, settings_path)
         if stored is None and not unlicensed_acknowledged:
