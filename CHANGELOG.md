@@ -5,6 +5,18 @@ All notable changes to alphaloop are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-10-28
+
+### Fixed
+
+- E1: a momentum, trend, or breakout thesis is hard-blocked at intake. The reply is the unsupported notice, the thesis stays pending, and the dialogue does not continue to the time prompt or the confirm and source flow. There is no continue-as-mean-reversion path. A record that already has every slot filled still cannot run.
+- F1: when no price source is selected, Run stays disabled and the reason is N3, even when the named universe is also under the coverage floor. Choosing a source then surfaces the coverage gate.
+- I2: Settings → LLM is a real form (base URL, API key, model, and local-provider copy for loopback addresses). The API key is stored in the vault. The settings file stores only the base URL, the model, and the privacy acknowledgement.
+
+### Changed
+
+- The desktop app and the Python package are version 0.9.3. The v0.9.0, v0.9.1, and v0.9.2 tags are unchanged.
+
 ## [0.9.2] - 2026-10-27
 
 ### Fixed

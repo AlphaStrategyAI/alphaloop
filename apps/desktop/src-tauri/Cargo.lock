@@ -80,7 +80,7 @@ dependencies = [
 
 [[package]]
 name = "alphaloop-desktop"
-version = "0.9.2"
+version = "0.9.3"
 dependencies = [
  "aes-gcm",
  "apple-native-keyring-store",
