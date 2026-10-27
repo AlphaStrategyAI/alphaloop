@@ -18,13 +18,18 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from engine.research.display_names import data_source_label
-from engine.research.models import Market
-from engine.research.source_acknowledgement import acknowledged_at, is_unlicensed_source
+from engine.research.models import Market, Research, ResearchStatus
+from engine.research.source_acknowledgement import (
+    acknowledged_at,
+    is_unlicensed_source,
+    record_acknowledgement,
+)
 
 _CONFIGURED_KEY = "configuredPriceSources"
 
@@ -160,6 +165,54 @@ def available_price_sources(market: Market, settings_path: Path) -> tuple[PriceS
     if builtin is not None:
         sources.append(builtin)
     return tuple(sources)
+
+
+def remember_price_source(
+    research: Research,
+    source_id: str,
+    *,
+    unlicensed_acknowledged: bool,
+    now: datetime,
+    settings_path: Path,
+) -> Research:
+    """Store this research's price-source choice before Run.
+
+    The confirm card used to keep the radio in memory only. Edit unmounted
+    that card, so the source came back as Not selected while a recorded
+    acknowledgement timestamp stayed on the row. The choice now lives on the
+    research. A new research still does not inherit it. An empty id clears
+    the choice and does not erase a stored acknowledgement.
+    """
+    chosen = source_id.strip()
+    if research.status is not ResearchStatus.DRAFT:
+        # confirm_run may already have stored this source and started. A late
+        # ack for the same source is not a second edit.
+        if not chosen or research.data_source_id == chosen:
+            return research
+        raise ValueError("set_price_source is only valid while research is still in draft")
+    if not chosen:
+        return replace(research, data_source_id="", updated_at=now)
+    universe = research.brief.universe.value
+    if universe is None:
+        from engine.research.symbol_pool import EMPTY_POOL_DIALOGUE_PROMPT
+        from engine.research.user_errors import UserFacingError
+
+        raise UserFacingError("UNIVERSE_MISSING", EMPTY_POOL_DIALOGUE_PROMPT)
+    available = {
+        source.source_id for source in available_price_sources(universe.market, settings_path)
+    }
+    if chosen not in available:
+        from engine.research.a1_copy import DATA_SOURCE_UNBOUND
+        from engine.research.user_errors import UserFacingError
+
+        raise UserFacingError("DATA_SOURCE_UNBOUND", DATA_SOURCE_UNBOUND)
+    if (
+        unlicensed_acknowledged
+        and is_unlicensed_source(chosen)
+        and acknowledged_at(chosen, settings_path) is None
+    ):
+        record_acknowledgement(chosen, now, settings_path)
+    return replace(research, data_source_id=chosen, updated_at=now)
 
 
 def apply_price_source_choice(

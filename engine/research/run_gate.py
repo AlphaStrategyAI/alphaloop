@@ -28,6 +28,7 @@ from engine.research.universe_validation import (
     reject_source_market_mismatch,
     reject_unresolved_symbols,
     reject_unspecified_market,
+    too_few_named_symbols,
 )
 from engine.research.user_errors import UserFacingError
 
@@ -82,6 +83,10 @@ def evaluate_run_gate(
         return RunGate(False, "STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
     elif hit.outcome == "disclose" and not research.mean_reversion_adopted:
         return RunGate(False, MEAN_REVERSION_ACK_REQUIRED, MEAN_REVERSION_ACK_MESSAGE)
+
+    too_few = too_few_named_symbols(research)
+    if too_few is not None:
+        return _from_error(too_few)
 
     source = data_source_id.strip()
     if pool_resolvable(research) and not source:

@@ -3,7 +3,7 @@
  * The card notice and the Run button come from the same gate.
  */
 import "@testing-library/jest-dom/vitest";
-import {cleanup, fireEvent, render, screen} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {bindDesktopApi} from "./api-bind";
@@ -78,6 +78,7 @@ function api(confirmRun: DesktopApi["confirmRun"]): DesktopApi {
     removeMarketSide: vi.fn(async () => undefined),
     dismissMismatchedSymbol: vi.fn(async () => undefined),
     chooseDefaultMarket: vi.fn(async () => undefined),
+    setPriceSource: vi.fn(async () => undefined),
     unlockBrief: vi.fn(),
     sendDialogue: vi.fn(),
     pauseResearch: vi.fn(),
@@ -148,7 +149,7 @@ describe("family run gate on the confirm card", () => {
     expect(payloads).toEqual([]);
   });
 
-  it("sends an already-acknowledged Yahoo source through api-bind without asking again", () => {
+  it("sends an already-acknowledged Yahoo source through api-bind without asking again", async () => {
     const {payloads} = renderCard(EN, card({
       settings: {
         thesis: "SPY mean reversion",
@@ -169,13 +170,13 @@ describe("family run gate on the confirm card", () => {
     expect(button).toBeEnabled();
     expect(screen.queryByTestId("unlicensed-ack")).toBeNull();
     fireEvent.click(button);
-    expect(payloads).toEqual([
+    await waitFor(() => expect(payloads).toEqual([
       {
         type: "confirm_run",
         research_id: "r-family",
         data_source_id: "yahoo_daily",
       },
-    ]);
+    ]));
   });
 
   it("clears a stale unlicensed error when the stored acknowledgement is what the gate sees", async () => {
@@ -219,7 +220,7 @@ const QUESTION =
 const ACK_REASON = "Confirm whether to continue with mean reversion before running.";
 
 describe("disclosed family stays disabled until the user answers yes", () => {
-  it("keeps Run disabled before the answer and sends confirm_run after", () => {
+  it("keeps Run disabled before the answer and sends confirm_run after", async () => {
     const before = card({
       settings: {
         thesis: "美股低波策略",
@@ -256,13 +257,13 @@ describe("disclosed family stays disabled until the user answers yes", () => {
     expect(ready).toBeEnabled();
     expect(screen.queryByTestId("confirm-run-blocked-reason")).toBeNull();
     fireEvent.click(ready);
-    expect(payloads).toEqual([
+    await waitFor(() => expect(payloads).toEqual([
       {
         type: "confirm_run",
         research_id: "r-family",
         data_source_id: "yahoo_daily",
       },
-    ]);
+    ]));
   });
 });
 

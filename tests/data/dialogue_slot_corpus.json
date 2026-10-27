@@ -1,0 +1,244 @@
+{
+  "comment": "Cumulative EN+ZH slot examples from the v0.9.1 Linux smoke, plus the Chinese prompts they must not regress. Do not delete a row or loosen an expected outcome without product sign-off. Ticker cases stay in tests/data/symbol_regression_corpus.json and are gated by tests/test_symbol_regression_corpus.py on every head.",
+  "rows": [
+    {
+      "id": "en-thesis-aapl-us-stock",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices."],
+      "symbols": ["AAPL"],
+      "no_apology": true
+    },
+    {
+      "id": "en-time-30-minutes",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "30 minutes"],
+      "hours": 0.5,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-12-hours",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "12 hours"],
+      "hours": 12,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-30-min",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "30 min"],
+      "hours": 0.5,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-30-mins",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "30 mins"],
+      "hours": 0.5,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-30minutes-no-space",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "30minutes"],
+      "hours": 0.5,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-12-hrs",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "12 hrs"],
+      "hours": 12,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-12-hr",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "12 hr"],
+      "hours": 12,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-1-hour",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "1 hour"],
+      "hours": 1,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-half-an-hour",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "half an hour"],
+      "hours": 0.5,
+      "no_apology": true
+    },
+    {
+      "id": "en-time-prompt-example-both",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "12 hours, or 30 minutes"],
+      "hours": 12,
+      "no_apology": true
+    },
+    {
+      "id": "zh-time-30-minutes",
+      "messages": ["美股股票的均值回归", "30 分钟"],
+      "hours": 0.5,
+      "no_apology": true
+    },
+    {
+      "id": "zh-time-12-hours",
+      "messages": ["美股股票的均值回归", "12 小时"],
+      "hours": 12,
+      "no_apology": true
+    },
+    {
+      "id": "zh-time-half-hour",
+      "messages": ["美股股票的均值回归", "半小时"],
+      "hours": 0.5,
+      "no_apology": true
+    },
+    {
+      "id": "en-methods-prompt-example",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "30 minutes",
+        "subperiod robustness check, out-of-sample stability, concentration, turnover cost"
+      ],
+      "methods": ["overfit.walk", "stability.oos", "crowding.load", "cost.turnover"],
+      "no_apology": true
+    },
+    {
+      "id": "en-methods-display-names",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "12 hours",
+        "Subperiod robustness check, Out-of-sample stability, Concentration, Turnover cost."
+      ],
+      "methods": ["overfit.walk", "stability.oos", "crowding.load", "cost.turnover"],
+      "no_apology": true
+    },
+    {
+      "id": "en-methods-out-of-sample-spaces",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "12 hours",
+        "subperiod robustness check, out of sample stability, concentration, turnover cost"
+      ],
+      "methods": ["overfit.walk", "stability.oos", "crowding.load", "cost.turnover"],
+      "no_apology": true
+    },
+    {
+      "id": "zh-methods-prompt-example",
+      "messages": [
+        "美股股票的均值回归",
+        "12 小时",
+        "分段稳健性检验、样本外稳定、集中度、换手成本"
+      ],
+      "methods": ["overfit.walk", "stability.oos", "crowding.load", "cost.turnover"],
+      "no_apology": true
+    },
+    {
+      "id": "zh-methods-legacy-aliases",
+      "messages": [
+        "美股股票的均值回归",
+        "12 小时",
+        "走样检验 样本外稳定 拥挤度 换手成本"
+      ],
+      "methods": ["overfit.walk", "stability.oos", "crowding.load", "cost.turnover"],
+      "no_apology": true
+    },
+    {
+      "id": "en-coverage-prompt-example-25",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "30 minutes",
+        "subperiod robustness check, out-of-sample stability, concentration, turnover cost",
+        "at least 25 names, 10 years of history, and no more than 5% missing."
+      ],
+      "coverage": {"assets": 25, "years": 10, "missing": 5},
+      "symbols": ["AAPL"],
+      "kind": "confirm_run",
+      "run_gate": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "run_gate_params": {"count": 1, "minimum": 25},
+      "confirm_blocked": true,
+      "no_apology": true
+    },
+    {
+      "id": "en-coverage-1-name-does-not-block",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "12 hours",
+        "subperiod robustness check, out-of-sample stability, concentration, turnover cost",
+        "at least 1 name, 10 years of history, and no more than 5% missing."
+      ],
+      "coverage": {"assets": 1, "years": 10, "missing": 5},
+      "symbols": ["AAPL"],
+      "kind": "confirm_run",
+      "run_gate_not": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "no_apology": true
+    },
+    {
+      "id": "en-coverage-symbols-and-missing-synonym",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "12 hrs",
+        "turnover cost, concentration, out-of-sample stability, subperiod robustness check",
+        "at least 25 symbols, 10 yrs, missing no more than 5%"
+      ],
+      "coverage": {"assets": 25, "years": 10, "missing": 5},
+      "run_gate": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "no_apology": true
+    },
+    {
+      "id": "zh-coverage-prompt-example-on-aapl",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "30 分钟",
+        "分段稳健性检验、样本外稳定、集中度、换手成本",
+        "至少 25 个、10 年、缺失不超过 5%。"
+      ],
+      "coverage": {"assets": 25, "years": 10, "missing": 5},
+      "symbols": ["AAPL"],
+      "kind": "confirm_run",
+      "run_gate": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "no_apology": true
+    },
+    {
+      "id": "zh-coverage-at-least-phrase",
+      "messages": [
+        "美股股票的均值回归",
+        "12 小时",
+        "分段稳健性检验、样本外稳定、集中度、换手成本",
+        "至少 25 个、10 年、缺失不超过 5%"
+      ],
+      "coverage": {"assets": 25, "years": 10, "missing": 5},
+      "kind": "confirm_run",
+      "run_gate_not": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "no_apology": true
+    },
+    {
+      "id": "zh-a-share-one-name-does-not-block",
+      "messages": [
+        "A股股票 600519 均值回归",
+        "12 小时",
+        "走样检验 样本外稳定 拥挤度 换手成本",
+        "至少 1 个、10 年、缺失不超过 5%"
+      ],
+      "coverage": {"assets": 1, "years": 10, "missing": 5},
+      "symbols": ["600519.SH"],
+      "kind": "confirm_run",
+      "run_gate_not": "UNIVERSE_TOO_FEW_SYMBOLS",
+      "no_apology": true
+    },
+    {
+      "id": "en-unparsed-time-apology-once",
+      "messages": [
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "not a duration",
+        "not a duration"
+      ],
+      "apology_turns": 2,
+      "hours_unset": true
+    },
+    {
+      "id": "zh-unparsed-time-apology-once",
+      "messages": ["美股股票的均值回归", "看不懂", "看不懂"],
+      "apology_turns": 2,
+      "hours_unset": true
+    },
+    {
+      "id": "en-time-over-cap-rejected",
+      "messages": ["Mean reversion on AAPL, a US stock, using daily prices.", "800 hours"],
+      "hours_unset": true,
+      "apology_turns": 1
+    }
+  ]
+}

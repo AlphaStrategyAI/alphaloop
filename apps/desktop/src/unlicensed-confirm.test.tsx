@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import {cleanup, fireEvent, render, screen} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {ConfirmRunCard} from "./App";
@@ -25,6 +25,7 @@ function api(): DesktopApi {
     removeMarketSide: vi.fn(async () => undefined),
     dismissMismatchedSymbol: vi.fn(async () => undefined),
     chooseDefaultMarket: vi.fn(async () => undefined),
+    setPriceSource: vi.fn(async () => undefined),
     unlockBrief: vi.fn(),
     sendDialogue: vi.fn(),
     pauseResearch: vi.fn(),
@@ -156,7 +157,7 @@ describe("unlicensed tag", () => {
 });
 
 describe("unlicensed confirm card", () => {
-  it("does not preselect Yahoo and blocks Run until the personal-research box is ticked", () => {
+  it("does not preselect Yahoo and blocks Run until the personal-research box is ticked", async () => {
     const desktop = api();
     render(
       <I18nProvider initial={EN}>
@@ -178,10 +179,10 @@ describe("unlicensed confirm card", () => {
     fireEvent.click(ack);
     expect(run.disabled).toBe(false);
     fireEvent.click(run);
-    expect(desktop.confirmRun).toHaveBeenCalledWith("r-spy", {
+    await waitFor(() => expect(desktop.confirmRun).toHaveBeenCalledWith("r-spy", {
       dataSourceId: "yahoo_daily",
       unlicensedAcknowledged: true,
-    });
+    }));
   });
 });
 

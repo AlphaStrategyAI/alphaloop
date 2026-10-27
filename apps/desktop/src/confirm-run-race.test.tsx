@@ -51,6 +51,7 @@ function makeApi(overrides: Partial<DesktopApi>): DesktopApi {
     removeMarketSide: overrides.removeMarketSide ?? vi.fn(async () => undefined),
     dismissMismatchedSymbol: vi.fn(async () => undefined),
     chooseDefaultMarket: vi.fn(async () => undefined),
+    setPriceSource: vi.fn(async () => undefined),
   };
 }
 

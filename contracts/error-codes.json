@@ -94,5 +94,9 @@
   "MEAN_REVERSION_ACK_REQUIRED": {
     "params": [],
     "legacyZh": "先确认是否按均值回归继续，再开跑。"
+  },
+  "UNIVERSE_TOO_FEW_SYMBOLS": {
+    "params": ["count", "minimum"],
+    "legacyZh": "当前仅 {{count}} 个标的，低于最低覆盖要求的 {{minimum}} 个。请调低覆盖底线或增加标的后再开跑。"
   }
 }

@@ -822,7 +822,10 @@ class ResearchCommandService:
                     unlicensed_acknowledged=False,
                     settings_path=self.paths.data.settings_file,
                 )
-                body["runGate"] = {"runnable": gate.runnable, "code": gate.code}
+                gate_payload: dict[str, Any] = {"runnable": gate.runnable, "code": gate.code}
+                if gate.params:
+                    gate_payload["params"] = gate.params
+                body["runGate"] = gate_payload
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -1187,6 +1190,27 @@ class ResearchCommandService:
             research = self.store.load(str(request["research_id"]))
             updated = apply_symbol_edit(research, str(request["symbol"]), now)
             return self._save(research, updated)
+        if kind == "set_price_source":
+            from engine.research.price_source_choice import remember_price_source
+
+            research_id = str(request["research_id"])
+            # Same lock as confirm_run. An acknowledgement that lands while the
+            # run is probing must not bump updated_at under that snapshot.
+            with self._lock_for_research(research_id):
+                research = self.store.load(research_id)
+                updated = remember_price_source(
+                    research,
+                    str(request.get("data_source_id") or ""),
+                    unlicensed_acknowledged=bool(request.get("unlicensed_acknowledged")),
+                    now=now,
+                    settings_path=self.paths.data.settings_file,
+                )
+                if updated is research:
+                    return {
+                        "research_id": research.research_id,
+                        "status": research.status.value,
+                    }
+                return self._save(research, updated)
         if kind == "answer_symbol_ask":
             research = self.store.load(str(request["research_id"]))
             updated = answer_symbol_ask(

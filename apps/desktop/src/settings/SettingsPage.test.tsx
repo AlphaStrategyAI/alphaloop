@@ -44,6 +44,31 @@ describe("settings language", () => {
     expect(later.querySelector("[data-i18n-placeholder]")).toBeNull();
   });
 
+  it("does not reuse the data-sources sentence on the LLM tab", async () => {
+    const port = createMemoryLanguagePort({preference: "en", systemLocale: "en-US"});
+    const en = render(
+      <I18nProvider port={port} initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <SettingsPage route="#/settings/llm" />
+      </I18nProvider>,
+    );
+    const llm = await screen.findByTestId("settings-llm");
+    expect(llm).toHaveTextContent(/not ready/i);
+    expect(llm).not.toHaveTextContent("Local file import arrives in M2.");
+    expect(llm).not.toHaveTextContent("本地文件导入将在 M2 提供。");
+    expect(llm.querySelector("[data-i18n-placeholder]")).toBeNull();
+    en.unmount();
+
+    render(
+      <I18nProvider port={port} initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
+        <SettingsPage route="#/settings/llm" />
+      </I18nProvider>,
+    );
+    const zhLlm = await screen.findByTestId("settings-llm");
+    expect(zhLlm).toHaveTextContent("大模型设置尚未就绪，以后再提供。");
+    expect(zhLlm).not.toHaveTextContent("本地文件导入将在 M2 提供。");
+    expect(screen.getByTestId("settings-tab-llm")).toHaveClass("active");
+  });
+
   it("persists the preference and restores it on the next mount", async () => {
     const port = createMemoryLanguagePort({preference: "system", systemLocale: "zh-CN"});
     const first = render(

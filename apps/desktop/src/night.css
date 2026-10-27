@@ -24,7 +24,7 @@ html, body, #root {
   height: 100%;
   background: var(--void);
 }
-button, input { font: inherit; }
+button, input, textarea { font: inherit; }
 button, a { transition: transform 320ms ease-out, opacity 320ms ease-out, border-color 320ms ease-out; }
 button:active { transform: scale(.98); }
 
@@ -195,7 +195,27 @@ button.cyan-button.is-disabled {
   background: linear-gradient(transparent, var(--void) 24%);
   z-index: 2;
 }
-.conversation input { width: 100%; color: var(--ink); background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius-control); padding: 16px; }
+.conversation input,
+.conversation textarea.dialogue-input {
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--ink);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 16px;
+  font: inherit;
+}
+.conversation textarea.dialogue-input {
+  display: block;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  field-sizing: content;
+  min-height: 3.25rem;
+  line-height: 1.45;
+}
 .settings { background: var(--glass); border: 1px solid var(--line); padding: 36px 24px; }
 .settings-row {
   display: grid;

@@ -26,6 +26,7 @@ _MIXED = "一次研究只能用同一个市场的标的，这里既有 A 股（{
 _MISMATCH = "描述里的市场是 {market}，但 {symbols} 不属于这个市场。请删掉这些代码，或改成对应的市场。"
 _SOURCE_MISMATCH = "所选数据源 {source} 不提供{market}行情，和这些标的对不上，无法开跑。请换一个{market}数据源。"
 _MARKET_CHOICE = "描述里没有写市场。这次研究用哪个市场的默认池？"
+_TOO_FEW = "当前仅 {count} 个标的，低于最低覆盖要求的 {minimum} 个。请调低覆盖底线或增加标的后再开跑。"
 _SOURCE_EN = {
     "yahoo_daily": "Yahoo daily",
     "akshare_sina_daily": "AkShare daily (Sina first)",
@@ -559,6 +560,29 @@ def choose_default_market(research: Research, market_name: str, now: datetime) -
     )
 
 
+def too_few_named_symbols(research: Research) -> UserFacingError | None:
+    """User-specified names cannot satisfy a higher locked minimum.
+
+    A default pool is a different check. One named ticker with a floor of 25
+    stops on the confirm card instead of starting and failing mid-run.
+    """
+    universe = research.brief.universe.value
+    floor = research.brief.coverage_floor.value
+    if universe is None or floor is None:
+        return None
+    if not universe.user_symbols_override or not universe.symbols:
+        return None
+    count = len(universe.symbols)
+    minimum = int(floor.min_assets)
+    if minimum and count < minimum:
+        return UserFacingError(
+            "UNIVERSE_TOO_FEW_SYMBOLS",
+            _TOO_FEW.format(count=count, minimum=minimum),
+            params={"count": count, "minimum": minimum},
+        )
+    return None
+
+
 def resolve_universe_symbols(research: Research, now: datetime) -> Research:
     """Apply versioned default pool or validate user symbols before confirm."""
     research = materialize_default_pool(research)
@@ -584,11 +608,9 @@ def resolve_universe_symbols(research: Research, now: datetime) -> Research:
     min_assets = floor.min_assets if floor is not None else 0
 
     if universe.symbols and universe.user_symbols_override:
-        if min_assets and len(universe.symbols) < min_assets:
-            raise UserFacingError(
-                "UNIVERSE_TOO_FEW_SYMBOLS",
-                f"当前仅 {len(universe.symbols)} 个标的，低于最低覆盖要求的 {min_assets} 个。",
-            )
+        too_few = too_few_named_symbols(research)
+        if too_few is not None:
+            raise too_few
         start, end = planned_data_window(now)
         missing = missing_named_symbols(universe.symbols, start, end)
         kept = tuple(symbol for symbol in universe.symbols if symbol not in set(missing))

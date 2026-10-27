@@ -281,7 +281,7 @@ const RULES: Rule[] = [
     }),
   },
   {
-    re: /^没能理解你的意思。(.*)$/,
+    re: /^(?:没能理解你的意思。)+(.*)$/,
     render: (m, t) => `${t("ui.dialogue.misunderstood")}${localizeKnownCopy(m[1], t)}`,
   },
   {

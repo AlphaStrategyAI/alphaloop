@@ -188,6 +188,18 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["type", "research_id", "data_source_id"],
+      "properties": {
+        "type": {"const": "set_price_source"},
+        "research_id": {"type": "string", "minLength": 1},
+        "data_source_id": {"type": "string", "minLength": 0},
+        "unlicensed_acknowledged": {"type": "boolean"},
+        "locale": {"type": "string", "enum": ["zh", "en"]}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["type", "research_id", "token", "accept"],
       "properties": {
         "type": {"const": "answer_symbol_ask"},

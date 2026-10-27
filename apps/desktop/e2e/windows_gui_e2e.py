@@ -511,6 +511,7 @@ def assert_run_disabled(driver, reason_needle: str) -> None:
         "ack",
         "unlicensed",
         "resolution",
+        "coverage",
     }:
         raise AssertionError(f"Run is disabled without a block reason: {button.get_attribute('data-run-blocked')}")
     opacity = driver.execute_script("return getComputedStyle(arguments[0]).opacity", button)
@@ -684,8 +685,9 @@ def set_input(driver, css: str, value: str) -> None:
         """
         const input = document.querySelector(arguments[0]);
         if (!input) throw new Error("missing " + arguments[0]);
-        const proto = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
-        proto.set.call(input, arguments[1]);
+        const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value");
+        if (!desc || !desc.set) throw new Error("no value setter on " + arguments[0]);
+        desc.set.call(input, arguments[1]);
         input.dispatchEvent(new Event("input", {bubbles: true}));
         """,
         css,
@@ -714,8 +716,9 @@ def submit_dialogue(driver, message: str) -> None:
         """
         const input = document.querySelector("[data-testid=dialogue-input]");
         if (!input) throw new Error("dialogue input missing");
-        const proto = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
-        proto.set.call(input, arguments[0]);
+        const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value");
+        if (!desc || !desc.set) throw new Error("dialogue input has no value setter");
+        desc.set.call(input, arguments[0]);
         input.dispatchEvent(new Event("input", {bubbles: true}));
         if (!input.form) throw new Error("dialogue input has no form");
         input.form.requestSubmit();
