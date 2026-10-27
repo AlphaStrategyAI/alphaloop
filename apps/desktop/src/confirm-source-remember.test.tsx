@@ -82,6 +82,32 @@ function card(extra: Partial<Extract<DesktopView, {kind: "confirm_run"}>["symbol
 }
 
 describe("confirm edit keeps the price source and the acknowledgement together", () => {
+  it("waits for the source write before confirm_run", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const api = desktop();
+    api.setPriceSource.mockImplementation(() => gate);
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={api} view={card()} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
+    fireEvent.click(screen.getByTestId("unlicensed-ack"));
+    fireEvent.click(screen.getByTestId("confirm-run-start"));
+    await Promise.resolve();
+    expect(api.confirmRun).not.toHaveBeenCalled();
+    release();
+    await waitFor(() =>
+      expect(api.confirmRun).toHaveBeenCalledWith("r-edit", {
+        dataSourceId: "yahoo_daily",
+        unlicensedAcknowledged: true,
+      }),
+    );
+  });
+
   it("stores the chosen source and the acknowledgement before Edit", async () => {
     const api = desktop();
     render(
@@ -90,9 +116,9 @@ describe("confirm edit keeps the price source and the acknowledgement together",
       </I18nProvider>,
     );
     fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
-    expect(api.setPriceSource).toHaveBeenCalledWith("r-edit", "yahoo_daily");
+    await waitFor(() => expect(api.setPriceSource).toHaveBeenCalledWith("r-edit", "yahoo_daily"));
     fireEvent.click(screen.getByTestId("unlicensed-ack"));
-    expect(api.setPriceSource).toHaveBeenCalledWith("r-edit", "yahoo_daily", true);
+    await waitFor(() => expect(api.setPriceSource).toHaveBeenCalledWith("r-edit", "yahoo_daily", true));
     fireEvent.click(screen.getByTestId("edit-slot-coverage_floor"));
     await waitFor(() => expect(api.unlockBrief).toHaveBeenCalledWith("r-edit", "coverage_floor"));
     const order = api.setPriceSource.mock.invocationCallOrder.at(-1) ?? 0;

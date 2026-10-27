@@ -313,6 +313,19 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const [acked, setAcked] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const startingRef = useRef(false);
+  const sourceWrite = useRef(Promise.resolve());
+  const sourceWriteIdle = useRef(true);
+  const queueSourceWrite = (work: () => Promise<unknown>) => {
+    const run = () => Promise.resolve(work()).then(() => undefined, () => undefined);
+    const idle = sourceWriteIdle.current;
+    sourceWriteIdle.current = false;
+    const job = idle ? run() : sourceWrite.current.then(run, run);
+    sourceWrite.current = job;
+    void job.then(() => {
+      if (sourceWrite.current === job) sourceWriteIdle.current = true;
+    });
+    return job;
+  };
   const sel = view.symbolSelection;
   const returnToDraft = () => {
     void api.unlockBrief(view.researchId);
@@ -361,10 +374,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   });
   const canRun = gate.runnable;
   const rememberSource = (sourceId: string, acknowledged?: boolean) => {
-    const save = acknowledged === undefined
-      ? api.setPriceSource(view.researchId, sourceId)
-      : api.setPriceSource(view.researchId, sourceId, acknowledged);
-    void save.catch(() => undefined);
+    queueSourceWrite(() =>
+      acknowledged === undefined
+        ? api.setPriceSource(view.researchId, sourceId)
+        : api.setPriceSource(view.researchId, sourceId, acknowledged),
+    );
   };
   const editSlot = (slot: BriefSlotName) => {
     const openEditor = () => {
@@ -383,10 +397,11 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       openEditor();
       return;
     }
-    const persist = acked
-      ? api.setPriceSource(view.researchId, selectedId, true)
-      : api.setPriceSource(view.researchId, selectedId);
-    void persist.then(openEditor, openEditor);
+    void queueSourceWrite(() =>
+      acked
+        ? api.setPriceSource(view.researchId, selectedId, true)
+        : api.setPriceSource(view.researchId, selectedId),
+    ).then(openEditor);
   };
   const symbolKey = (resolution?.symbols ?? sel?.symbols ?? []).join("|");
   const universeScope = `${view.researchId}|${view.market ?? ""}|${symbolKey}`;
@@ -406,6 +421,9 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     setRunError(null);
     void (async () => {
       try {
+        if (!sourceWriteIdle.current) {
+          await sourceWrite.current;
+        }
         if (symbolDraft.trim() !== seeded.trim()) {
           await commitSymbol(symbolDraft);
         }

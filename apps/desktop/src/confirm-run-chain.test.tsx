@@ -104,14 +104,14 @@ describe("confirm run call chain", () => {
 
     await tickYahooAndRun();
 
-    expect(payloads).toEqual([
+    await waitFor(() => expect(payloads).toEqual([
       {
         type: "confirm_run",
         research_id: "r-spy",
         data_source_id: "yahoo_daily",
         unlicensed_acknowledged: true,
       },
-    ]);
+    ]));
   });
 
   it("shows a DATA_SOURCE_UNBOUND engine error in English and Chinese", async () => {
