@@ -163,7 +163,7 @@ jobs:
     permissions:
       contents: read
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -310,7 +310,8 @@ jobs:
           exit $LASTEXITCODE
 
       - name: Windows GUI end-to-end
-        timeout-minutes: 20
+        # English slot examples, the N3 no-source check, and LLM settings sit on the same run.
+        timeout-minutes: 30
         shell: pwsh
         env:
           ALPHALOOP_OFFLINE_MARKET_DATA: "1"

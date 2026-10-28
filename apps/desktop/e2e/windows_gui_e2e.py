@@ -9,11 +9,19 @@ Both flags default off in the product; this job sets them.
 A step is PASS only after its assertion holds. A step that cannot run because
 an earlier step failed is SKIPPED with that reason. This script never marks a
 step passed because a later check was too hard.
+
+Locked Windows thickened-bar map (docs stay on the acceptance PR):
+A1/A2 install and launch, B1 zh/en chrome, B2 English time examples,
+B3 English methods and coverage examples, C1–C3 secrets, D1/D2 confirm
+cards, E1 momentum hard-block plus disclosed-family chips, F1 no-source
+N3 copy (including a universe under the coverage floor), G offline run
+and export, H1–H3 delete, persist, and uninstall, I2 LLM settings.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -27,7 +35,28 @@ from typing import Callable
 
 CJK = re.compile(r"[\u3400-\u9fff]")
 AUTH_TOKEN_RE = re.compile(r'("auth_token"\s*:\s*")[^"]*"')
-TEST_SECRETS = ("alphaloop-e2e-keyring", "alphaloop-e2e-secret", "correct horse")
+TEST_SECRETS = (
+    "alphaloop-e2e-keyring",
+    "alphaloop-e2e-secret",
+    "correct horse",
+    "alphaloop-e2e-llm-key",
+)
+N3_EN = "No data source selected yet. Pick one on the confirmation card before running."
+N3_ZH = "还没选数据源。先在确认卡上选一个，再开跑。"
+COVERAGE_FLOOR_EN = "below the coverage minimum"
+COVERAGE_FLOOR_ZH = "低于最低覆盖"
+EN_THESIS = "Mean reversion on AAPL, a US stock, using daily prices."
+EN_METHODS = "subperiod robustness check, out-of-sample stability, concentration, turnover cost"
+EN_COVERAGE = "at least 25 names, 10 years of history, and no more than 5% missing."
+HOURS_PROMPT = "How much effective research time"
+METHODS_PROMPT = "Which frozen verification methods"
+COVERAGE_PROMPT = "What is the minimum data coverage"
+SLOTS_READY = "Review the confirmation card."
+APOLOGY_MARKERS = ("I couldn't understand", "没能理解你的意思")
+LLM_API_KEY = "alphaloop-e2e-llm-key"
+LLM_REMOTE_URL = "https://api.openai.com/v1"
+LLM_LOOPBACK_URL = "http://127.0.0.1:11434/v1"
+LLM_MODEL = "gpt-4.1-mini"
 ROOT = Path(__file__).resolve().parents[3]
 ARTIFACTS = ROOT / "e2e-artifacts"
 SHOTS = ARTIFACTS / "screenshots"
@@ -728,6 +757,143 @@ def submit_dialogue(driver, message: str) -> None:
     WebDriverWait(driver, 45).until(ready)
 
 
+def conversation_text(driver) -> str:
+    return driver.execute_script(
+        "const node = document.querySelector('.conversation'); return node ? node.innerText : '';"
+    ) or ""
+
+
+def dialogue_turn_count(driver) -> int:
+    count = driver.execute_script(
+        "return document.querySelectorAll('[data-testid=dialogue-turn]').length"
+    )
+    return int(count or 0)
+
+
+def assert_no_apology(text: str) -> None:
+    for marker in APOLOGY_MARKERS:
+        if marker in text:
+            raise AssertionError(f"parser repeated an apology: {text[-500:]}")
+
+
+def submit_accepted(driver, message: str, appeared: str) -> None:
+    """One slot answer must advance the dialogue. An apology is a failure."""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    before = dialogue_turn_count(driver)
+    submit_dialogue(driver, message)
+
+    def advanced(current) -> bool:
+        if current.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-run-card]"):
+            return True
+        if dialogue_turn_count(current) <= before:
+            return False
+        text = conversation_text(current)
+        if any(marker in text for marker in APOLOGY_MARKERS):
+            return True
+        return appeared in text
+
+    WebDriverWait(driver, 45).until(advanced)
+    text = conversation_text(driver)
+    assert_no_apology(text)
+    on_confirm = bool(driver.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-run-card]"))
+    if appeared not in text and not on_confirm:
+        raise AssertionError(f"after {message!r} the dialogue did not show {appeared!r}: {text[-400:]}")
+
+
+def start_new_research(driver) -> None:
+    go(driver, "#/research")
+    click(driver, "[data-testid=new-research-button]")
+    wait_css(driver, "[data-testid=dialogue-input]", 40)
+
+
+def slot_text(driver, key: str) -> str:
+    from selenium.webdriver.common.by import By
+
+    return driver.find_element(By.CSS_SELECTOR, f"[data-testid=brief-slot-{key}]").text
+
+
+def assert_slot_filled(driver, key: str, needle: str) -> None:
+    text = slot_text(driver, key)
+    if needle not in text:
+        raise AssertionError(f"{key} slot {text!r} did not contain {needle!r}")
+    if "Not locked" in text or "未锁定" in text:
+        raise AssertionError(f"{key} slot stayed unlocked: {text!r}")
+
+
+def current_research_id(driver) -> str:
+    href = driver.execute_script("return window.location.hash || ''") or ""
+    research_id = href.rstrip("/").split("/")[-1]
+    if not research_id or research_id in {"research", "settings"}:
+        raise AssertionError(f"dialogue did not open a research route: {href}")
+    return research_id
+
+
+def assert_disabled_run_stays(driver) -> None:
+    """A disabled Run must ignore a click instead of starting the study."""
+    from selenium.webdriver.common.by import By
+
+    driver.execute_script("document.querySelector('[data-testid=confirm-run-start]')?.click()")
+    deadline = time.time() + 2
+    while time.time() < deadline:
+        view = driver.find_element(By.CSS_SELECTOR, "[data-testid=night-shell]").get_attribute("data-view")
+        if view == "running":
+            raise AssertionError("clicking a disabled Run started the study")
+        if not driver.find_elements(By.CSS_SELECTOR, "[data-testid=confirm-run-card]"):
+            raise AssertionError("clicking a disabled Run left the confirm card")
+        button = driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]")
+        if button.is_enabled():
+            raise AssertionError("clicking a disabled Run enabled it")
+        time.sleep(0.2)
+
+
+def _wait_llm_settings(data_root: Path) -> dict:
+    deadline = time.time() + 20
+    last = ""
+    while time.time() < deadline:
+        path = data_root / "settings.json"
+        if path.is_file():
+            last = path.read_text(encoding="utf-8")
+            try:
+                loaded = json.loads(last)
+            except json.JSONDecodeError:
+                time.sleep(0.3)
+                continue
+            if (
+                isinstance(loaded, dict)
+                and loaded.get("llmBaseUrl") == LLM_REMOTE_URL
+                and loaded.get("llmModel") == LLM_MODEL
+                and loaded.get("llmPrivacyAcknowledged") is True
+            ):
+                return loaded
+        time.sleep(0.3)
+    raise AssertionError(f"settings.json did not record the LLM endpoint: {last[:400]}")
+
+
+def assert_n3_blocks_run(driver, copy: str, source_label: str, coverage_sentence: str) -> None:
+    """No selected source: Run stays off and the reason is the N3 sentence."""
+    from selenium.webdriver.common.by import By
+
+    meta = driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-data-meta]").text
+    if source_label not in meta:
+        raise AssertionError(f"source line {meta!r} did not show {source_label!r}")
+    assert_run_disabled(driver, copy)
+    reason = " ".join(
+        driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-blocked-reason]").text.split()
+    )
+    if reason != copy:
+        raise AssertionError(f"blocked reason {reason!r} was not the N3 copy")
+    if coverage_sentence in reason:
+        raise AssertionError(f"blocked reason fell back to the coverage floor: {reason!r}")
+    token = driver.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]").get_attribute(
+        "data-run-blocked"
+    )
+    if token != "source":
+        raise AssertionError(f"Run block token was {token!r}, expected source")
+    assert_disabled_run_stays(driver)
+
+
 def element_in_viewport(driver, css: str) -> bool:
     return bool(
         driver.execute_script(
@@ -1260,6 +1426,186 @@ def main() -> int:
         assert_no_cjk(session.driver, ".methods-layout", "methods")
         return "English glossary and methods rendered with no CJK"
 
+    def step_en_time_examples() -> str:
+        assert session is not None
+        driver = session.driver
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        shown: list[str] = []
+        for answer, label in (("30 minutes", "30 min"), ("12 hours", "12 h")):
+            start_new_research(driver)
+            submit_accepted(driver, EN_THESIS, HOURS_PROMPT)
+            submit_accepted(driver, answer, METHODS_PROMPT)
+            WebDriverWait(driver, 15).until(
+                lambda d, expected=label: expected in slot_text(d, "max_effective_hours")
+            )
+            assert_slot_filled(driver, "max_effective_hours", label)
+            methods = slot_text(driver, "round1_methods")
+            if "Not locked" not in methods:
+                raise AssertionError(f"{answer!r} also filled methods: {methods!r}")
+            shown.append(f"{answer} → {label}")
+        driver.execute_script(
+            "document.querySelector('[data-testid=brief-slot-max_effective_hours]')"
+            "?.scrollIntoView({block:'center'})"
+        )
+        shoot("en-time-examples")
+        return "English time examples parsed and opened the methods prompt: " + "; ".join(shown)
+
+    def step_en_methods_coverage() -> str:
+        assert session is not None
+        driver = session.driver
+        start_new_research(driver)
+        submit_accepted(driver, EN_THESIS, HOURS_PROMPT)
+        submit_accepted(driver, "12 hours", METHODS_PROMPT)
+        assert_slot_filled(driver, "max_effective_hours", "12 h")
+        submit_accepted(driver, EN_METHODS, COVERAGE_PROMPT)
+        methods = slot_text(driver, "round1_methods")
+        for name in (
+            "Subperiod robustness check",
+            "Out-of-sample stability",
+            "Concentration",
+            "Turnover cost",
+        ):
+            if name not in methods:
+                raise AssertionError(f"methods slot {methods!r} did not contain {name!r}")
+        submit_accepted(driver, EN_COVERAGE, SLOTS_READY)
+        wait_css(driver, "[data-testid=confirm-run-card]", 40)
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        WebDriverWait(driver, 20).until(
+            lambda d: "At least 25 names" in slot_text(d, "coverage_floor")
+        )
+        coverage = slot_text(driver, "coverage_floor")
+        for part in ("10 years", "missing no more than 5%"):
+            if part not in coverage:
+                raise AssertionError(f"coverage slot {coverage!r} did not contain {part!r}")
+        assert_no_apology(conversation_text(driver))
+        research_ids["en-slots"] = current_research_id(driver)
+        driver.execute_script(
+            "document.querySelector('[data-testid=brief-slot-coverage_floor]')"
+            "?.scrollIntoView({block:'center'})"
+        )
+        shoot("en-methods-coverage")
+        return (
+            f"English methods and coverage examples parsed for {research_ids['en-slots']}; "
+            "coverage floor is 25 names on a one-name list"
+        )
+
+    def step_no_source_n3() -> str:
+        assert session is not None
+        driver = session.driver
+        research_id = research_ids["en-slots"]
+        open_confirm_card(driver, research_id)
+        assert_n3_blocks_run(driver, N3_EN, "Not selected", COVERAGE_FLOOR_EN)
+        try:
+            set_language(driver, "zh", "研究")
+            open_confirm_card(driver, research_id)
+            assert_n3_blocks_run(driver, N3_ZH, "待选择", COVERAGE_FLOOR_ZH)
+            driver.execute_script(
+                "document.querySelector('[data-testid=confirm-run-blocked-reason]')"
+                "?.scrollIntoView({block:'center'})"
+            )
+            shoot("no-source-n3")
+        finally:
+            set_language(driver, "en", "Research")
+        go(driver, "#/research")
+        return (
+            f"research {research_id} kept Run disabled with the N3 sentence in English and Chinese "
+            "while the named list was also under the coverage floor"
+        )
+
+    def step_llm_settings() -> str:
+        assert session is not None
+        driver = session.driver
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        def panel_text() -> str:
+            return driver.find_element(By.CSS_SELECTOR, "[data-testid=settings-llm]").text
+
+        go(driver, "#/settings/llm")
+        wait_css(driver, "[data-testid=settings-llm]")
+        if "not ready" in panel_text().lower():
+            raise AssertionError(f"LLM page is still a placeholder: {panel_text()[:300]}")
+        for testid in ("llm-base-url", "llm-api-key", "llm-model", "llm-local-status", "llm-save"):
+            wait_css(driver, f"[data-testid={testid}]")
+        key_input = driver.find_element(By.CSS_SELECTOR, "[data-testid=llm-api-key]")
+        if key_input.get_attribute("type") != "password":
+            raise AssertionError("API key field is not a password input")
+        set_input(driver, "[data-testid=llm-base-url]", LLM_LOOPBACK_URL)
+
+        def local_copy(current) -> bool:
+            status = current.find_element(By.CSS_SELECTOR, "[data-testid=llm-local-status]").text
+            no_key = current.find_elements(By.CSS_SELECTOR, "[data-testid=llm-no-key]")
+            return "Using a local model" in status and bool(no_key) and "does not use an API key" in no_key[0].text
+
+        def remote_copy(current) -> bool:
+            status = current.find_element(By.CSS_SELECTOR, "[data-testid=llm-local-status]").text
+            return "goes to this host" in status and not current.find_elements(
+                By.CSS_SELECTOR, "[data-testid=llm-no-key]"
+            )
+
+        WebDriverWait(driver, 15).until(local_copy)
+        set_input(driver, "[data-testid=llm-base-url]", LLM_REMOTE_URL)
+        WebDriverWait(driver, 15).until(remote_copy)
+        set_input(driver, "[data-testid=llm-model]", LLM_MODEL)
+        set_input(driver, "[data-testid=llm-api-key]", LLM_API_KEY)
+        click(driver, "[data-testid=llm-privacy]")
+        WebDriverWait(driver, 10).until(
+            lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=llm-privacy]").is_selected()
+        )
+        click(driver, "[data-testid=llm-save]")
+        WebDriverWait(driver, 20).until(
+            lambda d: d.find_elements(By.CSS_SELECTOR, "[data-testid=llm-saved]")
+            and d.find_elements(By.CSS_SELECTOR, "[data-testid=llm-key-stored]")
+        )
+        if driver.find_element(By.CSS_SELECTOR, "[data-testid=llm-api-key]").get_attribute("value"):
+            raise AssertionError("API key stayed in the form after save")
+        settings = _wait_llm_settings(data_root)
+        if settings.get("llmBaseUrl") != LLM_REMOTE_URL or settings.get("llmModel") != LLM_MODEL:
+            raise AssertionError(
+                f"settings.json endpoint was {settings.get('llmBaseUrl')!r} / {settings.get('llmModel')!r}"
+            )
+        if settings.get("llmPrivacyAcknowledged") is not True:
+            raise AssertionError("settings.json did not record the privacy acknowledgement")
+        raw = json.dumps(settings)
+        if LLM_API_KEY in raw:
+            raise AssertionError("settings.json contains the API key")
+        for banned in ("llmApiKey", "apiKey", "api_key", "ALPHALOOP_LLM_API_KEY"):
+            if banned in settings:
+                raise AssertionError(f"settings.json kept a secret field {banned}")
+        vault = data_root / "secret-vault.bin"
+        if not vault.is_file():
+            raise AssertionError("passphrase vault file is missing after saving the API key")
+        if LLM_API_KEY.encode() in vault.read_bytes():
+            raise AssertionError("API key was written in cleartext to the vault file")
+        go(driver, "#/settings/general")
+        wait_css(driver, "[data-testid=about-card]")
+        go(driver, "#/settings/llm")
+        wait_css(driver, "[data-testid=llm-key-stored]", 20)
+        driver.execute_script(
+            "document.querySelector('[data-testid=settings-llm]')?.scrollIntoView({block:'center'})"
+        )
+        shoot("llm-settings")
+        try:
+            set_language(driver, "zh", "研究")
+            click(driver, "[data-testid=settings-tab-llm]")
+            wait_css(driver, "[data-testid=settings-llm]")
+            zh = panel_text()
+            for label in ("接入地址", "API 密钥", "模型名", "本机模型"):
+                if label not in zh:
+                    raise AssertionError(f"Chinese LLM page missing {label}: {zh[:300]}")
+            if "not ready" in zh.lower() or "还没准备" in zh:
+                raise AssertionError(f"Chinese LLM page is still a placeholder: {zh[:300]}")
+            if not driver.find_elements(By.CSS_SELECTOR, "[data-testid=llm-key-stored]"):
+                raise AssertionError("Chinese LLM page lost the stored-key line")
+            status = driver.find_element(By.CSS_SELECTOR, "[data-testid=llm-local-status]").text
+            if "内容会发到这个主机" not in status:
+                raise AssertionError(f"Chinese remote-provider copy missing: {status}")
+        finally:
+            set_language(driver, "en", "Research")
+        return "LLM form saved a remote endpoint; the API key is in the vault, not settings.json"
+
     def step_disclosed_family_buttons() -> str:
         assert session is not None
         from selenium.webdriver.common.by import By
@@ -1471,6 +1817,26 @@ def main() -> int:
             step_disclosed_family_buttons,
         )
         run_step("English glossary and methods have no CJK", "en-reference", step_english_reference)
+        run_step(
+            "English time examples 30 minutes and 12 hours parse",
+            "en-time-examples",
+            step_en_time_examples,
+        )
+        run_step(
+            "English methods and coverage examples parse",
+            "en-methods-coverage",
+            step_en_methods_coverage,
+        )
+        run_step(
+            "no source selected shows N3, including under the coverage floor",
+            "no-source-n3",
+            step_no_source_n3,
+        )
+        run_step(
+            "LLM settings form stores the endpoint and vaults the API key",
+            "llm-settings",
+            step_llm_settings,
+        )
         run_step("run to conclusion and export a file", "conclusion", step_run_and_export)
         run_step("delete a running research; engine stays up", "delete-running", step_delete_running)
         run_step("close and reopen; data persists", "persist", step_persist)
