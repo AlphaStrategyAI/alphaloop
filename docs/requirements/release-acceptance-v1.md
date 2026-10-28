@@ -11,17 +11,34 @@
 
 1. Order: tag/draft candidate package → 开发小牛 package-level PASS (installers; sha/signing/codesign/SmartScreen on their REPORT; new-feature + main regression; self-test/self-fix; then notify Master Bot) → 产品小马 runs this matrix to full PASS → Master Bot asks the user to publish. Package-level verification is 开发小牛's gate and is out of scope for this matrix.
 2. After that package-level PASS, 产品小马 tests the **release-candidate installer** for the tagged commit. About must show that version and that commit.
-3. CI green (including `windows-e2e` when present) is an **entry** condition, not product PASS. Prefer real market data; `ALPHALOOP_OFFLINE_MARKET_DATA=1` is allowed only when marked on the case and never substitutes for at least one real-source US and one real-source A-share happy path on the primary platform.
+3. Other CI green is an **entry** condition, not product PASS. The candidate’s `windows-e2e` job **green** is required for the Windows thickened bar (rule 6), not an optional cite. Missing or failed `windows-e2e` = Windows FAIL and blocks 全量 PASS. Prefer real market data; `ALPHALOOP_OFFLINE_MARKET_DATA=1` is allowed only when marked on the case and never substitutes for at least one real-source US and one real-source A-share happy path on Linux and on macOS. Offline market data inside `windows-e2e` does **not** replace those Linux/macOS G1/G2 paths.
 4. Mark each case `PASS` / `FAIL` / `BLOCKED` (environment only). Open **P0/P1 FAIL = release blocked**. P2 FAIL may ship only with an explicit user waiver recorded in the report.
 5. Verdict: **全量 PASS** or **有阻塞** (list defects: severity, repro, screenshot path). Master Bot asks the user to publish only after 开发小牛 package-level PASS and 产品小马 **全量 PASS** on this matrix.
-6. Platforms: Full product acceptance must run the **same full matrix** on **both** Linux and macOS. macOS runs on a Mac host (Mac Mini, Mac Pro, or equivalent Mac the product agent can drive), using the candidate `.dmg` and/or `.app.tar.gz`. **全量 PASS requires Linux full PASS and macOS full PASS.** Windows stays the lighter bar (install + About + one US happy path, or cite that release’s `windows-e2e` plus a product spot-check). Ship surfaces include Mac installers; Linux-only GUI PASS left Mac packages unexercised for product acceptance.
+6. Platforms: Full product acceptance must run the **same full matrix** on **both** Linux and macOS. macOS runs on a Mac host (Mac Mini, Mac Pro, or equivalent Mac the product agent can drive), using the candidate `.dmg` and/or `.app.tar.gz`. Windows is **not** a third full GUI matrix. **全量 PASS** = Linux full PASS + macOS full PASS + **Windows thickened bar PASS**. Ship surfaces include Mac installers; Linux-only GUI PASS left Mac packages unexercised for product acceptance. Automate Windows installer GUI coverage in CI instead of a third full hand matrix; keep Linux+macOS as the dual full-matrix truth.
    - 产品小马 runs the **full** matrix on **Linux deb** (primary Linux host / box).
    - 产品小马 also runs the **full** matrix on **macOS** using the candidate installer (`.dmg` preferred for install path A1; `.app.tar.gz` acceptable if DMG install is blocked) on a **Mac Mini, Mac Pro, or equivalent Mac host** the product agent can drive.
-   - **全量 PASS** requires **both** Linux full PASS **and** macOS full PASS on the same candidate tip/package set.
-   - **Windows**: at least install + About + one US happy path, **or** cite that release’s `windows-e2e` plus a product spot-check.
-   - Missing Linux or missing macOS full matrix = `BLOCKED` (never silent PASS); without both platform full PASS, do **not** claim 全量 PASS.
-7. Case scope: every case in tables A–O applies on both Linux and macOS unless marked Windows-only (C3).
+   - **全量 PASS** = Linux full PASS + macOS full PASS + **Windows thickened bar PASS** on the same candidate tip/package set.
+   - **Windows thickened bar (option 2):** not a third full GUI matrix. That candidate’s CI job `windows-e2e` must be **green** (required). The old “install+About+one US path **or** cite windows-e2e” swap is **removed**. Missing or failed `windows-e2e` = Windows FAIL → cannot claim 全量 PASS. Minimum e2e ↔ matrix map and gaps B2/B3, F1 N3 copy, and I2 are in the subsection below. 产品小马 **spot-check**: always cite the candidate’s windows-e2e run URL + step summary/screenshots in the evidence report; plus live Windows GUI for any still-unmapped target in that gap list when a Windows host is available. If those targets are not yet in e2e and no Windows host is available, record them Windows `BLOCKED` and **do not** claim Windows thickened PASS.
+   - Missing Linux or missing macOS full matrix = `BLOCKED` (never silent PASS). Without Linux full PASS, macOS full PASS, and Windows thickened bar PASS, do **not** claim 全量 PASS.
+7. Case scope: every case in tables A–O applies on both Linux and macOS unless marked Windows-only (C3). Windows is not a third full GUI matrix; it uses the thickened bar below.
 8. Evidence: `docs/reports/YYYY-MM-DD-release-vX.Y.Z-product.md` (draft runs may live under `/workspace/v0XY-smoke/` until the template is in-repo).
+
+### Windows e2e ↔ matrix map
+
+Windows is **not** a third full GUI matrix. **全量 PASS** = Linux full PASS + macOS full PASS + **Windows thickened bar PASS**.
+
+1. That candidate’s CI job `windows-e2e` must be **green** (required). The old “install+About+one US path **or** cite windows-e2e” swap is **removed**. Missing or failed `windows-e2e` = Windows FAIL → cannot claim 全量 PASS.
+2. Locked **e2e ↔ matrix map** (minimum). Current `apps/desktop/e2e/windows_gui_e2e.py` already covers most of these; 开发小牛 owns growing the script when the map expands or UI changes:
+   - A1/A2 install + first launch
+   - B1 zh↔en chrome (no CJK in English rail)
+   - C1/C2/C3 secrets (incl. Windows credential-manager path)
+   - D1/D2 US + A-share confirm cards
+   - E1 momentum hard-block (+ disclosed-family / chips path already in e2e)
+   - F1-equivalent: Run stays disabled before confirm/source ready
+   - G path: run → conclusion → export (offline market data allowed **only** inside windows-e2e; does **not** replace Linux/macOS real-source G1/G2)
+   - H1 delete-while-running; H2 persist across relaunch; H3 uninstall
+3. **Coverage gaps to close in e2e** (list as Windows e2e targets 开发小牛 must add; until automated, 产品小马 spot-checks them when a Windows host is available): **B2/B3** English slot examples parse; **F1** explicit no-source + N3 copy; **I2** real LLM settings page.
+4. 产品小马 **spot-check**: always cite the candidate’s windows-e2e run URL + step summary/screenshots in the evidence report; plus live Windows GUI for any still-unmapped target in (3) when a Windows host is available. If those targets are not yet in e2e and no Windows host is available, record them Windows `BLOCKED` and **do not** claim Windows thickened PASS.
 
 ## How to use the tables
 
@@ -173,7 +190,7 @@ Cases only. An older M1 inventory is not already PASS.
 Release: vX.Y.Z
 Candidate commit: <sha>
 Package(s) tested: <asset names>
-Platforms: Linux deb full = …; macOS DMG/app full = …; Windows = cite/spot …
+Platforms: Linux deb full = …; macOS DMG/app full = …; Windows thickened = e2e <run> …; spot = …
 CI entry: windows-e2e / other = …
 Cases: P0 __/__  P1 __/__  P2 __/__
 Open FAIL: …
@@ -191,3 +208,4 @@ Package-level gate: 开发小牛 REPORT (out of scope for this matrix)
 | 2026-10-27 | Gate order: tag/draft candidate package → 开发小牛 package-level PASS → 产品小马 full matrix PASS → Master Bot asks the user to publish. Package sha256, signing, codesign, and SmartScreen stay on 开发小牛's REPORT and are out of scope here. |
 | 2026-10-27 | Add K–O (navigation, continue/pause/new version, late-pass and economic/coverage confirm, methods library, double-run / mixed pool / network / reverify / old DB / counters). Inventory is cases only, not prior PASS. |
 | 2026-10-28 | Require macOS full matrix on Mac Mini/Mac Pro/equivalent; 全量 PASS = Linux + macOS; Windows light bar unchanged. Ship surfaces include Mac installers; Linux-only GUI PASS left Mac packages unexercised for product acceptance. |
+| 2026-10-28 | Windows option 2: thicken windows-e2e + product spot-check. Windows is not a third full GUI matrix. 全量 PASS = Linux full PASS + macOS full PASS + Windows thickened bar PASS. `windows-e2e` green is required; the install+About+US **or** cite-e2e swap is removed. Gaps B2/B3, F1 explicit N3 copy, and I2 stay spot-check until 开发小牛 adds them. Automate Windows installer GUI coverage in CI instead of a third full hand matrix; keep Linux+macOS as the dual full-matrix truth. |
