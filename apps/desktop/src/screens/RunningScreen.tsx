@@ -16,14 +16,9 @@ import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
+import {missingSymbolsError} from "../missingSymbols";
 import {DetailFrame} from "./DetailFrame";
 import {StatusPill} from "./ResearchListScreen";
-
-function missingTicker(error: {code?: string; message: string} | null | undefined): boolean {
-  if (!error) return false;
-  if (error.code === "DATA_SYMBOLS_EMPTY") return true;
-  return error.message.includes("未选择任何标的") || error.message.includes("No symbols are selected");
-}
 
 export function RunningScreen({
   api,
@@ -43,7 +38,7 @@ export function RunningScreen({
   const [symbol, setSymbol] = useState("");
   const paused = view.status === "paused";
   const statusKey = paused ? "ui.status.paused" : "ui.status.running";
-  const needsTickers = missingTicker(view.lastError);
+  const needsTickers = missingSymbolsError(view.lastError);
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const parsedQuota = parseEffectiveQuotaFromView(view.effective, view.remaining);
   const quota = view.effectiveSeconds != null && view.remainingSeconds != null
