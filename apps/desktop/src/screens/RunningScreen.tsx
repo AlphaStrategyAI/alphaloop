@@ -16,7 +16,14 @@ import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
+import {DetailFrame} from "./DetailFrame";
 import {StatusPill} from "./ResearchListScreen";
+
+function missingTicker(error: {code?: string; message: string} | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === "DATA_SYMBOLS_EMPTY") return true;
+  return error.message.includes("未选择任何标的") || error.message.includes("No symbols are selected");
+}
 
 export function RunningScreen({
   api,
@@ -32,6 +39,11 @@ export function RunningScreen({
   runStartRitual?: boolean;
 }) {
   const {t} = useI18n();
+  const [tickerOpen, setTickerOpen] = useState(false);
+  const [symbol, setSymbol] = useState("");
+  const paused = view.status === "paused";
+  const statusKey = paused ? "ui.status.paused" : "ui.status.running";
+  const needsTickers = missingTicker(view.lastError);
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const parsedQuota = parseEffectiveQuotaFromView(view.effective, view.remaining);
   const quota = view.effectiveSeconds != null && view.remainingSeconds != null
@@ -47,19 +59,71 @@ export function RunningScreen({
     : copyText(view.effective);
   const stageLabel =
     view.currentAction && view.currentAction !== "idle" ? copyText(view.currentAction) : null;
+  const tickerForm = tickerOpen ? (
+    <form
+      className="ticker-set-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const next = symbol.trim();
+        if (!next) return;
+        void api.setResearchSymbol(view.researchId, next);
+      }}
+    >
+      <label>
+        {t("ui.confirm.symbolEdit")}
+        <input
+          data-testid="paused-symbol-input"
+          value={symbol}
+          onChange={(event) => setSymbol(event.target.value)}
+        />
+      </label>
+    </form>
+  ) : null;
+  const setTickers = (
+    <div className="missing-ticker-actions">
+      <button
+        type="button"
+        className="hold-button"
+        data-testid="go-set-tickers"
+        onClick={() => setTickerOpen(true)}
+      >
+        {t("ui.running.setTickers")}
+      </button>
+      {tickerForm}
+    </div>
+  );
   return (
+    <DetailFrame
+      aside={
+        <>
+          <h2>{t("ui.running.asideTitle")}</h2>
+          <p className="eyebrow">{t("ui.running.symbolsLabel")}</p>
+          <p data-testid="aside-symbols" className={needsTickers ? "is-unset" : undefined}>
+            {needsTickers ? t("ui.running.symbolsUnset") : copyText(view.coverage)}
+          </p>
+          {needsTickers ? (
+            <button type="button" className="hold-button" onClick={() => setTickerOpen(true)}>
+              {t("ui.running.setTickers")}
+            </button>
+          ) : null}
+          <p className="eyebrow">{t("ui.brief.coverage")}</p>
+          <p>{copyText(view.coverage)}</p>
+        </>
+      }
+    >
     <div
       className={`focus running-screen${runStartRitual ? " run-start-ritual-running" : ""}`}
       data-testid="running-screen"
+      data-status={view.status}
       data-run-start-ritual={runStartRitual ? "active" : undefined}
     >
       <div className="running-hero">
-        <div className="version-orbit" data-testid="version-orbit">
+        <div className={`version-orbit${paused ? " version-orbit--paused" : ""}`} data-testid="version-orbit">
           <span className="orbit-version">v{view.version}</span>
           {stageLabel ? <span className="orbit-stage">{stageLabel}</span> : null}
         </div>
         <div>
-          <h1>{t("ui.running.title")}</h1>
+          <h1 className="run-status-title" data-testid="run-status-title" data-status={view.status}>{t(statusKey)}</h1>
           <p className="running-sub">
             {t("ui.running.version", {version: view.version})}
             {view.currentAction && view.currentAction !== "idle" ? ` · ${copyText(view.currentAction)}` : ""}
@@ -116,7 +180,15 @@ export function RunningScreen({
           {copyText(view.effectiveTimeHint)}
         </p>
       )}
-      {view.lastError && <LocalizedRunError error={view.lastError} />}
+      {view.lastError && needsTickers ? (
+        <div className="missing-ticker-warning" data-testid="missing-ticker-warning">
+          <LocalizedRunError error={view.lastError} />
+          <p>{t("ui.running.setTickersHint")}</p>
+          {setTickers}
+        </div>
+      ) : view.lastError ? (
+        <LocalizedRunError error={view.lastError} />
+      ) : null}
       {view.honestStopHint && (
         <p className="honest-stop-hint" data-testid="honest-stop-hint-running">
           {copyText(view.honestStopHint)}
@@ -181,7 +253,7 @@ export function RunningScreen({
       )}
       {view.status === "running" ? null : (
         <>
-          <button className="quiet-button" onClick={() => void api.resumeResearch(view.researchId)}>{t("ui.running.resume")}</button>
+          <button className="cyan-button" onClick={() => void api.resumeResearch(view.researchId)}>{t("ui.running.resume")}</button>
           <input
             value={modification}
             onChange={(event) => onModificationChange(event.target.value)}
@@ -202,6 +274,7 @@ export function RunningScreen({
         </>
       )}
     </div>
+    </DetailFrame>
   );
 }
 

@@ -1,7 +1,8 @@
-import {FormEvent, useEffect, useLayoutEffect, useState} from "react";
+import {FormEvent, useEffect, useLayoutEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import {invoke} from "@tauri-apps/api/core";
 
+import {useFocusTrap} from "./dialogFocus";
 import {I18nText} from "./i18n/I18nText";
 
 type VaultStatus = {backend: string; locked: boolean};
@@ -10,7 +11,10 @@ export function SecretVaultButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" data-testid="secret-vault-open" onClick={() => setOpen(true)}>
+      <button type="button" className="rail-secrets" data-testid="secret-vault-open" onClick={() => setOpen(true)}>
+        <svg className="rail-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 11V8a4 4 0 1 1 8 0v3M7 11h10v8H7v-8z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <I18nText k="ui.secrets.open" />
       </button>
       {open
@@ -69,11 +73,14 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
   }
 
   const locked = Boolean(status?.locked);
+  const panelRef = useRef<HTMLFormElement>(null);
+  useFocusTrap(true, panelRef, locked ? "[data-testid=secret-passphrase]" : "[data-dialog-cancel]");
 
   return (
     <div
       className="secret-vault-backdrop"
       data-testid="secret-vault"
+      data-dim="0.5"
       data-backend={status?.backend ?? ""}
       data-locked={locked ? "true" : "false"}
       role="presentation"
@@ -83,6 +90,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
       }}
     >
       <form
+        ref={panelRef}
         className="tech-pulse-card secret-vault-panel"
         role="dialog"
         aria-modal="true"
@@ -92,7 +100,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
       >
         <header>
           <h2 id="secret-vault-title"><I18nText k="ui.secrets.title" /></h2>
-          <button type="button" data-testid="secret-vault-close" onClick={onClose}>
+          <button type="button" data-dialog-cancel="" data-testid="secret-vault-close" onClick={onClose}>
             <I18nText k="ui.secrets.close" />
           </button>
         </header>
@@ -115,25 +123,30 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
         {status?.backend === "memory" ? <p><I18nText k="ui.secrets.memoryNote" /></p> : null}
         {locked ? (
           <p data-testid="secret-locked"><I18nText k="ui.secrets.locked" /></p>
+        ) : (
+          <p data-testid="secret-status">
+            <I18nText k={isSet ? "ui.secrets.set" : "ui.secrets.unset"} />
+          </p>
+        )}
+        {!locked ? (
+          <>
+            <label>
+              <I18nText k="ui.secrets.alias" />
+              <input value={alias} onChange={(event) => setAlias(event.target.value)} data-testid="secret-alias" />
+            </label>
+            <label>
+              <I18nText k="ui.secrets.secret" />
+              <input
+                type="password"
+                value={secret}
+                onChange={(event) => setSecret(event.target.value)}
+                data-testid="secret-value"
+                autoComplete="off"
+              />
+            </label>
+          </>
         ) : null}
-        <p data-testid="secret-status">
-          <I18nText k={isSet ? "ui.secrets.set" : "ui.secrets.unset"} />
-        </p>
-        <label>
-          <I18nText k="ui.secrets.alias" />
-          <input value={alias} onChange={(event) => setAlias(event.target.value)} data-testid="secret-alias" />
-        </label>
-        <label>
-          <I18nText k="ui.secrets.secret" />
-          <input
-            type="password"
-            value={secret}
-            onChange={(event) => setSecret(event.target.value)}
-            data-testid="secret-value"
-            autoComplete="off"
-          />
-        </label>
-        {status?.backend === "passphrase" ? (
+        {status?.backend === "passphrase" || locked ? (
           <label>
             <I18nText k="ui.secrets.passphrase" />
             <input
@@ -155,27 +168,30 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             >
               <I18nText k="ui.secrets.unlock" />
             </button>
-          ) : null}
-          <button type="submit" data-testid="secret-save" disabled={status?.backend === "needs_choice"}>
-            <I18nText k="ui.secrets.save" />
-          </button>
-          <button
-            type="button"
-            onClick={() => void invoke("secret_delete", {id: alias}).then(() => refresh())}
-          >
-            <I18nText k="ui.secrets.remove" />
-          </button>
-          <button
-            type="button"
-            data-testid="secret-failure-preview"
-            onClick={() =>
-              void invoke<string>("secret_failure_preview", {id: alias}).then((message) => {
-                setFailure(message);
-              })
-            }
-          >
-            <I18nText k="ui.secrets.preview" />
-          </button>
+          ) : (
+            <>
+              <button type="submit" data-testid="secret-save" disabled={status?.backend === "needs_choice"}>
+                <I18nText k="ui.secrets.save" />
+              </button>
+              <button
+                type="button"
+                onClick={() => void invoke("secret_delete", {id: alias}).then(() => refresh())}
+              >
+                <I18nText k="ui.secrets.remove" />
+              </button>
+              <button
+                type="button"
+                data-testid="secret-failure-preview"
+                onClick={() =>
+                  void invoke<string>("secret_failure_preview", {id: alias}).then((message) => {
+                    setFailure(message);
+                  })
+                }
+              >
+                <I18nText k="ui.secrets.preview" />
+              </button>
+            </>
+          )}
         </div>
         {saved ? <p><I18nText k="ui.secrets.saved" /></p> : null}
         {note ? <p>{note}</p> : null}

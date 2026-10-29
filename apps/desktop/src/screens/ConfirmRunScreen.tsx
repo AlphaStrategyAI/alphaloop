@@ -57,7 +57,7 @@ function Settings({
     ["coverage_floor", t("ui.brief.coverage")],
   ];
   return (
-    <aside className="settings">
+    <aside className="settings detail-aside" data-testid="detail-aside" data-aside-width="320">
       <p className="eyebrow">{t("ui.brief.eyebrow")}</p>
       {settingLabels.map(([key, label]) => (
         <div className="settings-row" data-testid={`brief-slot-${key}`} key={key}>
