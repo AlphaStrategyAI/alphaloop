@@ -56,7 +56,8 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
 
   it("keeps the secrets rail and panel strings in both languages", () => {
     expect(translate("zh", "ui.secrets.open")).toBe("密钥");
-    expect(translate("en", "ui.secrets.open")).toBe("Secrets");
+    expect(translate("en", "ui.secrets.open")).toBe("Keys");
+    expect(translate("en", "ui.secrets.title")).toBe("Keys");
     expect(translate("zh", "ui.secrets.locked")).toBe("口令文件已在，需要解锁。");
     expect(translate("en", "ui.secrets.locked")).toBe("A passphrase file is present and needs to be unlocked.");
     expect(translate("zh", "ui.secrets.passphraseFile")).toBe("口令加密的本机文件");

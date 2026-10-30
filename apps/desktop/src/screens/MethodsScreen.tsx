@@ -164,7 +164,7 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
     <div className="methods-layout" data-testid="methods-layout" data-split="40/60">
       <aside className="method-list">
         <header className="methods-chrome" data-testid="methods-chrome">
-          <h1>{t("nav.methods")}</h1>
+          <h1>{t("ui.methods.pageTitle")}</h1>
           <p>{t("ui.methods.listLead")}</p>
         </header>
         <details className="method-create">

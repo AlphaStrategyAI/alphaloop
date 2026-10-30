@@ -35,6 +35,7 @@ export function RunningScreen({
 }) {
   const {t} = useI18n();
   const [tickerOpen, setTickerOpen] = useState(false);
+  const modificationRef = useRef<HTMLInputElement>(null);
   const [symbol, setSymbol] = useState("");
   const paused = view.status === "paused";
   const statusKey = paused ? "ui.status.paused" : "ui.status.running";
@@ -87,6 +88,66 @@ export function RunningScreen({
       {tickerForm}
     </div>
   );
+  const tickerWarning = needsTickers && view.lastError ? (
+    <div className="missing-ticker-warning" data-testid="missing-ticker-warning">
+      <LocalizedRunError error={view.lastError} />
+      <p>{t("ui.running.setTickersHint")}</p>
+      {setTickers}
+    </div>
+  ) : null;
+  const otherError = view.lastError && !needsTickers ? (
+    <LocalizedRunError error={view.lastError} />
+  ) : null;
+  const pausedActions = paused ? (
+    <div className="paused-actions" data-testid="paused-actions">
+      {tickerWarning}
+      {otherError}
+      <div className="paused-action-row">
+        <button
+          className="cyan-button"
+          type="button"
+          data-testid="paused-resume"
+          onClick={() => void api.resumeResearch(view.researchId)}
+        >
+          {t("ui.running.resume")}
+        </button>
+        <button
+          className="quiet-button"
+          type="button"
+          data-testid="paused-change-duration"
+          onClick={() => modificationRef.current?.focus()}
+        >
+          {t("ui.running.changeDuration")}
+        </button>
+        <button
+          className="quiet-button"
+          type="button"
+          data-testid="paused-new-version"
+          onClick={() => modificationRef.current?.focus()}
+        >
+          {t("ui.running.openNewVersion")}
+        </button>
+      </div>
+      <input
+        ref={modificationRef}
+        value={modification}
+        onChange={(event) => onModificationChange(event.target.value)}
+        placeholder={t("ui.running.modifyPlaceholder")}
+        data-testid="paused-modification-input"
+      />
+      <button
+        className="quiet-button"
+        data-testid="confirm-modification-button"
+        disabled={!modification.trim()}
+        onClick={() => void (async () => {
+          await api.sendDialogue(view.researchId, modification.trim());
+          await api.confirmModification(view.researchId);
+        })()}
+      >
+        {t("ui.running.confirmModification")}
+      </button>
+    </div>
+  ) : null;
   return (
     <DetailFrame
       aside={
@@ -164,6 +225,7 @@ export function RunningScreen({
           </div>
         </div>
       )}
+      {pausedActions}
       {view.versionOpenedNotice && (
         <p className="version-opened-banner" data-testid="version-opened-banner" role="status">
           {copyText(view.versionOpenedNotice)}
@@ -188,15 +250,8 @@ export function RunningScreen({
           {copyText(view.effectiveTimeHint)}
         </p>
       )}
-      {view.lastError && needsTickers ? (
-        <div className="missing-ticker-warning" data-testid="missing-ticker-warning">
-          <LocalizedRunError error={view.lastError} />
-          <p>{t("ui.running.setTickersHint")}</p>
-          {setTickers}
-        </div>
-      ) : view.lastError ? (
-        <LocalizedRunError error={view.lastError} />
-      ) : null}
+      {!paused ? tickerWarning : null}
+      {!paused ? otherError : null}
       {view.honestStopHint && (
         <p className="honest-stop-hint" data-testid="honest-stop-hint-running">
           {copyText(view.honestStopHint)}
@@ -258,28 +313,6 @@ export function RunningScreen({
         <p className="running-modify-hint" data-testid="running-modify-hint">
           {t("ui.running.cannotEdit")}
         </p>
-      )}
-      {view.status === "running" ? null : (
-        <>
-          <button className="cyan-button" onClick={() => void api.resumeResearch(view.researchId)}>{t("ui.running.resume")}</button>
-          <input
-            value={modification}
-            onChange={(event) => onModificationChange(event.target.value)}
-            placeholder={t("ui.running.modifyPlaceholder")}
-            data-testid="paused-modification-input"
-          />
-          <button
-            className="quiet-button"
-            data-testid="confirm-modification-button"
-            disabled={!modification.trim()}
-            onClick={() => void (async () => {
-              await api.sendDialogue(view.researchId, modification.trim());
-              await api.confirmModification(view.researchId);
-            })()}
-          >
-            {t("ui.running.confirmModification")}
-          </button>
-        </>
       )}
     </div>
     </DetailFrame>

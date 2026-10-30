@@ -9,7 +9,13 @@ import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
-import {listRowStatusKey} from "../listStatusDisplay";
+import {
+  RESEARCH_LIST_FILTERS,
+  listRowStatusKey,
+  matchesResearchListFilter,
+  researchListFilterKey,
+  type ResearchListFilter,
+} from "../listStatusDisplay";
 import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
@@ -83,6 +89,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
   const researchTitle = (title: string) => researchListTitle(title, t);
   const deleteWarning = t("ui.list.deleteBody");
   const [deleteConfirm, setDeleteConfirm] = useState<InAppConfirmRequest | null>(null);
+  const [filter, setFilter] = useState<ResearchListFilter>("all");
   const awaitingCards = [
     ...(view.awaiting ? [view.awaiting] : []),
     ...view.rows.filter(
@@ -93,6 +100,10 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
   const rows = view.rows.filter(
     (row) => row.status !== "confirm_run" && row.status !== "awaiting_confirm",
   );
+  const visibleAwaiting = awaitingCards.filter((item) => matchesResearchListFilter(item.status, filter));
+  const visibleConfirm = confirmCards.filter((item) => matchesResearchListFilter(item.status, filter));
+  const visibleRows = rows.filter((row) => matchesResearchListFilter(row.status, filter));
+  const hasAny = awaitingCards.length + confirmCards.length + rows.length > 0;
   const askDelete = (researchId: string) => {
     setDeleteConfirm({
       title: t("ui.list.deleteTitle"),
@@ -109,27 +120,50 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
     <div className="browse list-screen">
       <InAppConfirmOverlay request={deleteConfirm} onClose={() => setDeleteConfirm(null)} />
       <header className="list-header">
-        <div>
-          <h1 className="list-title">{t("ui.list.title")}</h1>
-          <p className="list-tagline">{t("ui.list.tagline")}</p>
+        <div className="list-header-row">
+          <div>
+            <h1 className="list-title">{t("ui.list.title")}</h1>
+            <p className="list-tagline">{t("ui.list.tagline")}</p>
+          </div>
+          <button
+            className="cyan-button list-new-research"
+            data-testid="new-research-button"
+            onClick={() => {
+              void api.createDraft().then((id) => {
+                window.location.hash = `#/research/${id}`;
+              });
+            }}
+          >
+            <span className="list-new-research-icon" aria-hidden>+</span>
+            {t("ui.list.newResearch")}
+          </button>
         </div>
-        <button
-          className="cyan-button list-new-research"
-          data-testid="new-research-button"
-          onClick={() => {
-            void api.createDraft().then((id) => {
-              window.location.hash = `#/research/${id}`;
-            });
-          }}
+        <div
+          className="list-filters"
+          role="toolbar"
+          aria-label={t("ui.list.filters")}
+          data-testid="research-list-filters"
         >
-          <span className="list-new-research-icon" aria-hidden>+</span>
-          {t("ui.list.newResearch")}
-        </button>
+          {RESEARCH_LIST_FILTERS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className="list-filter-chip"
+              data-testid={`research-list-filter-${id}`}
+              aria-pressed={filter === id}
+              onClick={() => setFilter(id)}
+            >
+              {t(researchListFilterKey(id))}
+            </button>
+          ))}
+        </div>
       </header>
-      {awaitingCards.length === 0 && confirmCards.length === 0 && rows.length === 0 ? (
-        <p className="list-empty" data-testid="research-list-empty">{t("ui.list.empty")}</p>
+      {!hasAny ? (
+        <div className="list-empty-panel" data-testid="research-list-empty">
+          <p className="list-empty">{t("ui.list.empty")}</p>
+        </div>
       ) : null}
-      {awaitingCards.map((item) => (
+      {visibleAwaiting.map((item) => (
         <article
           className="awaiting-primary list-pinned-card"
           data-kind="awaiting-primary"
@@ -159,7 +193,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
           </div>
         </article>
       ))}
-      {confirmCards.map((item) => (
+      {visibleConfirm.map((item) => (
         <article
           className="awaiting-primary list-pinned-card list-pinned-confirm"
           data-kind="confirm-pinned"
@@ -182,7 +216,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
         </article>
       ))}
       <div className="research-rows">
-        {rows.map((row) => (
+        {visibleRows.map((row) => (
           <article
             className={`research-row${row.status === "ended" ? " research-row--failed" : ""}`}
             data-testid="research-row"

@@ -111,7 +111,7 @@ describe("secret vault panel", () => {
       </I18nProvider>,
     );
     const open = screen.getByTestId("secret-vault-open");
-    expect(open).toHaveTextContent("Secrets");
+    expect(open).toHaveTextContent("Keys");
     expect(open.querySelector("[data-i18n-placeholder]")).toBeTruthy();
     fireEvent.click(open);
     const locked = await screen.findByTestId("secret-locked");

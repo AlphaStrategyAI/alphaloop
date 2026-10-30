@@ -157,7 +157,7 @@ describe("hash-driven navigation", () => {
       return listView;
     });
     render(<App api={makeApi(fetchView)} initialView={listView} initialRoute="#/research" />);
-    fireEvent.click(screen.getByRole("link", {name: "方法库"}));
+    fireEvent.click(screen.getByRole("link", {name: "方法"}));
     navigateHash("#/methods");
 
     await waitFor(() => {
