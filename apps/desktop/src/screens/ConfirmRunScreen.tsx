@@ -108,17 +108,22 @@ function DialoguePanel({
   dialogue,
   chatEnabled = true,
   title,
+  trailing,
+  dockComposer = false,
 }: {
   researchId: string;
   api: DesktopApi;
   dialogue: readonly DialogueTurnView[];
   chatEnabled?: boolean;
   title?: string;
+  trailing?: ReactNode;
+  dockComposer?: boolean;
 }) {
   const {t} = useI18n();
   const heading = title ?? t("ui.dialogue.title");
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const text = message.trim();
@@ -137,39 +142,53 @@ function DialoguePanel({
     node.style.height = `${node.scrollHeight}px`;
   }, [message]);
   useEffect(() => {
-    const node = document.querySelector(".conversation");
-    if (node) {
-      node.scrollTop = node.scrollHeight;
-    }
-  }, [dialogue.length]);
+    const thread = threadRef.current;
+    const node = dockComposer ? thread : thread?.closest(".conversation");
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [dialogue.length, dockComposer]);
+
+  const composer = chatEnabled ? (
+    <form className={dockComposer ? "draft-composer" : undefined} data-testid={dockComposer ? "draft-composer" : undefined} onSubmit={submit}>
+      <textarea
+        ref={inputRef}
+        className="dialogue-input"
+        data-testid="dialogue-input"
+        rows={1}
+        value={message}
+        onChange={(event) => setMessage(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.shiftKey) return;
+          event.preventDefault();
+          event.currentTarget.form?.requestSubmit();
+        }}
+        placeholder={t("ui.dialogue.placeholder")}
+      />
+      {dockComposer ? (
+        <button
+          type="submit"
+          className="cyan-button"
+          data-testid="dialogue-send"
+          disabled={!message.trim()}
+        >
+          {t("ui.dialogue.send")}
+        </button>
+      ) : null}
+    </form>
+  ) : null;
 
   return (
-    <section className="conversation">
-      <h1>{heading}</h1>
-      <p className="message assistant system" data-testid="dialogue-system-intro">
-        {t("ui.dialogue.intro")}
-      </p>
-      {dialogue.map((turn, index) => (
-        <DialogueTurnBody turn={turn} key={index} />
-      ))}
-      {chatEnabled && (
-        <form onSubmit={submit}>
-          <textarea
-            ref={inputRef}
-            className="dialogue-input"
-            data-testid="dialogue-input"
-            rows={1}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" || event.shiftKey) return;
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }}
-            placeholder={t("ui.dialogue.placeholder")}
-          />
-        </form>
-      )}
+    <section className={`conversation${dockComposer ? " conversation-draft" : ""}`}>
+      {dockComposer ? null : <h1>{heading}</h1>}
+      <div className="conversation-thread" ref={threadRef}>
+        <p className="message assistant system" data-testid="dialogue-system-intro">
+          {t("ui.dialogue.intro")}
+        </p>
+        {dialogue.map((turn, index) => (
+          <DialogueTurnBody turn={turn} key={index} />
+        ))}
+        {trailing}
+      </div>
+      {composer}
     </section>
   );
 }
@@ -241,22 +260,132 @@ function FamilyChoiceControls({
   );
 }
 
-export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "draft"}>}) {
+function slotFilled(raw: string, unlocked: string): boolean {
+  const text = raw.trim();
+  return text.length > 0 && text !== unlocked && text !== "未锁定" && text !== "Not locked";
+}
+
+function DraftLocks({
+  values,
+  researchId,
+}: {
+  values: Extract<DesktopView, {kind: "draft"}>["settings"];
+  researchId: string;
+}) {
+  const {t} = useI18n();
+  const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
+  const unlocked = t("ui.list.unlocked");
+  const rows: readonly {key: BriefSlotName; label: string; raw: string}[] = [
+    {key: "thesis", label: t("ui.brief.thesisShort"), raw: values.thesis},
+    {key: "universe", label: t("ui.brief.universeShort"), raw: values.universe},
+    {key: "max_effective_hours", label: t("ui.brief.hoursShort"), raw: values.max_effective_hours},
+    {key: "round1_methods", label: t("ui.brief.methodsShort"), raw: values.round1_methods},
+    {key: "coverage_floor", label: t("ui.brief.coverageShort"), raw: values.coverage_floor},
+  ];
+  const locked = rows.filter((row) => slotFilled(row.raw, unlocked)).length;
+  let pendingUsed = false;
   return (
-    <div className="draft-layout">
-      <DialoguePanel
-        api={api}
-        researchId={view.researchId}
-        dialogue={view.dialogue}
-        chatEnabled
-      />
-      <FamilyChoiceControls
-        api={api}
-        researchId={view.researchId}
-        meanReversionChoice={view.meanReversionChoice}
-        familyChipIds={view.familyChipIds}
-      />
-      <Settings values={view.settings} />
+    <aside className="detail-aside draft-locks" data-testid="detail-aside" data-aside-width="320">
+      <h2 data-testid="draft-locks-title">{t("ui.dialogue.locksHeading", {locked})}</h2>
+      <ol className="draft-lock-list">
+        {rows.map((row) => {
+          const filled = slotFilled(row.raw, unlocked);
+          let state: "locked" | "pending" | "empty" = "empty";
+          if (filled) state = "locked";
+          else if (!pendingUsed) {
+            state = "pending";
+            pendingUsed = true;
+          }
+          return (
+            <li
+              key={row.key}
+              className={`draft-lock draft-lock--${state}`}
+              data-testid={`brief-slot-${row.key}`}
+              data-lock={state}
+            >
+              <span className="draft-lock-mark" aria-hidden="true">
+                {state === "locked" ? "✓" : state === "pending" ? "●" : "○"}
+              </span>
+              <span className="draft-lock-copy">
+                <span className="draft-lock-label">{row.label}</span>
+                {state === "locked" && row.key === "thesis" ? (
+                  <span
+                    className="draft-lock-value settings-value settings-value-prose"
+                    data-testid="brief-thesis-value"
+                    data-user-content="true"
+                  >
+                    {renderSettingsProse(values.thesis)}
+                  </span>
+                ) : (
+                  <span
+                    className={`draft-lock-value${state === "pending" ? " is-pending" : ""}${row.key === "thesis" ? " settings-value settings-value-prose" : ""}`}
+                    data-testid={row.key === "thesis" ? "brief-thesis-value" : undefined}
+                    data-user-content={row.key === "thesis" ? "true" : undefined}
+                  >
+                    {state === "locked" ? copyText(row.raw) : state === "pending" ? t("ui.dialogue.pending") : t("ui.dialogue.emptyMark")}
+                  </span>
+                )}
+                {row.key === "universe" && values.universe_symbol_chips && values.universe_symbol_chips.length > 0 ? (
+                  <span className="universe-symbol-chips" data-testid="universe-symbol-chips">
+                    {values.universe_symbol_chips.map((symbol) => (
+                      <span className="symbol-chip" key={symbol}>{symbol}</span>
+                    ))}
+                  </span>
+                ) : null}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="eyebrow">{t("ui.dialogue.progress")}</p>
+      <div
+        className="draft-lock-track"
+        data-testid="draft-lock-progress"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={5}
+        aria-valuenow={locked}
+      >
+        <div className="draft-lock-fill" style={{width: `${(locked / 5) * 100}%`}} />
+      </div>
+      {locked === 5 ? (
+        <a
+          className="cyan-button draft-go-confirm"
+          href={`#/research/${encodeURIComponent(researchId)}`}
+          data-testid="draft-go-confirm"
+        >
+          {t("ui.dialogue.goConfirm")}
+        </a>
+      ) : null}
+    </aside>
+  );
+}
+
+export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "draft"}>}) {
+  const {t} = useI18n();
+  return (
+    <div className="draft-chat" data-testid="draft-chat">
+      <div className="draft-main">
+        <header className="draft-chrome" data-testid="draft-chrome">
+          <h1>{t("ui.dialogue.title")}</h1>
+        </header>
+        <DialoguePanel
+          api={api}
+          researchId={view.researchId}
+          dialogue={view.dialogue}
+          chatEnabled
+          dockComposer
+          trailing={
+            <FamilyChoiceControls
+              api={api}
+              researchId={view.researchId}
+              meanReversionChoice={view.meanReversionChoice}
+              familyChipIds={view.familyChipIds}
+            />
+          }
+        />
+      </div>
+      <DraftLocks values={view.settings} researchId={view.researchId} />
     </div>
   );
 }
