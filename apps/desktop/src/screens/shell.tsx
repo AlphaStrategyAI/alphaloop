@@ -11,7 +11,7 @@ import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
 import {completedShowsFailedTone, viewContentFailedTone} from "../completedFailedTone";
 import {listRowStatusKey} from "../listStatusDisplay";
-import {railStatusKey} from "../railStatus";
+import {railStatusKey, railStatusTone} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import {MAIN_MIN_WIDTH, RAIL_WIDTH, shellHasAside} from "../layoutShell";
 import type {Translate} from "./shared";
@@ -80,6 +80,7 @@ export function NightShell({
       view.kind === "completed" ? "completed" : "idle"
     ));
   const railKey = fetchingQuotes ? null : railStatusKey(view);
+  const railTone = fetchingQuotes ? "run" : railStatusTone(railKey);
   const railLabel = fetchingQuotes ? t("host.running") : railKey ? t(railKey) : null;
   const engineLine = engineStatusLabel(sidecarState, t);
   const statusTitle = railLabel
@@ -120,7 +121,12 @@ export function NightShell({
         </div>
         <div className="rail-bottom">
           {railLabel ? (
-            <div className={`host-status rail-status ${paused ? "paused" : hostKey}`} title={statusTitle} data-testid="host-status">
+            <div
+              className={`host-status rail-status ${paused ? "paused" : hostKey}${railTone ? ` rail-tone-${railTone}` : ""}`}
+              title={statusTitle}
+              data-testid="host-status"
+              data-rail-tone={railTone ?? undefined}
+            >
               <span className="host-status-line" data-testid="rail-status-label">
                 <span className="host-status-dot" aria-hidden />
                 {railLabel}

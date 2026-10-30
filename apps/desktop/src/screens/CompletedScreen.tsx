@@ -291,9 +291,13 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         )}
         <h1 data-testid="completed-focus-title">{eligible ? t("ui.completed.title") : t("ui.completed.title")}</h1>
         <p className="completed-focus-headline">{headline}</p>
-        <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
+        <div className="eligibility eligibility-pills" data-testid="completed-gate-pills" data-gate-stagger="90">
           {checks.map(([label, passed]) => (
-            <span className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`} key={label}>
+            <span
+              className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`}
+              data-gate-flash={passed ? undefined : "150"}
+              key={label}
+            >
               {passed ? "●" : "○"} {label}
             </span>
           ))}

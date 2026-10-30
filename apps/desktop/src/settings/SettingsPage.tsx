@@ -91,8 +91,8 @@ export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSett
             </section>
             <section className="settings-card" aria-labelledby="ui-language-scope">
               <h2 id="ui-language-scope"><I18nText k="settings.scope.title" /></h2>
-              <div className="settings-scope-grid" data-testid="settings-scope-columns">
-                <div>
+              <div className="settings-scope-grid" data-testid="settings-scope-columns" data-scope-columns="2">
+                <div data-scope-col="switches">
                   <p className="settings-scope-label"><I18nText k="settings.scope.switchesLabel" /></p>
                   <ul>
                     <li><I18nText k="settings.scope.switchUi" /></li>
@@ -103,7 +103,7 @@ export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSett
                     <li><I18nText k="settings.scope.switchLlm" /></li>
                   </ul>
                 </div>
-                <div>
+                <div data-scope-col="stays">
                   <p className="settings-scope-label"><I18nText k="settings.scope.keepsLabel" /></p>
                   <ul>
                     <li><I18nText k="settings.scope.keepNotes" /></li>

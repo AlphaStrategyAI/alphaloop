@@ -180,8 +180,12 @@
 }
 .settings-scope-label {
   margin: 14px 0 6px;
-  color: var(--ok);
+  color: var(--ink);
   font-size: 13px;
+  font-weight: 600;
+}
+.settings-scope-grid [data-scope-col="stays"] .settings-scope-label {
+  color: var(--mute);
 }
 .settings-card ul {
   margin: 0;

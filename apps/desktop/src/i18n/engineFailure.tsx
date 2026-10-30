@@ -57,12 +57,21 @@ export function EngineFailureText({raw}: {raw: string}) {
   );
 }
 
-export function DialogueTurnBody({turn}: {turn: DialogueTurnView}) {
+export function DialogueTurnBody({
+  turn,
+  className,
+  bubbleMotion,
+}: {
+  turn: DialogueTurnView;
+  className?: string;
+  bubbleMotion?: string;
+}) {
   const {resolved, t} = useI18n();
+  const classes = `message ${turn.role}${className ? ` ${className}` : ""}`;
   if (!turn.errorCode) {
     const text = turn.role === "assistant" ? localizeKnownCopy(turn.text, t) : turn.text;
     return (
-      <p className={`message ${turn.role}`} data-testid="dialogue-turn">
+      <p className={classes} data-testid="dialogue-turn" data-bubble-motion={bubbleMotion}>
         {text}
       </p>
     );
@@ -75,9 +84,10 @@ export function DialogueTurnBody({turn}: {turn: DialogueTurnView}) {
   const technical = technicalText(localized.detail, turn.errorParams);
   return (
     <div
-      className={`message ${turn.role} error-notice`}
+      className={`${classes} error-notice`}
       data-testid="dialogue-turn"
       data-error-code={turn.errorCode}
+      data-bubble-motion={bubbleMotion}
     >
       <p data-testid="dialogue-error-summary">{localized.summary}</p>
       {localized.next ? <p>{localized.next}</p> : null}

@@ -116,8 +116,11 @@ export function RunningScreen({
         <div
           className={`version-orbit phase-ring${paused ? " version-orbit--paused" : ""}`}
           data-testid="version-orbit"
-          data-phase-ring="static"
+          data-phase-ring={paused ? "static" : "rotate"}
+          data-phase-rotate={paused ? undefined : "1.2s"}
+          data-run-enter={runStartRitual ? "280" : undefined}
         >
+          {paused ? null : <span className="phase-ring-arc" data-testid="phase-ring-arc" aria-hidden="true" />}
           <span className="orbit-version">v{view.version}</span>
           {stageLabel ? <span className="orbit-stage">{stageLabel}</span> : null}
         </div>
@@ -152,7 +155,12 @@ export function RunningScreen({
             aria-valuemax={100}
             aria-valuenow={Math.round(quota.ratio * 100)}
           >
-            <div className="effective-quota-fill" style={{width: `${quota.ratio * 100}%`}} />
+            <div
+              className={`effective-quota-fill${paused ? "" : " quota-sheen"}`}
+              data-testid="effective-quota-fill"
+              data-sheen={paused ? undefined : "1.6s"}
+              style={{width: `${quota.ratio * 100}%`}}
+            />
           </div>
         </div>
       )}

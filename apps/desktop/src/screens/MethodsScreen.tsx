@@ -32,6 +32,17 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
     dimensions: method.dimensions ?? [],
   });
   useFocusTrap(reviseOpen, dialogRef);
+  useEffect(() => {
+    if (!reviseOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setReviseBody(originalBody);
+      setReviseOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [reviseOpen, originalBody]);
   if (rememberedDimensions.current.id !== method.id) {
     rememberedDimensions.current = {id: method.id, dimensions: method.dimensions ?? []};
   } else if (method.dimensions && method.dimensions.length > 0) {
@@ -100,8 +111,19 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
         <div className="in-app-confirm-backdrop" data-testid="revise-method-dialog" data-dim="0.5" onMouseDown={(event) => {
           if (event.target === event.currentTarget) cancelEdit();
         }}>
-          <div ref={dialogRef} className="in-app-confirm-card revise-method-card" role="dialog" aria-modal="true">
-            <h2>{t("ui.methods.edit")}</h2>
+          <div ref={dialogRef} className="in-app-confirm-card revise-method-card" role="dialog" aria-modal="true" aria-labelledby="revise-method-title">
+            <div className="revise-method-head">
+              <h2 id="revise-method-title">{t("ui.methods.edit")}</h2>
+              <button
+                type="button"
+                className="dialog-close"
+                data-testid="revise-method-close"
+                aria-label={t("ui.shell.close")}
+                onClick={cancelEdit}
+              >
+                ✕
+              </button>
+            </div>
             <p>{t("ui.methods.editLead")}</p>
             <label>
               {t("ui.methods.bodyLabel")}

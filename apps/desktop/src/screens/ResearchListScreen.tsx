@@ -126,6 +126,9 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
           {t("ui.list.newResearch")}
         </button>
       </header>
+      {awaitingCards.length === 0 && confirmCards.length === 0 && rows.length === 0 ? (
+        <p className="list-empty" data-testid="research-list-empty">{t("ui.list.empty")}</p>
+      ) : null}
       {awaitingCards.map((item) => (
         <article
           className="awaiting-primary list-pinned-card"

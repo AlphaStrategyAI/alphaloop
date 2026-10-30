@@ -140,7 +140,7 @@ describe("draft chat structure", () => {
 });
 
 describe("running structure", () => {
-  it("uses an 8px progress track and a static phase ring", () => {
+  it("uses an 8px progress track and a rotating phase ring", () => {
     const view: DesktopView = {
       kind: "running",
       researchId: "r-1",
@@ -157,9 +157,11 @@ describe("running structure", () => {
     render(<App api={api} initialView={view} initialRoute="#/research/r-1" />);
     expect(screen.getByTestId("effective-quota-track")).toHaveAttribute("data-track-px", "8");
     const ring = screen.getByTestId("version-orbit");
-    expect(ring).toHaveAttribute("data-phase-ring", "static");
+    expect(ring).toHaveAttribute("data-phase-ring", "rotate");
+    expect(ring).toHaveAttribute("data-phase-rotate", "1.2s");
     expect(ring).toHaveClass("phase-ring");
-    expect(ring.className).not.toMatch(/rotate|sheen/);
+    expect(screen.getByTestId("phase-ring-arc")).toBeInTheDocument();
+    expect(screen.getByTestId("effective-quota-fill")).toHaveAttribute("data-sheen", "1.6s");
     expect(screen.getByTestId("night-shell")).toHaveAttribute("data-has-aside", "true");
     expect(screen.getByTestId("run-status-title")).toHaveTextContent("运行中");
   });
@@ -275,7 +277,8 @@ describe("settings llm and general structure", () => {
     expect(document.querySelector("[data-option-count='3']")?.querySelectorAll("input[type='radio']")).toHaveLength(3);
     const columns = screen.getByTestId("settings-scope-columns");
     expect(columns).toHaveTextContent("Switches");
-    expect(columns).toHaveTextContent("Stays as written");
+    expect(columns).toHaveAttribute("data-scope-columns", "2");
+    expect(columns).toHaveTextContent("Stays as-is");
     expect(screen.getByRole("heading", {level: 1})).toHaveTextContent("Settings");
   });
 
