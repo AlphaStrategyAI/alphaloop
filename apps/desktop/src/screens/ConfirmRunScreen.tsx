@@ -7,7 +7,7 @@ import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataC
 import {DialogueTurnBody, EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {FAMILY_ID_KEY, familyMidSentenceName, localizeKnownCopy} from "../i18n/productCopy";
+import {briefSlotFilled, FAMILY_ID_KEY, familyMidSentenceName, localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -260,11 +260,6 @@ function FamilyChoiceControls({
   );
 }
 
-function slotFilled(raw: string, unlocked: string): boolean {
-  const text = raw.trim();
-  return text.length > 0 && text !== unlocked && text !== "未锁定" && text !== "Not locked";
-}
-
 function DraftLocks({
   values,
   researchId,
@@ -274,7 +269,6 @@ function DraftLocks({
 }) {
   const {t} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
-  const unlocked = t("ui.list.unlocked");
   const rows: readonly {key: BriefSlotName; label: string; raw: string}[] = [
     {key: "thesis", label: t("ui.brief.thesisShort"), raw: values.thesis},
     {key: "universe", label: t("ui.brief.universeShort"), raw: values.universe},
@@ -282,14 +276,14 @@ function DraftLocks({
     {key: "round1_methods", label: t("ui.brief.methodsShort"), raw: values.round1_methods},
     {key: "coverage_floor", label: t("ui.brief.coverageShort"), raw: values.coverage_floor},
   ];
-  const locked = rows.filter((row) => slotFilled(row.raw, unlocked)).length;
+  const locked = rows.filter((row) => briefSlotFilled(row.raw)).length;
   let pendingUsed = false;
   return (
     <aside className="detail-aside draft-locks" data-testid="detail-aside" data-aside-width="320">
       <h2 data-testid="draft-locks-title">{t("ui.dialogue.locksHeading", {locked})}</h2>
       <ol className="draft-lock-list">
         {rows.map((row) => {
-          const filled = slotFilled(row.raw, unlocked);
+          const filled = briefSlotFilled(row.raw);
           let state: "locked" | "pending" | "empty" = "empty";
           if (filled) state = "locked";
           else if (!pendingUsed) {

@@ -4,7 +4,7 @@ import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, Rese
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {localizeKnownCopy} from "../i18n/productCopy";
+import {formerNameFromBody, localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -26,13 +26,6 @@ const GLOSSARY_BODY: Record<string, MessageKey> = {
   cost_bp: "ui.glossaryBody.cost",
 };
 
-function formerName(body: string): string | null {
-  const quoted = body.match(/旧称「([^」]+)」/);
-  if (quoted) return quoted[1] ?? null;
-  const labeled = body.match(/曾用名[:：]\s*([^。]+)/);
-  return labeled?.[1]?.trim() || null;
-}
-
 export function GlossaryScreen({view}: {view: Extract<DesktopView, {kind: "glossary"}>}) {
   const {t, resolved} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
@@ -45,7 +38,7 @@ export function GlossaryScreen({view}: {view: Extract<DesktopView, {kind: "gloss
     const bodyKey = GLOSSARY_BODY[entry.id];
     const body = bodyKey && resolved === "en" ? t(bodyKey) : entry.body;
     const term = copyText(entry.term);
-    return {entry, body, term, former: formerName(body)};
+    return {entry, body, term, former: formerNameFromBody(body)};
   });
   const visible = rows.filter((row) => {
     if (!normalized) return true;
