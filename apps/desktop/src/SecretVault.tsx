@@ -4,6 +4,7 @@ import {invoke} from "@tauri-apps/api/core";
 
 import {useFocusTrap} from "./dialogFocus";
 import {I18nText} from "./i18n/I18nText";
+import {useI18n} from "./i18n/I18nProvider";
 
 type VaultStatus = {backend: string; locked: boolean};
 
@@ -28,6 +29,7 @@ export function SecretVaultButton() {
 }
 
 export function SecretVaultPanel({onClose}: {onClose: () => void}) {
+  const {t} = useI18n();
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [alias, setAlias] = useState("vendor-demo");
   const [secret, setSecret] = useState("");
@@ -73,6 +75,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
   }
 
   const locked = Boolean(status?.locked);
+  const showEntries = Boolean(status) && !locked && status?.backend !== "needs_choice";
   const panelRef = useRef<HTMLFormElement>(null);
   useFocusTrap(true, panelRef, locked ? "[data-testid=secret-passphrase]" : "[data-dialog-cancel]");
 
@@ -81,6 +84,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
       className="secret-vault-backdrop"
       data-testid="secret-vault"
       data-dim="0.5"
+      data-disclosure={locked ? "locked" : showEntries ? "entries" : "setup"}
       data-backend={status?.backend ?? ""}
       data-locked={locked ? "true" : "false"}
       role="presentation"
@@ -98,10 +102,17 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
         onSubmit={(event) => void onSave(event)}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header>
+        <header className="secret-vault-head">
           <h2 id="secret-vault-title"><I18nText k="ui.secrets.title" /></h2>
-          <button type="button" data-dialog-cancel="" data-testid="secret-vault-close" onClick={onClose}>
-            <I18nText k="ui.secrets.close" />
+          <button
+            type="button"
+            className="dialog-close"
+            data-dialog-cancel=""
+            data-testid="secret-vault-close"
+            aria-label={t("ui.secrets.close")}
+            onClick={onClose}
+          >
+            ✕
           </button>
         </header>
         {status?.backend === "needs_choice" ? (
@@ -123,13 +134,13 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
         {status?.backend === "memory" ? <p><I18nText k="ui.secrets.memoryNote" /></p> : null}
         {locked ? (
           <p data-testid="secret-locked"><I18nText k="ui.secrets.locked" /></p>
-        ) : (
+        ) : status ? (
           <p data-testid="secret-status">
             <I18nText k={isSet ? "ui.secrets.set" : "ui.secrets.unset"} />
           </p>
-        )}
-        {!locked ? (
-          <>
+        ) : null}
+        {showEntries ? (
+          <div data-testid="secret-entry-list">
             <label>
               <I18nText k="ui.secrets.alias" />
               <input value={alias} onChange={(event) => setAlias(event.target.value)} data-testid="secret-alias" />
@@ -144,7 +155,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
                 autoComplete="off"
               />
             </label>
-          </>
+          </div>
         ) : null}
         {status?.backend === "passphrase" || locked ? (
           <label>
@@ -168,7 +179,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             >
               <I18nText k="ui.secrets.unlock" />
             </button>
-          ) : (
+          ) : showEntries ? (
             <>
               <button type="submit" data-testid="secret-save" disabled={status?.backend === "needs_choice"}>
                 <I18nText k="ui.secrets.save" />
@@ -191,7 +202,7 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
                 <I18nText k="ui.secrets.preview" />
               </button>
             </>
-          )}
+          ) : null}
         </div>
         {saved ? <p><I18nText k="ui.secrets.saved" /></p> : null}
         {note ? <p>{note}</p> : null}

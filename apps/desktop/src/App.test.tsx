@@ -199,7 +199,8 @@ describe("Night desktop contract", () => {
     const pinned = screen.getByTestId("confirm-pinned-card");
     expect(within(pinned).getByTestId("list-status-pill")).toHaveTextContent("确认开跑");
     expect(screen.getByTestId("rail-status-label")).toHaveTextContent("确认开跑");
-    expect(screen.queryByText("草稿")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-row")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-list-filter-draft")).toHaveTextContent("草稿");
   });
 
   it("lets the awaiting primary card enter and delete like ordinary rows", () => {

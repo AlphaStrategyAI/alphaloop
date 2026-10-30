@@ -74,12 +74,12 @@ describe("route failures and rail highlight", () => {
   it("highlights 术语 from the route while the methods view is still on screen", async () => {
     const fetchView = vi.fn(() => new Promise<DesktopView>(() => undefined));
     render(<App api={makeApi(fetchView)} initialView={methodsView} initialRoute="#/methods" />);
-    expect(screen.getByRole("link", {name: "方法库"})).toHaveClass("active");
+    expect(screen.getByRole("link", {name: "方法"})).toHaveClass("active");
     go("#/glossary");
     await waitFor(() => {
       expect(screen.getByRole("link", {name: "术语"})).toHaveClass("active");
     });
-    expect(screen.getByRole("link", {name: "方法库"})).not.toHaveClass("active");
+    expect(screen.getByRole("link", {name: "方法"})).not.toHaveClass("active");
     expect(screen.getByTestId("night-shell")).toHaveAttribute("data-view", "methods");
   });
 });

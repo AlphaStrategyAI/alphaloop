@@ -12,7 +12,7 @@ export function RouteLoading({route}: {route: string}) {
   return (
     <div className="route-loading" data-testid="route-loading" data-skeleton={kind} role="status" aria-live="polite">
       <p className="route-loading-label">{t("ui.shell.loading")}</p>
-      <div className="skeleton-stack" aria-hidden="true">
+      <div className="skeleton-stack" data-pulse="1.2s" aria-hidden="true">
         {kind === "detail" ? (
           <>
             <span className="skeleton-bar skeleton-bar--title" />

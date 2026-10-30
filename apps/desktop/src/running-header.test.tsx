@@ -81,7 +81,8 @@ describe("running header", () => {
     const rail = screen.getByTestId("host-status");
     expect(rail).toHaveClass("running");
     expect(rail).not.toHaveClass("awaiting_confirm");
-    expect(screen.getByTestId("rail-status-label")).toHaveTextContent("运行中");
+    expect(screen.getByTestId("rail-status-label")).toHaveTextContent("运行");
+    expect(screen.getByTestId("rail-status-label")).not.toHaveTextContent("运行中");
     expect(screen.getByTestId("market-data-progress")).toHaveTextContent("正在取行情 12/503");
   });
 

@@ -280,16 +280,13 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         className={`completed-focus-card tech-pulse-card${eligible ? " completed-focus-card--success" : " completed-focus-card--failed"}`}
         data-testid="completed-focus-card"
       >
-        {eligible ? (
-          <p className="export-ready-eyebrow" data-testid="export-ready-eyebrow">
-            {t("ui.completed.readyEyebrow")}
-          </p>
-        ) : (
-          <p className="failed-eyebrow" data-testid="completed-failed-eyebrow">
-            {t("ui.completed.failedEyebrow")}
-          </p>
-        )}
-        <h1 data-testid="completed-focus-title">{eligible ? t("ui.completed.title") : t("ui.completed.title")}</h1>
+        <h1
+          className="completed-display"
+          data-testid={eligible ? "export-ready-eyebrow" : "completed-failed-eyebrow"}
+          data-display="gate"
+        >
+          {eligible ? t("ui.completed.readyEyebrow") : t("ui.completed.failedEyebrow")}
+        </h1>
         <p className="completed-focus-headline">{headline}</p>
         <div className="eligibility eligibility-pills" data-testid="completed-gate-pills" data-gate-stagger="90">
           {checks.map(([label, passed]) => (
@@ -307,6 +304,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             className={`completed-metrics completed-metrics--${eligible ? "display" : "title"}`}
             data-testid="completed-metrics"
             data-metrics-tier={eligible ? "display" : "title"}
+            data-metric-color="ink"
           >
             {view.metrics.excessAnn != null && (
               <div>

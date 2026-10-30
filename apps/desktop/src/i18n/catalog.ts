@@ -17,7 +17,7 @@ function messages(lang: "zh" | "en") {
   return {
     nav: {
       research: copy("研究", "Research"),
-      methods: copy("方法库", "Methods"),
+      methods: copy("方法", "Methods"),
       glossary: copy("术语", "Glossary"),
       settings: copy("设置", "Settings"),
     },

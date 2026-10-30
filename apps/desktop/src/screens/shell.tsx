@@ -79,9 +79,14 @@ export function NightShell({
       view.kind === "running" ? "running" :
       view.kind === "completed" ? "completed" : "idle"
     ));
-  const railKey = fetchingQuotes ? null : railStatusKey(view);
+  const statusKey = railStatusKey(view);
+  const railKey = fetchingQuotes ? "ui.status.railRun" : statusKey;
   const railTone = fetchingQuotes ? "run" : railStatusTone(railKey);
-  const railLabel = fetchingQuotes ? t("host.running") : railKey ? t(railKey) : null;
+  const railDotOnly = !fetchingQuotes && (
+    statusKey === "ui.status.confirmRun" || statusKey === "ui.status.awaitingShort"
+  );
+  const railSpoken = railDotOnly && statusKey ? t(statusKey) : railKey ? t(railKey) : null;
+  const railLabel = railSpoken;
   const engineLine = engineStatusLabel(sidecarState, t);
   const statusTitle = railLabel
     ? `${railLabel} · ${engineLine}`
@@ -113,10 +118,10 @@ export function NightShell({
         <div className="rail-top">
           <BrandMark />
           <nav aria-label={t("ui.shell.aria")}>
-            <a className={section === "research" ? "active" : ""} href="#/research"><RailIcon name="research" /><I18nText k="nav.research" /></a>
-            <a className={section === "methods" ? "active" : ""} href="#/methods"><RailIcon name="methods" /><I18nText k="nav.methods" /></a>
-            <a className={section === "glossary" ? "active" : ""} href="#/glossary"><RailIcon name="glossary" /><I18nText k="nav.glossary" /></a>
-            <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings"><RailIcon name="settings" /><I18nText k="nav.settings" /></a>
+            <a className={section === "research" ? "active" : ""} data-selected-affordance={section === "research" ? "bar" : undefined} href="#/research"><RailIcon name="research" /><I18nText k="nav.research" /></a>
+            <a className={section === "methods" ? "active" : ""} data-selected-affordance={section === "methods" ? "bar" : undefined} href="#/methods"><RailIcon name="methods" /><I18nText k="nav.methods" /></a>
+            <a className={section === "glossary" ? "active" : ""} data-selected-affordance={section === "glossary" ? "bar" : undefined} href="#/glossary"><RailIcon name="glossary" /><I18nText k="nav.glossary" /></a>
+            <a className={section === "settings" ? "active" : ""} data-selected-affordance={section === "settings" ? "bar" : undefined} href="#/settings/general" data-testid="rail-settings"><RailIcon name="settings" /><I18nText k="nav.settings" /></a>
           </nav>
         </div>
         <div className="rail-bottom">
@@ -129,7 +134,11 @@ export function NightShell({
             >
               <span className="host-status-line" data-testid="rail-status-label">
                 <span className="host-status-dot" aria-hidden />
-                {railLabel}
+                {railDotOnly ? (
+                  <span className="rail-status-sr">{railLabel}</span>
+                ) : (
+                  railLabel
+                )}
               </span>
             </div>
           ) : null}
