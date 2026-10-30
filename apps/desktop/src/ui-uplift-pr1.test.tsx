@@ -84,12 +84,14 @@ describe("status single truth", () => {
     },
   };
 
-  it("uses the same paused copy on the title, pill, and rail", () => {
+  it("uses the same paused copy on the title and pill, and a two-character hold label on the rail", () => {
     render(<App api={api} initialView={paused} initialRoute="#/research/r-1" />);
     expect(screen.getByTestId("run-status-title")).toHaveTextContent("已暂停");
     expect(screen.getByTestId("run-status-title")).toHaveAttribute("data-status", "paused");
     expect(screen.getByTestId("list-status-pill")).toHaveTextContent("已暂停");
-    expect(screen.getByTestId("rail-status-label")).toHaveTextContent("已暂停");
+    expect(screen.getByTestId("rail-status-label")).toHaveTextContent("暂停");
+    expect(screen.getByTestId("rail-status-label")).not.toHaveTextContent("已暂停");
+    expect(screen.getByTestId("host-status")).toHaveAttribute("data-rail-tone", "hold");
     expect(screen.getByTestId("host-status")).toHaveClass("paused");
     expect(screen.getByTestId("running-screen").textContent).not.toMatch(/运行中/);
     const warning = screen.getByTestId("missing-ticker-warning");

@@ -28,11 +28,8 @@
 .run-start-ritual .tech-pulse-atmosphere {
   animation: ritual-atmosphere-in 0.5s ease-out both;
 }
-.run-start-ritual-running .version-orbit {
-  animation: ritual-orbit-in 0.52s ease-out both;
-}
-.run-start-ritual-running .running-hero h1 {
-  animation: ritual-fade-up 0.34s ease-out both;
+.run-start-ritual-running .running-screen {
+  animation: run-enter 280ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 @keyframes ritual-atmosphere-in {
   from {
@@ -44,26 +41,14 @@
     transform: scale(1);
   }
 }
-@keyframes ritual-orbit-in {
+@keyframes run-enter {
   from {
     opacity: 0;
-    box-shadow: 0 0 0 rgba(96, 165, 250, 0);
-    transform: scale(0.88);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    box-shadow: var(--glow-pulse);
-    transform: scale(1);
-  }
-}
-@keyframes ritual-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -168,11 +153,16 @@ button.cyan-button.is-disabled {
   background: rgba(18, 22, 28, 0.72);
 }
 .night-shell.tech-pulse-shell .host-status.rail-status {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
   border: none;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  padding: 8px 10px;
+  padding: 4px 2px 8px;
 }
 .host-status-dot {
   display: inline-block;
@@ -193,6 +183,28 @@ button.cyan-button.is-disabled {
 .host-status.completed .host-status-dot {
   background: var(--ok);
 }
+.host-status.rail-status .host-status-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 16px;
+}
+.host-status.rail-status .host-status-dot {
+  margin: 0;
+  width: 8px;
+  height: 8px;
+}
+.host-status.rail-tone-run { color: var(--run); }
+.host-status.rail-tone-hold { color: var(--hold); }
+.host-status.rail-tone-ok { color: var(--ok); }
+.host-status.rail-tone-stop { color: var(--stop); }
+.host-status.rail-tone-run .host-status-dot { background: var(--run); }
+.host-status.rail-tone-hold .host-status-dot,
+.host-status.paused .host-status-dot { background: var(--hold); }
+.host-status.rail-tone-ok .host-status-dot { background: var(--ok); }
+.host-status.rail-tone-stop .host-status-dot { background: var(--stop); }
 
 .tech-pulse-content {
   position: relative;
@@ -361,10 +373,25 @@ button.cyan-button.is-disabled {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 .effective-quota-fill {
+  position: relative;
   height: 100%;
   background: var(--run);
   border-radius: inherit;
+  overflow: hidden;
   transition: width var(--motion-fast);
+}
+.effective-quota-fill.quota-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: quota-sheen 1.6s linear infinite;
+}
+@keyframes quota-sheen {
+  to { transform: translateX(350%); }
 }
 
 .tech-pulse-content > :not(.tech-pulse-atmosphere) {
@@ -623,6 +650,31 @@ button.cyan-button.is-disabled {
   border-color: rgba(248, 113, 113, 0.45);
   color: var(--stop);
   box-shadow: 0 0 24px rgba(248, 113, 113, 0.45);
+}
+.eligibility-pills .gate-pill {
+  animation: gate-in 150ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+.eligibility-pills .gate-pill:nth-child(2) { animation-delay: 90ms; }
+.eligibility-pills .gate-pill:nth-child(3) { animation-delay: 180ms; }
+.eligibility-pills .gate-pill:nth-child(4) { animation-delay: 270ms; }
+.eligibility-pills .gate-pill--fail {
+  animation-name: gate-in, gate-flash;
+  animation-duration: 150ms, 150ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1), ease-out;
+  animation-fill-mode: both, none;
+}
+.eligibility-pills .gate-pill--fail:nth-child(1) { animation-delay: 0ms, 150ms; }
+.eligibility-pills .gate-pill--fail:nth-child(2) { animation-delay: 90ms, 240ms; }
+.eligibility-pills .gate-pill--fail:nth-child(3) { animation-delay: 180ms, 330ms; }
+.eligibility-pills .gate-pill--fail:nth-child(4) { animation-delay: 270ms, 420ms; }
+@keyframes gate-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes gate-flash {
+  0% { box-shadow: 0 0 0 rgba(248, 113, 113, 0); }
+  50% { box-shadow: 0 0 24px rgba(248, 113, 113, 0.9); }
+  100% { box-shadow: 0 0 24px rgba(248, 113, 113, 0.45); }
 }
 .completed-export-actions {
   display: flex;
@@ -1072,12 +1124,26 @@ button.cyan-button.is-disabled {
 .draft-go-confirm { display: inline-flex; margin-top: 16px; text-decoration: none; }
 
 .version-orbit.phase-ring {
+  position: relative;
   width: 56px;
   height: 56px;
   animation: none;
   box-shadow: none;
   border-width: 2px;
   border-color: var(--run);
+}
+.phase-ring-arc {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  border-top-color: var(--run);
+  border-right-color: rgba(96, 165, 250, 0.35);
+  pointer-events: none;
+  animation: phase-ring-rotate 1.2s linear infinite;
+}
+@keyframes phase-ring-rotate {
+  to { transform: rotate(360deg); }
 }
 .version-orbit.phase-ring.version-orbit--paused { border-color: var(--hold); color: var(--hold); }
 .detail-layout .running-screen { padding-bottom: 32px; }
@@ -1150,4 +1216,84 @@ button.cyan-button.is-disabled {
 @media (prefers-reduced-motion: reduce) {
   .research-row,
   .awaiting-primary { transition-duration: 80ms; transform: none; }
+}
+
+button.cyan-button[data-run-motion] {
+  transition: transform 80ms cubic-bezier(0.2, 0, 0, 1), box-shadow var(--motion-fast), border-color var(--motion-fast), opacity var(--motion-fast), color var(--motion-fast);
+}
+button.cyan-button[data-run-motion]:active:not(:disabled) {
+  transform: scale(0.98);
+}
+@keyframes send-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(94, 234, 212, 0); }
+  40% { box-shadow: 0 0 0 6px rgba(94, 234, 212, 0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(94, 234, 212, 0); }
+}
+.cyan-button.send-pulse {
+  animation: send-pulse 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes message-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.message.message-rise {
+  animation: message-rise 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.list-empty {
+  margin: 24px 0 0;
+  color: var(--mute);
+  font-size: 14px;
+  line-height: 22px;
+}
+.route-loading {
+  display: grid;
+  gap: 12px;
+  width: min(720px, 100%);
+  margin: 32px auto;
+  padding: 0 24px 32px;
+}
+.route-loading-label {
+  margin: 0;
+  color: var(--mute);
+  font-size: 14px;
+  line-height: 22px;
+}
+.skeleton-stack { display: grid; gap: 12px; }
+.skeleton-bar {
+  display: block;
+  height: 14px;
+  border-radius: 8px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+.skeleton-bar--title { height: 28px; width: 46%; }
+.skeleton-bar--wide { width: 72%; }
+.skeleton-bar--row { height: 56px; }
+.skeleton-bar--card { height: 120px; }
+@keyframes skeleton-pulse {
+  50% { opacity: 0.45; }
+}
+@keyframes reduced-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .phase-ring-arc,
+  .effective-quota-fill.quota-sheen::after,
+  .cyan-button.send-pulse,
+  .skeleton-bar {
+    animation: none !important;
+  }
+  .eligibility-pills .gate-pill,
+  .message.message-rise,
+  .running-screen.run-start-ritual-running {
+    animation: reduced-fade 80ms linear both !important;
+    animation-delay: 0ms !important;
+    transform: none !important;
+  }
+  button.cyan-button[data-run-motion]:active:not(:disabled) {
+    transform: none !important;
+  }
 }

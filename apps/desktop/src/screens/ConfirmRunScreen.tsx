@@ -18,6 +18,7 @@ import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 import {deriveRunGate, runBlockedToken} from "../runGate";
+import {prefersReducedMotion} from "../runStartRitual";
 
 /** A stored pick counts only when this market's catalog still offers it. */
 export function selectedPriceSourceId(input: {
@@ -122,12 +123,18 @@ function DialoguePanel({
   const {t} = useI18n();
   const heading = title ?? t("ui.dialogue.title");
   const [message, setMessage] = useState("");
+  const [sendPulse, setSendPulse] = useState(false);
+  const [bubbleRise, setBubbleRise] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const seenUsers = useRef<number | null>(null);
+  const userCount = dialogue.filter((turn) => turn.role === "user").length;
+  const lastUserIndex = dialogue.reduce((found, turn, index) => (turn.role === "user" ? index : found), -1);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const text = message.trim();
     if (!text || !chatEnabled) return;
+    if (!prefersReducedMotion()) setSendPulse(true);
     try {
       await api.sendDialogue(researchId, text);
       setMessage("");
@@ -135,6 +142,25 @@ function DialoguePanel({
       /* mutation error banner */
     }
   };
+  useEffect(() => {
+    if (!sendPulse) return;
+    const timer = window.setTimeout(() => setSendPulse(false), 180);
+    return () => window.clearTimeout(timer);
+  }, [sendPulse]);
+  useEffect(() => {
+    if (seenUsers.current === null) {
+      seenUsers.current = userCount;
+      return;
+    }
+    if (userCount > seenUsers.current && !prefersReducedMotion()) {
+      setBubbleRise(true);
+      seenUsers.current = userCount;
+      const timer = window.setTimeout(() => setBubbleRise(false), 220);
+      return () => window.clearTimeout(timer);
+    }
+    seenUsers.current = userCount;
+    return undefined;
+  }, [userCount]);
   useEffect(() => {
     const node = inputRef.current;
     if (!node) return;
@@ -166,8 +192,9 @@ function DialoguePanel({
       {dockComposer ? (
         <button
           type="submit"
-          className="cyan-button"
+          className={`cyan-button${sendPulse ? " send-pulse" : ""}`}
           data-testid="dialogue-send"
+          data-send-motion="180"
           disabled={!message.trim()}
         >
           {t("ui.dialogue.send")}
@@ -183,9 +210,17 @@ function DialoguePanel({
         <p className="message assistant system" data-testid="dialogue-system-intro">
           {t("ui.dialogue.intro")}
         </p>
-        {dialogue.map((turn, index) => (
-          <DialogueTurnBody turn={turn} key={index} />
-        ))}
+        {dialogue.map((turn, index) => {
+          const rise = bubbleRise && index === lastUserIndex;
+          return (
+            <DialogueTurnBody
+              turn={turn}
+              key={index}
+              className={rise ? "message-rise" : undefined}
+              bubbleMotion={rise ? "220" : undefined}
+            />
+          );
+        })}
         {trailing}
       </div>
       {composer}
@@ -1043,6 +1078,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           type="button"
           className={canRun ? "cyan-button" : "cyan-button is-disabled"}
           data-testid="confirm-run-start"
+          data-run-motion="80"
           data-run-blocked={runBlockedToken(gate.code)}
           disabled={starting || saving || !canRun}
           aria-busy={starting || saving}

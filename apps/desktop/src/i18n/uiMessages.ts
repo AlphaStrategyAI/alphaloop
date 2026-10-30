@@ -26,6 +26,10 @@ export function buildUiMessages(copy: Copy) {
       ended: copy("已结束（未通过）", "Ended (not passed)"),
       endedShort: copy("未通过", "Not passed"),
       confirmRun: copy("确认开跑", "Confirm to run"),
+      railRun: copy("运行", "Run"),
+      railHold: copy("暂停", "Hold"),
+      railOk: copy("完成", "OK"),
+      railStop: copy("完成", "Stop"),
     },
     list: {
       eyebrow: copy("研究", "Research"),
@@ -47,6 +51,7 @@ export function buildUiMessages(copy: Copy) {
       briefReady: copy("五项设定已齐", "All five settings are filled"),
       untitled: copy("未命名研究", "Untitled study", true),
       enter: copy("进入", "Open"),
+      empty: copy("还没有研究。从新建研究开始。", "No research yet. Start with New research."),
     },
     brief: {
       eyebrow: copy("研究设定", "Research settings"),

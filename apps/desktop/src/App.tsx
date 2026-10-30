@@ -15,6 +15,7 @@ import {ConfirmRunCard, ConfirmRunScreen, DraftScreen} from "./screens/ConfirmRu
 import {GlossaryScreen} from "./screens/GlossaryScreen";
 import {MethodDetail, MethodsScreen} from "./screens/MethodsScreen";
 import {ResearchList} from "./screens/ResearchListScreen";
+import {RouteLoading} from "./screens/RouteLoading";
 import {RunningScreen} from "./screens/RunningScreen";
 import {isSettingsRoute, NightShell, routeFailureMessage} from "./screens/shell";
 import {routeFor} from "./screens/routes";
@@ -259,7 +260,7 @@ export function App({
       {settingsRoute ? (
         <SettingsPage route={route} />
       ) : routePending ? (
-        <p className="route-loading" data-testid="route-loading">{t("ui.shell.loading")}</p>
+        <RouteLoading route={route} />
       ) : routeFailed ? (
         <div className="route-error" data-testid="route-error" role="alert">
           <p><EngineFailureText raw={routeError ?? ""} /></p>

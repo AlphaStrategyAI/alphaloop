@@ -102,7 +102,7 @@ function messages(lang: "zh" | "en") {
       scope: {
         title: copy("切换范围", "What switches"),
         switchesLabel: copy("会切换", "Switches"),
-        keepsLabel: copy("保持原样", "Stays as written"),
+        keepsLabel: copy("保持原样", "Stays as-is"),
         switchUi: copy("界面、弹窗、空状态和确认卡", "Interface, dialogs, empty states, and the confirmation card"),
         switchPages: copy("结论页、设置页和术语表", "Conclusion, settings, and the glossary"),
         switchNames: copy("方法库和策略族的名称与说明", "Method library and strategy-family names and descriptions"),

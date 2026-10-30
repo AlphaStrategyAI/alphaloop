@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 
 import {translate} from "./i18n/translate";
-import {railStatusKey} from "./railStatus";
+import {railStatusKey, railStatusTone} from "./railStatus";
 
 const briefSettings = {
   thesis: "t",
@@ -50,5 +50,73 @@ describe("railStatusKey", () => {
         rows: [{id: "r", title: "t", status: "confirm_run"}],
       }),
     ).toBe("ui.status.confirmRun");
+  });
+
+  it("uses two-character research labels and run/hold/ok/stop tones", () => {
+    const running = railStatusKey({
+      kind: "running",
+      researchId: "r",
+      status: "running",
+      version: 1,
+      effective: "1h",
+      coverage: "ok",
+      rounds: [],
+    });
+    expect(running).toBe("ui.status.railRun");
+    expect(railStatusTone(running)).toBe("run");
+    expect(translate("zh", "ui.status.railRun")).toBe("运行");
+    expect(translate("en", "ui.status.railRun")).toBe("Run");
+
+    const paused = railStatusKey({
+      kind: "running",
+      researchId: "r",
+      status: "paused",
+      version: 1,
+      effective: "1h",
+      coverage: "ok",
+      rounds: [],
+    });
+    expect(paused).toBe("ui.status.railHold");
+    expect(railStatusTone(paused)).toBe("hold");
+    expect(translate("zh", "ui.status.railHold")).toBe("暂停");
+    expect(translate("en", "ui.status.railHold")).toBe("Hold");
+
+    const passed = railStatusKey({
+      kind: "completed",
+      researchId: "r",
+      status: "completed",
+      title: "t",
+      selectedRoundId: "round",
+      selectedMethodId: "m",
+      eligibility: {
+        allMethodsPassed: true,
+        noPendingConfirm: true,
+        reverifiesPassed: true,
+        pitExecutedAndPassed: true,
+      },
+    });
+    expect(passed).toBe("ui.status.railOk");
+    expect(railStatusTone(passed)).toBe("ok");
+    expect(translate("en", "ui.status.railOk")).toBe("OK");
+
+    const failed = railStatusKey({
+      kind: "completed",
+      researchId: "r",
+      status: "ended",
+      title: "t",
+      selectedRoundId: "round",
+      selectedMethodId: "m",
+      eligibility: {
+        allMethodsPassed: false,
+        noPendingConfirm: true,
+        reverifiesPassed: true,
+        pitExecutedAndPassed: true,
+      },
+    });
+    expect(failed).toBe("ui.status.railStop");
+    expect(railStatusTone(failed)).toBe("stop");
+    expect(translate("zh", "ui.status.railStop")).toBe("完成");
+    expect(translate("en", "ui.status.railStop")).toBe("Stop");
+    expect(railStatusTone("ui.status.confirmRun")).toBeNull();
   });
 });
