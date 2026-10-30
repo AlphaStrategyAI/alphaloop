@@ -52,11 +52,11 @@ export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSett
       </header>
       <div className="settings-body" data-testid="settings-body">
         {tab === "general" ? (
-          <div className="settings-grid">
+          <div className="settings-general" data-testid="settings-general">
             <section className="settings-card" aria-labelledby="ui-language-title">
               <h2 id="ui-language-title"><I18nText k="settings.general.title" /></h2>
               <p><I18nText k="settings.general.immediate" /></p>
-              <div className="settings-options" role="radiogroup" aria-labelledby="ui-language-title">
+              <div className="settings-options" role="radiogroup" aria-labelledby="ui-language-title" data-option-count="3">
                 <LanguageOption
                   value="system"
                   checked={preference === "system"}
@@ -91,23 +91,29 @@ export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSett
             </section>
             <section className="settings-card" aria-labelledby="ui-language-scope">
               <h2 id="ui-language-scope"><I18nText k="settings.scope.title" /></h2>
-              <p className="settings-scope-label"><I18nText k="settings.scope.switchesLabel" /></p>
-              <ul>
-                <li><I18nText k="settings.scope.switchUi" /></li>
-                <li><I18nText k="settings.scope.switchPages" /></li>
-                <li><I18nText k="settings.scope.switchNames" /></li>
-                <li><I18nText k="settings.scope.switchErrors" /></li>
-                <li><I18nText k="settings.scope.switchExport" /></li>
-                <li><I18nText k="settings.scope.switchLlm" /></li>
-              </ul>
-              <p className="settings-scope-label"><I18nText k="settings.scope.keepsLabel" /></p>
-              <ul>
-                <li><I18nText k="settings.scope.keepNotes" /></li>
-                <li><I18nText k="settings.scope.keepSaved" /></li>
-                <li><I18nText k="settings.scope.keepLiterature" /></li>
-                <li><I18nText k="settings.scope.keepNames" /></li>
-                <li><I18nText k="settings.scope.keepLegacy" params={{languageNotRecorded}} /></li>
-              </ul>
+              <div className="settings-scope-grid" data-testid="settings-scope-columns">
+                <div>
+                  <p className="settings-scope-label"><I18nText k="settings.scope.switchesLabel" /></p>
+                  <ul>
+                    <li><I18nText k="settings.scope.switchUi" /></li>
+                    <li><I18nText k="settings.scope.switchPages" /></li>
+                    <li><I18nText k="settings.scope.switchNames" /></li>
+                    <li><I18nText k="settings.scope.switchErrors" /></li>
+                    <li><I18nText k="settings.scope.switchExport" /></li>
+                    <li><I18nText k="settings.scope.switchLlm" /></li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="settings-scope-label"><I18nText k="settings.scope.keepsLabel" /></p>
+                  <ul>
+                    <li><I18nText k="settings.scope.keepNotes" /></li>
+                    <li><I18nText k="settings.scope.keepSaved" /></li>
+                    <li><I18nText k="settings.scope.keepLiterature" /></li>
+                    <li><I18nText k="settings.scope.keepNames" /></li>
+                    <li><I18nText k="settings.scope.keepLegacy" params={{languageNotRecorded}} /></li>
+                  </ul>
+                </div>
+              </div>
               <p>
                 <I18nText
                   k="settings.scope.footnote"

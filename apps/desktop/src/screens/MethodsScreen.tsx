@@ -49,7 +49,7 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
     ({gt: t("ui.methods.gt"), gte: t("ui.methods.gte"), eq: t("ui.methods.eq"), lt: t("ui.methods.lt"), lte: t("ui.methods.lte")} as const)[dim.comparison];
   return (
     <section className="method-detail">
-      <h1>{copyText(method.name)}</h1>
+      <h2 className="method-title">{copyText(method.name)}</h2>
       {method.category && <span className="method-category-badge">{surface(method.category)}</span>}
       {method.description && !method.description.trim().startsWith("{") ? (
         <p>{surface(method.description)}</p>
@@ -139,9 +139,12 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
   const [name, setName] = useState("");
   const [definition, setDefinition] = useState("");
   return (
-    <div className="methods-layout">
+    <div className="methods-layout" data-testid="methods-layout" data-split="40/60">
       <aside className="method-list">
-        <p>{t("ui.methods.listLead")}</p>
+        <header className="methods-chrome" data-testid="methods-chrome">
+          <h1>{t("nav.methods")}</h1>
+          <p>{t("ui.methods.listLead")}</p>
+        </header>
         <details className="method-create">
           <summary>{t("ui.methods.create")}</summary>
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("ui.methods.namePlaceholder")} />

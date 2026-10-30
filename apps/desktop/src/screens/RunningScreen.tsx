@@ -113,7 +113,11 @@ export function RunningScreen({
       data-run-start-ritual={runStartRitual ? "active" : undefined}
     >
       <div className="running-hero">
-        <div className={`version-orbit${paused ? " version-orbit--paused" : ""}`} data-testid="version-orbit">
+        <div
+          className={`version-orbit phase-ring${paused ? " version-orbit--paused" : ""}`}
+          data-testid="version-orbit"
+          data-phase-ring="static"
+        >
           <span className="orbit-version">v{view.version}</span>
           {stageLabel ? <span className="orbit-stage">{stageLabel}</span> : null}
         </div>
@@ -142,6 +146,7 @@ export function RunningScreen({
           <div
             className="effective-quota-track"
             data-testid="effective-quota-track"
+            data-track-px="8"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}

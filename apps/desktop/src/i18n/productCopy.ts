@@ -1,4 +1,5 @@
 import {formatEngineDuration} from "../duration";
+import {enCatalog, zhCatalog} from "./catalog";
 import type {MessageKey} from "./I18nProvider";
 import type {MessageParams} from "./translate";
 
@@ -369,4 +370,23 @@ export function localizeKnownCopy(text: string, t: CopyFn): string {
     return parts.map((part) => exactLabel(part, t)).join(" · ");
   }
   return gateToken(text, t);
+}
+
+const UNLOCKED_SLOT_TEXT = new Set([
+  zhCatalog.ui.list.unlocked,
+  enCatalog.ui.list.unlocked,
+]);
+
+/** True when the engine sent a real brief value, not the unlocked marker in either language. */
+export function briefSlotFilled(raw: string): boolean {
+  const text = raw.trim();
+  return text.length > 0 && !UNLOCKED_SLOT_TEXT.has(text);
+}
+
+/** Legacy alias inside an engine glossary body: 旧称「name」 or 曾用名：name. */
+export function formerNameFromBody(body: string): string | null {
+  const quoted = body.match(/旧称「([^」]+)」/);
+  if (quoted?.[1]) return quoted[1];
+  const labeled = body.match(/曾用名[:：]\s*([^。]+)/);
+  return labeled?.[1]?.trim() || null;
 }

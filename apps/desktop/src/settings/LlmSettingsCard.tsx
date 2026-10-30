@@ -67,7 +67,8 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
     <section className="settings-card" data-testid="settings-llm">
       <h2><I18nText k="settings.llm.title" /></h2>
       <p><I18nText k="settings.llm.intro" /></p>
-      <form className="llm-form" onSubmit={onSubmit}>
+      <p data-testid="llm-optional"><I18nText k="settings.llm.optional" /></p>
+      <form className="llm-form" data-focus-ring="cyan" onSubmit={onSubmit}>
         <label className="llm-field">
           <span><I18nText k="settings.llm.baseUrl" /></span>
           <input
@@ -130,8 +131,10 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
             placeholder="gpt-4.1-mini"
           />
         </label>
-        <p><I18nText k="settings.llm.sent" /></p>
-        <p><I18nText k="settings.llm.notSent" /></p>
+        <div className="llm-columns" data-testid="llm-columns">
+          <p data-testid="llm-sent"><I18nText k="settings.llm.sent" /></p>
+          <p data-testid="llm-not-sent"><I18nText k="settings.llm.notSent" /></p>
+        </div>
         <label className="llm-check">
           <input
             data-testid="llm-privacy"

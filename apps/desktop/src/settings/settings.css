@@ -71,10 +71,27 @@
   margin-top: 8px;
 }
 .settings-save-hint { color: var(--hold); }
-.llm-field input:focus {
+.llm-field input:focus,
+.llm-field input:focus-visible,
+.settings-option:focus-within {
   outline: 2px solid var(--cyan);
   outline-offset: 1px;
+  border-color: var(--line);
 }
+.settings-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.settings-general { display: grid; gap: 16px; }
+.settings-scope-grid,
+.llm-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px 24px;
+  align-items: start;
+}
+.llm-columns p { margin: 0; }
 .settings-kicker {
   margin: 0 0 8px;
   color: var(--mute);
@@ -214,7 +231,9 @@
   margin: 0;
 }
 @media (max-width: 960px) {
-  .settings-grid {
+  .settings-grid,
+  .settings-scope-grid,
+  .llm-columns {
     grid-template-columns: minmax(0, 1fr);
   }
   .settings-screen {

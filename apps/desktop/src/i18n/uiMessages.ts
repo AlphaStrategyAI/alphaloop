@@ -55,6 +55,11 @@ export function buildUiMessages(copy: Copy) {
       hours: copy("最长研究时间", "Maximum research time"),
       methods: copy("第一轮验证方法", "First-round verification methods"),
       coverage: copy("最低数据覆盖", "Minimum data coverage"),
+      thesisShort: copy("原理", "Thesis"),
+      universeShort: copy("资产", "Assets"),
+      hoursShort: copy("时长", "Time"),
+      methodsShort: copy("方法", "Methods"),
+      coverageShort: copy("覆盖", "Coverage"),
       edit: copy("改一改", "Edit"),
     },
     dialogue: {
@@ -99,6 +104,11 @@ export function buildUiMessages(copy: Copy) {
       ),
       continueMeanReversion: copy("按均值回归继续", "Continue with mean reversion"),
       dontContinue: copy("不继续", "Don't continue"),
+      send: copy("发送", "Send"),
+      emptyMark: copy("—", "—"),
+      progress: copy("进度", "Progress"),
+      locksHeading: copy("研究设定 {{locked}}/5", "Research settings {{locked}}/5"),
+      goConfirm: copy("去确认开跑", "Go confirm the run"),
       pickFamily: copy("改选策略族：", "Pick a strategy family:"),
       declinedMeanReversion: copy(
         "好的，不按均值回归跑。研究留在草稿，可以改选策略族或换个论点。",
@@ -493,6 +503,11 @@ export function buildUiMessages(copy: Copy) {
       definitionPlaceholder: copy("方法定义", "Method definition"),
       create: copy("预先新建方法", "Create a method ahead of time"),
       builtin: copy("内置修订", "Built-in revision"),
+    },
+    glossary: {
+      search: copy("搜索 术语或别名…", "Search terms or aliases…"),
+      noMatch: copy("没有匹配的术语。", "No matching terms."),
+      former: copy("曾用名：{{name}}", "Former name: {{name}}"),
     },
     errors: {
       runCount: copy("运行错误（{{count}} 次）：{{message}}", "Run error ({{count}}): {{message}}"),
