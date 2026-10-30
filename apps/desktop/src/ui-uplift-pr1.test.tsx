@@ -126,6 +126,8 @@ describe("danger confirm", () => {
         initialRoute="#/research"
       />,
     );
+    expect(screen.getByTestId("research-row-more")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("research-row-more"));
     fireEvent.click(screen.getByTestId("delete-research"));
     const dialog = screen.getByTestId("in-app-confirm");
     expect(dialog).toHaveAttribute("data-dim", "0.5");

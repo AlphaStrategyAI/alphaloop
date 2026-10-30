@@ -60,7 +60,7 @@ function RowDelete({onDelete}: {onDelete: () => void}) {
         </svg>
       </button>
       <details className="row-more">
-        <summary className="row-more-summary" aria-label={t("ui.list.more")}>⋯</summary>
+        <summary className="row-more-summary" data-testid="research-row-more" aria-label={t("ui.list.more")}>⋯</summary>
         <button type="button" data-testid="delete-research" onClick={onDelete}>{t("ui.list.delete")}</button>
       </details>
     </>

@@ -832,7 +832,7 @@ button.cyan-button.is-disabled {
 .research-row,
 .awaiting-primary.list-pinned-card {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   border-color: var(--line);
   box-shadow: none;
   animation: none;
@@ -880,10 +880,14 @@ button.cyan-button.is-disabled {
   border-radius: 8px;
 }
 .row-more-summary::-webkit-details-marker { display: none; }
+.research-row:has(.row-more[open]),
+.list-pinned-card:has(.row-more[open]) {
+  z-index: 4;
+}
 .row-more button {
-  position: absolute;
-  right: 0;
+  position: relative;
   z-index: 3;
+  margin-top: 4px;
   background: #161B22;
   white-space: nowrap;
 }

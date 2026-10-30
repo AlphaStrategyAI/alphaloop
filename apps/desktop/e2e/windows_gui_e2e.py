@@ -1729,11 +1729,11 @@ def main() -> int:
             running_row,
         )
         shoot("before-delete-running", filename="11a-before-delete-running.png")
-        click(
-            session.driver,
-            f"[data-testid=research-row][data-research-id='{rid}'][data-status=running] [data-testid=delete-research]",
-            timeout=15,
-        )
+        # Delete lives in the row's ⋯ menu. A closed <details> hides the button, so
+        # element_to_be_clickable times out until the summary is opened.
+        row = f"[data-testid=research-row][data-research-id='{rid}'][data-status=running]"
+        click(session.driver, f"{row} [data-testid=research-row-more]", timeout=15)
+        click(session.driver, f"{row} [data-testid=delete-research]", timeout=15)
         click(session.driver, "[data-testid=in-app-confirm-accept]")
         WebDriverWait(session.driver, 20).until(
             lambda d: not d.find_elements(By.CSS_SELECTOR, f"[data-research-id='{rid}']")
