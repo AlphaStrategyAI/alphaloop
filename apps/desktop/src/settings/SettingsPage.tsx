@@ -10,6 +10,9 @@ import {LlmSettingsCard} from "./LlmSettingsCard";
 import type {LlmSettingsPort} from "./llmSettingsPort";
 import "./settings.css";
 
+/** Clears sticky .settings-tabs after scrollIntoView (Selenium / a11y). */
+export const SETTINGS_TAB_SCROLL_MARGIN_PX = 56;
+
 export function settingsTab(route: string): "data" | "llm" | "general" {
   if (route.startsWith("#/settings/data")) return "data";
   if (route.startsWith("#/settings/llm")) return "llm";
@@ -141,7 +144,11 @@ function LanguageOption({
   onSelect: (preference: UiLanguagePreference) => Promise<void>;
 }) {
   return (
-    <label className={`settings-option${checked ? " selected" : ""}`} data-testid={`ui-language-option-${value}`}>
+    <label
+      className={`settings-option${checked ? " selected" : ""}`}
+      style={{scrollMarginTop: SETTINGS_TAB_SCROLL_MARGIN_PX}}
+      data-testid={`ui-language-option-${value}`}
+    >
       <input
         type="radio"
         name="ui-language"

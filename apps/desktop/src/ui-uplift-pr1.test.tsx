@@ -7,7 +7,7 @@ import type {DesktopView, ValidationMethod} from "./contracts";
 import {I18nProvider} from "./i18n/I18nProvider";
 import {ASIDE_WIDTH, MAIN_MIN_WIDTH, RAIL_WIDTH, shellHasAside} from "./layoutShell";
 import {MethodDetail} from "./screens/MethodsScreen";
-import {SettingsPage} from "./settings/SettingsPage";
+import {SETTINGS_TAB_SCROLL_MARGIN_PX, SettingsPage} from "./settings/SettingsPage";
 import {minimalDesktopApi} from "./test-fixtures";
 
 afterEach(() => cleanup());
@@ -174,6 +174,19 @@ describe("settings data honesty", () => {
     );
     expect(screen.getByTestId("ui-language-option-zh").querySelector(".settings-badge")).toHaveTextContent("默认");
     expect(screen.getByTestId("ui-language-option-system").querySelector(".settings-badge")).toBeNull();
+  });
+
+  it("gives language options scroll-margin so sticky tabs do not intercept clicks", () => {
+    expect(SETTINGS_TAB_SCROLL_MARGIN_PX).toBeGreaterThanOrEqual(48);
+    render(
+      <I18nProvider initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
+        <SettingsPage route="#/settings/general" />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("settings-tab-data")).toBeInTheDocument();
+    expect(screen.getByTestId("ui-language-option-en")).toHaveStyle({
+      scrollMarginTop: `${SETTINGS_TAB_SCROLL_MARGIN_PX}px`,
+    });
   });
 });
 
