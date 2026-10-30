@@ -146,7 +146,8 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
         </label>
         {error ? <p className="llm-error" data-testid="llm-error" role="alert">{error}</p> : null}
         {saved ? <p data-testid="llm-saved"><I18nText k="settings.llm.saved" /></p> : null}
-        <button type="submit" className="cyan-button" data-testid="llm-save">
+        {!privacy ? <p data-testid="llm-save-hint"><I18nText k="settings.data.consentHint" /></p> : null}
+        <button type="submit" className="cyan-button" data-testid="llm-save" disabled={!privacy}>
           <I18nText k="settings.llm.save" />
         </button>
       </form>

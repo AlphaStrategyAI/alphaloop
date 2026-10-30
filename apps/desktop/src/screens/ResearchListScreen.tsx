@@ -45,6 +45,28 @@ function OpenResearchLink({
   );
 }
 
+function RowDelete({onDelete}: {onDelete: () => void}) {
+  const {t} = useI18n();
+  return (
+    <>
+      <button
+        type="button"
+        className="row-delete icon-button"
+        aria-label={t("ui.list.deleteTitle")}
+        onClick={onDelete}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 7h14M9 7V5h6v2M8 7l1 12h6l1-12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+      <details className="row-more">
+        <summary className="row-more-summary" data-testid="research-row-more" aria-label={t("ui.list.more")}>⋯</summary>
+        <button type="button" data-testid="delete-research" onClick={onDelete}>{t("ui.list.delete")}</button>
+      </details>
+    </>
+  );
+}
+
 export function StatusPill({status}: {status: ResearchListDisplayStatus}) {
   const {t} = useI18n();
   return (
@@ -76,6 +98,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
       title: t("ui.list.deleteTitle"),
       body: deleteWarning,
       confirmLabel: t("ui.list.delete"),
+      tone: "danger",
       onConfirm: () => {
         void api.deleteResearch(researchId);
         setDeleteConfirm(null);
@@ -87,12 +110,11 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
       <InAppConfirmOverlay request={deleteConfirm} onClose={() => setDeleteConfirm(null)} />
       <header className="list-header">
         <div>
-          <p className="tech-pulse-eyebrow">{t("nav.research")}</p>
           <h1 className="list-title">{t("ui.list.title")}</h1>
           <p className="list-tagline">{t("ui.list.tagline")}</p>
         </div>
         <button
-          className="quiet-button list-new-research"
+          className="cyan-button list-new-research"
           data-testid="new-research-button"
           onClick={() => {
             void api.createDraft().then((id) => {
@@ -130,9 +152,7 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
               {t("ui.list.openCard")}
             </OpenResearchLink>
             <span className="list-pinned-hint">{t("ui.list.clickCard")}</span>
-            <button type="button" className="text-button" data-testid="delete-research" onClick={() => askDelete(item.id)}>
-              {t("ui.list.delete")}
-            </button>
+            <RowDelete onDelete={() => askDelete(item.id)} />
           </div>
         </article>
       ))}
@@ -176,8 +196,8 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
               </p>
             </div>
             <div className="row-actions">
-              <OpenResearchLink researchId={row.id}>{t("ui.list.enter")}</OpenResearchLink>
-              <button type="button" data-testid="delete-research" onClick={() => askDelete(row.id)}>{t("ui.list.delete")}</button>
+              <OpenResearchLink className="cyan-button list-enter" researchId={row.id}>{t("ui.list.enter")}</OpenResearchLink>
+              <RowDelete onDelete={() => askDelete(row.id)} />
               <StatusPill status={row.status} />
             </div>
           </article>

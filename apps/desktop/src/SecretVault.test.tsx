@@ -119,10 +119,11 @@ describe("secret vault panel", () => {
     expect(locked.querySelector("[data-i18n-placeholder]")).toBeTruthy();
     expect(screen.queryByText("密钥")).not.toBeInTheDocument();
     expect(screen.queryByText("口令文件已在，需要解锁。")).not.toBeInTheDocument();
-    const preview = screen.getByTestId("secret-failure-preview");
-    expect(preview).toHaveTextContent("Failure");
-    expect(preview.textContent).not.toMatch(/\s/);
-    expect(preview.parentElement).toHaveStyle({whiteSpace: "nowrap"});
-    expect(preview.parentElement).toHaveClass("secret-vault-actions");
+    expect(screen.queryByTestId("secret-alias")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("secret-value")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("secret-failure-preview")).not.toBeInTheDocument();
+    expect(screen.getByTestId("secret-unlock")).toBeInTheDocument();
+    expect(screen.getByTestId("secret-vault")).toHaveAttribute("data-dim", "0.5");
+    expect(screen.getByTestId("secret-vault-open")).not.toHaveClass("active");
   });
 });

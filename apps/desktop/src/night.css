@@ -33,7 +33,7 @@ button:active { transform: scale(.98); }
   height: 100vh;
   max-width: none;
   display: grid;
-  grid-template-columns: 148px 1fr;
+  grid-template-columns: 72px minmax(720px, 1fr);
   overflow: hidden;
   background: var(--void);
 }
@@ -41,10 +41,10 @@ button:active { transform: scale(.98); }
   position: sticky;
   top: 0;
   align-self: start;
-  width: 148px;
+  width: 72px;
   height: 100vh;
   border-right: 1px solid var(--line);
-  background: var(--void);
+  background: #0B0E13;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -80,6 +80,16 @@ nav a.active { color: var(--ink); background: var(--glass); border-color: var(--
 .host-status.awaiting_confirm { color: var(--cyan); }
 .host-status.idle { color: var(--mute); }
 .content { min-width: 0; height: 100vh; overflow-y: auto; }
+/* Settings owns its scrollport so chrome tabs never overlay body targets (Selenium). */
+.content:has([data-testid="settings-page"]) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.content:has([data-testid="settings-page"]) > .settings-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .content.confirm_run, .content.awaiting_confirm {
   background: radial-gradient(ellipse at 50% 38%, rgba(94, 234, 212, .12), transparent 28%);
 }
@@ -164,9 +174,9 @@ button.cyan-button.is-disabled {
 .draft-layout {
   min-height: auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 340px);
-  gap: 48px;
-  padding: 48px 64px 120px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  padding: 24px;
 }
 @media (max-width: 1100px) {
   .draft-layout { grid-template-columns: minmax(0, 1fr); }
@@ -410,7 +420,7 @@ button.cyan-button.is-disabled {
   z-index: 40;
   display: grid;
   place-items: center;
-  background: rgba(7, 9, 12, 0.72);
+  background: rgba(5, 7, 10, 0.5);
   padding: 24px;
 }
 .in-app-confirm-card {
@@ -442,7 +452,7 @@ button.cyan-button.is-disabled {
 .result-card { margin-top: 28px; text-align: left; }
 .result-card button { margin-right: 10px; }
 .text-button { border: 0; background: transparent; color: var(--mute); }
-.methods-layout { display: grid; grid-template-columns: 260px 1fr; min-height: auto; padding-bottom: 64px; }
+.methods-layout { display: grid; grid-template-columns: minmax(280px, 2fr) minmax(0, 3fr); min-height: auto; padding-bottom: 64px; }
 .method-list { padding: 52px 28px; border-right: 1px solid var(--line); }
 .method-list a { display: grid; color: var(--ink); text-decoration: none; padding: 14px; border-radius: var(--radius-control); }
 .method-list a.active { background: var(--glass); border: 1px solid var(--line); }

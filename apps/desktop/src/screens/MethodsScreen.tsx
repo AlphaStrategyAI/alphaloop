@@ -1,6 +1,8 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
-import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import {useFocusTrap} from "../dialogFocus";
+
+import type {DesktopApi, DesktopView, BriefSlotName, HostStatus, PitDetail, ResearchListDisplayStatus, ScorecardDimension, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
@@ -21,10 +23,27 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const surface = (text: string | null | undefined) =>
     text ? localizeEngineSurface(copyText(text), t, resolved) : "";
+  const originalBody = method.definitionDisplay ?? method.description;
   const [reviseOpen, setReviseOpen] = useState(false);
-  const [reviseBody, setReviseBody] = useState(
-    method.definitionDisplay ?? method.description,
-  );
+  const [reviseBody, setReviseBody] = useState(originalBody);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const rememberedDimensions = useRef<{id: string; dimensions: readonly ScorecardDimension[]}>({
+    id: method.id,
+    dimensions: method.dimensions ?? [],
+  });
+  useFocusTrap(reviseOpen, dialogRef);
+  if (rememberedDimensions.current.id !== method.id) {
+    rememberedDimensions.current = {id: method.id, dimensions: method.dimensions ?? []};
+  } else if (method.dimensions && method.dimensions.length > 0) {
+    rememberedDimensions.current = {id: method.id, dimensions: method.dimensions};
+  }
+  const dimensions = method.dimensions && method.dimensions.length > 0
+    ? method.dimensions
+    : rememberedDimensions.current.dimensions;
+  const cancelEdit = () => {
+    setReviseBody(originalBody);
+    setReviseOpen(false);
+  };
   const comparisonLabel = (dim: NonNullable<ValidationMethod["dimensions"]>[number]) =>
     dim.comparisonLabel ??
     ({gt: t("ui.methods.gt"), gte: t("ui.methods.gte"), eq: t("ui.methods.eq"), lt: t("ui.methods.lt"), lte: t("ui.methods.lte")} as const)[dim.comparison];
@@ -45,7 +64,7 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
       {method.usageCount != null && (
         <p>{t("ui.methods.used", {count: method.usageCount})}</p>
       )}
-      {method.dimensions && method.dimensions.length > 0 && (
+      {dimensions.length > 0 && (
         <div className="scorecard-dimensions" data-testid="scorecard-dimensions">
           <p className="eyebrow">{t("ui.methods.dimensions")}</p>
           <table>
@@ -59,7 +78,7 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
               </tr>
             </thead>
             <tbody>
-              {method.dimensions.map((dim) => (
+              {dimensions.map((dim) => (
                 <tr key={`${dim.kind}-${dim.name}`}>
                   <td>{surface(dim.kindLabel ?? dim.kind)}</td>
                   <td>{surface(dim.name)}</td>
@@ -72,11 +91,16 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
           </table>
         </div>
       )}
-      <button className="quiet-button" type="button" onClick={() => setReviseOpen(true)}>{t("ui.methods.edit")}</button>
+      <button className="quiet-button" type="button" onClick={() => {
+        setReviseBody(originalBody);
+        setReviseOpen(true);
+      }}>{t("ui.methods.edit")}</button>
       <p>{t("ui.methods.stillOld")}</p>
       {reviseOpen && (
-        <div className="in-app-confirm-backdrop" data-testid="revise-method-dialog">
-          <div className="in-app-confirm-card revise-method-card" role="dialog" aria-modal="true">
+        <div className="in-app-confirm-backdrop" data-testid="revise-method-dialog" data-dim="0.5" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) cancelEdit();
+        }}>
+          <div ref={dialogRef} className="in-app-confirm-card revise-method-card" role="dialog" aria-modal="true">
             <h2>{t("ui.methods.edit")}</h2>
             <p>{t("ui.methods.editLead")}</p>
             <label>
@@ -88,7 +112,7 @@ export function MethodDetail({api, method}: {api: DesktopApi; method: Validation
               />
             </label>
             <div className="in-app-confirm-actions">
-              <button type="button" onClick={() => setReviseOpen(false)}>{t("ui.methods.cancel")}</button>
+              <button type="button" data-dialog-cancel="" onClick={cancelEdit}>{t("ui.methods.cancel")}</button>
               <button
                 type="button"
                 className="cyan-button"
@@ -118,13 +142,14 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
     <div className="methods-layout">
       <aside className="method-list">
         <p>{t("ui.methods.listLead")}</p>
-        <div className="method-create">
+        <details className="method-create">
+          <summary>{t("ui.methods.create")}</summary>
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("ui.methods.namePlaceholder")} />
           <input value={definition} onChange={(event) => setDefinition(event.target.value)} placeholder={t("ui.methods.definitionPlaceholder")} />
           <button className="quiet-button" onClick={() => {
             if (name.trim() && definition.trim()) void api.createMethod(name.trim(), definition.trim());
           }}>{t("ui.methods.create")}</button>
-        </div>
+        </details>
         {view.methods.map((method) => (
           <a
             className={method.id === selected?.id ? "active" : undefined}

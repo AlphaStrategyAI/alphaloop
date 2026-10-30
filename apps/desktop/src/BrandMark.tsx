@@ -7,8 +7,8 @@ export function BrandMark() {
       <img
         src={brandIcon96}
         srcSet={`${brandIcon96} 1x, ${brandIcon192} 2x`}
-        width={96}
-        height={96}
+        width={28}
+        height={28}
         alt=""
         aria-hidden
         decoding="async"

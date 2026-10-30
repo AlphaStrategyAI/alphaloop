@@ -45,7 +45,7 @@ describe("Tech Pulse UI", () => {
 
   it("renders list workshop chrome", () => {
     render(<App api={api} initialView={{kind: "research_list", rows: []}} />);
-    expect(screen.getByText("本机工坊")).toBeInTheDocument();
+    expect(screen.getByText("alpha策略研究列表")).toBeInTheDocument();
     expect(screen.getByText(/一条对话/)).toBeInTheDocument();
     expect(screen.getByTestId("new-research-button")).toHaveTextContent("+");
     expect(screen.getByTestId("new-research-button")).toHaveTextContent("新建研究");

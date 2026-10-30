@@ -91,10 +91,14 @@ describe("LLM settings call chain", () => {
       target: {value: "https://api.openai.com/v1"},
     });
     fireEvent.change(screen.getByTestId("llm-model"), {target: {value: "gpt-4.1-mini"}});
-    fireEvent.click(screen.getByTestId("llm-save"));
-    expect(await screen.findByTestId("llm-error")).toHaveTextContent("Confirm the privacy note");
+    const save = screen.getByTestId("llm-save");
+    expect(save).toBeDisabled();
+    expect(screen.getByTestId("llm-save-hint")).toHaveTextContent("Check this to save");
+    fireEvent.click(save);
+    expect(screen.queryByTestId("llm-error")).not.toBeInTheDocument();
     expect(state.saveCalls).toEqual([]);
     fireEvent.click(screen.getByTestId("llm-privacy"));
+    expect(save).toBeEnabled();
     fireEvent.click(screen.getByTestId("llm-save"));
     expect(await screen.findByTestId("llm-error")).toHaveTextContent("needs an API key");
     expect(state.saveCalls).toEqual([]);

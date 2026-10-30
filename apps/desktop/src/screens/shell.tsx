@@ -13,8 +13,24 @@ import {completedShowsFailedTone, viewContentFailedTone} from "../completedFaile
 import {listRowStatusKey} from "../listStatusDisplay";
 import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
+import {MAIN_MIN_WIDTH, RAIL_WIDTH, shellHasAside} from "../layoutShell";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
+
+function RailIcon({name}: {name: "research" | "methods" | "glossary" | "settings" | "secrets"}) {
+  const paths: Record<typeof name, string> = {
+    research: "M4 20V6.5L12 3l8 3.5V20H4zm4-3h8",
+    methods: "M6 4h9a3 3 0 0 1 3 3v13H8a2 2 0 0 1-2-2V4zm0 14h12",
+    glossary: "M5 5h6a3 3 0 0 1 3 3v11H8a3 3 0 0 1-3-3V5zm14 0h-6a3 3 0 0 0-3 3v11h6a3 3 0 0 0 3-3V5z",
+    settings: "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM4 12h2.2M17.8 12H20M12 4v2.2M12 17.8V20",
+    secrets: "M8 11V8a4 4 0 1 1 8 0v3M7 11h10v8H7v-8z",
+  };
+  return (
+    <svg className="rail-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={paths[name]} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function engineStatusLabel(sidecar: SidecarUiState | null | undefined, t: Translate): string {
   if (!sidecar) return t("ui.shell.engineChecking");
@@ -70,6 +86,8 @@ export function NightShell({
     ? `${railLabel} · ${engineLine}`
     : engineLine;
   const failedTone = viewContentFailedTone(view);
+  const paused = view.kind === "running" && view.status === "paused";
+  const hasAside = shellHasAside(route, view.kind);
   const atmosphereTone =
     view.kind === "running"
       ? "running"
@@ -85,31 +103,37 @@ export function NightShell({
       className="night-shell tech-pulse-shell"
       data-testid="night-shell"
       data-view={view.kind}
+      data-has-aside={hasAside ? "true" : "false"}
+      data-rail-width={RAIL_WIDTH}
+      data-main-min={MAIN_MIN_WIDTH}
       data-engine-phase={sidecarState?.phase ?? "unknown"}
     >
-      <aside className="rail" data-testid="rail">
-        <div className="rail-center">
+      <aside className="rail" data-testid="rail" data-rail-width={RAIL_WIDTH}>
+        <div className="rail-top">
           <BrandMark />
           <nav aria-label={t("ui.shell.aria")}>
-            <a className={section === "research" ? "active" : ""} href="#/research"><I18nText k="nav.research" /></a>
-            <a className={section === "methods" ? "active" : ""} href="#/methods"><I18nText k="nav.methods" /></a>
-            <a className={section === "glossary" ? "active" : ""} href="#/glossary"><I18nText k="nav.glossary" /></a>
-            <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings"><I18nText k="nav.settings" /></a>
-            <SecretVaultButton />
+            <a className={section === "research" ? "active" : ""} href="#/research"><RailIcon name="research" /><I18nText k="nav.research" /></a>
+            <a className={section === "methods" ? "active" : ""} href="#/methods"><RailIcon name="methods" /><I18nText k="nav.methods" /></a>
+            <a className={section === "glossary" ? "active" : ""} href="#/glossary"><RailIcon name="glossary" /><I18nText k="nav.glossary" /></a>
+            <a className={section === "settings" ? "active" : ""} href="#/settings/general" data-testid="rail-settings"><RailIcon name="settings" /><I18nText k="nav.settings" /></a>
           </nav>
         </div>
-        {railLabel ? (
-          <div className={`host-status rail-status ${hostKey}`} title={statusTitle} data-testid="host-status">
-            <span className="host-status-line" data-testid="rail-status-label">
-              <span className="host-status-dot" aria-hidden />
-              {railLabel}
-            </span>
-          </div>
-        ) : null}
+        <div className="rail-bottom">
+          {railLabel ? (
+            <div className={`host-status rail-status ${paused ? "paused" : hostKey}`} title={statusTitle} data-testid="host-status">
+              <span className="host-status-line" data-testid="rail-status-label">
+                <span className="host-status-dot" aria-hidden />
+                {railLabel}
+              </span>
+            </div>
+          ) : null}
+          <SecretVaultButton />
+        </div>
       </aside>
       <section
         className={`content ${view.kind} tech-pulse-content${failedTone ? " tech-pulse-failed-tone" : ""}${runStartRitual ? " run-start-ritual" : ""}`}
         data-run-start-ritual={runStartRitual ? "active" : undefined}
+        data-has-aside={hasAside ? "true" : "false"}
       >
         <div
           className="tech-pulse-atmosphere"

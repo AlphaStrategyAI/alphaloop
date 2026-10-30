@@ -210,7 +210,7 @@ describe("Night desktop contract", () => {
     expect(screen.getByRole("link", {name: "打开确认卡"})).toHaveAttribute("href", "#/research/r-wait");
     fireEvent.click(within(card).getByRole("button", {name: "删除"}));
     const dialog = screen.getByTestId("in-app-confirm");
-    fireEvent.click(dialog.querySelector(".cyan-button")!);
+    fireEvent.click(dialog.querySelector(".danger-button")!);
     expect(api.deleteResearch).toHaveBeenCalledWith("r-wait");
   });
 

@@ -1,6 +1,79 @@
 .settings-screen {
+  box-sizing: border-box;
   min-width: 0;
-  padding: 28px 32px 64px;
+  height: 100%;
+  min-height: 0;
+  padding: 24px 24px 0;
+  display: flex;
+  flex-direction: column;
+}
+.settings-chrome {
+  flex: 0 0 auto;
+  background: var(--void);
+}
+.settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 32px;
+}
+.honesty-card {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 12px;
+  background: #0B0E13;
+}
+.honesty-card h2,
+.settings-data h2 {
+  margin: 16px 0 8px;
+  font-size: 16px;
+  line-height: 24px;
+}
+.honesty-card h2 { margin-top: 0; color: var(--hold); font-size: 14px; }
+.honesty-card p,
+.source-card p { margin: 4px 0; }
+.source-card {
+  margin: 0 0 12px;
+  padding: 14px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.source-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.source-card h3 { margin: 0; font-size: 14px; line-height: 22px; }
+.source-badge {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.source-badge--stop {
+  color: var(--stop);
+  border: 1px solid var(--stop);
+  background: rgba(248, 113, 113, 0.15);
+}
+.source-badge--mute {
+  color: var(--mute);
+  border: 1px solid var(--mute);
+}
+.settings-consent-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+.settings-save-hint { color: var(--hold); }
+.llm-field input:focus {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
 }
 .settings-kicker {
   margin: 0 0 8px;
@@ -14,6 +87,7 @@
   gap: 8px 20px;
   margin: 0 0 20px;
   border-bottom: 1px solid var(--line);
+  background: var(--void);
 }
 .settings-tabs a {
   color: var(--mute);
@@ -144,6 +218,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .settings-screen {
-    padding: 20px 16px 48px;
+    padding: 20px 16px 0;
+  }
+  .settings-body {
+    padding-bottom: 48px;
   }
 }

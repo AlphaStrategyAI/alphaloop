@@ -17,6 +17,7 @@ import {listRowStatusKey} from "../listStatusDisplay";
 import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
+import {DetailFrame} from "./DetailFrame";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 function ExportOutcomeMessages({
@@ -246,7 +247,30 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
     }
   };
 
+  const catalogRounds = view.reverifyOptions?.rounds?.length
+    ? view.reverifyOptions.rounds.map((round) => ({id: round.roundId, label: copyText(round.roundLabel)}))
+    : (view.rounds ?? []).map((round, index) => ({
+        id: round.roundId,
+        label: t("ui.completed.roundN", {n: round.number || index + 1}),
+      }));
+
   return (
+    <DetailFrame
+      aside={
+        <>
+          <h2>{t("ui.completed.roundCatalog")}</h2>
+          {catalogRounds.length > 0 ? (
+            <ul className="round-catalog" data-testid="round-catalog">
+              {catalogRounds.map((round) => (
+                <li key={round.id}>{round.label}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>{t("ui.running.version", {version: view.version ?? 1})}</p>
+          )}
+        </>
+      }
+    >
     <div
       className={`focus completed-screen${researchRecordExportPrimary ? " tech-pulse-failed-tone" : " tech-pulse-success-tone"}`}
       data-testid="completed-screen"
@@ -267,8 +291,19 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         )}
         <h1 data-testid="completed-focus-title">{eligible ? t("ui.completed.title") : t("ui.completed.title")}</h1>
         <p className="completed-focus-headline">{headline}</p>
+        <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
+          {checks.map(([label, passed]) => (
+            <span className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`} key={label}>
+              {passed ? "●" : "○"} {label}
+            </span>
+          ))}
+        </div>
         {view.metrics && (view.metrics.excessAnn != null || view.metrics.maxDrawdown != null || view.metrics.maxDD != null) && (
-          <dl className="completed-metrics" data-testid="completed-metrics">
+          <dl
+            className={`completed-metrics completed-metrics--${eligible ? "display" : "title"}`}
+            data-testid="completed-metrics"
+            data-metrics-tier={eligible ? "display" : "title"}
+          >
             {view.metrics.excessAnn != null && (
               <div>
                 <dt>{t("ui.completed.excessAnn")}</dt>
@@ -317,13 +352,6 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         {view.stopReason === "early_stop" && (
           <p className="honest-stop-hint" data-testid="stop-reason">{t("ui.copy.stopEarly")}</p>
         )}
-        <div className="eligibility eligibility-pills" data-testid="completed-gate-pills">
-          {checks.map(([label, passed]) => (
-            <span className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`} key={label}>
-              {passed ? "●" : "○"} {label}
-            </span>
-          ))}
-        </div>
         {view.pitDetail && (view.pitDetail.scope || view.pitDetail.note || pitFailure) && (
           <p className="materials-note" data-testid="pit-detail">
             {pitFailure ? (
@@ -745,6 +773,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         )}
       </article>
     </div>
+    </DetailFrame>
   );
 }
 
