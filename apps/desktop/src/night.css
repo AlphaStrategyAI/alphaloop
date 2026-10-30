@@ -80,6 +80,16 @@ nav a.active { color: var(--ink); background: var(--glass); border-color: var(--
 .host-status.awaiting_confirm { color: var(--cyan); }
 .host-status.idle { color: var(--mute); }
 .content { min-width: 0; height: 100vh; overflow-y: auto; }
+/* Settings owns its scrollport so chrome tabs never overlay body targets (Selenium). */
+.content:has([data-testid="settings-page"]) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.content:has([data-testid="settings-page"]) > .settings-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .content.confirm_run, .content.awaiting_confirm {
   background: radial-gradient(ellipse at 50% 38%, rgba(94, 234, 212, .12), transparent 28%);
 }
