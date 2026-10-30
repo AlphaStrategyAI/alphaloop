@@ -61,7 +61,8 @@ describe("draft chat structure", () => {
     render(<DraftScreen api={api} view={view} />);
     expect(screen.getAllByTestId(/^brief-slot-/)).toHaveLength(5);
     expect(screen.getByTestId("brief-slot-thesis")).toHaveAttribute("data-lock", "pending");
-    expect(screen.getByTestId("brief-slot-thesis")).toHaveTextContent("待澄清");
+    expect(screen.getByTestId("brief-slot-thesis")).toHaveTextContent("未锁定");
+    expect(screen.getByTestId("brief-slot-thesis")).not.toHaveTextContent("待澄清");
     expect(screen.getByTestId("brief-slot-universe")).toHaveAttribute("data-lock", "locked");
     expect(screen.getByTestId("brief-slot-max_effective_hours")).toHaveAttribute("data-lock", "empty");
     expect(screen.getByTestId("draft-lock-progress")).toHaveAttribute("aria-valuenow", "1");
@@ -85,6 +86,56 @@ describe("draft chat structure", () => {
     );
     expect(screen.getByTestId("draft-go-confirm")).toHaveTextContent("去确认开跑");
     expect(screen.getByTestId("draft-lock-progress")).toHaveAttribute("aria-valuenow", "5");
+  });
+
+  it("keeps English time examples in the time lock and leaves methods unlocked", () => {
+    const answered = {
+      ...view,
+      dialogue: [
+        {role: "assistant" as const, text: "How much effective research time is allowed?"},
+        {role: "user" as const, text: "30 minutes"},
+        {role: "assistant" as const, text: "Which frozen verification methods should the first round use?"},
+      ],
+      settings: {
+        thesis: "Mean reversion on AAPL, a US stock, using daily prices.",
+        universe: "美股 · 股票",
+        max_effective_hours: "0.5 小时",
+        round1_methods: "",
+        coverage_floor: "",
+      },
+    };
+    const {unmount} = render(
+      <I18nProvider initial={EN}>
+        <DraftScreen api={api} view={answered} />
+      </I18nProvider>,
+    );
+    const hours = screen.getByTestId("brief-slot-max_effective_hours");
+    const methods = screen.getByTestId("brief-slot-round1_methods");
+    expect(hours).toHaveAttribute("data-lock", "locked");
+    expect(hours).toHaveTextContent("30 min");
+    expect(hours).not.toHaveTextContent("Not locked");
+    expect(methods).toHaveAttribute("data-lock", "pending");
+    expect(methods).toHaveTextContent("Not locked");
+    expect(methods).not.toHaveTextContent("To clarify");
+    expect(screen.getByTestId("draft-chat")).toHaveClass("draft-layout");
+    unmount();
+
+    render(
+      <I18nProvider initial={EN}>
+        <DraftScreen
+          api={api}
+          view={{
+            ...answered,
+            settings: {...answered.settings, max_effective_hours: "12 小时"},
+          }}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("brief-slot-max_effective_hours")).toHaveTextContent("12 h");
+    const twelve = screen.getByTestId("brief-slot-round1_methods");
+    expect(twelve).toHaveAttribute("data-lock", "pending");
+    expect(twelve).toHaveTextContent("Not locked");
+    expect(twelve).not.toHaveTextContent("To clarify");
   });
 });
 

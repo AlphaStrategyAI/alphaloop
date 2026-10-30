@@ -316,7 +316,7 @@ function DraftLocks({
                     data-testid={row.key === "thesis" ? "brief-thesis-value" : undefined}
                     data-user-content={row.key === "thesis" ? "true" : undefined}
                   >
-                    {state === "locked" ? copyText(row.raw) : state === "pending" ? t("ui.dialogue.pending") : t("ui.dialogue.emptyMark")}
+                    {state === "locked" ? copyText(row.raw) : state === "pending" ? t("ui.list.unlocked") : t("ui.dialogue.emptyMark")}
                   </span>
                 )}
                 {row.key === "universe" && values.universe_symbol_chips && values.universe_symbol_chips.length > 0 ? (

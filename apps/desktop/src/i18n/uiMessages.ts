@@ -105,7 +105,6 @@ export function buildUiMessages(copy: Copy) {
       continueMeanReversion: copy("按均值回归继续", "Continue with mean reversion"),
       dontContinue: copy("不继续", "Don't continue"),
       send: copy("发送", "Send"),
-      pending: copy("待澄清", "To clarify"),
       emptyMark: copy("—", "—"),
       progress: copy("进度", "Progress"),
       locksHeading: copy("研究设定 {{locked}}/5", "Research settings {{locked}}/5"),
