@@ -39,6 +39,7 @@ describe("draft chat structure", () => {
   it("keeps the assistant on the left, the user on the right, chips under the thread, and a fixed send", () => {
     render(<App api={api} initialView={view} initialRoute="#/research/r-draft" />);
     expect(screen.getByTestId("night-shell")).toHaveAttribute("data-has-aside", "true");
+    expect(screen.getByTestId("draft-chat")).toHaveClass("draft-layout");
     const assistant = screen.getByText("暂不支持动量族。请改选策略族：");
     const user = screen.getByText("想做 Momentum 美股股票");
     expect(assistant).toHaveClass("assistant");

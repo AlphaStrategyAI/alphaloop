@@ -358,7 +358,7 @@ function DraftLocks({
 export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "draft"}>}) {
   const {t} = useI18n();
   return (
-    <div className="draft-chat" data-testid="draft-chat">
+    <div className="draft-chat draft-layout" data-testid="draft-chat">
       <div className="draft-main">
         <header className="draft-chrome" data-testid="draft-chrome">
           <h1>{t("ui.dialogue.title")}</h1>

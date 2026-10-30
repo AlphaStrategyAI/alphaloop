@@ -986,6 +986,15 @@ button.cyan-button.is-disabled {
   height: 100%;
   align-items: stretch;
 }
+/* Keep the draft-layout hook for e2e text reads without the old padded grid. */
+.draft-chat.draft-layout {
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+}
 .draft-main {
   display: flex;
   flex-direction: column;
