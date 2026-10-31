@@ -641,6 +641,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   };
   return (
     <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
+      <div className="confirm-card-body" data-testid="confirm-card-body">
       <p className="tech-pulse-eyebrow">{t("ui.confirm.eyebrow")}</p>
       <h1>{t("ui.status.confirmRun")}</h1>
       <p className="confirm-lead">
@@ -1048,6 +1049,8 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <EngineFailureText raw={runError} />
         </p>
       )}
+      </div>
+      <div className="confirm-card-chrome" data-testid="confirm-card-chrome">
       {!canRun && (
         <p id="confirm-run-blocked-reason" className="confirm-run-blocked-reason" data-testid="confirm-run-blocked-reason">
           {gate.code === "UNIVERSE_TOO_FEW_SYMBOLS"
@@ -1091,6 +1094,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         <button type="button" className="quiet-button" data-testid="confirm-return-draft" onClick={returnToDraft}>
           {t("ui.confirm.editAgain")}
         </button>
+      </div>
       </div>
     </article>
   );
