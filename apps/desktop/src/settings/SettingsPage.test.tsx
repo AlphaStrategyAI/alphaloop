@@ -179,7 +179,7 @@ describe("settings language", () => {
         <SettingsPage route="#/settings/general" />
       </I18nProvider>,
     );
-    expect(await screen.findByTestId("about-version")).toHaveTextContent("Version 0.9.4");
+    expect(await screen.findByTestId("about-version")).toHaveTextContent("Version 0.9.5");
     expect(screen.getByTestId("about-sha")).toHaveTextContent("Commit unknown");
   });
 });
