@@ -30,4 +30,4 @@ def test_print_emits_the_single_version() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "0.9.3"
+    assert result.stdout.strip() == "0.9.4"
