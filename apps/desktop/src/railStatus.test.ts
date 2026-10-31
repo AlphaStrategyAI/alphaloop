@@ -65,7 +65,7 @@ describe("railStatusKey", () => {
     expect(running).toBe("ui.status.railRun");
     expect(railStatusTone(running)).toBe("run");
     expect(translate("zh", "ui.status.railRun")).toBe("运行");
-    expect(translate("en", "ui.status.railRun")).toBe("Run");
+    expect(translate("en", "ui.status.railRun")).toBe("Running");
 
     const paused = railStatusKey({
       kind: "running",
@@ -79,7 +79,7 @@ describe("railStatusKey", () => {
     expect(paused).toBe("ui.status.railHold");
     expect(railStatusTone(paused)).toBe("hold");
     expect(translate("zh", "ui.status.railHold")).toBe("暂停");
-    expect(translate("en", "ui.status.railHold")).toBe("Hold");
+    expect(translate("en", "ui.status.railHold")).toBe("Paused");
 
     const passed = railStatusKey({
       kind: "completed",
@@ -97,7 +97,7 @@ describe("railStatusKey", () => {
     });
     expect(passed).toBe("ui.status.railOk");
     expect(railStatusTone(passed)).toBe("ok");
-    expect(translate("en", "ui.status.railOk")).toBe("OK");
+    expect(translate("en", "ui.status.railOk")).toBe("Done");
 
     const failed = railStatusKey({
       kind: "completed",
@@ -116,7 +116,7 @@ describe("railStatusKey", () => {
     expect(failed).toBe("ui.status.railStop");
     expect(railStatusTone(failed)).toBe("stop");
     expect(translate("zh", "ui.status.railStop")).toBe("完成");
-    expect(translate("en", "ui.status.railStop")).toBe("Stop");
+    expect(translate("en", "ui.status.railStop")).toBe("Done");
     expect(railStatusTone("ui.status.confirmRun")).toBeNull();
   });
 });

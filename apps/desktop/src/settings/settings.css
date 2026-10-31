@@ -92,6 +92,25 @@
   align-items: start;
 }
 .llm-columns p { margin: 0; }
+.llm-columns ul { margin: 8px 0 0; padding-left: 0; list-style: none; }
+.llm-columns li { margin: 0 0 6px; color: var(--mute); font-size: 12px; line-height: 18px; }
+.llm-col-title { font-weight: 600; }
+.llm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.llm-impl {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0B0E13;
+}
+.llm-impl-title { margin: 0 0 4px; font-weight: 600; color: var(--ink); font-size: 12px; }
+.llm-disclosure h3 { margin: 0 0 4px; font-size: 20px; line-height: 28px; }
+.llm-field input:focus,
+.llm-field input:focus-visible,
+.llm-actions button:focus-visible,
+.llm-check input:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
+}
 .settings-kicker {
   margin: 0 0 8px;
   color: var(--mute);

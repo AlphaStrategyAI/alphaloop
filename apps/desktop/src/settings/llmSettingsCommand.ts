@@ -56,6 +56,25 @@ export function isLoopbackBaseUrl(value: string): boolean {
   return parts.every((part) => /^\d+$/.test(part) && Number(part) <= 255);
 }
 
+/** Host written into the implementation-change sentence. Empty input uses the frame example. */
+export function llmHostLabel(baseUrl: string): string {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) return "api.openai.com";
+  try {
+    const url = new URL(trimmed);
+    if (!url.hostname) return "api.openai.com";
+    const host = url.hostname.replace(/^\[|\]$/g, "");
+    return url.port ? `${host}:${url.port}` : host;
+  } catch {
+    return "api.openai.com";
+  }
+}
+
+export function llmRecordLabel(baseUrl: string, model: string): string {
+  const name = model.trim() || "gpt-4.1";
+  return `${name} @ ${llmHostLabel(baseUrl)}`;
+}
+
 export function baseUrlIsAcceptable(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > 500) return false;

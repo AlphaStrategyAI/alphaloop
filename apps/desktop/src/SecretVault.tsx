@@ -130,8 +130,8 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             </button>
           </div>
         ) : null}
-        {status?.backend === "keyring" ? <p><I18nText k="ui.secrets.keyring" /></p> : null}
-        {status?.backend === "memory" ? <p><I18nText k="ui.secrets.memoryNote" /></p> : null}
+        {!locked && status?.backend === "keyring" ? <p><I18nText k="ui.secrets.keyring" /></p> : null}
+        {!locked && status?.backend === "memory" ? <p><I18nText k="ui.secrets.memoryNote" /></p> : null}
         {locked ? (
           <p data-testid="secret-locked"><I18nText k="ui.secrets.locked" /></p>
         ) : status ? (
@@ -157,8 +157,8 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             </label>
           </div>
         ) : null}
-        {status?.backend === "passphrase" || locked ? (
-          <label>
+        {locked ? (
+          <label data-testid="secret-passphrase-field">
             <I18nText k="ui.secrets.passphrase" />
             <input
               type="password"
@@ -186,6 +186,8 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
               </button>
               <button
                 type="button"
+                className="danger-button"
+                data-testid="secret-delete"
                 onClick={() => void invoke("secret_delete", {id: alias}).then(() => refresh())}
               >
                 <I18nText k="ui.secrets.remove" />

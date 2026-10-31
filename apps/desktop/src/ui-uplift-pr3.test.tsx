@@ -205,7 +205,7 @@ describe("rail research status", () => {
       </I18nProvider>,
     );
     const label = screen.getByTestId("rail-status-label");
-    expect(label).toHaveTextContent("Run");
+    expect(label).toHaveTextContent("Running");
     expect(label.textContent ?? "").not.toMatch(/[\u4e00-\u9fff]/);
     expect(screen.getByTestId("host-status")).toHaveAttribute("data-rail-tone", "run");
     expect(screen.getByTestId("run-status-title")).toHaveTextContent("Running");

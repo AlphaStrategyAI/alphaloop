@@ -162,7 +162,7 @@ export function MethodsScreen({api, view}: {api: DesktopApi; view: Extract<Deskt
   const [definition, setDefinition] = useState("");
   return (
     <div className="methods-layout" data-testid="methods-layout" data-split="40/60">
-      <aside className="method-list">
+      <aside className="method-list" data-surface="deep" data-aside-fill="#0B0E13">
         <header className="methods-chrome" data-testid="methods-chrome">
           <h1>{t("ui.methods.pageTitle")}</h1>
           <p>{t("ui.methods.listLead")}</p>

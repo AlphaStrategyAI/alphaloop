@@ -153,6 +153,7 @@ export function NightShell({
         <div
           className="tech-pulse-atmosphere"
           data-testid="tech-pulse-atmosphere"
+          data-atmosphere="flat"
           data-atmosphere-tone={atmosphereTone}
           aria-hidden
         />

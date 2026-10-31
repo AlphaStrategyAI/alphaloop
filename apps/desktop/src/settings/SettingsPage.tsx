@@ -24,8 +24,12 @@ export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSett
   return (
     <div className="settings-screen" data-testid="settings-page" data-has-aside="false">
       <header className="settings-chrome" data-testid="settings-chrome">
-        <h1 className="settings-title"><I18nText k="nav.settings" /></h1>
-        <nav className="settings-tabs" aria-label={t("nav.settings")}>
+        <h1 className="settings-title">
+          {t("nav.settings")}
+          {" · "}
+          {t(tab === "data" ? "settings.tabs.data" : tab === "llm" ? "settings.tabs.llm" : "settings.tabs.general")}
+        </h1>
+        <nav className="settings-tabs" aria-label={t("nav.settings")} data-orientation="horizontal">
           <a
             href="#/settings/data"
             className={tab === "data" ? "active" : ""}

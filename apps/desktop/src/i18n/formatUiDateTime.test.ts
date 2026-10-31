@@ -6,21 +6,21 @@ import {formatUiDate, formatUiDateTime} from "./formatUiDateTime";
 const INSTANT = "2026-10-19T02:24:00.000Z";
 
 describe("formatUiDateTime", () => {
-  it("writes a numeric offset and never a zone abbreviation", () => {
-    expect(formatUiDateTime(INSTANT, "Asia/Shanghai")).toBe("2026-10-19 10:24+08:00");
-    expect(formatUiDateTime("2026-01-15T15:00:00.000Z", "America/New_York")).toBe("2026-01-15 10:00-05:00");
-    expect(formatUiDateTime("2026-10-19T04:54:00.000Z", "Asia/Kolkata")).toBe("2026-10-19 10:24+05:30");
-    expect(formatUiDateTime(INSTANT, "UTC")).toBe("2026-10-19 02:24+00:00");
+  it("writes YYYY-MM-DD HH:mm without a numeric offset or zone abbreviation", () => {
+    expect(formatUiDateTime(INSTANT, "Asia/Shanghai")).toBe("2026-10-19 10:24");
+    expect(formatUiDateTime("2026-01-15T15:00:00.000Z", "America/New_York")).toBe("2026-01-15 10:00");
+    expect(formatUiDateTime("2026-10-19T04:54:00.000Z", "Asia/Kolkata")).toBe("2026-10-19 10:24");
+    expect(formatUiDateTime(INSTANT, "UTC")).toBe("2026-10-19 02:24");
     for (const zone of ["Asia/Shanghai", "America/New_York", "Asia/Kolkata", "UTC"] as const) {
-      expect(formatUiDateTime(INSTANT, zone)).not.toMatch(/CST|EST|EDT|PST|PDT|GMT|Jan|月|\//);
+      expect(formatUiDateTime(INSTANT, zone)).not.toMatch(/[+-]\d{2}:\d{2}|CST|EST|EDT|PST|PDT|GMT|Z/);
     }
   });
 
   it("follows the daylight-saving transition instead of a fixed offset", () => {
-    expect(formatUiDateTime("2026-03-08T06:30:00.000Z", "America/New_York")).toBe("2026-03-08 01:30-05:00");
-    expect(formatUiDateTime("2026-03-08T07:30:00.000Z", "America/New_York")).toBe("2026-03-08 03:30-04:00");
-    expect(formatUiDateTime("2026-11-01T05:30:00.000Z", "America/New_York")).toBe("2026-11-01 01:30-04:00");
-    expect(formatUiDateTime("2026-11-01T06:30:00.000Z", "America/New_York")).toBe("2026-11-01 01:30-05:00");
+    expect(formatUiDateTime("2026-03-08T06:30:00.000Z", "America/New_York")).toBe("2026-03-08 01:30");
+    expect(formatUiDateTime("2026-03-08T07:30:00.000Z", "America/New_York")).toBe("2026-03-08 03:30");
+    expect(formatUiDateTime("2026-11-01T05:30:00.000Z", "America/New_York")).toBe("2026-11-01 01:30");
+    expect(formatUiDateTime("2026-11-01T06:30:00.000Z", "America/New_York")).toBe("2026-11-01 01:30");
   });
 
   it("prints UTC with Z when the zone cannot be read", () => {
@@ -36,7 +36,7 @@ describe("formatUiDateTime", () => {
 
   it("uses the same pattern in Chinese and English", () => {
     expect(zhCatalog.format.datePattern).toBe("YYYY-MM-DD");
-    expect(zhCatalog.format.dateTimePattern).toBe("YYYY-MM-DD HH:mm±HH:mm");
+    expect(zhCatalog.format.dateTimePattern).toBe("YYYY-MM-DD HH:mm");
     expect(enCatalog.format.dateTimePattern).toBe(zhCatalog.format.dateTimePattern);
     expect(enCatalog.format.datePattern).toBe(zhCatalog.format.datePattern);
   });

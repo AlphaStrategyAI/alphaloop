@@ -94,7 +94,8 @@ describe("secret vault panel", () => {
       return undefined;
     });
     render(<SecretVaultPanel onClose={() => undefined} />);
-    expect(await screen.findByTestId("secret-passphrase")).toBeInTheDocument();
+    expect(await screen.findByTestId("secret-alias")).toBeInTheDocument();
+    expect(screen.queryByTestId("secret-passphrase")).not.toBeInTheDocument();
     expect(screen.queryByTestId("secret-locked")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", {name: "解锁"})).not.toBeInTheDocument();
   });

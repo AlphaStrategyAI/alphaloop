@@ -19,6 +19,17 @@ export interface LocalizedError {
 
 const KNOWN_CODES = new Set<string>(Object.keys(ERROR_CODES));
 
+/** COPY-PASS §5. Chinese only; English has no approved next sentence. */
+const MARKET_DATA_PAUSED_NEXT_ZH =
+  "研究已暂停，本机数据未改。可检查网络或数据源后按当前版本继续。";
+
+function marketDataFetchDetail(error: ErrorInput): string {
+  const engine = [error.detail, error.message]
+    .map((part) => part?.trim() ?? "")
+    .filter((part, index, all) => part.length > 0 && all.indexOf(part) === index);
+  return ["MARKET_DATA_FETCH_FAILED", ...engine].join("\n");
+}
+
 function hardFallback(locale: Locale): string {
   return locale === "zh" ? "（暂无对应文案）" : "Text unavailable.";
 }
@@ -47,9 +58,18 @@ export function localizeError(locale: Locale, error: ErrorInput): LocalizedError
     };
   }
   const key = `errors.codes.${code as ErrorCode}`;
+  const summary = translate(locale, key, error.params ?? undefined, {zh: zhCatalog, en: enCatalog});
+  if (code === "MARKET_DATA_FETCH_FAILED") {
+    return {
+      summary,
+      next: locale === "zh" ? MARKET_DATA_PAUSED_NEXT_ZH : null,
+      detail: marketDataFetchDetail(error),
+      unmapped: false,
+    };
+  }
   const detail = error.detail?.trim() ? error.detail : null;
   return {
-    summary: translate(locale, key, error.params ?? undefined, {zh: zhCatalog, en: enCatalog}),
+    summary,
     next: null,
     detail,
     unmapped: false,

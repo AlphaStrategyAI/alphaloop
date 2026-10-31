@@ -1,9 +1,26 @@
-import {FormEvent, useEffect, useState} from "react";
+import {FormEvent, useEffect, useRef, useState} from "react";
 
 import {I18nText} from "../i18n/I18nText";
-import {useI18n} from "../i18n/I18nProvider";
-import {baseUrlIsAcceptable, isLoopbackBaseUrl} from "./llmSettingsCommand";
+import {useI18n, type MessageKey} from "../i18n/I18nProvider";
+import {baseUrlIsAcceptable, isLoopbackBaseUrl, llmRecordLabel} from "./llmSettingsCommand";
 import {tauriLlmSettingsPort, type LlmSettingsPort} from "./llmSettingsPort";
+
+const SENT_KEYS = [
+  "settings.llm.sent1",
+  "settings.llm.sent2",
+  "settings.llm.sent3",
+  "settings.llm.sent4",
+] as const satisfies readonly MessageKey[];
+
+const NOT_SENT_KEYS = [
+  "settings.llm.notSent1",
+  "settings.llm.notSent2",
+  "settings.llm.notSent3",
+  "settings.llm.notSent4",
+  "settings.llm.notSent5",
+  "settings.llm.notSent6",
+  "settings.llm.notSent7",
+] as const satisfies readonly MessageKey[];
 
 export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettingsPort}) {
   const {t} = useI18n();
@@ -15,7 +32,9 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
   const [clearKey, setClearKey] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const apiKeyRef = useRef<HTMLInputElement>(null);
   const local = isLoopbackBaseUrl(baseUrl);
+  const record = llmRecordLabel(baseUrl, model);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +111,7 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
         <label className="llm-field">
           <span><I18nText k="settings.llm.apiKey" /></span>
           <input
+            ref={apiKeyRef}
             data-testid="llm-api-key"
             name="apiKey"
             type="password"
@@ -131,9 +151,50 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
             placeholder="gpt-4.1-mini"
           />
         </label>
+        <div className="llm-actions">
+          <button type="button" className="quiet-button" data-testid="llm-test-connection">
+            <I18nText k="settings.llm.testConnection" />
+          </button>
+          <button
+            type="button"
+            className="quiet-button"
+            data-testid="llm-replace-key"
+            onClick={() => {
+              setApiKey("");
+              setSaved(false);
+              apiKeyRef.current?.focus();
+            }}
+          >
+            <I18nText k="settings.llm.replaceKey" />
+          </button>
+        </div>
+        <p data-testid="llm-test-only"><I18nText k="settings.llm.testOnly" /></p>
+        <div className="llm-impl" data-testid="llm-impl">
+          <p className="llm-impl-title"><I18nText k="settings.llm.implTitle" /></p>
+          <p><I18nText k="settings.llm.implBody" params={{record}} /></p>
+        </div>
+        <div className="llm-disclosure" data-testid="llm-disclosure">
+          <h3><I18nText k="settings.llm.sectionSent" /></h3>
+          <p data-testid="llm-review"><I18nText k="settings.llm.reviewBeforeSaving" /></p>
+          <p data-testid="llm-host-leaves"><I18nText k="settings.llm.hostLeaves" /></p>
+        </div>
         <div className="llm-columns" data-testid="llm-columns">
-          <p data-testid="llm-sent"><I18nText k="settings.llm.sent" /></p>
-          <p data-testid="llm-not-sent"><I18nText k="settings.llm.notSent" /></p>
+          <div data-testid="llm-sent">
+            <p className="llm-col-title"><I18nText k="settings.llm.sent" /></p>
+            <ul>
+              {SENT_KEYS.map((key) => (
+                <li key={key}><I18nText k={key} /></li>
+              ))}
+            </ul>
+          </div>
+          <div data-testid="llm-not-sent">
+            <p className="llm-col-title"><I18nText k="settings.llm.notSent" /></p>
+            <ul>
+              {NOT_SENT_KEYS.map((key) => (
+                <li key={key}><I18nText k={key} /></li>
+              ))}
+            </ul>
+          </div>
         </div>
         <label className="llm-check">
           <input

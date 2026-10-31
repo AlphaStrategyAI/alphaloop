@@ -1722,8 +1722,10 @@ def main() -> int:
         pill = running_row.find_element(By.CSS_SELECTOR, "[data-testid=list-status-pill]")
         if pill.text.strip() != "Running":
             raise AssertionError(f"running row status is {pill.text!r}, expected Running")
-        if "+08:00" not in running_row.text:
-            raise AssertionError(f"expected local offset +08:00 on the running row, saw {running_row.text}")
+        if "+08:00" in running_row.text or re.search(r"[+-]\d{2}:\d{2}", running_row.text):
+            raise AssertionError(f"list timestamp must not include a numeric offset, saw {running_row.text}")
+        if not re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", running_row.text):
+            raise AssertionError(f"expected YYYY-MM-DD HH:mm on the running row, saw {running_row.text}")
         session.driver.execute_script(
             "arguments[0].scrollIntoView({block: 'center'});",
             running_row,

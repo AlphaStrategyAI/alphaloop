@@ -173,9 +173,20 @@ export function RunningScreen({
       data-status={view.status}
       data-run-start-ritual={runStartRitual ? "active" : undefined}
     >
-      <div className="running-hero">
+      <div className="running-hero status-head" data-testid="status-head">
+        <div className="status-head-copy">
+          <h1 className="run-status-title" data-testid="run-status-title" data-status={view.status} data-status-truth="display">
+            <span className="status-head-mark" aria-hidden="true" />
+            {t(statusKey)}
+          </h1>
+          <p className="running-sub">
+            {t("ui.running.version", {version: view.version})}
+            {stageLabel ? ` · ${stageLabel}` : ""}
+          </p>
+          {view.coverage && <p className="running-accent">{copyText(view.coverage)}</p>}
+        </div>
         <div
-          className={`version-orbit phase-ring${paused ? " version-orbit--paused" : ""}`}
+          className={`version-orbit phase-ring stage-chip${paused ? " version-orbit--paused" : ""}`}
           data-testid="version-orbit"
           data-phase-ring={paused ? "static" : "rotate"}
           data-phase-rotate={paused ? undefined : "1.2s"}
@@ -184,14 +195,6 @@ export function RunningScreen({
           {paused ? null : <span className="phase-ring-arc" data-testid="phase-ring-arc" aria-hidden="true" />}
           <span className="orbit-version">v{view.version}</span>
           {stageLabel ? <span className="orbit-stage">{stageLabel}</span> : null}
-        </div>
-        <div>
-          <h1 className="run-status-title" data-testid="run-status-title" data-status={view.status}>{t(statusKey)}</h1>
-          <p className="running-sub">
-            {t("ui.running.version", {version: view.version})}
-            {view.currentAction && view.currentAction !== "idle" ? ` · ${copyText(view.currentAction)}` : ""}
-          </p>
-          {view.coverage && <p className="running-accent">{copyText(view.coverage)}</p>}
         </div>
         {view.status === "running" ? (
           <button className="quiet-button" type="button" onClick={() => void api.pauseResearch(view.researchId)}>
