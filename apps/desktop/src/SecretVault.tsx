@@ -6,7 +6,7 @@ import {useFocusTrap} from "./dialogFocus";
 import {I18nText} from "./i18n/I18nText";
 import {useI18n} from "./i18n/I18nProvider";
 
-type VaultStatus = {backend: string; locked: boolean};
+type VaultStatus = {backend: string; locked: boolean; needsPassphrase?: boolean};
 
 export function SecretVaultButton() {
   const [open, setOpen] = useState(false);
@@ -75,9 +75,15 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
   }
 
   const locked = Boolean(status?.locked);
+  // A missing passphrase file is not locked, but Save still has to collect the
+  // passphrase that creates it. An unlocked vault already holds that phrase.
+  const showPassphrase = locked || Boolean(status?.needsPassphrase);
   const showEntries = Boolean(status) && !locked && status?.backend !== "needs_choice";
   const panelRef = useRef<HTMLFormElement>(null);
-  useFocusTrap(true, panelRef, locked ? "[data-testid=secret-passphrase]" : "[data-dialog-cancel]");
+  const initialFocus = showPassphrase && !showEntries
+    ? "[data-testid=secret-passphrase]"
+    : "[data-dialog-cancel]";
+  useFocusTrap(true, panelRef, initialFocus);
 
   return (
     <div
@@ -130,8 +136,8 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             </button>
           </div>
         ) : null}
-        {status?.backend === "keyring" ? <p><I18nText k="ui.secrets.keyring" /></p> : null}
-        {status?.backend === "memory" ? <p><I18nText k="ui.secrets.memoryNote" /></p> : null}
+        {!locked && status?.backend === "keyring" ? <p><I18nText k="ui.secrets.keyring" /></p> : null}
+        {!locked && status?.backend === "memory" ? <p><I18nText k="ui.secrets.memoryNote" /></p> : null}
         {locked ? (
           <p data-testid="secret-locked"><I18nText k="ui.secrets.locked" /></p>
         ) : status ? (
@@ -157,8 +163,8 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
             </label>
           </div>
         ) : null}
-        {status?.backend === "passphrase" || locked ? (
-          <label>
+        {showPassphrase ? (
+          <label data-testid="secret-passphrase-field">
             <I18nText k="ui.secrets.passphrase" />
             <input
               type="password"
@@ -186,6 +192,8 @@ export function SecretVaultPanel({onClose}: {onClose: () => void}) {
               </button>
               <button
                 type="button"
+                className="danger-button"
+                data-testid="secret-delete"
                 onClick={() => void invoke("secret_delete", {id: alias}).then(() => refresh())}
               >
                 <I18nText k="ui.secrets.remove" />

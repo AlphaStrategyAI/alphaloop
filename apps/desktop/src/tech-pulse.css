@@ -212,37 +212,25 @@ button.cyan-button.is-disabled {
   z-index: 0;
   min-width: 0;
 }
-.tech-pulse-atmosphere {
+.tech-pulse-atmosphere,
+.content.running .tech-pulse-atmosphere,
+.content.confirm_run .tech-pulse-atmosphere,
+.content.completed.tech-pulse-success-tone .tech-pulse-atmosphere,
+.content.completed.tech-pulse-failed-tone .tech-pulse-atmosphere,
+.run-start-ritual .tech-pulse-atmosphere {
   pointer-events: none;
   position: fixed;
   z-index: 0;
-  width: min(92vw, 1200px);
-  height: min(92vh, 960px);
-  left: 180px;
-  top: -22%;
-  background: radial-gradient(ellipse at 24% 20%, rgba(96, 165, 250, 0.28), transparent 58%);
-  filter: blur(4px);
-  opacity: 1;
-}
-.content.running .tech-pulse-atmosphere {
-  width: min(78vw, 920px);
-  height: min(72vh, 720px);
-  left: 132px;
-  top: -8%;
-  filter: blur(10px);
-  background:
-    radial-gradient(circle at 22% 32%, rgba(96, 165, 250, 0.62) 0%, rgba(96, 165, 250, 0.28) 22%, transparent 52%),
-    radial-gradient(ellipse at 14% 24%, rgba(96, 165, 250, 0.35), transparent 58%);
-}
-.content.confirm_run .tech-pulse-atmosphere {
-  background: radial-gradient(ellipse at 18% 22%, rgba(94, 234, 212, 0.32), transparent 55%);
-}
-.content.completed.tech-pulse-success-tone .tech-pulse-atmosphere {
-  background: radial-gradient(ellipse at 20% 26%, rgba(94, 234, 212, 0.2), transparent 55%);
-}
-.content.completed.tech-pulse-failed-tone .tech-pulse-atmosphere {
-  background: transparent;
+  width: 0;
+  height: 0;
+  background: none;
   filter: none;
+  opacity: 0;
+  animation: none;
+}
+.content.confirm_run,
+.content.awaiting_confirm {
+  background: var(--void);
 }
 .tech-pulse-content > :not(.tech-pulse-atmosphere) {
   position: relative;
@@ -312,10 +300,25 @@ button.cyan-button.is-disabled {
 
 .running-hero {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 20px 24px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px 16px;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
+}
+.status-head-mark {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 2px;
+}
+.run-status-title {
+  margin: 0;
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 600;
 }
 .version-orbit {
   width: 104px;
@@ -343,7 +346,9 @@ button.cyan-button.is-disabled {
 }
 .running-hero h1 {
   margin: 0;
-  font-size: clamp(28px, 4vw, 34px);
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 600;
 }
 .running-hero .running-sub {
   margin: 8px 0 0;
@@ -579,6 +584,70 @@ button.cyan-button.is-disabled {
 .confirm-actions {
   margin-top: 20px;
 }
+/* Settings on the confirm card reuse detail-aside. The detail column's
+   min-height and overflow size that block from the card and paint Run
+   outside the card box, so growing the window never brings it into view. */
+.confirm-card .detail-aside {
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+  align-self: auto;
+}
+/* Run stays in non-scrolling chrome. The card body is the only scrollport,
+   so family chips cannot sit under the Run button. The card box itself is
+   clipped to the viewport; symbol-selection is inside the body and only
+   becomes visible once that body is tall enough to reach it. */
+.content.confirm_run {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.content.confirm_run > .confirm-run-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
+  box-sizing: border-box;
+}
+.confirm-run-layout > .conversation {
+  flex: 0 1 auto;
+  max-height: min(32vh, 240px);
+  min-height: 0;
+  padding-bottom: 8px;
+}
+.confirm-run-layout > .confirm-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.confirm-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.confirm-card-chrome {
+  flex: 0 0 auto;
+  position: static;
+  z-index: 1;
+  margin-top: 12px;
+  padding-top: 12px;
+  background: #12161c;
+  border-top: 1px solid var(--line);
+}
+.confirm-card .confirm-actions {
+  position: static;
+  bottom: auto;
+  z-index: auto;
+  margin-top: 8px;
+  padding: 0;
+  background: transparent;
+}
 .confirm-lead {
   color: var(--mute);
   max-width: 40em;
@@ -637,21 +706,35 @@ button.cyan-button.is-disabled {
   font-weight: 600;
 }
 .eligibility-pills {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin: 16px 0;
   min-width: 0;
 }
 .gate-pill {
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 10px 12px;
+  border-radius: 12px;
   border: 1px solid var(--line);
+  background: #12161C;
   font-size: 12px;
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
+  color: var(--ink);
 }
+.gate-card summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  cursor: pointer;
+  list-style: none;
+}
+.gate-card summary::-webkit-details-marker { display: none; }
+.gate-card-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.gate-card-state { font-size: 12px; font-weight: 600; }
+.gate-card-long { margin: 8px 0 0; color: var(--mute); font-size: 12px; line-height: 18px; }
 .confirm-card,
 .awaiting-card,
 .completed-focus-card,
@@ -671,14 +754,17 @@ button.cyan-button.is-disabled {
   flex-wrap: wrap;
 }
 .gate-pill--ok {
-  border-color: rgba(52, 211, 153, 0.45);
-  color: var(--ok);
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: none;
 }
+.gate-pill--ok .gate-card-state { color: var(--ok); }
 .gate-pill--fail {
   border-color: rgba(248, 113, 113, 0.45);
-  color: var(--stop);
+  color: var(--ink);
   box-shadow: 0 0 24px rgba(248, 113, 113, 0.45);
 }
+.gate-pill--fail .gate-card-state { color: var(--stop); }
 .eligibility-pills .gate-pill {
   animation: gate-in 150ms cubic-bezier(0.2, 0, 0, 1) both;
 }
@@ -773,7 +859,7 @@ button.cyan-button.is-disabled {
   z-index: 80;
   display: grid;
   place-items: center;
-  background: rgba(5, 7, 10, 0.55);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
   pointer-events: auto;
 }
@@ -793,7 +879,10 @@ button.cyan-button.is-disabled {
   gap: 0.75rem;
   padding: 1rem;
   pointer-events: auto;
-  background: var(--void, #0b0d10);
+  background: #12161C;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
 .secret-vault-panel label,
@@ -925,19 +1014,43 @@ button.cyan-button.is-disabled {
 .night-shell.tech-pulse-shell[data-has-aside="true"] {
   grid-template-columns: minmax(0, 72px) minmax(0, 1fr);
 }
+.content:has(.detail-layout) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  align-items: start;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
   min-width: 0;
   max-width: 100%;
+  height: 100%;
+}
+.detail-main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 .detail-aside {
   width: 320px;
   box-sizing: border-box;
-  padding: 20px 16px;
+  padding: 24px;
   background: #0B0E13;
   border-left: 1px solid var(--line);
+  min-height: 100%;
+  align-self: stretch;
+  overflow-y: auto;
+}
+.aside-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 .detail-layout .focus,
 .detail-layout .completed-screen,
@@ -985,10 +1098,12 @@ button.list-filter-chip {
   line-height: 18px;
   font-weight: 500;
 }
-button.list-filter-chip[aria-pressed="true"] {
-  background: #161B22;
-  color: var(--ink);
-  border-color: transparent;
+button.list-filter-chip[aria-pressed="true"],
+button.list-filter-chip[aria-pressed="true"]:hover {
+  background: var(--cyan);
+  color: #05070A;
+  border-color: var(--cyan);
+  box-shadow: none;
 }
 .list-title { font-size: 28px; line-height: 36px; font-weight: 600; }
 .research-row,
@@ -1096,27 +1211,74 @@ button.list-filter-chip[aria-pressed="true"] {
 .completed-metrics { display: flex; gap: 32px; margin: 8px 0 16px; }
 .completed-metrics dt { color: var(--mute); font-size: 12px; }
 .completed-metrics dd { margin: 0; font-weight: 600; color: var(--ink); }
-.completed-metrics--display dd { font-size: 28px; line-height: 36px; color: var(--ink); }
+.completed-metrics--display dd,
 .completed-metrics--title dd,
-.completed-focus-card--failed .completed-metrics dd {
+.completed-focus-card--failed .completed-metrics dd,
+.completed-metrics dd {
   font-size: 20px;
   line-height: 28px;
   font-weight: 600;
   color: var(--ink);
 }
 .glossary-page {
-  width: min(720px, calc(100% - 48px));
-  max-width: 720px;
-  margin: 0;
-  padding: 28px 24px 32px;
   box-sizing: border-box;
+  width: min(816px, 100%);
+  max-width: 816px;
+  margin: 0;
+  padding: 48px;
 }
 .settings-title { margin: 0 0 12px; font-size: 28px; line-height: 36px; font-weight: 600; }
-.methods-layout .method-list a.active {
+.night-shell.tech-pulse-shell nav.settings-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 0;
+  margin: 0 0 16px;
+  border-bottom: 0;
+  font: 400 14px/1.2 "Noto Sans SC", "Inter", sans-serif;
+}
+.night-shell.tech-pulse-shell nav.settings-tabs a,
+.night-shell.tech-pulse-shell nav.settings-tabs a.active {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 0;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-left: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 400;
+}
+.night-shell.tech-pulse-shell nav.settings-tabs a.active {
+  background: #161B22;
+  border-color: var(--line);
+  color: var(--ink);
+  font-weight: 600;
+}
+.night-shell.tech-pulse-shell nav.settings-tabs a.active::before {
+  content: none;
+}
+.methods-layout .method-list {
+  background: #0B0E13;
+  align-self: stretch;
+  min-height: 100%;
+}
+.methods-layout .method-detail { background: var(--void); }
+.methods-layout .method-list a.active,
+.methods-layout .method-list a.active:hover {
   background: #161B22;
   border: 0;
   border-left: 3px solid var(--cyan);
-  box-shadow: none;
+  outline: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 .scorecard-dimensions thead th { position: sticky; top: 0; background: var(--void); }
 .aside-symbols, .detail-aside .is-unset { color: var(--hold); }
@@ -1250,10 +1412,17 @@ button.list-filter-chip[aria-pressed="true"] {
   color: var(--ink);
 }
 
+.content:has(.methods-layout) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .methods-layout {
   grid-template-columns: minmax(280px, 40%) minmax(0, 1fr);
-  padding-bottom: 32px;
-  align-items: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 0;
+  align-items: stretch;
 }
 .methods-chrome {
   position: sticky;
@@ -1304,9 +1473,11 @@ button.list-filter-chip[aria-pressed="true"] {
   .night-shell.tech-pulse-shell[data-has-aside="true"] {
     grid-template-columns: minmax(0, 72px) minmax(0, 1fr);
   }
-  .detail-layout,
   .draft-layout,
   .draft-chat { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1099px) {
+  .detail-layout { grid-template-columns: minmax(0, 1fr); }
   .detail-aside { width: 100%; border-left: 0; border-top: 1px solid var(--line); }
 }
 @media (prefers-reduced-motion: reduce) {

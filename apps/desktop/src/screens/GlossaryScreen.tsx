@@ -45,7 +45,7 @@ export function GlossaryScreen({view}: {view: Extract<DesktopView, {kind: "gloss
     return `${row.term} ${row.body} ${row.former ?? ""}`.toLowerCase().includes(normalized);
   });
   return (
-    <div className="glossary-page" data-testid="glossary-page" data-column-max="720" data-has-aside="false">
+    <div className="glossary-page" data-testid="glossary-page" data-column-max="720" data-pad="48" data-has-aside="false">
       <header className="glossary-chrome" data-testid="glossary-chrome">
         <h1>{t("nav.glossary")}</h1>
         <input

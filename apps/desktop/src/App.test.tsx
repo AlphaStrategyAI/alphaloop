@@ -340,7 +340,8 @@ describe("Night desktop contract", () => {
     expect(screen.getByText("美债收益率曲线")).toBeInTheDocument();
     expect(screen.getByText("沪深300波动收缩")).toBeInTheDocument();
     const created = formatResearchTimestamp("2026-08-28T12:00:00+00:00");
-    expect(created).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/);
+    expect(created).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}Z?$/);
+    expect(created).not.toMatch(/[+-]\d{2}:\d{2}/);
     expect(document.body.textContent).toContain(created);
   });
 
@@ -560,7 +561,8 @@ describe("Night desktop contract", () => {
     const eligibilityDiv = screen.getByTestId("completed-gate-pills");
     expect(eligibilityDiv.children).toHaveLength(4);
     expect(eligibilityDiv.textContent).toContain("时点一致性未通过");
-    expect(eligibilityDiv.textContent).toContain("○ 时点一致性未通过");
+    expect(eligibilityDiv.textContent).toContain("PIT");
+    expect(eligibilityDiv.textContent).toContain("未过");
     expect(eligibilityDiv.textContent).not.toContain("未通过或未执行");
     expect(screen.getByTestId("export-strategy-pack-locked")).toBeDisabled();
   });

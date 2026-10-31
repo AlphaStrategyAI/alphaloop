@@ -15,7 +15,7 @@ describe("error codes", () => {
 
   it("keeps the migrated Chinese sentences equal to the legacy engine text", () => {
     for (const [code, spec] of Object.entries(ERROR_CODES)) {
-      if (code === "contact_email_missing") continue;
+      if (code === "contact_email_missing" || code === "MARKET_DATA_FETCH_FAILED") continue;
       expect(lookupMessage(zhCatalog, `errors.codes.${code}`)).toBe(spec.legacyZh);
     }
   });
@@ -113,6 +113,28 @@ describe("error codes", () => {
     expect(localizeError("en", {code: "UNIVERSE_TOO_FEW_SYMBOLS", params: {count: 2, minimum: 25}}).summary).toContain(
       "2 names",
     );
+  });
+
+  it("keeps MARKET_DATA_FETCH_FAILED off the main line and in technical details", () => {
+    const localized = localizeError("zh", {
+      code: "MARKET_DATA_FETCH_FAILED",
+      params: {symbol: "600519.SH"},
+      message: "provider returned an empty price frame",
+      detail: "provider returned an empty price frame",
+    });
+    expect(localized.summary).toBe("行情没有取到：600519.SH。");
+    expect(localized.summary).not.toContain("MARKET_DATA_FETCH_FAILED");
+    expect(localized.next).toBe("研究已暂停，本机数据未改。可检查网络或数据源后按当前版本继续。");
+    expect(localized.detail).toContain("MARKET_DATA_FETCH_FAILED");
+    expect(localized.detail).toContain("provider returned an empty price frame");
+    const english = localizeError("en", {
+      code: "MARKET_DATA_FETCH_FAILED",
+      params: {symbol: "600519.SH"},
+      message: "provider returned an empty price frame",
+    });
+    expect(english.summary).toBe("Couldn't fetch market data for 600519.SH.");
+    expect(english.summary).not.toMatch(/[A-Z]{3,}_[A-Z]/);
+    expect(english.detail).toContain("MARKET_DATA_FETCH_FAILED");
   });
 
   it("leaves a legacy message without a code unchanged", () => {

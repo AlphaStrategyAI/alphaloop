@@ -641,6 +641,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   };
   return (
     <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
+      <div className="confirm-card-body" data-testid="confirm-card-body">
       <p className="tech-pulse-eyebrow">{t("ui.confirm.eyebrow")}</p>
       <h1>{t("ui.status.confirmRun")}</h1>
       <p className="confirm-lead">
@@ -1048,30 +1049,32 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           <EngineFailureText raw={runError} />
         </p>
       )}
+      </div>
+      <div className="confirm-card-chrome" data-testid="confirm-card-chrome">
+      {!canRun && (
+        <p id="confirm-run-blocked-reason" className="confirm-run-blocked-reason" data-testid="confirm-run-blocked-reason">
+          {gate.code === "UNIVERSE_TOO_FEW_SYMBOLS"
+            ? t("errors.codes.UNIVERSE_TOO_FEW_SYMBOLS", {
+                count: Number(view.runGate?.params?.count ?? 0),
+                minimum: Number(view.runGate?.params?.minimum ?? 0),
+              })
+            : gate.code === "DATA_SOURCE_UNBOUND"
+            ? t("ui.confirm.noDataSource")
+            : gate.code === "MARKET_CHOICE_PENDING"
+              ? t("ui.confirm.marketChoice")
+              : gate.code === "STRATEGY_FAMILY_NOT_RUNNABLE"
+                ? t("errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE")
+                : gate.code === "MEAN_REVERSION_ACK_REQUIRED"
+                  ? t("errors.codes.MEAN_REVERSION_ACK_REQUIRED")
+                : gate.code === "UNLICENSED_SOURCE_UNACKNOWLEDGED"
+                  ? t("errors.codes.UNLICENSED_SOURCE_UNACKNOWLEDGED")
+                  : blockMessage() || t("ui.confirm.sourcePending")}
+        </p>
+      )}
       <div className="actions confirm-actions">
         {asks.length > 0 && (
           <p className="confirm-data-notice" data-testid="symbol-ask-block-hint">
             {t("ui.confirm.askBeforeRun")}
-          </p>
-        )}
-        {!canRun && (
-          <p id="confirm-run-blocked-reason" className="confirm-run-blocked-reason" data-testid="confirm-run-blocked-reason">
-            {gate.code === "UNIVERSE_TOO_FEW_SYMBOLS"
-              ? t("errors.codes.UNIVERSE_TOO_FEW_SYMBOLS", {
-                  count: Number(view.runGate?.params?.count ?? 0),
-                  minimum: Number(view.runGate?.params?.minimum ?? 0),
-                })
-              : gate.code === "DATA_SOURCE_UNBOUND"
-              ? t("ui.confirm.noDataSource")
-              : gate.code === "MARKET_CHOICE_PENDING"
-                ? t("ui.confirm.marketChoice")
-                : gate.code === "STRATEGY_FAMILY_NOT_RUNNABLE"
-                  ? t("errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE")
-                  : gate.code === "MEAN_REVERSION_ACK_REQUIRED"
-                    ? t("errors.codes.MEAN_REVERSION_ACK_REQUIRED")
-                  : gate.code === "UNLICENSED_SOURCE_UNACKNOWLEDGED"
-                    ? t("errors.codes.UNLICENSED_SOURCE_UNACKNOWLEDGED")
-                    : blockMessage() || t("ui.confirm.sourcePending")}
           </p>
         )}
         <button
@@ -1091,6 +1094,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         <button type="button" className="quiet-button" data-testid="confirm-return-draft" onClick={returnToDraft}>
           {t("ui.confirm.editAgain")}
         </button>
+      </div>
       </div>
     </article>
   );

@@ -74,6 +74,7 @@ describe("secret vault panel", () => {
     });
     render(<SecretVaultPanel onClose={() => undefined} />);
     expect(await screen.findByTestId("secret-status")).toHaveTextContent("未设置");
+    expect(screen.queryByTestId("secret-passphrase")).not.toBeInTheDocument();
     fireEvent.change(screen.getByTestId("secret-value"), {
       target: {value: "alphaloop-test-secret-9f3a"},
     });
@@ -88,15 +89,55 @@ describe("secret vault panel", () => {
   });
 
   it("does not claim a passphrase vault is locked when the file is absent", async () => {
-    invoke.mockImplementation(async (command: string) => {
-      if (command === "secret_store_status") return {backend: "passphrase", locked: false};
+    invoke.mockImplementation(async (command: string, args?: {value?: string; passphrase?: string | null}) => {
+      if (command === "secret_store_status") {
+        return {backend: "passphrase", locked: false, needsPassphrase: true};
+      }
       if (command === "secret_is_set") return false;
+      if (command === "secret_set") {
+        expect(args?.value).toBe("alphaloop-e2e-secret");
+        expect(args?.passphrase).toBe("correct horse");
+        return undefined;
+      }
       return undefined;
     });
     render(<SecretVaultPanel onClose={() => undefined} />);
-    expect(await screen.findByTestId("secret-passphrase")).toBeInTheDocument();
+    expect(await screen.findByTestId("secret-alias")).toBeInTheDocument();
+    expect(screen.getByTestId("secret-value")).toBeInTheDocument();
+    expect(screen.getByTestId("secret-passphrase")).toBeInTheDocument();
+    expect(screen.getByTestId("secret-save")).toBeInTheDocument();
+    expect(screen.getByTestId("secret-delete")).toHaveClass("danger-button");
+    expect(screen.getByRole("dialog")).toHaveClass("tech-pulse-card");
+    expect(screen.getByTestId("secret-vault")).toHaveAttribute("data-locked", "false");
+    expect(screen.getByTestId("secret-status")).toHaveTextContent("未设置");
     expect(screen.queryByTestId("secret-locked")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", {name: "解锁"})).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("secret-value"), {target: {value: "alphaloop-e2e-secret"}});
+    fireEvent.change(screen.getByTestId("secret-passphrase"), {target: {value: "correct horse"}});
+    fireEvent.click(screen.getByTestId("secret-save"));
+    expect(await screen.findByText("已保存。界面不保留明文。")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("secret_set", {
+      id: "vendor-demo",
+      value: "alphaloop-e2e-secret",
+      passphrase: "correct horse",
+    });
+  });
+
+  it("hides the passphrase once an unlocked passphrase vault is open", async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === "secret_store_status") {
+        return {backend: "passphrase", locked: false, needsPassphrase: false};
+      }
+      if (command === "secret_is_set") return true;
+      return undefined;
+    });
+    render(<SecretVaultPanel onClose={() => undefined} />);
+    expect(await screen.findByTestId("secret-alias")).toBeInTheDocument();
+    expect(screen.getByTestId("secret-value")).toBeInTheDocument();
+    expect(screen.queryByTestId("secret-passphrase")).not.toBeInTheDocument();
+    expect(screen.getByTestId("secret-delete")).toHaveClass("danger-button");
+    expect(screen.getByTestId("secret-status")).toHaveTextContent("已设置");
+    expect(screen.queryByTestId("secret-unlock")).not.toBeInTheDocument();
   });
 
   it("switches the rail button and the locked line with the interface language", async () => {
@@ -122,6 +163,7 @@ describe("secret vault panel", () => {
     expect(screen.queryByTestId("secret-alias")).not.toBeInTheDocument();
     expect(screen.queryByTestId("secret-value")).not.toBeInTheDocument();
     expect(screen.queryByTestId("secret-failure-preview")).not.toBeInTheDocument();
+    expect(screen.getByTestId("secret-passphrase")).toBeInTheDocument();
     expect(screen.getByTestId("secret-unlock")).toBeInTheDocument();
     expect(screen.getByTestId("secret-vault")).toHaveAttribute("data-dim", "0.5");
     expect(screen.getByTestId("secret-vault-open")).not.toHaveClass("active");

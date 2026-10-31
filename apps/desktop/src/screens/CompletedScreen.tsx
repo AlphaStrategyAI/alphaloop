@@ -206,18 +206,31 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
   };
   const pitLabel = pitGateLabel(view.pitDetail, view.eligibility.pitExecutedAndPassed, t);
   const checks = [
-    [
-      view.eligibility.allMethodsPassed
+    {
+      name: t("ui.completed.gateNameMethods"),
+      long: view.eligibility.allMethodsPassed
         ? t("ui.completed.methodsPassed")
         : t("ui.completed.methodsFailed"),
-      view.eligibility.allMethodsPassed,
-    ],
-    [t("ui.completed.gatePending"), view.eligibility.noPendingConfirm],
-    [t("ui.completed.gateReverify"), view.eligibility.reverifiesPassed],
-    [pitLabel, view.eligibility.pitExecutedAndPassed],
+      passed: view.eligibility.allMethodsPassed,
+    },
+    {
+      name: t("ui.completed.gateNamePending"),
+      long: t("ui.completed.gatePending"),
+      passed: view.eligibility.noPendingConfirm,
+    },
+    {
+      name: t("ui.completed.gateNameRepro"),
+      long: t("ui.completed.gateReverify"),
+      passed: view.eligibility.reverifiesPassed,
+    },
+    {
+      name: t("ui.completed.gateNamePit"),
+      long: pitLabel,
+      passed: view.eligibility.pitExecutedAndPassed,
+    },
   ] as const;
   const pitFailure = pitFailureCopy(view.pitDetail, t);
-  const eligible = checks.every(([, passed]) => passed);
+  const eligible = checks.every((gate) => gate.passed);
   const researchRecordExportPrimary = completedShowsFailedTone(view);
   const headline = view.resultHeadline
     ? copyText(view.resultHeadline)
@@ -288,22 +301,30 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {eligible ? t("ui.completed.readyEyebrow") : t("ui.completed.failedEyebrow")}
         </h1>
         <p className="completed-focus-headline">{headline}</p>
-        <div className="eligibility eligibility-pills" data-testid="completed-gate-pills" data-gate-stagger="90">
-          {checks.map(([label, passed]) => (
-            <span
-              className={`gate-pill ${passed ? "gate-pill--ok" : "gate-pill--fail"}`}
-              data-gate-flash={passed ? undefined : "150"}
-              key={label}
+        <div className="eligibility eligibility-pills gate-cards" data-testid="completed-gate-pills" data-gate-stagger="90">
+          {checks.map((gate) => (
+            <details
+              className={`gate-pill gate-card ${gate.passed ? "gate-pill--ok" : "gate-pill--fail"}`}
+              data-gate-flash={gate.passed ? undefined : "150"}
+              key={gate.name}
+              title={gate.long}
             >
-              {passed ? "●" : "○"} {label}
-            </span>
+              <summary>
+                <span className="gate-card-name">{gate.name}</span>
+                <span className="gate-card-state">
+                  {gate.passed ? t("ui.completed.gateStatePass") : t("ui.completed.gateStateFail")}
+                </span>
+              </summary>
+              <p className="gate-card-long">{gate.long}</p>
+            </details>
           ))}
         </div>
         {view.metrics && (view.metrics.excessAnn != null || view.metrics.maxDrawdown != null || view.metrics.maxDD != null) && (
           <dl
-            className={`completed-metrics completed-metrics--${eligible ? "display" : "title"}`}
+            className="completed-metrics completed-metrics--title"
             data-testid="completed-metrics"
-            data-metrics-tier={eligible ? "display" : "title"}
+            data-metrics-tier="title"
+            data-metric-size="20"
             data-metric-color="ink"
           >
             {view.metrics.excessAnn != null && (
@@ -431,7 +452,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             <>
               <button
                 type="button"
-                className="stop-button-primary"
+                className="cyan-button"
                 data-testid="export-research-record-primary"
                 onClick={() => void runExport("research_record")}
               >
