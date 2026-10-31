@@ -38,6 +38,9 @@ enum VaultMode {
 pub struct VaultStatus {
     pub backend: String,
     pub locked: bool,
+    /// Passphrase mode has not collected a passphrase in this process.
+    /// True for a missing file (create) and for a file that still needs unlock.
+    pub needs_passphrase: bool,
 }
 
 pub struct SecretVault {
@@ -88,12 +91,12 @@ impl SecretVault {
 
     pub fn status(&self) -> VaultStatus {
         let mode = *self.mode.lock().expect("vault mode");
+        let passphrase_held = self.passphrase.lock().expect("passphrase").is_some();
         // Locked means an encrypted file is on disk and this process has not
         // unlocked it. Choosing passphrase storage before any file exists is
-        // not a lock.
-        let locked = mode == VaultMode::Passphrase
-            && vault_path(&self.directory).is_file()
-            && self.passphrase.lock().expect("passphrase").is_none();
+        // not a lock, but that create path still has to collect a passphrase.
+        let needs_passphrase = mode == VaultMode::Passphrase && !passphrase_held;
+        let locked = needs_passphrase && vault_path(&self.directory).is_file();
         let backend = match mode {
             VaultMode::Keyring => "keyring",
             VaultMode::Memory => "memory",
@@ -103,6 +106,7 @@ impl SecretVault {
         VaultStatus {
             backend: backend.to_string(),
             locked,
+            needs_passphrase,
         }
     }
 
@@ -699,16 +703,26 @@ mod tests {
             !status.locked,
             "a missing passphrase file must not claim the vault is locked"
         );
+        assert!(
+            status.needs_passphrase,
+            "creating the first passphrase file still requires a passphrase"
+        );
         assert!(!vault_path(dir.path()).is_file());
         assert!(vault.set("vendor-demo", "alphaloop-test-secret-9f3a", Some("correct horse")).is_ok());
-        assert!(!vault.status().locked);
+        let created = vault.status();
+        assert!(!created.locked);
+        assert!(!created.needs_passphrase);
         assert!(vault_path(dir.path()).is_file());
 
         let (dir2, locked) = temp_vault(VaultMode::Passphrase);
         fs::copy(vault_path(dir.path()), vault_path(dir2.path())).unwrap();
-        assert!(locked.status().locked);
+        let locked_status = locked.status();
+        assert!(locked_status.locked);
+        assert!(locked_status.needs_passphrase);
         locked.unlock("correct horse").unwrap();
-        assert!(!locked.status().locked);
+        let unlocked = locked.status();
+        assert!(!unlocked.locked);
+        assert!(!unlocked.needs_passphrase);
     }
 
     #[test]
