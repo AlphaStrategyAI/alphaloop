@@ -161,4 +161,165 @@ describe("confirm card click targets", () => {
       expect(report.runInView, label).toBe(true);
     }
   });
+
+  measure("symbol selection stays in the body once the window grows, and Run does not cover family chips", () => {
+    const markup = renderToStaticMarkup(
+      <I18nProvider initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <ConfirmRunScreen api={api} view={namedConfirm()} />
+      </I18nProvider>,
+    );
+    const dir = mkdtempSync(join(tmpdir(), "confirm-fit-"));
+    const htmlPath = join(dir, "card.html");
+    const root = "/workspace/apps/desktop/src";
+    writeFileSync(
+      htmlPath,
+      `<!doctype html><html><head>
+        <link rel="stylesheet" href="file://${root}/night.css" />
+        <link rel="stylesheet" href="file://${root}/tech-pulse.css" />
+        <style>html,body{height:100%;margin:0}</style>
+      </head><body>
+        <main class="night-shell tech-pulse-shell" style="height:100vh">
+          <aside class="rail"></aside>
+          <section class="content confirm_run tech-pulse-content" style="height:100%">${markup}</section>
+        </main>
+        <script>
+          const card = document.querySelector("[data-testid=confirm-run-card]");
+          const body = document.querySelector("[data-testid=confirm-card-body]");
+          const h1 = card.querySelector("h1");
+          const symbol = document.querySelector("[data-testid=symbol-selection]");
+          const run = document.querySelector("[data-testid=confirm-run-start]");
+          const decline = document.querySelector("[data-testid=mean-reversion-decline]");
+          card.scrollIntoView({block: "start"});
+          body.scrollTop = 0;
+          const rect = (el) => el.getBoundingClientRect();
+          const h = rect(h1);
+          const s = rect(symbol);
+          const r = rect(run);
+          const b = rect(body);
+          const c = rect(card);
+          const inWindow = (box) => box.width > 0 && box.height > 0 && box.top >= -2 && box.bottom <= window.innerHeight + 2;
+          const inBody = (box) => box.top >= b.top - 2 && box.bottom <= b.bottom + 2;
+          decline.scrollIntoView({block: "nearest", inline: "nearest"});
+          const d = rect(decline);
+          const node = document.elementFromPoint(d.left + d.width / 2, d.top + d.height / 2);
+          const overlap = d.right > r.left && d.left < r.right && d.bottom > r.top && d.top < r.bottom;
+          document.title = "FIT:" + JSON.stringify({
+            inner: window.innerHeight,
+            cardFits: c.bottom <= window.innerHeight + 2 && c.height > 0,
+            overflow: Math.max(0, Math.max(h.bottom, s.bottom, r.bottom) - window.innerHeight, Math.max(h.bottom, s.bottom) - b.bottom),
+            h1In: inWindow(h),
+            symbolIn: inWindow(s),
+            runIn: inWindow(r),
+            symbolInBody: inBody(s),
+            h1InBody: inBody(h),
+            declineOwned: node === decline || (node && decline.contains(node)),
+            overlap,
+          });
+        </script>
+      </body></html>`,
+    );
+    const read = (width: number, height: number) => {
+      const dumped = execFileSync(chrome!, [
+        "--headless=new",
+        "--disable-gpu",
+        "--no-sandbox",
+        "--allow-file-access-from-files",
+        "--virtual-time-budget=2000",
+        `--window-size=${width},${height}`,
+        "--dump-dom",
+        `file://${htmlPath}`,
+      ], {encoding: "utf8", timeout: 20000});
+      const match = dumped.match(/<title>FIT:([\s\S]*?)<\/title>/);
+      if (!match) throw new Error(`no fit report at ${width}x${height}: ${dumped.slice(0, 400)}`);
+      return JSON.parse(match[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&")) as {
+        inner: number;
+        cardFits: boolean;
+        overflow: number;
+        h1In: boolean;
+        symbolIn: boolean;
+        runIn: boolean;
+        symbolInBody: boolean;
+        h1InBody: boolean;
+        declineOwned: boolean;
+        overlap: boolean;
+      };
+    };
+    const short = read(1280, 800);
+    const shortLabel = `1280x800 ${JSON.stringify(short)}`;
+    expect(short.cardFits, shortLabel).toBe(true);
+    expect(short.symbolIn, shortLabel).toBe(false);
+    expect(short.overflow, shortLabel).toBeGreaterThan(2);
+    expect(short.declineOwned, shortLabel).toBe(true);
+    expect(short.overlap, shortLabel).toBe(false);
+    expect(short.runIn, shortLabel).toBe(true);
+    let width = 1280;
+    let height = 800;
+    let fitted = short;
+    for (let step = 0; step < 5 && fitted.overflow > 2; step += 1) {
+      height += Math.floor(fitted.overflow) + 48;
+      width = Math.max(1440, width);
+      fitted = read(width, height);
+    }
+    const fittedLabel = `${width}x${height} ${JSON.stringify(fitted)}`;
+    expect(fitted.overflow, fittedLabel).toBeLessThanOrEqual(2);
+    expect(fitted.h1In, fittedLabel).toBe(true);
+    expect(fitted.symbolIn, fittedLabel).toBe(true);
+    expect(fitted.runIn, fittedLabel).toBe(true);
+    expect(fitted.symbolInBody, fittedLabel).toBe(true);
+    expect(fitted.h1InBody, fittedLabel).toBe(true);
+    expect(fitted.declineOwned, fittedLabel).toBe(true);
+    expect(fitted.overlap, fittedLabel).toBe(false);
+  });
 });
+
+function namedConfirm(): Extract<DesktopView, {kind: "confirm_run"}> {
+  return {
+    kind: "confirm_run",
+    researchId: "r-us",
+    chatEnabled: false,
+    dialogue: [
+      {role: "user", text: "US stocks AAPL mean reversion"},
+      {role: "assistant", text: "How much effective research time should this study get?"},
+      {role: "user", text: "4 hours"},
+      {role: "assistant", text: "Which checks should the first round use?"},
+      {role: "user", text: "Walk-forward and out-of-sample stability"},
+      {role: "assistant", text: "What coverage floor should stop the run?"},
+      {role: "user", text: "At least 1 name, 10 years, missing no more than 5%"},
+      {role: "assistant", text: "The five settings are locked."},
+    ],
+    meanReversionChoice: true,
+    familyChipIds: ["low_volatility", "stock_bond_rebalance", "mean_reversion", "fundamental_factor", "all_weather"],
+    runGate: {runnable: false, code: "DATA_SOURCE_UNBOUND"},
+    settings: {
+      thesis: "Mean reversion in US stocks, AAPL",
+      universe: "US stocks",
+      max_effective_hours: "4 hours",
+      round1_methods: "Walk-forward, out-of-sample stability",
+      coverage_floor: "At least 1 name, 10 years, missing no more than 5%",
+    },
+    symbolResolution: {
+      blocked: false,
+      code: null,
+      token: "AAPL",
+      symbol: "AAPL",
+      symbols: ["AAPL"],
+      inferred: [{raw: "AAPL", symbol: "AAPL"}],
+      editable: true,
+    },
+    symbolSelection: {
+      count: 1,
+      listName: "Named symbols",
+      listVersion: "user",
+      summaryLine: "1 symbol · list Named symbols",
+      listNote: "Symbols you named for this study.",
+      symbols: ["AAPL"],
+      source: "user_override",
+      dataStart: "2014-10-27",
+      dataEnd: "2026-10-24",
+      dataCutoff: "2026-10-24",
+      dataSource: "Not selected",
+      dataSourcePending: true,
+      priceSources: [{id: "yahoo_daily", label: "Yahoo daily", unlicensed: true, market: "US"}],
+    },
+  };
+}

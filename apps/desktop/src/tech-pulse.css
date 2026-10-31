@@ -594,7 +594,9 @@ button.cyan-button.is-disabled {
   align-self: auto;
 }
 /* Run stays in non-scrolling chrome. The card body is the only scrollport,
-   so family chips cannot sit under the Run button. */
+   so family chips cannot sit under the Run button. The card box itself is
+   clipped to the viewport; symbol-selection is inside the body and only
+   becomes visible once that body is tall enough to reach it. */
 .content.confirm_run {
   overflow: hidden;
   display: flex;

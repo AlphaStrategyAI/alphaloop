@@ -908,19 +908,55 @@ def element_in_viewport(driver, css: str) -> bool:
     )
 
 
+def element_in_scrollport(driver, css: str, scrollport: str) -> bool:
+    """True when the element is fully inside a scrollport, not only the window."""
+    return bool(
+        driver.execute_script(
+            """
+            const el = document.querySelector(arguments[0]);
+            const port = document.querySelector(arguments[1]);
+            if (!el || !port) return false;
+            const rect = el.getBoundingClientRect();
+            const box = port.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0 && rect.top >= box.top - 2 && rect.bottom <= box.bottom + 2;
+            """,
+            css,
+            scrollport,
+        )
+    )
+
+
 def fit_confirm_card(driver) -> None:
-    """Fit the whole confirm card at 100% zoom by growing the window, not by scaling."""
+    """Grow the window until the heading, symbol list, and Run share one viewport.
+
+    The confirm card is clipped to the viewport: its box already fits, and the
+    body is the only scrollport. Sizing from that box never brings
+    symbol-selection on screen. Measure those controls, with the body scrolled
+    to the top, and grow until the symbol list sits inside the body as well as
+    the window. Run stays in the non-scrolling chrome below the body.
+    """
     driver.execute_script("document.documentElement.style.zoom = '1'")
-    for _ in range(3):
+    for _ in range(5):
         metrics = driver.execute_script(
             """
             const card = document.querySelector("[data-testid=confirm-run-card]");
-            if (!card) return null;
+            const body = document.querySelector("[data-testid=confirm-card-body]");
+            const h1 = card ? card.querySelector("h1") : null;
+            const symbol = document.querySelector("[data-testid=symbol-selection]");
+            const run = document.querySelector("[data-testid=confirm-run-start]");
+            if (!card || !body || !h1 || !symbol || !run) return null;
             card.scrollIntoView({block: "start"});
-            const rect = card.getBoundingClientRect();
+            body.scrollTop = 0;
+            const rect = (el) => el.getBoundingClientRect();
+            const h = rect(h1);
+            const s = rect(symbol);
+            const r = rect(run);
+            const b = rect(body);
+            const belowWindow = Math.max(h.bottom, s.bottom, r.bottom) - window.innerHeight;
+            const belowBody = Math.max(h.bottom, s.bottom) - b.bottom;
             return {
-              card: rect.height,
-              bottom: rect.bottom,
+              card: rect(card).height,
+              overflow: Math.max(0, belowWindow, belowBody),
               inner: window.innerHeight,
               zoom: document.documentElement.style.zoom || "1",
             };
@@ -930,11 +966,10 @@ def fit_confirm_card(driver) -> None:
             raise AssertionError("confirm card is missing")
         if metrics["zoom"] not in ("", "1", "1.0"):
             raise AssertionError(f"confirm card zoom is {metrics['zoom']}")
-        if metrics["bottom"] <= metrics["inner"] + 2 and metrics["card"] > 0:
+        if metrics["overflow"] <= 2 and metrics["card"] > 0:
             break
         outer = driver.get_window_rect()
-        chrome = max(80, int(outer["height"]) - int(metrics["inner"]))
-        needed = int(metrics["bottom"]) + chrome + 32
+        needed = int(outer["height"]) + int(metrics["overflow"]) + 48
         driver.set_window_rect(x=0, y=0, width=max(1440, int(outer["width"])), height=max(needed, 900))
     missing = [
         css
@@ -945,8 +980,21 @@ def fit_confirm_card(driver) -> None:
         )
         if not element_in_viewport(driver, css)
     ]
-    if missing:
-        raise AssertionError("confirm card is still cropped; outside the viewport: " + ", ".join(missing))
+    clipped = [
+        css
+        for css in (
+            "[data-testid=confirm-run-card] h1",
+            "[data-testid=symbol-selection]",
+        )
+        if not element_in_scrollport(driver, css, "[data-testid=confirm-card-body]")
+    ]
+    if missing or clipped:
+        detail = []
+        if missing:
+            detail.append("outside the viewport: " + ", ".join(missing))
+        if clipped:
+            detail.append("clipped by the confirm body: " + ", ".join(clipped))
+        raise AssertionError("confirm card is still cropped; " + "; ".join(detail))
 
 
 def reset_page_zoom(driver) -> None:
