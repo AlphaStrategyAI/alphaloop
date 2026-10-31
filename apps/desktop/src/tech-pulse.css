@@ -584,6 +584,23 @@ button.cyan-button.is-disabled {
 .confirm-actions {
   margin-top: 20px;
 }
+/* Settings on the confirm card reuse detail-aside. The detail column's
+   min-height and overflow size that block from the card and paint Run
+   outside the card box, so growing the window never brings it into view. */
+.confirm-card .detail-aside {
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+  align-self: auto;
+}
+.confirm-card .confirm-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin-top: 16px;
+  padding: 12px 0 4px;
+  background: #12161c;
+}
 .confirm-lead {
   color: var(--mute);
   max-width: 40em;

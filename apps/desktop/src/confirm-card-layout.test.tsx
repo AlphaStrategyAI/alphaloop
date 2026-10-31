@@ -1,8 +1,10 @@
-import {render, screen, within} from "@testing-library/react";
-import {describe, expect, it, vi} from "vitest";
+import {cleanup, render, screen, within} from "@testing-library/react";
+import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {ConfirmRunCard} from "./App";
 import type {DesktopApi} from "./contracts";
+
+afterEach(() => cleanup());
 
 describe("ConfirmRunCard settings grid", () => {
   it("keeps label, value and edit action on one row; pool name once", () => {
