@@ -1,6 +1,6 @@
 [package]
 name = "alphaloop-desktop"
-version = "0.9.4"
+version = "0.9.5"
 description = "alphaloop local-first research desktop"
 edition = "2021"
 
