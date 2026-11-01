@@ -230,12 +230,23 @@ def commit_choice(driver, css: str) -> None:
         const input = document.querySelector(arguments[0]);
         if (!input) throw new Error('missing ' + arguments[0]);
         input.scrollIntoView({block: 'center', inline: 'nearest'});
-        const desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'checked');
-        if (!desc || !desc.set) throw new Error('no checked setter');
-        desc.set.call(input, true);
-        input.dispatchEvent(new MouseEvent('click', {bubbles: true}));
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.dispatchEvent(new Event('change', {bubbles: true}));
+        // The embedded driver's script and the page node can sit in different
+        // realms. window.HTMLInputElement then rejects the page node. Walk the
+        // node's own prototype so the setter matches the element.
+        let setChecked = null;
+        for (let proto = Object.getPrototypeOf(input); proto; proto = Object.getPrototypeOf(proto)) {
+          const desc = Object.getOwnPropertyDescriptor(proto, 'checked');
+          if (desc && desc.set) { setChecked = desc.set; break; }
+        }
+        if (!setChecked) throw new Error('no checked setter on ' + input.tagName);
+        setChecked.call(input, true);
+        const view = input.ownerDocument.defaultView || window;
+        input.dispatchEvent(new view.MouseEvent('click', {bubbles: true}));
+        input.dispatchEvent(new view.Event('input', {bubbles: true}));
+        input.dispatchEvent(new view.Event('change', {bubbles: true}));
+        if (input.parentElement && input.parentElement.tagName === 'LABEL') {
+          input.parentElement.click();
+        }
         """,
         css,
     )
