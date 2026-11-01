@@ -10,18 +10,52 @@ export const LLM_SETTINGS_LOAD_COMMAND = "get_llm_settings";
 export const LLM_SETTINGS_SAVE_COMMAND = "set_llm_settings";
 export const LLM_API_KEY_SECRET_ID = "llm-api-key";
 
+export const LLM_PURPOSE_VERSION = "2026-11-01";
+export const LLM_PURPOSE_IDS = [
+  "draft",
+  "candidate_suggestion",
+  "literature_summary",
+  "review_note",
+] as const;
+export type LlmPurpose = (typeof LLM_PURPOSE_IDS)[number];
+
 export type LlmSettingsSnapshot = {
   baseUrl: string;
   model: string;
   privacyAcknowledged: boolean;
   local: boolean;
+  consentScheme?: string;
+  consentHost?: string;
+  consentPort?: number;
+  consentPurposeVersion?: string;
+  consentPurposes?: readonly string[];
 };
 
 export type LlmSettingsSaveInput = {
   baseUrl: string;
   model: string;
   privacyAcknowledged: boolean;
+  purposes?: readonly string[];
+  purposeVersion?: string;
 };
+
+export function llmOrigin(baseUrl: string): {scheme: string; host: string; port: number} | null {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) return null;
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  const scheme = url.protocol.slice(0, -1);
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!host) return null;
+  const port = url.port ? Number(url.port) : scheme === "https" ? 443 : 80;
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) return null;
+  return {scheme, host, port};
+}
 
 /** Arguments for the Tauri `set_llm_settings` command. Camel case matches the invoke bridge. */
 export function setLlmSettingsInvokeArgs(input: LlmSettingsSaveInput) {
@@ -29,6 +63,8 @@ export function setLlmSettingsInvokeArgs(input: LlmSettingsSaveInput) {
     baseUrl: input.baseUrl.trim(),
     model: input.model.trim(),
     privacyAcknowledged: input.privacyAcknowledged,
+    purposes: [...(input.purposes ?? [])],
+    purposeVersion: input.purposeVersion ?? LLM_PURPOSE_VERSION,
   };
 }
 

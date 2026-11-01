@@ -81,7 +81,33 @@ const EXACT: Record<string, MessageKey> = {
   "冻结验证方法": "ui.glossaryBody.frozenTerm",
   "基准口径": "ui.glossaryBody.benchmarkTerm",
   "成本（bp）": "ui.glossaryBody.costTerm",
+  "日频截面均值回归（前一日信号）。未支持的限制不会悄悄删掉。": "ui.proposal.executableMeanReversion",
+  "原来的说法不会照原样执行。改成均值回归后，赚的是价格偏离后的回归，不是原来的趋势或突破。": "ui.proposal.meaningRepick",
+  "去掉未支持的限制后，实际执行的是日频均值回归，和原话不是同一个含义。": "ui.proposal.meaningWaived",
+  "“便宜”会改变策略含义。你指的是价格相对近期的偏离，还是估值便宜？还没说明之前，不会当成你已经同意均值回归。": "ui.proposal.cheapQuestion",
+  "同行业比较和第三天卖出，当前引擎做不到。若改成不带这两条的均值回归，含义会变。要这样继续，还是先保留原话？": "ui.proposal.capabilityQuestion",
+  "开跑要在确认卡上核对这份提议后再按。附件或这句话不能代替确认。": "ui.proposal.runNow",
+  "模型没有给出可用的提议，下面仍按字段提问。": "ui.proposal.llmFallback",
+  "有些限制当前做不到。请确认是否改变含义后再开跑。": "ui.proposal.capabilityUnresolved",
+  "“便宜”还没说清是价格偏离还是估值。说清之前不能开跑。": "ui.proposal.meaningUnresolved",
+  "这份提议已经过期。请再核对设定，确认后才能开跑。": "ui.proposal.stale",
+  "数据源和提议里写的不一样。先核对来源，再确认开跑。": "ui.proposal.sourceChanged",
+  "报价现在不可用。等数据恢复，或改用有报价的标的后再开跑。": "ui.proposal.quotesUnavailable",
+  "你说的原来的时长和现在记下的不一样。要改成哪一个？": "ui.proposal.hourConflict",
+  "这句话同时有美股和 A 股。一次研究只能留一个市场。": "ui.proposal.mixedMarkets",
+  "没有本地资料。公开检索只会使用白名单里的家族词，不会把原话发给资料源。": "ui.proposal.noMaterials",
+  "这句话点了两个行情源。要换成哪一个？": "ui.proposal.twoSources",
+  "只在同行业内比较": "ui.proposal.industryConstraint",
+  "引擎没有行业相对比较。这条限制会保留，不会悄悄删掉。": "ui.proposal.industryNote",
+  "第三天卖出": "ui.proposal.holdingConstraint",
+  "引擎没有固定第 N 天卖出。这条限制会保留，不会悄悄删掉。": "ui.proposal.holdingNote",
+  "趋势、动量和突破不能在这里执行。原话会保留，不会改写成均值回归。": "ui.proposal.momentumNote",
 };
+
+/** Engine proposal chrome has a catalog sentence. A user's own wording does not. */
+export function isCatalogSentence(text: string): boolean {
+  return Object.prototype.hasOwnProperty.call(EXACT, text);
+}
 
 /** Longer labels first so a prefix does not swallow a more specific name. */
 const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [

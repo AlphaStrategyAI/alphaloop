@@ -47,8 +47,22 @@ function Screen({
 }: ScreenProps & {runStartRitual?: boolean}) {
   switch (view.kind) {
     case "research_list": return <ResearchList api={api} view={view} />;
-    case "draft": return <DraftScreen api={api} view={view} />;
-    case "confirm_run": return <ConfirmRunScreen api={api} view={view} />;
+    case "draft":
+      return (
+        <DraftScreen
+          key={view.proposal?.proposalId ?? view.researchId}
+          api={api}
+          view={view}
+        />
+      );
+    case "confirm_run":
+      return (
+        <ConfirmRunScreen
+          key={view.proposal?.proposalId ?? view.researchId}
+          api={api}
+          view={view}
+        />
+      );
     case "running":
       return (
         <RunningScreen

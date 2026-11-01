@@ -527,7 +527,18 @@ class CommandJournal:
     def _assert_reply(self, research_id: str, reply_to: str | None) -> None:
         if not reply_to:
             return
-        if self.open_proposal_id(research_id) != reply_to:
+        open_id = self.open_proposal_id(research_id)
+        if open_id is not None:
+            if open_id != reply_to:
+                raise UserFacingError(
+                    PROPOSAL_NOT_CURRENT,
+                    "这条回复没有指向当前提议。",
+                )
+            return
+        research = self.store.load(research_id)
+        active = research.active_proposal
+        active_id = active.proposal_id if active is not None else None
+        if active_id != reply_to:
             raise UserFacingError(
                 PROPOSAL_NOT_CURRENT,
                 "这条回复没有指向当前提议。",

@@ -143,6 +143,31 @@ export interface ValidationMethod {
   dimensions?: readonly ScorecardDimension[];
 }
 
+export type ResearchProposal = {
+  proposalId: string;
+  baseRevision: number;
+  kind: string;
+  intent: string;
+  status: "open" | "stale" | "source_changed" | "quotes_unavailable" | "capability" | "meaning";
+  nextStep: string;
+  originalThesis: string;
+  executableRule: string;
+  executableRuleSource: string;
+  meaningNote: string;
+  blockCode?: string;
+  quotes: readonly {ref: string; text: string}[];
+  changes: readonly {field: string; source: string; text: string; quoteRef: string}[];
+  openQuestions: readonly {field: string; question: string; changesMeaning: boolean}[];
+  capabilityMatch: readonly {constraint: string; capability: string; supported: boolean; note: string}[];
+  materialQuery?: {
+    publicTerms: readonly string[];
+    providerId: string;
+    purpose: string;
+    policyRevision: string;
+  } | null;
+  llmCalls?: number;
+};
+
 export type DialogueTurnView = {
   role: "user" | "assistant";
   text: string;
@@ -161,6 +186,7 @@ type ViewBody =
       chatEnabled?: boolean;
       meanReversionChoice?: boolean;
       familyChipIds?: readonly string[];
+      proposal?: ResearchProposal | null;
     }
   | {
       kind: "confirm_run";
@@ -191,6 +217,7 @@ type ViewBody =
       marketSwitch?: {market: "US" | "CN"; benchmark: string} | null;
       marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
       benchmarkName?: string | null;
+      proposal?: ResearchProposal | null;
     }
   | {
       kind: "running";

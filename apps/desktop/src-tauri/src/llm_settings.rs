@@ -10,7 +10,20 @@ use crate::ui_language::settings_file;
 pub const BASE_URL_KEY: &str = "llmBaseUrl";
 pub const MODEL_KEY: &str = "llmModel";
 pub const PRIVACY_KEY: &str = "llmPrivacyAcknowledged";
+pub const CONSENT_SCHEME_KEY: &str = "llmConsentScheme";
+pub const CONSENT_HOST_KEY: &str = "llmConsentHost";
+pub const CONSENT_PORT_KEY: &str = "llmConsentPort";
+pub const CONSENT_VERSION_KEY: &str = "llmConsentPurposeVersion";
+pub const CONSENT_PURPOSES_KEY: &str = "llmConsentPurposes";
+pub const PURPOSE_VERSION: &str = "2026-11-01";
 pub const SECRET_ID: &str = "llm-api-key";
+
+const PURPOSES: &[&str] = &[
+    "draft",
+    "candidate_suggestion",
+    "literature_summary",
+    "review_note",
+];
 
 const SECRET_FILE_KEYS: &[&str] = &["llmApiKey", "apiKey", "api_key", "ALPHALOOP_LLM_API_KEY"];
 
@@ -117,11 +130,53 @@ fn validate(base_url: &str, model: &str) -> Result<(String, String), String> {
     Ok((base_url.to_string(), model.to_string()))
 }
 
+fn explicit_port(url: &str) -> Option<u16> {
+    let text = url.trim();
+    let rest = text
+        .strip_prefix("https://")
+        .or_else(|| text.strip_prefix("http://"))?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let port_text = if let Some(end) = authority.rfind(']') {
+        authority.get(end + 1..)?.strip_prefix(':')?
+    } else {
+        authority.rsplit_once(':')?.1
+    };
+    if port_text.is_empty() || !port_text.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    port_text.parse().ok()
+}
+
+fn endpoint_origin(url: &str) -> Option<(String, String, u16)> {
+    let text = url.trim();
+    let scheme = if text.starts_with("https://") {
+        "https"
+    } else if text.starts_with("http://") {
+        "http"
+    } else {
+        return None;
+    };
+    let host = http_host(text)?;
+    let port = explicit_port(text).unwrap_or(if scheme == "https" { 443 } else { 80 });
+    Some((scheme.to_string(), host, port))
+}
+
 pub fn write_llm_settings(
     path: &Path,
     base_url: &str,
     model: &str,
     privacy_acknowledged: bool,
+) -> Result<LlmSettingsSnapshot, String> {
+    write_llm_settings_with_consent(path, base_url, model, privacy_acknowledged, None, None)
+}
+
+pub fn write_llm_settings_with_consent(
+    path: &Path,
+    base_url: &str,
+    model: &str,
+    privacy_acknowledged: bool,
+    purposes: Option<Vec<String>>,
+    purpose_version: Option<String>,
 ) -> Result<LlmSettingsSnapshot, String> {
     let (base_url, model) = validate(base_url, model)?;
     let mut map = read_object(path);
@@ -131,6 +186,37 @@ pub fn write_llm_settings(
     map.insert(BASE_URL_KEY.to_string(), json!(base_url));
     map.insert(MODEL_KEY.to_string(), json!(model));
     map.insert(PRIVACY_KEY.to_string(), json!(privacy_acknowledged));
+    if !privacy_acknowledged {
+        for key in [
+            CONSENT_SCHEME_KEY,
+            CONSENT_HOST_KEY,
+            CONSENT_PORT_KEY,
+            CONSENT_VERSION_KEY,
+            CONSENT_PURPOSES_KEY,
+        ] {
+            map.remove(key);
+        }
+    } else if purposes.is_some() || purpose_version.is_some() {
+        let (scheme, host, port) = endpoint_origin(&base_url)
+            .ok_or_else(|| "base url must be an http(s) address".to_string())?;
+        let mut cleaned: Vec<String> = Vec::new();
+        for item in purposes.unwrap_or_default() {
+            if !PURPOSES.contains(&item.as_str()) {
+                return Err("unknown llm purpose".into());
+            }
+            if !cleaned.contains(&item) {
+                cleaned.push(item);
+            }
+        }
+        map.insert(CONSENT_SCHEME_KEY.to_string(), json!(scheme));
+        map.insert(CONSENT_HOST_KEY.to_string(), json!(host));
+        map.insert(CONSENT_PORT_KEY.to_string(), json!(port));
+        map.insert(
+            CONSENT_VERSION_KEY.to_string(),
+            json!(purpose_version.unwrap_or_else(|| PURPOSE_VERSION.to_string())),
+        );
+        map.insert(CONSENT_PURPOSES_KEY.to_string(), json!(cleaned));
+    }
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;

@@ -851,12 +851,16 @@ pub fn set_llm_settings(
     base_url: String,
     model: String,
     privacy_acknowledged: bool,
+    purposes: Option<Vec<String>>,
+    purpose_version: Option<String>,
 ) -> Result<LlmSettingsSnapshot, String> {
-    llm_settings::write_llm_settings(
+    llm_settings::write_llm_settings_with_consent(
         &ui_language::settings_file(),
         &base_url,
         &model,
         privacy_acknowledged,
+        purposes,
+        purpose_version,
     )
 }
 

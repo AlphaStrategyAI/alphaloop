@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 
 import {enCatalog, isFinalMessageKey, zhCatalog} from "./catalog";
-import {localizeKnownCopy} from "./productCopy";
+import {isCatalogSentence, localizeKnownCopy} from "./productCopy";
 import {translate} from "./translate";
 
 const zh = (text: string) => localizeKnownCopy(text, (key, params) => translate("zh", key, params));
@@ -162,5 +162,77 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
     expect(en(thesis)).toBe(thesis);
     const paper = "年份论文";
     expect(en(paper)).toBe(paper);
+  });
+
+  it("translates system proposal sentences and leaves the user's own words", () => {
+    const system = [
+      "日频截面均值回归（前一日信号）。未支持的限制不会悄悄删掉。",
+      "原来的说法不会照原样执行。改成均值回归后，赚的是价格偏离后的回归，不是原来的趋势或突破。",
+      "去掉未支持的限制后，实际执行的是日频均值回归，和原话不是同一个含义。",
+      "“便宜”会改变策略含义。你指的是价格相对近期的偏离，还是估值便宜？还没说明之前，不会当成你已经同意均值回归。",
+      "同行业比较和第三天卖出，当前引擎做不到。若改成不带这两条的均值回归，含义会变。要这样继续，还是先保留原话？",
+      "开跑要在确认卡上核对这份提议后再按。附件或这句话不能代替确认。",
+      "模型没有给出可用的提议，下面仍按字段提问。",
+      "有些限制当前做不到。请确认是否改变含义后再开跑。",
+      "“便宜”还没说清是价格偏离还是估值。说清之前不能开跑。",
+      "这份提议已经过期。请再核对设定，确认后才能开跑。",
+      "数据源和提议里写的不一样。先核对来源，再确认开跑。",
+      "报价现在不可用。等数据恢复，或改用有报价的标的后再开跑。",
+      "你说的原来的时长和现在记下的不一样。要改成哪一个？",
+      "这句话同时有美股和 A 股。一次研究只能留一个市场。",
+      "没有本地资料。公开检索只会使用白名单里的家族词，不会把原话发给资料源。",
+      "这句话点了两个行情源。要换成哪一个？",
+      "只在同行业内比较",
+      "引擎没有行业相对比较。这条限制会保留，不会悄悄删掉。",
+      "第三天卖出",
+      "引擎没有固定第 N 天卖出。这条限制会保留，不会悄悄删掉。",
+      "趋势、动量和突破不能在这里执行。原话会保留，不会改写成均值回归。",
+    ];
+    const proposalKeys = [
+      "ui.proposal.executableMeanReversion",
+      "ui.proposal.meaningRepick",
+      "ui.proposal.meaningWaived",
+      "ui.proposal.cheapQuestion",
+      "ui.proposal.capabilityQuestion",
+      "ui.proposal.runNow",
+      "ui.proposal.llmFallback",
+      "ui.proposal.capabilityUnresolved",
+      "ui.proposal.meaningUnresolved",
+      "ui.proposal.stale",
+      "ui.proposal.sourceChanged",
+      "ui.proposal.quotesUnavailable",
+      "ui.proposal.hourConflict",
+      "ui.proposal.mixedMarkets",
+      "ui.proposal.noMaterials",
+      "ui.proposal.twoSources",
+      "ui.proposal.industryConstraint",
+      "ui.proposal.industryNote",
+      "ui.proposal.holdingConstraint",
+      "ui.proposal.holdingNote",
+      "ui.proposal.momentumNote",
+    ] as const;
+    for (const key of proposalKeys) {
+      expect(isFinalMessageKey(key), key).toBe(true);
+      expect(translate("en", key), key).not.toMatch(/[\u3400-\u9fff]/);
+    }
+    for (const sentence of system) {
+      expect(isCatalogSentence(sentence), sentence).toBe(true);
+      const english = en(sentence);
+      expect(english, sentence).not.toBe(sentence);
+      expect(english, sentence).not.toMatch(/[\u3400-\u9fff]/);
+      expect(english, sentence).not.toMatch(/[。，、；：！？「」『』（）‘’]/);
+      expect(zh(sentence)).toBe(sentence);
+      for (const banned of [
+        "Continue with mean reversion",
+        "Continue as mean reversion",
+        "How much effective research time",
+      ]) {
+        expect(english, sentence).not.toContain(banned);
+      }
+    }
+    const original = "美股股票 AAPL 的均值回归";
+    expect(isCatalogSentence(original)).toBe(false);
+    expect(en(original)).toBe(original);
+    expect(isCatalogSentence("美股动量策略")).toBe(false);
   });
 });

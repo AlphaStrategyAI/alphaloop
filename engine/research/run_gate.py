@@ -119,4 +119,10 @@ def evaluate_run_gate(
             reject_source_market_mismatch(research, source, settings_path)
         except UserFacingError as error:
             return _from_error(error)
+    from engine.dialogue.proposal import proposal_blocks_run
+
+    blocked = proposal_blocks_run(research, source)
+    if blocked is not None:
+        code, message = blocked
+        return RunGate(False, code, message)
     return RunGate(True)
