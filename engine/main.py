@@ -374,6 +374,10 @@ class ResearchCommandService:
         refs: dict[str, Any] = {}
         if request and isinstance(request.get("reply_to"), str) and request.get("reply_to"):
             refs["reply_to"] = str(request["reply_to"])
+        if event_kind == "send_dialogue" and after.active_proposal is not None:
+            from engine.dialogue.proposal import proposal_event_refs
+
+            refs.update(proposal_event_refs(after.active_proposal))
         base = {
             "research_id": after.research_id,
             "status": after.status.value,
@@ -819,6 +823,10 @@ class ResearchCommandService:
                 "chatEnabled": chat_enabled,
                 **family_choice_payload(research),
             }
+            if research.active_proposal is not None:
+                from engine.dialogue.proposal import proposal_view
+
+                body["proposal"] = proposal_view(research, research.data_source_id)
             if view_kind == "confirm_run":
                 body["symbolSelection"] = symbol_selection_payload(research)
                 resolution = symbol_resolution_payload(research)
@@ -1117,6 +1125,9 @@ class ResearchCommandService:
                     gate.message or "",
                     params=gate.params or None,
                 )
+            from engine.dialogue.proposal import assert_reply_binds_proposal
+
+            assert_reply_binds_proposal(research, command)
             if source and is_unlicensed_source(source):
                 settings = self.paths.data.settings_file
                 if acknowledged_at(source, settings) is None:
@@ -1513,7 +1524,15 @@ class ResearchCommandService:
             self.store.delete(research.research_id)
             return {"research_id": research.research_id, "deleted": True}
         if kind == "send_dialogue":
-            updated = process_send_dialogue(research, request["message"], now)
+            from engine.dialogue.proposal import LlmDraftProposer
+
+            updated = process_send_dialogue(
+                research,
+                request["message"],
+                now,
+                proposer=LlmDraftProposer(self.paths.data.settings_file),
+                base_revision=self.store.revision_of(research.research_id),
+            )
         elif kind == "unlock_brief":
             from engine.dialogue.prompts import QUESTIONS, SlotName
             from engine.dialogue.turns import append_dialogue

@@ -311,6 +311,137 @@ def _extras_from_any_slot(text: str, brief_filled: set[str]) -> list[tuple[str, 
     return extras
 
 
+_HOUR_WORDS = {
+    "一": 1.0,
+    "二": 2.0,
+    "两": 2.0,
+    "三": 3.0,
+    "四": 4.0,
+    "五": 5.0,
+    "六": 6.0,
+    "七": 7.0,
+    "八": 8.0,
+    "九": 9.0,
+    "十": 10.0,
+    "十二": 12.0,
+    "one": 1.0,
+    "two": 2.0,
+    "three": 3.0,
+    "four": 4.0,
+    "five": 5.0,
+    "six": 6.0,
+    "seven": 7.0,
+    "eight": 8.0,
+    "nine": 9.0,
+    "ten": 10.0,
+    "twelve": 12.0,
+}
+_HOUR_TOKEN = re.compile(
+    r"(十二|十|[一二两三四五六七八九]|\d+(?:\.\d+)?)\s*小时"
+    r"|半\s*小时"
+    r"|(one|two|three|four|five|six|seven|eight|nine|ten|twelve|\d+(?:\.\d+)?)"
+    r"\s*(?:hours?|hrs?)\b"
+    r"|\bhalf\s+(?:an?\s+)?hour\b",
+    re.IGNORECASE,
+)
+_CORRECTION = re.compile(
+    r"改为|改成|改回|其他照旧|leave the rest|change the|change it to",
+    re.IGNORECASE,
+)
+_RETRACT = re.compile(r"撤回|撤销|\bundo\b", re.IGNORECASE)
+
+
+def hour_mentions(message: str) -> tuple[float, ...]:
+    """Hour values in reading order, including 六小时 / six hours."""
+    found: list[float] = []
+    for match in _HOUR_TOKEN.finditer(message):
+        token = next((group for group in match.groups() if group), "")
+        if not token:
+            if "半" in match.group(0) or "half" in match.group(0).lower():
+                found.append(0.5)
+            continue
+        if token in _HOUR_WORDS:
+            found.append(_HOUR_WORDS[token])
+            continue
+        lowered = token.lower()
+        if lowered in _HOUR_WORDS:
+            found.append(_HOUR_WORDS[lowered])
+            continue
+        try:
+            found.append(float(token))
+        except ValueError:
+            continue
+    return tuple(found)
+
+
+def is_hour_correction(message: str) -> bool:
+    return _CORRECTION.search(message) is not None
+
+
+def hour_correction_conflict(message: str, research: Research) -> bool:
+    """The quoted old duration is not the one currently stored."""
+    if not is_hour_correction(message):
+        return False
+    mentions = hour_mentions(message)
+    if len(mentions) < 2:
+        return False
+    current = research.brief.max_effective_hours.value
+    if not isinstance(current, (int, float)):
+        return False
+    return abs(float(current) - mentions[0]) > 1e-9
+
+
+def correction_updates(message: str, research: Research) -> tuple[tuple[str, Any], ...]:
+    """Explicit revisions apply even when the slot is already filled.
+
+    ``其他照旧`` does not invent values for the slots the sentence leaves alone.
+    A quoted old duration that does not match the stored one is not applied.
+    """
+    if not is_hour_correction(message) or hour_correction_conflict(message, research):
+        return ()
+    mentions = hour_mentions(message)
+    if not mentions:
+        return ()
+    value = mentions[-1]
+    if not 0 < value <= 720:
+        return ()
+    current = research.brief.max_effective_hours.value
+    if isinstance(current, (int, float)) and abs(float(current) - value) < 1e-9:
+        return ()
+    return (("max_effective_hours", value),)
+
+
+def retract_slots(message: str, research: Research) -> tuple[str, ...]:
+    """Named withdrawals. A bare 撤回 drops the last filled slot."""
+    if _CORRECTION.search(message) or _RETRACT.search(message) is None:
+        return ()
+    found: list[str] = []
+    if re.search(r"时长|时间|hours?", message, re.IGNORECASE):
+        found.append("max_effective_hours")
+    if re.search(r"论点|原理|thesis", message, re.IGNORECASE):
+        found.append("thesis")
+    if re.search(r"标的|市场|universe|market", message, re.IGNORECASE):
+        found.append("universe")
+    if re.search(r"方法|methods?", message, re.IGNORECASE):
+        found.append("round1_methods")
+    if re.search(r"覆盖|coverage", message, re.IGNORECASE):
+        found.append("coverage_floor")
+    if found:
+        return tuple(dict.fromkeys(found))
+    if not re.fullmatch(r"(?:请)?(?:撤回|撤销|undo)[。！!？?\s]*", message.strip(), re.IGNORECASE):
+        return ()
+    for name in (
+        "coverage_floor",
+        "round1_methods",
+        "max_effective_hours",
+        "universe",
+        "thesis",
+    ):
+        if getattr(research.brief, name).value is not None:
+            return (name,)
+    return ()
+
+
 def interpret(
     message: str,
     research: Research,
@@ -324,6 +455,9 @@ def interpret(
         return Intent(IntentKind.OFF_TOPIC, response=prompt or "请输入与五项研究设定有关的信息。")
     if "解锁" in text:
         return Intent(IntentKind.OFF_TOPIC, response="在确认开跑卡上点「改一改」即可调整单项设定。")
+    retracted = retract_slots(text, research)
+    if retracted:
+        return Intent(IntentKind.UNLOCK, unlocks=retracted)
 
     brief = research.brief
     filled = {
@@ -349,6 +483,10 @@ def interpret(
         if name in seen:
             continue
         seen.add(name)
+        unique.append((name, value))
+
+    for name, value in correction_updates(text, research):
+        unique = [(slot_name, slot_value) for slot_name, slot_value in unique if slot_name != name]
         unique.append((name, value))
 
     if unique:

@@ -74,6 +74,22 @@ export function buildUiMessages(copy: Copy) {
       coverageShort: copy("覆盖", "Coverage"),
       edit: copy("改一改", "Edit"),
     },
+    proposal: {
+      title: copy("研究提议", "Research proposal"),
+      original: copy("原话", "Original words"),
+      rule: copy("可计算规则", "Computable rule"),
+      meaning: copy("含义变化", "Meaning change"),
+      questions: copy("还要确认", "Still to confirm"),
+      constraints: copy("能力对照", "Capability check"),
+      material: copy("公开检索词", "Public search terms"),
+      unsupported: copy("做不到", "Not supported"),
+      supported: copy("做得到", "Supported"),
+      sourceUser: copy("你指定的", "You specified"),
+      sourceData: copy("从数据得出", "From the data"),
+      sourceSystem: copy("系统建议", "Suggested by the system"),
+      sourcePending: copy("待确认", "Needs confirmation"),
+      nextStep: copy("下一步", "Next step"),
+    },
     dialogue: {
       title: copy("新研究", "New research"),
       intro: copy(

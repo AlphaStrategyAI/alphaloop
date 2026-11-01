@@ -6,6 +6,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
+from engine.dialogue.proposal_model import Proposal
+
 T = TypeVar("T")
 
 
@@ -540,6 +542,7 @@ class Research:
     market_switch_market: str = ""
     market_switch_benchmark: str = ""
     evidence_policy: EvidencePolicy | None = None
+    active_proposal: Proposal | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:

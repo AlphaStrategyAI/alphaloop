@@ -49,6 +49,8 @@ describe("LLM settings call chain", () => {
       baseUrl: "https://api.openai.com/v1",
       model: "gpt-4.1-mini",
       privacyAcknowledged: true,
+      purposes: [],
+      purposeVersion: "2026-11-01",
     });
     expect(JSON.stringify(state.saveCalls[0])).not.toContain("sk-test-key");
     expect(state.secretSets).toEqual([llmApiKeyInvokeArgs("sk-test-key")]);

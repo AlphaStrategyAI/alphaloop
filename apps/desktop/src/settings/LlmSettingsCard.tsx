@@ -2,7 +2,7 @@ import {FormEvent, useEffect, useRef, useState} from "react";
 
 import {I18nText} from "../i18n/I18nText";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {baseUrlIsAcceptable, isLoopbackBaseUrl, llmRecordLabel} from "./llmSettingsCommand";
+import {LLM_PURPOSE_IDS, LLM_PURPOSE_VERSION, baseUrlIsAcceptable, isLoopbackBaseUrl, llmOrigin, llmRecordLabel} from "./llmSettingsCommand";
 import {tauriLlmSettingsPort, type LlmSettingsPort} from "./llmSettingsPort";
 
 const SENT_KEYS = [
@@ -29,6 +29,8 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
   const [apiKey, setApiKey] = useState("");
   const [apiKeySet, setApiKeySet] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  const [purposes, setPurposes] = useState<string[]>([]);
+  const [savedOrigin, setSavedOrigin] = useState("");
   const [clearKey, setClearKey] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -43,6 +45,9 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
       setBaseUrl(snapshot.baseUrl);
       setModel(snapshot.model);
       setPrivacy(snapshot.privacyAcknowledged);
+      setPurposes([...(snapshot.consentPurposes ?? [])]);
+      const origin = llmOrigin(snapshot.baseUrl);
+      setSavedOrigin(origin ? `${origin.scheme}|${origin.host}|${origin.port}` : "");
       setApiKeySet(keySet);
     });
     return () => {
@@ -50,6 +55,21 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
     };
   }, [port]);
 
+  const origin = llmOrigin(baseUrl);
+  const originKey = origin ? `${origin.scheme}|${origin.host}|${origin.port}` : "";
+  const originChanged = Boolean(savedOrigin) && originKey !== savedOrigin;
+  const clearedOrigin = useRef("");
+  useEffect(() => {
+    if (!originChanged || clearedOrigin.current === originKey) return;
+    clearedOrigin.current = originKey;
+    setPurposes([]);
+  }, [originChanged, originKey]);
+  const togglePurpose = (id: string) => {
+    setPurposes((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ));
+    setSaved(false);
+  };
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     setSaved(false);
@@ -68,7 +88,14 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
     }
     setError("");
     void (async () => {
-      await port.save({baseUrl, model, privacyAcknowledged: privacy});
+      await port.save({
+        baseUrl,
+        model,
+        privacyAcknowledged: privacy,
+        purposes,
+        purposeVersion: LLM_PURPOSE_VERSION,
+      });
+      setSavedOrigin(originKey);
       if (clearKey) {
         await port.clearApiKey();
         setApiKeySet(false);
@@ -195,6 +222,33 @@ export function LlmSettingsCard({port = tauriLlmSettingsPort}: {port?: LlmSettin
               ))}
             </ul>
           </div>
+        </div>
+        <div data-testid="llm-purposes">
+          <p data-testid="llm-purpose-version">
+            <I18nText k="settings.llm.purposeVersion" params={{version: LLM_PURPOSE_VERSION}} />
+          </p>
+          {LLM_PURPOSE_IDS.map((id) => (
+            <label className="llm-check" key={id}>
+              <input
+                data-testid={`llm-purpose-${id}`}
+                type="checkbox"
+                checked={purposes.includes(id)}
+                onChange={() => togglePurpose(id)}
+              />
+              <I18nText
+                k={
+                  id === "draft"
+                    ? "settings.llm.purposeDraft"
+                    : id === "candidate_suggestion"
+                      ? "settings.llm.purposeCandidate"
+                      : id === "literature_summary"
+                        ? "settings.llm.purposeLiterature"
+                        : "settings.llm.purposeReview"
+                }
+              />
+            </label>
+          ))}
+          {originChanged ? <p data-testid="llm-reconsent"><I18nText k="settings.llm.reconsent" /></p> : null}
         </div>
         <label className="llm-check">
           <input

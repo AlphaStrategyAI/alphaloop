@@ -126,5 +126,25 @@
   "PROPOSAL_NOT_CURRENT": {
     "params": [],
     "legacyZh": "这条回复没有指向当前提议。"
+  },
+  "PROPOSAL_STALE": {
+    "params": [],
+    "legacyZh": "这份提议已经过期。请再核对设定，确认后才能开跑。"
+  },
+  "PROPOSAL_SOURCE_CHANGED": {
+    "params": [],
+    "legacyZh": "数据源和提议里写的不一样。先核对来源，再确认开跑。"
+  },
+  "QUOTES_UNAVAILABLE": {
+    "params": [],
+    "legacyZh": "报价现在不可用。等数据恢复，或改用有报价的标的后再开跑。"
+  },
+  "CAPABILITY_UNRESOLVED": {
+    "params": [],
+    "legacyZh": "有些限制当前做不到。请确认是否改变含义后再开跑。"
+  },
+  "MEANING_UNRESOLVED": {
+    "params": [],
+    "legacyZh": "“便宜”还没说清是价格偏离还是估值。说清之前不能开跑。"
   }
 }

@@ -6,6 +6,15 @@ from typing import Any
 
 from engine.dialogue.intent import APOLOGY_PREFIX, Intent, IntentKind, interpret
 from engine.dialogue.prompts import SlotName
+from engine.dialogue.proposal import (
+    RUN_NOW_NOTE,
+    ProposeContext,
+    Proposer,
+    RulesProposer,
+    cheap_ambiguity,
+    is_run_now_attachment,
+    strip_run_now,
+)
 from engine.dialogue.slots import apply_intent, next_question
 from engine.i18n.errors import redact_technical_detail
 from engine.research.a1_copy import MOMENTUM_UNSUPPORTED_NOTICE
@@ -170,7 +179,7 @@ def _apply_family_repick(research: Research, text: str, choice, now: datetime) -
     return append_dialogue(updated, DialogueRole.ASSISTANT, next_question(updated).message, now)
 
 
-def process_send_dialogue(research: Research, message: str, now: datetime) -> Research:
+def _draft_send_dialogue(research: Research, message: str, now: datetime) -> Research:
     text = message.strip()
     if not text:
         raise ValueError("message must not be empty")
@@ -231,8 +240,14 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
     if _blocked_intake(research):
         with_user = append_dialogue(research, DialogueRole.USER, text, now)
         return append_dialogue(with_user, DialogueRole.ASSISTANT, MOMENTUM_UNSUPPORTED_NOTICE, now)
+    from engine.dialogue.proposal import CHEAP_QUESTION
+
+    if cheap_ambiguity(text) and classify_thesis(text).outcome == "none" and not _blocked_intake(research):
+        with_user = append_dialogue(research, DialogueRole.USER, text, now)
+        return append_dialogue(with_user, DialogueRole.ASSISTANT, CHEAP_QUESTION, now)
     prompt = next_question(research)
-    intent = interpret(text, research, prompt.slot)
+    parse_text = strip_run_now(text) or text
+    intent = interpret(parse_text, research, prompt.slot)
     unrecognized_thesis: str | None = None
     blocked_thesis: str | None = None
     if intent.kind is IntentKind.PROVIDE:
@@ -297,3 +312,59 @@ def process_send_dialogue(research: Research, message: str, now: datetime) -> Re
     if reply == last_assistant and intent.kind is IntentKind.OFF_TOPIC:
         reply = _apology_once(reply)
     return append_dialogue(updated, DialogueRole.ASSISTANT, reply, now)
+
+
+def process_send_dialogue(
+    research: Research,
+    message: str,
+    now: datetime,
+    *,
+    proposer: object | None = None,
+    base_revision: int = 0,
+) -> Research:
+    text = message.strip()
+    if not text:
+        raise ValueError("message must not be empty")
+    if research.status is not ResearchStatus.DRAFT:
+        from engine.dialogue.modification import process_modification_dialogue
+
+        return process_modification_dialogue(research, text, now)
+    if is_run_now_attachment(text):
+        with_user = append_dialogue(research, DialogueRole.USER, text, now)
+        updated = append_dialogue(with_user, DialogueRole.ASSISTANT, RUN_NOW_NOTE, now)
+    else:
+        updated = _draft_send_dialogue(research, text, now)
+    return _attach_proposal(updated, text, research, now, base_revision, proposer)
+
+
+def _attach_proposal(
+    updated: Research,
+    message: str,
+    before: Research,
+    now: datetime,
+    base_revision: int,
+    proposer: Proposer | None,
+) -> Research:
+    from engine.dialogue.prompts import QUESTIONS
+
+    chosen: Proposer = proposer if proposer is not None else RulesProposer()
+    proposal = chosen.propose(
+        ProposeContext(
+            message=message,
+            research=updated,
+            before=before,
+            base_revision=base_revision,
+        )
+    )
+    updated = replace(updated, active_proposal=proposal)
+    generic = set(QUESTIONS.values()) | {"五项研究设定已齐全，请检查确认开跑卡。"}
+    if proposal.primary_question and updated.dialogue:
+        last = updated.dialogue[-1]
+        if last.role is DialogueRole.ASSISTANT and last.text in generic:
+            revised = updated.dialogue[:-1] + (
+                replace(last, text=proposal.primary_question),
+            )
+            updated = replace(updated, dialogue=revised)
+    if proposal.llm_note:
+        updated = append_dialogue(updated, DialogueRole.ASSISTANT, proposal.llm_note, now)
+    return updated

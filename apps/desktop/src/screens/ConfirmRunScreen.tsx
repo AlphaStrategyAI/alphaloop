@@ -1,6 +1,6 @@
 import {FormEvent, useEffect, useRef, useState, type ReactNode} from "react";
 
-import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, PriceSourceChoice, ResearchListDisplayStatus, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
+import type {DesktopApi, DesktopView, BriefSlotName, DialogueTurnView, HostStatus, PitDetail, PriceSourceChoice, ResearchListDisplayStatus, ResearchProposal, SidecarUiState, ValidationMethod, AnomalyPresentation} from "../contracts";
 import {formatResearchTimestamp} from "../format";
 import {I18nText} from "../i18n/I18nText";
 import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataCopy";
@@ -108,6 +108,92 @@ function Settings({
         </div>
       ))}
     </aside>
+  );
+}
+
+const PROPOSAL_SOURCE_KEY = {
+  user_specified: "ui.proposal.sourceUser",
+  derived_from_data: "ui.proposal.sourceData",
+  system_suggested: "ui.proposal.sourceSystem",
+  pending_confirm: "ui.proposal.sourcePending",
+} as const;
+
+export function ProposalPanel({proposal}: {proposal: ResearchProposal}) {
+  const {t} = useI18n();
+  const fieldLabel = (field: string) => {
+    if (field === "thesis") return t("ui.brief.thesis");
+    if (field === "universe") return t("ui.brief.universe");
+    if (field === "max_effective_hours") return t("ui.brief.hours");
+    if (field === "round1_methods") return t("ui.brief.methods");
+    if (field === "coverage_floor") return t("ui.brief.coverage");
+    return field;
+  };
+  return (
+    <section className="confirm-lead" data-testid="research-proposal" data-proposal-status={proposal.status}>
+      <p className="eyebrow">{t("ui.proposal.title")}</p>
+      {proposal.originalThesis ? (
+        <p data-testid="proposal-original">
+          {t("ui.proposal.original")}
+          {": "}
+          {proposal.originalThesis}
+        </p>
+      ) : null}
+      {proposal.executableRule ? (
+        <p data-testid="proposal-rule" data-rule-source={proposal.executableRuleSource}>
+          {t("ui.proposal.rule")}
+          {": "}
+          {proposal.executableRule}
+          {proposal.executableRuleSource
+            ? ` (${t(PROPOSAL_SOURCE_KEY[proposal.executableRuleSource as keyof typeof PROPOSAL_SOURCE_KEY] ?? "ui.proposal.sourceSystem")})`
+            : ""}
+        </p>
+      ) : null}
+      {proposal.meaningNote ? <p data-testid="proposal-meaning">{t("ui.proposal.meaning")}: {proposal.meaningNote}</p> : null}
+      {proposal.changes.length > 0 ? (
+        <ul data-testid="proposal-changes">
+          {proposal.changes.map((change) => (
+            <li key={`${change.field}-${change.quoteRef}`} data-source={change.source}>
+              {fieldLabel(change.field)}
+              {": "}
+              {change.text || t("ui.list.unlocked")}
+              {" · "}
+              {t(PROPOSAL_SOURCE_KEY[change.source as keyof typeof PROPOSAL_SOURCE_KEY] ?? "ui.proposal.sourcePending")}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {proposal.openQuestions.length > 0 ? (
+        <ul data-testid="proposal-questions">
+          {proposal.openQuestions.map((question) => (
+            <li key={question.field + question.question} data-changes-meaning={question.changesMeaning ? "true" : "false"}>
+              {question.question}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {proposal.capabilityMatch.length > 0 ? (
+        <ul data-testid="proposal-capabilities">
+          {proposal.capabilityMatch.map((item) => (
+            <li key={item.capability} data-supported={item.supported ? "true" : "false"}>
+              {item.constraint}
+              {" · "}
+              {item.supported ? t("ui.proposal.supported") : t("ui.proposal.unsupported")}
+              {item.note ? ` · ${item.note}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {proposal.materialQuery ? (
+        <p data-testid="proposal-material">
+          {t("ui.proposal.material")}
+          {": "}
+          {proposal.materialQuery.publicTerms.join(", ") || t("ui.list.unlocked")}
+        </p>
+      ) : null}
+      {proposal.status !== "open" && proposal.nextStep ? (
+        <p data-testid="proposal-next-step">{t("ui.proposal.nextStep")}: {proposal.nextStep}</p>
+      ) : null}
+    </section>
   );
 }
 
@@ -420,6 +506,8 @@ export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<Desktop
           dockComposer
           expectedRevision={view.revision}
           trailing={
+            <>
+            {view.proposal ? <ProposalPanel proposal={view.proposal} /> : null}
             <FamilyChoiceControls
               api={api}
               researchId={view.researchId}
@@ -427,6 +515,7 @@ export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<Desktop
               familyChipIds={view.familyChipIds}
               expectedRevision={view.revision}
             />
+            </>
           }
         />
       </div>
@@ -563,7 +652,8 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     acknowledgedAt: selectedAcknowledgedAt,
     checkboxAcked: acked,
   });
-  const canRun = gate.runnable;
+  const proposalBlocks = Boolean(view.proposal && view.proposal.status !== "open");
+  const canRun = gate.runnable && !proposalBlocks;
   const rememberSource = (sourceId: string, acknowledged?: boolean) => {
     queueSourceWrite(() =>
       acknowledged === undefined
@@ -625,18 +715,25 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
           typeof view.revision === "number" ? view.revision : undefined,
           sourceRevision.current,
         );
+        const replyTo = view.proposal?.status === "open" ? view.proposal.proposalId : undefined;
         const command = typeof revision === "number"
           ? (confirmHold.current = holdCommand(
               confirmHold.current,
               revision,
-              `${selectedId}|${needsFreshAck ? "ack" : ""}`,
+              `${selectedId}|${needsFreshAck ? "ack" : ""}|${replyTo ?? ""}`,
             ))
           : null;
         await api.confirmRun(view.researchId, {
           dataSourceId: selectedId || undefined,
           unlicensedAcknowledged: needsFreshAck ? true : undefined,
           ...(command
-            ? {command: {commandId: command.commandId, expectedRevision: command.expectedRevision}}
+            ? {
+                command: {
+                  commandId: command.commandId,
+                  expectedRevision: command.expectedRevision,
+                  ...(replyTo ? {replyTo} : {}),
+                },
+              }
             : {}),
         });
         confirmHold.current = null;
@@ -696,6 +793,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       <p className="confirm-lead">
         {t("ui.confirm.lead")}
       </p>
+      {view.proposal ? <ProposalPanel proposal={view.proposal} /> : null}
       <details className="confirm-policy-details" data-testid="confirm-policy-details">
         <summary>{t("ui.confirm.policy")}</summary>
         <div className="confirm-policy-body">

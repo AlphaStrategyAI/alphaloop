@@ -146,4 +146,103 @@ describe("confirm run call chain", () => {
       );
     });
   });
+
+  it("renders the proposal on the confirm card and binds it to confirm_run", async () => {
+    const payloads: unknown[] = [];
+    const raw = shell(async (researchId, options) => {
+      payloads.push(confirmRunEnginePayload(researchId, options));
+    });
+    const bound = bindDesktopApi(raw, {
+      refresh: async () => undefined,
+      onError: () => undefined,
+    });
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard
+          api={bound}
+          view={{
+            ...view,
+            revision: 4,
+            proposal: {
+              proposalId: "p-card",
+              baseRevision: 3,
+              kind: "interpret_brief",
+              intent: "provide",
+              status: "open",
+              nextStep: "",
+              originalThesis: "buy cheap stocks",
+              executableRule: "daily mean reversion",
+              executableRuleSource: "system_suggested",
+              meaningNote: "Mean reversion changes the original wording.",
+              quotes: [{ref: "q0", text: "buy cheap stocks"}],
+              changes: [{field: "max_effective_hours", source: "user_specified", text: "2", quoteRef: "q0"}],
+              openQuestions: [],
+              capabilityMatch: [
+                {constraint: "sell on the third day", capability: "holding_day_exit", supported: false, note: "not executable"},
+              ],
+              materialQuery: {
+                publicTerms: ["mean reversion"],
+                providerId: "crossref",
+                purpose: "public_literature",
+                policyRevision: "material-query-2026-11-01",
+              },
+            },
+          }}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("research-proposal")).toHaveAttribute("data-proposal-status", "open");
+    expect(screen.getByTestId("proposal-original")).toHaveTextContent("buy cheap stocks");
+    expect(screen.getByTestId("proposal-rule")).toHaveTextContent("Suggested by the system");
+    expect(screen.getByTestId("proposal-meaning")).toHaveTextContent("changes the original wording");
+    expect(screen.getByTestId("proposal-changes")).toHaveTextContent("You specified");
+    expect(screen.getByTestId("proposal-capabilities")).toHaveTextContent("Not supported");
+    expect(screen.getByTestId("proposal-material")).toHaveTextContent("mean reversion");
+    await tickYahooAndRun();
+    await waitFor(() => expect(payloads).toHaveLength(1));
+    expect(payloads[0]).toMatchObject({
+      type: "confirm_run",
+      research_id: "r-spy",
+      expected_revision: 4,
+      reply_to: "p-card",
+    });
+  });
+
+  it("keeps Run disabled when the proposal is stale", async () => {
+    const confirmRun = vi.fn(async () => undefined);
+    render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard
+          api={shell(confirmRun)}
+          view={{
+            ...view,
+            revision: 4,
+            proposal: {
+              proposalId: "p-stale",
+              baseRevision: 1,
+              kind: "interpret_brief",
+              intent: "provide",
+              status: "stale",
+              nextStep: "这份提议已经过期。请再核对设定，确认后才能开跑。",
+              originalThesis: "美股均值回归",
+              executableRule: "",
+              executableRuleSource: "",
+              meaningNote: "",
+              quotes: [],
+              changes: [],
+              openQuestions: [],
+              capabilityMatch: [],
+              materialQuery: null,
+            },
+          }}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("proposal-next-step")).toHaveTextContent("下一步");
+    fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
+    fireEvent.click(screen.getByTestId("unlicensed-ack"));
+    expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("confirm-run-start"));
+    expect(confirmRun).not.toHaveBeenCalled();
+  });
 });
