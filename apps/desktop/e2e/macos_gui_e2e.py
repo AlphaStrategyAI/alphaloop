@@ -217,6 +217,52 @@ def remove_product(app: Path | None) -> None:
         shutil.rmtree(parent, ignore_errors=True)
 
 
+def commit_choice(driver, css: str) -> None:
+    """Select a radio or checkbox in a way WKWebView's scripted click will not.
+
+    The embedded driver calls element.click(). On this WebKit that click does
+    not update a React controlled radio, so Run stays disabled. Set `checked`
+    through the input prototype and dispatch the events React listens for.
+    Buttons keep using the shared click helper; this is only for choices.
+    """
+    driver.execute_script(
+        """
+        const input = document.querySelector(arguments[0]);
+        if (!input) throw new Error('missing ' + arguments[0]);
+        input.scrollIntoView({block: 'center', inline: 'nearest'});
+        const desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'checked');
+        if (!desc || !desc.set) throw new Error('no checked setter');
+        desc.set.call(input, true);
+        input.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        """,
+        css,
+    )
+
+
+def accept_unlicensed_source(driver) -> None:
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    radios = driver.find_elements(By.CSS_SELECTOR, "[data-testid^=price-source-]")
+    if radios:
+        testid = radios[0].get_attribute("data-testid")
+        commit_choice(driver, f"[data-testid={testid}]")
+    else:
+        choice = driver.find_elements(By.CSS_SELECTOR, "[data-testid=unlicensed-source-choice]")
+        if choice and not choice[0].is_selected():
+            commit_choice(driver, "[data-testid=unlicensed-source-choice]")
+    ack = WebDriverWait(driver, 15).until(
+        lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=unlicensed-ack]")
+    )
+    if not ack.is_selected():
+        commit_choice(driver, "[data-testid=unlicensed-ack]")
+    WebDriverWait(driver, 15).until(
+        lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]").is_enabled()
+    )
+
+
 def present_confirm_card(driver) -> str:
     """Grow the window the way Windows does.
 
@@ -1074,7 +1120,7 @@ def main() -> int:
             session.driver,
             "No data source selected yet. Pick one on the confirmation card before running.",
         )
-        win.accept_unlicensed_source(session.driver)
+        accept_unlicensed_source(session.driver)
         win.click(session.driver, "[data-testid=confirm-run-start]")
         from selenium.webdriver.support import expected_conditions as EC
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1103,7 +1149,7 @@ def main() -> int:
     def step_delete_running() -> str:
         assert session is not None and session.driver is not None
         win.open_confirm_card(session.driver, research_ids["cn"])
-        win.accept_unlicensed_source(session.driver)
+        accept_unlicensed_source(session.driver)
         win.click(session.driver, "[data-testid=confirm-run-start]")
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
