@@ -166,6 +166,7 @@ CONVERTER.register_structure_hook(Attempt, _structure_attempt)
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
+PRAGMA busy_timeout=30000;
 CREATE TABLE IF NOT EXISTS researches (
     research_id TEXT PRIMARY KEY,
     state_json TEXT NOT NULL,
@@ -289,6 +290,10 @@ class _SerializedConnection:
 
     A bare ``execute`` copies its rows before releasing the lock. ``with connection``
     holds the lock only for that transaction, so a market-data probe must stay outside it.
+
+    A route poll's SELECT must not leave a read transaction open. On Python builds
+    that keep that transaction alive, the next dialogue write raises
+    ``database is locked`` even though both calls share this connection.
     """
 
     def __init__(self, raw: sqlite3.Connection) -> None:
@@ -300,6 +305,8 @@ class _SerializedConnection:
         self._lock.acquire()
         self._frames += 1
         try:
+            if self._frames == 1 and self._raw.in_transaction:
+                self._raw.rollback()
             self._raw.__enter__()
         except BaseException:
             self._frames -= 1
@@ -323,7 +330,21 @@ class _SerializedConnection:
         if self._frames:
             return self._raw.execute(sql, parameters)
         with self._lock:
-            return _BufferedCursor(self._raw.execute(sql, parameters))
+            try:
+                return _BufferedCursor(self._raw.execute(sql, parameters))
+            finally:
+                self._release_idle_read(sql)
+
+    @staticmethod
+    def _is_idle_read(sql: str) -> bool:
+        head = sql.lstrip().split(None, 1)[0].upper() if sql.strip() else ""
+        return head in {"SELECT", "PRAGMA", "EXPLAIN"}
+
+    def _release_idle_read(self, sql: str) -> None:
+        if self._frames or not self._is_idle_read(sql):
+            return
+        if self._raw.in_transaction:
+            self._raw.rollback()
 
     def executemany(self, sql: str, seq_of_parameters: Any) -> Any:
         if self._frames:
@@ -349,7 +370,9 @@ class _SerializedConnection:
 class SQLiteStore:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.connection = _SerializedConnection(sqlite3.connect(path, check_same_thread=False))
+        self.connection = _SerializedConnection(
+            sqlite3.connect(path, check_same_thread=False, timeout=30.0)
+        )
         self.connection.executescript(SCHEMA)
         self._migrate_method_schema()
         self._migrate_review_attempts_schema()

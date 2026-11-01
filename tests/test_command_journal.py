@@ -623,6 +623,46 @@ def test_schema_keeps_legacy_writes_and_requires_the_new_dialogue_pair() -> None
         )
 
 
+def test_english_methods_and_coverage_survive_a_leaked_read_transaction(tmp_path: Path) -> None:
+    """The Windows e2e coverage reply hit ``database is locked``.
+
+    A route poll's SELECT can leave a read transaction open. The next
+    journaled write must still commit.
+    """
+    service = _service(tmp_path)
+    _create(service, "r-en", "c-create")
+    messages = (
+        "Mean reversion on AAPL, a US stock, using daily prices.",
+        "12 hours",
+        "subperiod robustness check, out-of-sample stability, concentration, turnover cost",
+        "at least 25 names, 10 years of history, and no more than 5% missing.",
+    )
+    revision = 0
+    for index, message in enumerate(messages):
+        service.store.connection._raw.execute("BEGIN")
+        service.store.connection._raw.execute(
+            "SELECT research_id FROM researches WHERE research_id=?",
+            ("r-en",),
+        ).fetchall()
+        assert service.store.connection._raw.in_transaction
+        result = service.handle(
+            {
+                "type": "send_dialogue",
+                "research_id": "r-en",
+                "message": message,
+                "command_id": f"c-{index}",
+                "expected_revision": revision,
+                "locale": "en",
+            }
+        )
+        revision = int(result["revision"])
+        view = service.handle({"type": "fetch_view", "route": "#/research/r-en", "locale": "en"})
+        assert view["revision"] == revision
+    assert view["kind"] == "confirm_run"
+    assert "25" in view["settings"]["coverage_floor"]
+    assert "AAPL" in view["settings"]["universe_symbols"] or "AAPL" in str(view["settings"])
+
+
 def test_journal_indexes_are_ready_for_timeline_reads(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "idx.db")
     names = {
