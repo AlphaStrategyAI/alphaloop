@@ -27,10 +27,14 @@ def materialize_default_pool(research: Research) -> Research:
         or universe.market_unspecified
     ):
         return research
+    as_of = None
+    if research.evidence_policy is not None and research.evidence_policy.explore_end is not None:
+        as_of = research.evidence_policy.explore_end
     pool = pool_for_market(
         universe.market,
         universe.asset_class,
         universe.underlying_asset_class,
+        as_of=as_of,
     )
     if pool is None or not pool.symbols:
         return research

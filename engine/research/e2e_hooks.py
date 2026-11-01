@@ -1,8 +1,9 @@
-"""Test-only pauses. Every hook defaults off."""
+"""Test-only pauses and crash barriers. Every hook defaults off."""
 
 from __future__ import annotations
 
 import os
+import sqlite3
 import time
 
 HOLD_RUNNING_ENV = "ALPHALOOP_E2E_HOLD_RUNNING_SEC"
@@ -33,3 +34,28 @@ def hold_running_for_e2e() -> None:
     if seconds <= 0:
         return
     time.sleep(seconds)
+
+
+def crash_barrier(name: str) -> None:
+    """Block after a durable step so a parent test can kill this process.
+
+    Unset ``ALPHALOOP_CRASH_BARRIER`` returns immediately. The ready line is
+    flushed before the wait. ``process.kill`` is SIGKILL here and
+    TerminateProcess on Windows.
+    """
+    wanted = os.environ.get("ALPHALOOP_CRASH_BARRIER", "").strip()
+    if not wanted or wanted != name:
+        return
+    print(f"ALPHALOOP_BARRIER_READY {name}", flush=True)
+    while True:
+        time.sleep(0.2)
+
+
+def maybe_raise_busy() -> None:
+    """One-shot or sticky ``database is locked`` for the round commit retry."""
+    mode = os.environ.get("ALPHALOOP_INJECT_DB_BUSY", "").strip()
+    if mode == "once":
+        os.environ["ALPHALOOP_INJECT_DB_BUSY"] = ""
+    elif mode != "always":
+        return
+    raise sqlite3.OperationalError("database is locked")

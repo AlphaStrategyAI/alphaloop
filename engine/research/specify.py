@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from engine.portfolio import LEGACY_COST_MODEL
+from engine.research.effective_spec import inherited_drawdown_floor
 from engine.research.families import LEGACY_FAMILY_METHOD, LEGACY_STRATEGY_FAMILY
 from engine.research.gather import DataProfile, Material
 from engine.research.models import (
@@ -140,7 +141,10 @@ def specify(
         model_family=proposal.model_family,
         lookback_days=proposal.lookback_days,
         entry_z=proposal.entry_z,
-        max_drawdown_floor=prior.max_drawdown_floor if prior else -0.25,
+        max_drawdown_floor=inherited_drawdown_floor(
+            research,
+            prior.max_drawdown_floor if prior else None,
+        ),
         strategy_family=prior.strategy_family if prior else LEGACY_STRATEGY_FAMILY,
         family_method=prior.family_method if prior else LEGACY_FAMILY_METHOD,
         family_params=prior.family_params if prior else (),

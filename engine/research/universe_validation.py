@@ -224,8 +224,13 @@ def refresh_symbol_probe(research: Research) -> Research:
     if research.symbol_probe_symbols == universe.symbols:
         return research
     start, end = planned_data_window()
+    from engine.research.evidence_window import bounded_probe_end
+
+    capped = bounded_probe_end(research, end)
+    if capped is None:
+        return research
     try:
-        missing = missing_named_symbols(universe.symbols, start, end)
+        missing = missing_named_symbols(universe.symbols, start, capped)
     except UserFacingError as error:
         if error.code in MARKET_DATA_FAILURE_CODES:
             return replace(
@@ -612,7 +617,12 @@ def resolve_universe_symbols(research: Research, now: datetime) -> Research:
         if too_few is not None:
             raise too_few
         start, end = planned_data_window(now)
-        missing = missing_named_symbols(universe.symbols, start, end)
+        from engine.research.evidence_window import bounded_probe_end
+
+        capped = bounded_probe_end(research, end)
+        if capped is None:
+            return _pin_window(research, universe, now)
+        missing = missing_named_symbols(universe.symbols, start, capped)
         kept = tuple(symbol for symbol in universe.symbols if symbol not in set(missing))
         if missing and not kept:
             symbol = _named_symbol_label(missing)
@@ -668,8 +678,26 @@ def _pin_window(
     pool_version: str | None = None,
 ) -> Research:
     start, end = planned_data_window(now)
+    from engine.research.evidence_window import bounded_probe_end
+
+    capped = bounded_probe_end(research, end)
     version = pool_version or universe.symbol_list_version
-    research = _shrink_universe_symbols(research, start, end)
+    if capped is None:
+        locked_brief = research.brief
+        for name in ("thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor"):
+            slot = getattr(locked_brief, name)
+            if slot.value is not None:
+                locked_brief = replace(locked_brief, **{name: Slot(slot.value, True)})
+        return replace(
+            research,
+            brief=locked_brief,
+            symbol_list_version=version,
+            data_window_start=start,
+            data_window_end=end,
+            updated_at=now,
+        )
+    research = _shrink_universe_symbols(research, start, capped)
+    end = capped
     locked_brief = research.brief
     for name in ("thesis", "universe", "max_effective_hours", "round1_methods", "coverage_floor"):
         slot = getattr(locked_brief, name)

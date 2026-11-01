@@ -50,13 +50,19 @@ class BoundDataPort:
             if symbols and all(is_cn_listed_symbol(symbol) for symbol in symbols)
             else YAHOO_BATCH_SIZE
         )
-        try:
-            return run_with_deadline(
-                load_deadline_seconds(len(symbols), batch_size=batch),
-                _load,
-            )
-        except TimeoutError:
-            raise market_data_timeout(len(symbols)) from None
+
+        def _once() -> pd.DataFrame:
+            try:
+                return run_with_deadline(
+                    load_deadline_seconds(len(symbols), batch_size=batch),
+                    _load,
+                )
+            except TimeoutError:
+                raise market_data_timeout(len(symbols)) from None
+
+        from engine.research.decompress_retry import retry_on_decompress
+
+        return retry_on_decompress(_once)
 
 
 def data_port_for_symbols(symbols: tuple[str, ...]) -> BoundDataPort:

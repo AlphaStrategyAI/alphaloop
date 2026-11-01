@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
@@ -113,6 +113,60 @@ def _coverage_window(simulation: object, fallback: date) -> tuple[date, date]:
     return start, end
 
 
+def _file_sha256(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _frozen_hash(snapshot_root: Path, research_id: str, version_number: int) -> str:
+    from engine.research.frozen_input import frozen_file_hash, frozen_input_path
+
+    path = frozen_input_path(snapshot_root, research_id, version_number)
+    if not path.is_file():
+        return ""
+    return frozen_file_hash(path)
+
+
+def _candidate_hash(spec: object, frozen_hash: str) -> str:
+    from engine.research.round_store import candidate_hash
+
+    return candidate_hash(spec, frozen_hash)
+
+
+def _round_from_attempt(
+    attempt: Attempt,
+    *,
+    version_number: int,
+    round_number: int,
+    now: datetime,
+    prior_spec: object | None,
+):
+    from engine.research.models import RoundV2
+    from engine.research.specify import (
+        build_implementation_delta,
+        build_logic_statement,
+        build_trial_counters,
+    )
+
+    logic = build_logic_statement(
+        attempt.spec.thesis_locked,
+        attempt.spec,
+        version_number=version_number,
+        had_prior_round=round_number > 1,
+    )
+    delta_prior = prior_spec if round_number > 1 else None
+    return RoundV2(
+        round_id=f"v{version_number}-r{round_number}",
+        number=round_number,
+        accepted_attempt=attempt,
+        completed_at=now,
+        logic_statement=logic,
+        implementation_delta=build_implementation_delta(attempt, delta_prior),
+        trial_counters=build_trial_counters((attempt,), attempt),
+    )
+
+
 def _row_missing(store: SQLiteStore, research_id: str) -> bool:
     try:
         store.load(research_id)
@@ -165,26 +219,53 @@ class DefaultRoundBuilder:
     end: date | None
     snapshot_root: Path
     on_action: Callable[[ResearchAction], None] | None = None
+    recovery_store: object | None = None
     _frozen: FrozenVersionInput | None = None
+    _research_id: str = ""
 
     def _emit(self, action: ResearchAction) -> None:
         if self.on_action is not None:
             self.on_action(action)
+
+    def _claim_step(
+        self,
+        research_id: str,
+        version: int,
+        round_number: int,
+        attempt: int,
+        input_hash: str,
+    ) -> None:
+        store = self.recovery_store
+        claim = getattr(store, "claim_step", None)
+        if claim is None or not input_hash:
+            return
+        claim(research_id, version, round_number, attempt, "simulate", input_hash)
+
+    def _complete_step(
+        self,
+        research_id: str,
+        version: int,
+        round_number: int,
+        attempt: int,
+        input_hash: str,
+        result_ref: str,
+    ) -> None:
+        store = self.recovery_store
+        complete = getattr(store, "complete_step", None)
+        if complete is None or not input_hash:
+            return
+        complete(research_id, version, round_number, attempt, "simulate", input_hash, result_ref)
 
     def _write_evidence(self, batch: GatherBatch) -> tuple[Path, ...]:
         if not batch.materials and not batch.failures:
             return ()
         evidence_root = self.snapshot_root.parent / "materials"
         evidence_root.mkdir(parents=True, exist_ok=True)
+        from engine.research.materials_store import write_immutable_material
+
         paths: list[Path] = []
         for material in batch.materials:
-            digest = hashlib.sha256(material.material_id.encode("utf-8")).hexdigest()
-            path = evidence_root / f"{digest}.json"
-            path.write_text(
-                json.dumps(asdict(material), sort_keys=True, default=str),
-                encoding="utf-8",
-            )
-            paths.append(path)
+            paths.append(write_immutable_material(evidence_root, material))
         if batch.failures:
             from engine.research.secret_redaction import redact_text
 
@@ -249,6 +330,7 @@ class DefaultRoundBuilder:
             live_port_factory=lambda: data_port_for_research(research),
         )
         self._frozen = frozen
+        self._research_id = research.research_id
         evidence_paths = self._write_evidence(frozen.batch)
         self._emit(ResearchAction.SPECIFY)
         strategy = MeanReversionStrategy(spec)
@@ -258,12 +340,23 @@ class DefaultRoundBuilder:
         )
         self.start, self.end = window_for_round(research, self.start, self.end)
         self._emit(ResearchAction.SIMULATE)
+        frozen_hash = _frozen_hash(self.snapshot_root, research.research_id, version.number)
+        simulate_key = _candidate_hash(spec, frozen_hash)
+        self._claim_step(research.research_id, version.number, round_number, attempt_number, simulate_key)
         simulation = simulate_daily(
             strategy,
             frozen,
             frozen.start,
             frozen.end,
             snapshot_path=snapshot,
+        )
+        self._complete_step(
+            research.research_id,
+            version.number,
+            round_number,
+            attempt_number,
+            simulate_key,
+            _file_sha256(snapshot),
         )
         self._emit(ResearchAction.VERIFY)
         evidence_payloads = tuple(
@@ -318,12 +411,30 @@ class DefaultRoundBuilder:
             f"retry-v{prior.version_number}-r{prior.round_number}-a{prior.attempt.number + 1}.csv"
         )
         self._emit(ResearchAction.SIMULATE)
+        research_id = getattr(self, "_research_id", "") or prior.attempt.spec.id
+        frozen_hash = _frozen_hash(self.snapshot_root, research_id, prior.version_number)
+        simulate_key = _candidate_hash(spec, frozen_hash)
+        self._claim_step(
+            research_id,
+            prior.version_number,
+            prior.round_number,
+            prior.attempt.number + 1,
+            simulate_key,
+        )
         simulation = simulate_daily(
             strategy,
             frozen,
             frozen.start,
             frozen.end,
             snapshot_path=snapshot,
+        )
+        self._complete_step(
+            research_id,
+            prior.version_number,
+            prior.round_number,
+            prior.attempt.number + 1,
+            simulate_key,
+            _file_sha256(snapshot),
         )
         self._emit(ResearchAction.VERIFY)
         pit_revision = recorded_pit_revision(prior.attempt.verification)
@@ -369,6 +480,31 @@ class ResearchLoop:
     budget: TimeBudget
     now: Callable[[], datetime]
 
+    def _reconcile_time(self, research: Research) -> Research:
+        ledger = self.store.effective_seconds_ledger(research.research_id)
+        if ledger > research.effective_seconds + 1e-9:
+            return replace(research, effective_seconds=ledger)
+        return research
+
+    def _backfill_receipts(self, research: Research) -> None:
+        from engine.research.round_store import RoundDecision
+
+        for version in research.versions:
+            for round_ in version.rounds:
+                if self.store.round_receipt(research.research_id, version.number, round_.number):
+                    continue
+                snapshot = round_.accepted_attempt.data_snapshot_path
+                decision = RoundDecision(
+                    kind="round_committed",
+                    round_id=round_.round_id,
+                    attempt_id=round_.accepted_attempt.attempt_id,
+                    version_number=version.number,
+                    round_number=round_.number,
+                    csv_fingerprint=_file_sha256(snapshot) if snapshot is not None else "",
+                )
+                revision = self.store.revision_of(research.research_id)
+                self.store.write_round_receipt(research, decision, revision)
+
     def run_once(self, research_id: str) -> Research:
         from engine.research.market_data_cancel import (
             MarketDataCancelled,
@@ -410,6 +546,8 @@ class ResearchLoop:
             research = self.store.load(research_id)
         except KeyError as exc:
             raise ResearchRemoved(research_id) from exc
+        research = self._reconcile_time(research)
+        self._backfill_receipts(research)
         if research.status is ResearchStatus.RUNNING:
             from engine.research.e2e_hooks import hold_running_for_e2e
 
@@ -466,93 +604,162 @@ class ResearchLoop:
             self.store.save(snapshot, expected_updated_at)
             expected_updated_at = snapshot.updated_at
 
-        def finish(result: Research) -> Research:
+        def finish(result: Research, decision: object | None = None) -> Research:
+            from engine.research.e2e_hooks import crash_barrier
+            from engine.research.round_store import RoundDecision, RoundReplay
+            from engine.research.user_errors import UserFacingError
+
             abort_if_removed()
             if entry_running:
-                result = self.budget.finish(result)
-                if result.status is ResearchStatus.RUNNING:
-                    self.budget.begin(ResearchStatus.RUNNING)
+                self.budget.checkpoint(research_id, self.store)
+                result = self.budget.finish(result, self.store)
             final_action = (
                 action if result.status is ResearchStatus.RUNNING else ResearchAction.IDLE
             )
-            result = clear_run_errors(
-                replace(
-                    result,
-                    current_action=final_action,
-                    updated_at=self.now(),
-                ),
+            result = replace(
+                result,
+                current_action=final_action,
+                updated_at=self.now(),
             )
+            if not (
+                result.status is ResearchStatus.PAUSED and result.last_run_error_code
+            ):
+                result = clear_run_errors(result)
+            chosen = decision if isinstance(decision, RoundDecision) else RoundDecision(kind="tick")
+            if chosen.round_id:
+                crash_barrier("after_review")
             try:
-                self.store.save(result, expected_updated_at)
+                revision = self.store.commit_round_decision(
+                    result,
+                    expected_updated_at=expected_updated_at,
+                    expected_revision=entry_revision,
+                    decision=chosen,
+                )
+            except RoundReplay:
+                live = self.store.load(research_id)
+                self._backfill_receipts(live)
+                return live
             except ConcurrentWrite as exc:
                 if research_was_removed(research_id) or _row_missing(self.store, research_id):
                     raise ResearchRemoved(research_id) from exc
-                raise
+                return self.store.load(research_id)
+            except UserFacingError as exc:
+                if exc.code != "DB_BUSY":
+                    raise
+                paused = transition(
+                    replace(
+                        research,
+                        last_run_error=exc.message,
+                        last_run_error_code=exc.code,
+                    ),
+                    ResearchEvent.PAUSE,
+                    self.now(),
+                )
+                self.store.save(paused, expected_updated_at)
+                return paused
+            if chosen.round_id:
+                crash_barrier("after_round_commit")
+                self.store.write_round_receipt(result, chosen, revision)
             return result
 
+        entry_revision = self.store.revision_of(research_id)
         entry_running = research.status is ResearchStatus.RUNNING
         if entry_running:
-            self.budget.begin(ResearchStatus.RUNNING)
+            self.budget.begin(ResearchStatus.RUNNING, research_id)
 
         previous_hook = None
         if isinstance(self.builder, DefaultRoundBuilder):
             previous_hook = self.builder.on_action
             self.builder.on_action = persist_action
+            self.builder.recovery_store = self.store
         try:
             version_number = research.current_version_number
             if version_number is None:
                 raise ValueError("running research must have a current version")
-            round_number = len(research.versions[version_number - 1].rounds) + 1
+            version = research.versions[version_number - 1]
+            round_number = len(version.rounds) + 1
             prior_failures = self.store.review_failure_count(
                 research.research_id,
                 version_number,
                 round_number,
             )
-            if prior_failures >= MAX_CONSECUTIVE_REVIEW_FAILURES:
-                max_hours = research.brief.max_effective_hours.value
-                if (
-                    max_hours is not None
-                    and research.effective_seconds >= max_hours * 3600
-                ):
-                    blocked = replace(
-                        research,
-                        consecutive_review_failures=prior_failures,
-                    )
-                    ended = transition(
-                        blocked,
-                        ResearchEvent.BUDGET_EXHAUSTED,
+            recovered = self.store.latest_passed_attempt(
+                research.research_id,
+                version_number,
+                round_number,
+            )
+            if recovered is not None:
+                from engine.review.subagent import ReviewGateOutcome
+
+                prior_spec = (
+                    version.rounds[-1].accepted_attempt.spec if version.rounds else None
+                )
+                outcome = ReviewGateOutcome(
+                    version_number=version_number,
+                    attempts=(recovered,),
+                    successful_round=_round_from_attempt(
+                        recovered,
+                        version_number=version_number,
+                        round_number=round_number,
+                        now=self.now(),
+                        prior_spec=prior_spec,
+                    ),
+                    confirm_request=None,
+                )
+            else:
+                if prior_failures >= MAX_CONSECUTIVE_REVIEW_FAILURES:
+                    max_hours = research.brief.max_effective_hours.value
+                    if (
+                        max_hours is not None
+                        and research.effective_seconds >= max_hours * 3600
+                    ):
+                        blocked = replace(
+                            research,
+                            consecutive_review_failures=prior_failures,
+                        )
+                        ended = transition(
+                            blocked,
+                            ResearchEvent.BUDGET_EXHAUSTED,
+                            self.now(),
+                        )
+                        return finish(ended)
+                    paused = transition(
+                        replace(
+                            research,
+                            consecutive_review_failures=prior_failures,
+                            last_run_error="技术重试已达上限，这一轮的失败尝试仍保留，可以恢复。",
+                            last_run_error_code="TECHNICAL_RETRY_EXHAUSTED",
+                        ),
+                        ResearchEvent.PAUSE,
                         self.now(),
                     )
-                    return finish(ended)
-                self.store.clear_review_attempts(
-                    research.research_id,
-                    version_number,
-                    round_number,
+                    from engine.research.round_store import RoundDecision
+
+                    return finish(paused, RoundDecision(kind="technical_retry_exhausted"))
+                persist_action(ResearchAction.GATHER)
+                self.budget.checkpoint(research_id, self.store)
+                draft = self.builder.build(research, prior_failures + 1)
+                abort_if_removed()
+                version = research.versions[version_number - 1]
+                prior_spec = (
+                    version.rounds[-1].accepted_attempt.spec if version.rounds else None
                 )
-                research = replace(research, consecutive_review_failures=0)
-                prior_failures = 0
-            persist_action(ResearchAction.GATHER)
-            draft = self.builder.build(research, prior_failures + 1)
-            abort_if_removed()
-            version = research.versions[version_number - 1]
-            prior_spec = (
-                version.rounds[-1].accepted_attempt.spec if version.rounds else None
-            )
-            outcome = run_review_gate(
-                draft,
-                self.reviewer,
-                self.builder.retry,
-                self.now(),
-                prior_failures=prior_failures,
-                on_attempt=lambda attempt: self.store.record_review_attempt(
-                    research.research_id,
-                    version_number,
-                    round_number,
-                    attempt,
+                self.budget.checkpoint(research_id, self.store)
+                outcome = run_review_gate(
+                    draft,
+                    self.reviewer,
+                    self.builder.retry,
                     self.now(),
-                ),
-                prior_spec=prior_spec,
-            )
+                    prior_failures=prior_failures,
+                    on_attempt=lambda attempt: self.store.record_review_attempt(
+                        research.research_id,
+                        version_number,
+                        round_number,
+                        attempt,
+                        self.now(),
+                    ),
+                    prior_spec=prior_spec,
+                )
             if outcome.successful_round is None:
                 if outcome.confirm_request is None:
                     blocked = transition(
@@ -591,17 +798,38 @@ class ResearchLoop:
             from engine.research.data_window import data_window_key_from_research
 
             window_key = data_window_key_from_research(running)
-            if window_key is not None:
-                self.store.increment_window_round_count(window_key.serialize())
             charged = running
             accepted = outcome.successful_round.accepted_attempt
-            from engine.research.methods import record_verification_execution
+            from engine.research.models import MethodRef
+            from engine.research.round_store import RoundDecision
 
-            record_verification_execution(
-                self.store,
-                research.research_id,
-                version_number,
-                accepted.verification,
+            method_refs: tuple[MethodRef, ...] = ()
+            if accepted.verification is not None:
+                method_refs = tuple(
+                    MethodRef(item.verifier_id, item.revision)
+                    for item in accepted.verification.results
+                )
+            round_decision = RoundDecision(
+                kind="round_committed",
+                round_id=outcome.successful_round.round_id,
+                attempt_id=accepted.attempt_id,
+                version_number=version_number,
+                round_number=round_number,
+                window_key=None if window_key is None else window_key.serialize(),
+                method_refs=method_refs,
+                csv_fingerprint=_file_sha256(accepted.data_snapshot_path)
+                if accepted.data_snapshot_path is not None
+                else "",
+                candidate_hash=_candidate_hash(
+                    accepted.spec,
+                    _frozen_hash(
+                        getattr(self.builder, "snapshot_root", Path()),
+                        research.research_id,
+                        version_number,
+                    )
+                    if isinstance(self.builder, DefaultRoundBuilder)
+                    else "",
+                ),
             )
             floor = charged.brief.coverage_floor.value
             window_start, window_end = _coverage_window(
@@ -640,7 +868,7 @@ class ResearchLoop:
                         self.now(),
                         decision.request,
                     )
-                    return finish(result)
+                    return finish(result, round_decision)
                 if not within_floor(observed, floor):
                     raise RuntimeError("below-floor coverage cannot complete or auto-pass")
             method_set = method_set_excluding_pit(
@@ -698,7 +926,9 @@ class ResearchLoop:
                     result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
                 else:
                     result = transition(charged, ResearchEvent.COMPLETE, self.now())
-            return finish(result)
+            return finish(result, round_decision)
         finally:
+            self.budget._slices.pop(research_id, None)
             if isinstance(self.builder, DefaultRoundBuilder):
                 self.builder.on_action = previous_hook
+                self.builder.recovery_store = None

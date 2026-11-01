@@ -159,6 +159,12 @@ def _round_history_with_trials(
     }
 
 
+def _evidence_grade_view(research: Research) -> dict[str, str]:
+    from engine.research.evidence_window import evidence_grade_view
+
+    return evidence_grade_view(research)
+
+
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
     """Four-condition eligibility check (B1 adds fourth gate)."""
     current_attempt = (
@@ -193,6 +199,11 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
         ),
         "pit_executed_and_passed": pit_result is not None and pit_result.passed,
     }
+    from engine.research.evidence_window import strategy_pack_block_reason
+
+    block = strategy_pack_block_reason(research)
+    if block is not None:
+        checks["evidence_grade"] = False
     return ExportEligibility(
         eligible=all(checks.values()),
         failed_checks=tuple(name for name, passed in checks.items() if not passed),
@@ -517,7 +528,10 @@ def build_strategy_pack(
         raise TypeError("v1 exporter supports the canonical mean-reversion StrategySpec")
     if not research.versions or not research.versions[-1].rounds:
         raise ValueError("strategy pack requires a completed reviewed round")
+    from engine.research.market_calendar import CALENDAR_REVISION, align_asset_calendar
+
     benchmark_prices = _frozen_benchmark(data)
+    asset_prices, benchmark_prices = align_asset_calendar(_asset_prices(data), benchmark_prices)
     attempt = research.versions[-1].rounds[-1].accepted_attempt
     if attempt.review is None:
         raise ValueError("strategy pack requires the accepted ReviewReport")
@@ -538,7 +552,7 @@ def build_strategy_pack(
         (root / "execution.py").write_text(EXECUTION_STUB, encoding="utf-8")
         (root / "data").mkdir()
         if _uses_unlicensed_source(research):
-            prices_csv = _asset_prices(data).to_csv(index_label="date")
+            prices_csv = asset_prices.to_csv(index_label="date")
             benchmark_csv = benchmark_prices.rename("benchmark").to_csv(index_label="date")
             _json(
                 root / "data" / "fingerprint.json",
@@ -550,7 +564,7 @@ def build_strategy_pack(
                 ),
             )
         else:
-            _asset_prices(data).to_csv(root / "data" / "prices.csv", index_label="date")
+            asset_prices.to_csv(root / "data" / "prices.csv", index_label="date")
             benchmark_prices.rename("benchmark").to_csv(
                 root / "data" / "benchmark.csv",
                 index_label="date",
@@ -572,6 +586,7 @@ def build_strategy_pack(
                 else None,
                 "shrinks": [asdict(item) for item in research.coverage_history],
                 "cutoff": _provenance_cutoff(research),
+                "calendar_revision": CALENDAR_REVISION,
             },
         )
         _json(
@@ -662,6 +677,7 @@ def build_research_record_pack(research: Research, destination: Path) -> Path:
                 ],
                 "effective_seconds": research.effective_seconds,
                 "export_eligible": research.export_eligible,
+                "evidence_grade": _evidence_grade_view(research),
                 **export_thesis_markers(_record_thesis(research)),
             },
         )

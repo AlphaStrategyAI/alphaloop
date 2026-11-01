@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import pickle
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -20,6 +22,17 @@ from engine.research.a1_copy import (
 from engine.research.gather import DataPort, GatherBatch, MaterialPort, gather_materials
 from engine.research.models import Research
 from engine.research.user_errors import UserFacingError
+
+
+class FrozenPanelDecodeError(UserFacingError):
+    """The on-disk panel is not a readable pickle. The bytes must not be reused."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(
+            "FROZEN_INPUT_UNREADABLE",
+            FROZEN_INPUT_UNREADABLE,
+            detail=detail,
+        )
 
 
 @dataclass(slots=True)
@@ -86,8 +99,13 @@ def ensure_frozen_version_input(
     live_port_factory: Callable[[], DataPort] | None = None,
 ) -> FrozenVersionInput:
     path = frozen_input_path(snapshot_root, research.research_id, version_number)
-    if path.is_file():
-        return _read_frozen(path)
+    if path.is_file() or _hash_path(path).is_file():
+        try:
+            return _read_frozen(path)
+        except FrozenPanelDecodeError:
+            # A damaged panel retries forever if it stays on disk. Move it aside
+            # and rebuild from the same bound source; do not switch vendors.
+            _quarantine_frozen(path)
     universe = research.brief.universe.value
     if universe is None:
         raise ValueError("running research requires a universe")
@@ -112,17 +130,65 @@ def ensure_frozen_version_input(
     return frozen
 
 
+def _hash_path(path: Path) -> Path:
+    return path.parent / f"{path.name}.sha256"
+
+
+def frozen_file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _write_frozen(path: Path, frozen: FrozenVersionInput) -> None:
+    from engine.research.e2e_hooks import crash_barrier
+
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
-    pd.to_pickle(frozen, temporary)
+    pd.to_pickle(frozen, temporary, compression=None)
+    digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
     os.replace(temporary, path)
+    hash_path = _hash_path(path)
+    hash_tmp = hash_path.with_suffix(".sha256.tmp")
+    hash_tmp.write_text(digest + "\n", encoding="utf-8")
+    os.replace(hash_tmp, hash_path)
+    crash_barrier("after_freeze")
+
+
+def _quarantine_frozen(path: Path) -> None:
+    for candidate in (path, _hash_path(path)):
+        if not candidate.is_file():
+            continue
+        dest = candidate.with_name(candidate.name + ".corrupt")
+        if dest.exists():
+            dest.unlink()
+        candidate.replace(dest)
 
 
 def _read_frozen(path: Path) -> FrozenVersionInput:
+    hash_path = _hash_path(path)
+    if hash_path.is_file() and not path.is_file():
+        raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE)
+    if not path.is_file():
+        raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE)
+    if hash_path.is_file():
+        expected = hash_path.read_text(encoding="utf-8").strip()
+        actual = frozen_file_hash(path)
+        if expected != actual:
+            raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE)
     try:
-        loaded = pd.read_pickle(path)
-    except (OSError, EOFError, ValueError, TypeError, AttributeError, pickle.UnpicklingError):
+        loaded = pd.read_pickle(path, compression=None)
+    except (
+        zlib.error,
+        OSError,
+        EOFError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        pickle.UnpicklingError,
+    ) as exc:
+        from engine.research.decompress_retry import is_decompress_error
+
+        if isinstance(exc, zlib.error) or is_decompress_error(exc):
+            raise FrozenPanelDecodeError(str(exc)) from exc
         raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE) from None
     if not isinstance(loaded, FrozenVersionInput):
         raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE)

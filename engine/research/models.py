@@ -289,6 +289,22 @@ class Version:
     opened_at: datetime
     opened_by: str
     confirmed_changes: tuple[tuple[str, object], ...] = ()
+    effective_spec_snapshot: dict[str, Any] | None = None
+    parent_digest: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EvidencePolicy:
+    """Exploration / holdout split authorized before any price probe."""
+
+    mode: str = "adaptive"
+    explore_end: date | None = None
+    holdout_start: date | None = None
+    holdout_end: date | None = None
+    isolation_days: int = 0
+    sealed: bool = True
+    candidate_fingerprint: str = ""
+    final_receipt: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -523,6 +539,7 @@ class Research:
     dismissed_symbol_tokens: tuple[str, ...] = ()
     market_switch_market: str = ""
     market_switch_benchmark: str = ""
+    evidence_policy: EvidencePolicy | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:

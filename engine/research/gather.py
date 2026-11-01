@@ -152,11 +152,16 @@ class PapersAdapter:
     fetch_errors: list[str] = field(default_factory=list)
 
     def fetch(self, query: str) -> tuple[Material, ...]:
+        from engine.research.public_query import public_query_text, redact_provider_error
+
+        projected = public_query_text(query)
+        if not projected:
+            return ()
         try:
             response = self.client.get(
                 "https://api.crossref.org/works",
                 params={
-                    "query": query,
+                    "query": projected,
                     "rows": 5,
                     "select": "DOI,title,URL,abstract,issued",
                     "mailto": self.mailto,
@@ -166,7 +171,7 @@ class PapersAdapter:
             response.raise_for_status()
             items = response.json()["message"]["items"]
         except Exception as exc:  # noqa: BLE001 — material fetch must not abort research
-            self.fetch_errors.append(f"crossref: {type(exc).__name__}: {exc}")
+            self.fetch_errors.append(redact_provider_error("crossref", exc, query))
             return ()
         result = []
         for item in items:
@@ -199,6 +204,11 @@ class SecEdgarAdapter:
     fetch_errors: list[str] = field(default_factory=list)
 
     def fetch(self, query: str) -> tuple[Material, ...]:
+        from engine.research.public_query import public_query_text, redact_provider_error
+
+        projected = public_query_text(query)
+        if not projected:
+            return ()
         try:
             response = self.client.get(
                 "https://www.sec.gov/files/company_tickers.json",
@@ -208,12 +218,12 @@ class SecEdgarAdapter:
             response.raise_for_status()
             payload = response.json()
         except Exception as exc:  # noqa: BLE001 — material fetch must not abort research
-            self.fetch_errors.append(f"sec-edgar: {type(exc).__name__}: {exc}")
+            self.fetch_errors.append(redact_provider_error("sec-edgar", exc, query))
             return ()
         matches = []
         for item in payload.values():
             haystack = f"{item['ticker']} {item['title']}".lower()
-            if query.lower() in haystack:
+            if projected.lower() in haystack:
                 cik = str(item["cik_str"]).zfill(10)
                 matches.append(
                     Material(
