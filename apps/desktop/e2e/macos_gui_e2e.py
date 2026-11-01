@@ -275,10 +275,26 @@ def accept_unlicensed_source(driver) -> None:
     if not isinstance(picked, str) or picked.startswith("NONE"):
         raise AssertionError(f"price source input was not found: {picked}")
     commit_choice(driver, f'[data-testid="{picked}"]')
-    ack = WebDriverWait(driver, 15).until(
-        lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=unlicensed-ack]")
-    )
-    if not ack.is_selected():
+
+    def ack_checked(current) -> bool | None:
+        return current.execute_script(
+            """
+            const node = document.querySelector('[data-testid="unlicensed-ack"]');
+            if (!node) return null;
+            return !!node.checked;
+            """
+        )
+
+    deadline = time.time() + 15
+    state: bool | None = None
+    while time.time() < deadline:
+        state = ack_checked(driver)
+        if state is not None:
+            break
+        time.sleep(0.25)
+    if state is None:
+        raise AssertionError("unlicensed acknowledgement checkbox did not appear")
+    if state is not True:
         commit_choice(driver, '[data-testid="unlicensed-ack"]')
     WebDriverWait(driver, 15).until(
         lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]").is_enabled()
