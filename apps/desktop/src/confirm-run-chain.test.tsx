@@ -239,10 +239,134 @@ describe("confirm run call chain", () => {
       </I18nProvider>,
     );
     expect(screen.getByTestId("proposal-next-step")).toHaveTextContent("下一步");
+    expect(screen.getByTestId("proposal-next-step")).toHaveTextContent("这份提议已经过期");
+    expect(screen.getByTestId("proposal-original").querySelector("[data-user-content]")).toHaveTextContent(
+      "美股均值回归",
+    );
     fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
     fireEvent.click(screen.getByTestId("unlicensed-ack"));
     expect(screen.getByTestId("confirm-run-start")).toBeDisabled();
     fireEvent.click(screen.getByTestId("confirm-run-start"));
     expect(confirmRun).not.toHaveBeenCalled();
   });
+
+  it("keeps English confirm chrome free of system CJK while the user's words stay", () => {
+    const executable = "日频截面均值回归（前一日信号）。未支持的限制不会悄悄删掉。";
+    const meaning = "原来的说法不会照原样执行。改成均值回归后，赚的是价格偏离后的回归，不是原来的趋势或突破。";
+    const momentumNote = "趋势、动量和突破不能在这里执行。原话会保留，不会改写成均值回归。";
+    const {unmount} = render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard
+          api={shell(vi.fn())}
+          view={{
+            ...view,
+            settings: {
+              ...view.settings,
+              thesis: "美股股票 AAPL 的均值回归",
+            },
+            proposal: {
+              proposalId: "p-us",
+              baseRevision: 4,
+              kind: "interpret_brief",
+              intent: "provide",
+              status: "open",
+              nextStep: "",
+              originalThesis: "美股股票 AAPL 的均值回归",
+              executableRule: executable,
+              executableRuleSource: "system_suggested",
+              meaningNote: "",
+              quotes: [],
+              changes: [{field: "coverage_floor", source: "user_specified", text: "1/10/5.0", quoteRef: "q0"}],
+              openQuestions: [],
+              capabilityMatch: [],
+              materialQuery: {
+                publicTerms: ["mean reversion"],
+                providerId: "crossref",
+                purpose: "public_literature",
+                policyRevision: "material-query-2026-11-01",
+              },
+            },
+          }}
+        />
+      </I18nProvider>,
+    );
+    const card = screen.getByTestId("confirm-run-card");
+    expect(card).toHaveTextContent("AAPL");
+    expect(screen.getByTestId("proposal-original").querySelector("[data-user-content]")).toHaveTextContent(
+      "美股股票 AAPL 的均值回归",
+    );
+    expect(screen.getByTestId("proposal-rule")).toHaveTextContent("Daily cross-sectional mean reversion");
+    expect(screen.getByTestId("proposal-rule")).toHaveTextContent("Suggested by the system");
+    expect(screen.getByTestId("proposal-rule").textContent).not.toMatch(/[\u3400-\u9fff]/);
+    expect(chromeText(card)).not.toMatch(/[\u3400-\u9fff]/);
+    unmount();
+
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard
+          api={shell(vi.fn())}
+          view={{
+            ...view,
+            proposal: {
+              proposalId: "p-mom",
+              baseRevision: 5,
+              kind: "interpret_brief",
+              intent: "correct",
+              status: "quotes_unavailable",
+              nextStep: "报价现在不可用。等数据恢复，或改用有报价的标的后再开跑。",
+              originalThesis: "美股动量策略",
+              executableRule: executable,
+              executableRuleSource: "system_suggested",
+              meaningNote: meaning,
+              quotes: [],
+              changes: [{field: "thesis", source: "user_specified", text: "美股动量策略", quoteRef: "q0"}],
+              openQuestions: [{
+                field: "thesis",
+                question: "“便宜”会改变策略含义。你指的是价格相对近期的偏离，还是估值便宜？还没说明之前，不会当成你已经同意均值回归。",
+                changesMeaning: true,
+              }],
+              capabilityMatch: [
+                {
+                  constraint: "美股动量策略",
+                  capability: "family.momentum",
+                  supported: false,
+                  note: momentumNote,
+                },
+                {
+                  constraint: "第三天卖出",
+                  capability: "holding_day_exit",
+                  supported: false,
+                  note: "引擎没有固定第 N 天卖出。这条限制会保留，不会悄悄删掉。",
+                },
+              ],
+              materialQuery: null,
+            },
+          }}
+        />
+      </I18nProvider>,
+    );
+    const momentum = screen.getByTestId("confirm-run-card");
+    expect(screen.getByTestId("proposal-meaning")).toHaveTextContent("will not run as written");
+    expect(screen.getByTestId("proposal-meaning").textContent).not.toMatch(/[\u3400-\u9fff]/);
+    expect(screen.getByTestId("proposal-next-step")).toHaveTextContent("Quotes are unavailable");
+    expect(screen.getByTestId("proposal-questions")).toHaveTextContent("Cheap");
+    expect(screen.getByTestId("proposal-capabilities")).toHaveTextContent("Sell on the third day");
+    expect(screen.getByTestId("proposal-capabilities")).toHaveTextContent("not quietly dropped");
+    const userBits = momentum.querySelectorAll("[data-user-content]");
+    const userText = [...userBits].map((node) => node.textContent).join("\n");
+    expect(userText).toContain("美股动量策略");
+    expect(chromeText(momentum)).not.toMatch(/[\u3400-\u9fff]/);
+  });
 });
+
+function chromeText(root: HTMLElement): string {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const parts: string[] = [];
+  let node = walker.nextNode();
+  while (node) {
+    const parent = node.parentElement;
+    if (!(parent && parent.closest("[data-user-content]"))) parts.push(node.nodeValue || "");
+    node = walker.nextNode();
+  }
+  return parts.join("");
+}

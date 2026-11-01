@@ -7,7 +7,7 @@ import {ConfirmDataNoticeText, ConstructionNoticeText} from "../i18n/marketDataC
 import {DialogueTurnBody, EngineFailureText} from "../i18n/engineFailure";
 import {LocalizedRunError} from "../i18n/LocalizedRunError";
 import {useI18n, type MessageKey} from "../i18n/I18nProvider";
-import {briefSlotFilled, FAMILY_ID_KEY, familyMidSentenceName, localizeKnownCopy} from "../i18n/productCopy";
+import {briefSlotFilled, FAMILY_ID_KEY, familyMidSentenceName, isCatalogSentence, localizeKnownCopy} from "../i18n/productCopy";
 import type {MessageParams} from "../i18n/translate";
 import {InAppConfirmOverlay, type InAppConfirmRequest} from "../InAppConfirm";
 import {parseEffectiveQuotaFromView} from "../effectiveQuota";
@@ -120,6 +120,7 @@ const PROPOSAL_SOURCE_KEY = {
 
 export function ProposalPanel({proposal}: {proposal: ResearchProposal}) {
   const {t} = useI18n();
+  const copyText = (text: string) => localizeKnownCopy(text, t);
   const fieldLabel = (field: string) => {
     if (field === "thesis") return t("ui.brief.thesis");
     if (field === "universe") return t("ui.brief.universe");
@@ -128,6 +129,8 @@ export function ProposalPanel({proposal}: {proposal: ResearchProposal}) {
     if (field === "coverage_floor") return t("ui.brief.coverage");
     return field;
   };
+  const sourceLabel = (source: string) =>
+    t(PROPOSAL_SOURCE_KEY[source as keyof typeof PROPOSAL_SOURCE_KEY] ?? "ui.proposal.sourcePending");
   return (
     <section className="confirm-lead" data-testid="research-proposal" data-proposal-status={proposal.status}>
       <p className="eyebrow">{t("ui.proposal.title")}</p>
@@ -135,29 +138,33 @@ export function ProposalPanel({proposal}: {proposal: ResearchProposal}) {
         <p data-testid="proposal-original">
           {t("ui.proposal.original")}
           {": "}
-          {proposal.originalThesis}
+          <span data-user-content="true">{proposal.originalThesis}</span>
         </p>
       ) : null}
       {proposal.executableRule ? (
         <p data-testid="proposal-rule" data-rule-source={proposal.executableRuleSource}>
           {t("ui.proposal.rule")}
           {": "}
-          {proposal.executableRule}
-          {proposal.executableRuleSource
-            ? ` (${t(PROPOSAL_SOURCE_KEY[proposal.executableRuleSource as keyof typeof PROPOSAL_SOURCE_KEY] ?? "ui.proposal.sourceSystem")})`
-            : ""}
+          {copyText(proposal.executableRule)}
+          {proposal.executableRuleSource ? ` (${sourceLabel(proposal.executableRuleSource)})` : ""}
         </p>
       ) : null}
-      {proposal.meaningNote ? <p data-testid="proposal-meaning">{t("ui.proposal.meaning")}: {proposal.meaningNote}</p> : null}
+      {proposal.meaningNote ? (
+        <p data-testid="proposal-meaning">{t("ui.proposal.meaning")}: {copyText(proposal.meaningNote)}</p>
+      ) : null}
       {proposal.changes.length > 0 ? (
         <ul data-testid="proposal-changes">
           {proposal.changes.map((change) => (
             <li key={`${change.field}-${change.quoteRef}`} data-source={change.source}>
               {fieldLabel(change.field)}
               {": "}
-              {change.text || t("ui.list.unlocked")}
+              {change.field === "thesis" && change.text ? (
+                <span data-user-content="true">{change.text}</span>
+              ) : (
+                change.text ? copyText(change.text) : t("ui.list.unlocked")
+              )}
               {" · "}
-              {t(PROPOSAL_SOURCE_KEY[change.source as keyof typeof PROPOSAL_SOURCE_KEY] ?? "ui.proposal.sourcePending")}
+              {sourceLabel(change.source)}
             </li>
           ))}
         </ul>
@@ -166,7 +173,7 @@ export function ProposalPanel({proposal}: {proposal: ResearchProposal}) {
         <ul data-testid="proposal-questions">
           {proposal.openQuestions.map((question) => (
             <li key={question.field + question.question} data-changes-meaning={question.changesMeaning ? "true" : "false"}>
-              {question.question}
+              {copyText(question.question)}
             </li>
           ))}
         </ul>
@@ -175,10 +182,14 @@ export function ProposalPanel({proposal}: {proposal: ResearchProposal}) {
         <ul data-testid="proposal-capabilities">
           {proposal.capabilityMatch.map((item) => (
             <li key={item.capability} data-supported={item.supported ? "true" : "false"}>
-              {item.constraint}
+              {isCatalogSentence(item.constraint) ? (
+                copyText(item.constraint)
+              ) : (
+                <span data-user-content="true">{item.constraint}</span>
+              )}
               {" · "}
               {item.supported ? t("ui.proposal.supported") : t("ui.proposal.unsupported")}
-              {item.note ? ` · ${item.note}` : ""}
+              {item.note ? ` · ${copyText(item.note)}` : ""}
             </li>
           ))}
         </ul>
@@ -191,7 +202,7 @@ export function ProposalPanel({proposal}: {proposal: ResearchProposal}) {
         </p>
       ) : null}
       {proposal.status !== "open" && proposal.nextStep ? (
-        <p data-testid="proposal-next-step">{t("ui.proposal.nextStep")}: {proposal.nextStep}</p>
+        <p data-testid="proposal-next-step">{t("ui.proposal.nextStep")}: {copyText(proposal.nextStep)}</p>
       ) : null}
     </section>
   );

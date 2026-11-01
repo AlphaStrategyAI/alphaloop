@@ -89,6 +89,103 @@ export function buildUiMessages(copy: Copy) {
       sourceSystem: copy("系统建议", "Suggested by the system"),
       sourcePending: copy("待确认", "Needs confirmation"),
       nextStep: copy("下一步", "Next step"),
+      executableMeanReversion: copy(
+        "日频截面均值回归（前一日信号）。未支持的限制不会悄悄删掉。",
+        "Daily cross-sectional mean reversion (previous-day signal). Limits the engine does not support are not quietly dropped.",
+        true,
+      ),
+      meaningRepick: copy(
+        "原来的说法不会照原样执行。改成均值回归后，赚的是价格偏离后的回归，不是原来的趋势或突破。",
+        "The original wording will not run as written. After a switch to mean reversion, the return comes from a price reverting after it has moved away, not from the original trend or breakout.",
+        true,
+      ),
+      meaningWaived: copy(
+        "去掉未支持的限制后，实际执行的是日频均值回归，和原话不是同一个含义。",
+        "Once the unsupported limits are removed, what runs is daily mean reversion. That is not the same meaning as the original words.",
+        true,
+      ),
+      cheapQuestion: copy(
+        "“便宜”会改变策略含义。你指的是价格相对近期的偏离，还是估值便宜？还没说明之前，不会当成你已经同意均值回归。",
+        "\"Cheap\" changes what the strategy means. Do you mean a price that has moved away from its recent level, or a cheap valuation? Until that is stated, this is not treated as agreement to run mean reversion.",
+        true,
+      ),
+      capabilityQuestion: copy(
+        "同行业比较和第三天卖出，当前引擎做不到。若改成不带这两条的均值回归，含义会变。要这样继续，还是先保留原话？",
+        "An industry comparison and a sale on the third day are not things this engine can do. Running mean reversion without those two limits would change the meaning. Do that, or keep the original words for now?",
+        true,
+      ),
+      runNow: copy(
+        "开跑要在确认卡上核对这份提议后再按。附件或这句话不能代替确认。",
+        "Starting the run means checking this proposal on the confirmation card and pressing Run. An attachment, or this sentence, cannot stand in for that confirmation.",
+        true,
+      ),
+      llmFallback: copy(
+        "模型没有给出可用的提议，下面仍按字段提问。",
+        "The model did not return a usable proposal. Questions below still go one field at a time.",
+        true,
+      ),
+      capabilityUnresolved: copy(
+        "有些限制当前做不到。请确认是否改变含义后再开跑。",
+        "Some limits cannot be done yet. Confirm whether the meaning should change before the run starts.",
+        true,
+      ),
+      meaningUnresolved: copy(
+        "“便宜”还没说清是价格偏离还是估值。说清之前不能开跑。",
+        "\"Cheap\" is not yet clear: a move away from a recent price, or a cheap valuation. It cannot run until that is clear.",
+        true,
+      ),
+      stale: copy(
+        "这份提议已经过期。请再核对设定，确认后才能开跑。",
+        "This proposal is out of date. Check the settings again. The run can start only after you confirm.",
+        true,
+      ),
+      sourceChanged: copy(
+        "数据源和提议里写的不一样。先核对来源，再确认开跑。",
+        "The data source is not the one named in the proposal. Check the source, then confirm the run.",
+        true,
+      ),
+      quotesUnavailable: copy(
+        "报价现在不可用。等数据恢复，或改用有报价的标的后再开跑。",
+        "Quotes are unavailable right now. Wait for the data to return, or use symbols that have quotes, before running.",
+        true,
+      ),
+      hourConflict: copy(
+        "你说的原来的时长和现在记下的不一样。要改成哪一个？",
+        "The duration you just named does not match the one recorded. Which one should it be?",
+        true,
+      ),
+      mixedMarkets: copy(
+        "这句话同时有美股和 A 股。一次研究只能留一个市场。",
+        "This sentence names both US stocks and China A-shares. One research keeps only one market.",
+        true,
+      ),
+      noMaterials: copy(
+        "没有本地资料。公开检索只会使用白名单里的家族词，不会把原话发给资料源。",
+        "There are no local materials. A public search uses only allowlisted family terms and does not send the original words to a data source.",
+        true,
+      ),
+      twoSources: copy(
+        "这句话点了两个行情源。要换成哪一个？",
+        "This sentence names two price sources. Which one should it switch to?",
+        true,
+      ),
+      industryConstraint: copy("只在同行业内比较", "Compare only within the same industry", true),
+      industryNote: copy(
+        "引擎没有行业相对比较。这条限制会保留，不会悄悄删掉。",
+        "The engine has no industry-relative comparison. This limit stays, and it is not quietly dropped.",
+        true,
+      ),
+      holdingConstraint: copy("第三天卖出", "Sell on the third day", true),
+      holdingNote: copy(
+        "引擎没有固定第 N 天卖出。这条限制会保留，不会悄悄删掉。",
+        "The engine has no fixed sell-on-day-N rule. This limit stays, and it is not quietly dropped.",
+        true,
+      ),
+      momentumNote: copy(
+        "趋势、动量和突破不能在这里执行。原话会保留，不会改写成均值回归。",
+        "Trend, momentum, and breakout cannot run here. The original words stay, and they are not rewritten as mean reversion.",
+        true,
+      ),
     },
     dialogue: {
       title: copy("新研究", "New research"),
