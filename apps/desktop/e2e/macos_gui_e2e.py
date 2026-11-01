@@ -230,22 +230,26 @@ def commit_choice(driver, css: str) -> None:
         const input = document.querySelector(arguments[0]);
         if (!input) throw new Error('missing ' + arguments[0]);
         input.scrollIntoView({block: 'center', inline: 'nearest'});
-        // The embedded driver's script and the page node can sit in different
-        // realms. window.HTMLInputElement then rejects the page node. Walk the
-        // node's own prototype so the setter matches the element.
-        let setChecked = null;
-        for (let proto = Object.getPrototypeOf(input); proto; proto = Object.getPrototypeOf(proto)) {
-          const desc = Object.getOwnPropertyDescriptor(proto, 'checked');
-          if (desc && desc.set) { setChecked = desc.set; break; }
-        }
-        if (!setChecked) throw new Error('no checked setter on ' + input.tagName);
-        setChecked.call(input, true);
-        const view = input.ownerDocument.defaultView || window;
-        input.dispatchEvent(new view.MouseEvent('click', {bubbles: true}));
-        input.dispatchEvent(new view.Event('input', {bubbles: true}));
-        input.dispatchEvent(new view.Event('change', {bubbles: true}));
-        if (input.type === 'radio' && input.parentElement && input.parentElement.tagName === 'LABEL') {
-          input.parentElement.click();
+        // Click the label while unchecked. That is the user gesture, and it
+        // turns a checkbox on. Setting checked first would make the label
+        // click toggle a checkbox back off. The setter is only a fallback,
+        // taken from the node's own prototype so a cross-realm
+        // HTMLInputElement setter is not used.
+        const label = input.parentElement && input.parentElement.tagName === 'LABEL'
+          ? input.parentElement : null;
+        if (!input.checked && label) label.click();
+        if (!input.checked) {
+          let setChecked = null;
+          for (let proto = Object.getPrototypeOf(input); proto; proto = Object.getPrototypeOf(proto)) {
+            const desc = Object.getOwnPropertyDescriptor(proto, 'checked');
+            if (desc && desc.set) { setChecked = desc.set; break; }
+          }
+          if (!setChecked) throw new Error('no checked setter on ' + input.tagName);
+          setChecked.call(input, true);
+          const view = input.ownerDocument.defaultView || window;
+          input.dispatchEvent(new view.MouseEvent('click', {bubbles: true}));
+          input.dispatchEvent(new view.Event('input', {bubbles: true}));
+          input.dispatchEvent(new view.Event('change', {bubbles: true}));
         }
         """,
         css,
@@ -253,7 +257,6 @@ def commit_choice(driver, css: str) -> None:
 
 
 def accept_unlicensed_source(driver) -> None:
-    from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
 
     # price-source-picker is a div and matches [data-testid^=price-source-].
