@@ -30,11 +30,11 @@ The desktop version is one value, checked by `scripts/check_app_version.py`:
 
    `vX.Y.Z` must equal the `version` in `tauri.conf.json` with a `v` prefix. The release job rejects any other tag, and it rejects a tag that is not an ancestor of `origin/main`.
 
-3. `desktop-release` builds Linux, macOS, and Windows once. The Windows GUI test installs that same NSIS setup. Only after it passes does the workflow open a **draft** GitHub Release marked **prerelease**, with the installers and `SHA256SUMS.txt`. It does not publish the release.
+3. `desktop-release` builds Linux, macOS, and Windows once. The Windows GUI test installs that same NSIS setup. The macOS GUI test unpacks that same `.app` archive. Only after both pass does the workflow open a **draft** GitHub Release marked **prerelease**, with the installers and `SHA256SUMS.txt`. It does not publish the release.
 4. Download the DMG in a browser from the draft so macOS applies quarantine. 开发小牛 confirms checksums (`sha256sum -c SHA256SUMS.txt`), signing, codesign, and SmartScreen on the package-level REPORT before notifying Master Bot. That check is out of scope for 产品小马. Replace the placeholder test-results table with the real Windows CI result and the Linux and macOS checklist below.
 5. Master Bot asks the user to publish only after 开发小牛 package-level PASS and 产品小马 **全量 PASS** on the product matrix below. Publishing is a separate manual step.
 
-`workflow_dispatch` on `desktop-release` builds the installers, runs the Windows test, and does not create a release.
+`workflow_dispatch` on `desktop-release` builds the installers, runs the Windows and macOS GUI tests, and does not create a release.
 
 Installer names come from `tauri.conf.json`:
 
@@ -66,18 +66,24 @@ Windows is not Authenticode-signed. If SmartScreen appears, choose More info →
 
 The Linux package is not signed by a distribution key.
 
-## Windows CI
+## Desktop CI end-to-end
 
 Pull requests, and the tag release run, execute `windows-e2e` against the NSIS setup from that same workflow. Screenshots are the artifact `windows-e2e-screenshots`. App and engine logs are `windows-e2e-logs`. The job summary lists each step. A skip is not a pass.
 
-The job uses synthetic prices (`ALPHALOOP_OFFLINE_MARKET_DATA=1`). One step uses the default Windows credential manager. A later step sets `ALPHALOOP_SECRETS_BACKEND=passphrase`, which defaults off.
+The same runs execute `macos-e2e` (job id `macos-e2e` in `desktop-release-macos.yml`) against `alphaloop_<version>_macos_arm64.app.tar.gz` from that same workflow. The runner is `macos-15` (arm64). `macos-14` is retired and is not a fallback. Screenshots are `macos-e2e-screenshots`. App and engine logs are `macos-e2e-logs`. The job summary lists each step. A skip is not a pass. Push to `main` or `cursor/**` builds the bundle and does not run either GUI job; `desktop-release.yml` passes `run_e2e: true` into both reusable workflows.
+
+The macOS job unpacks the `.app` tar.gz rather than mounting the DMG. The DMG is a read-only wrap of that same bundle. CI clears `com.apple.quarantine` and execs `Contents/MacOS` directly. `open` is not used, because LaunchServices is what presents the unidentified-developer dialog for an ad-hoc, notarized-missing build. A Finder launch of a browser-downloaded DMG can still be blocked; that is a product limit, and it does not skip `macos-e2e`.
+
+Official `tauri-driver` cannot drive WKWebView. `macos-e2e` sets `ALPHALOOP_WEBDRIVER=1` so the macOS build's embedded W3C server (`tauri-plugin-wdio-webdriver`) listens on `127.0.0.1`, and Selenium drives it. A normal launch does not set that variable, and the unpacked-app smoke checks that port 4445 stays closed. The plugin code is in the macOS artifact; the socket is not.
+
+Both GUI jobs use synthetic prices (`ALPHALOOP_OFFLINE_MARKET_DATA=1`), `ALPHALOOP_MAX_TRIALS=1`, `ALPHALOOP_E2E_HOLD_RUNNING_SEC=45`, and `ALPHALOOP_REVIEWER=deterministic`. One step uses the platform keyring (Windows credential manager, or the macOS login keychain). A later step sets `ALPHALOOP_SECRETS_BACKEND=passphrase`, which defaults off. An ad-hoc signature can still raise a keychain ACL dialog. The job unlocks the login keychain and then requires the keyring step to pass.
 
 ## Product acceptance before publish
 
 Before asking the owner to publish a draft (or to treat a prerelease as ready), the gate order is: tag/draft candidate package → **开发小牛 package-level PASS** (installers, sha/signing/codesign/SmartScreen on their REPORT, new-feature + main regression, self-test/self-fix, then notify Master Bot) → **产品小马** runs the full product matrix in [`docs/requirements/release-acceptance-v1.md`](./requirements/release-acceptance-v1.md) against the candidate installers → Master Bot asks the user to publish.
 
 - That file is the single source of truth for product release acceptance (scenarios, priority, PASS rules). Package sha256, signing, codesign, and SmartScreen verification are 开发小牛's package-level gate and are out of scope for this matrix.
-- CI (including `windows-e2e`) is an entry condition; it does not replace the matrix.
+- CI (including `windows-e2e` and `macos-e2e`) is an entry condition; it does not replace the matrix.
 - Master Bot asks the user to publish only after 开发小牛 package-level PASS and 产品小马 reports **全量 PASS**.
 - When a change alters UI, copy, gates, or settings, 开发小牛 updates the matching rows in the same PR or a follow-up docs PR.
 - Per-release evidence: `docs/reports/YYYY-MM-DD-release-vX.Y.Z-product.md` (draft runs may stay under a local smoke folder until filed).
@@ -99,6 +105,6 @@ The short “Manual checklist (Linux and macOS)” below remains a quick smoke a
 
 ## Known limitations
 
-- Windows is tested only by cloud automation.
-- That automation uses synthetic market data.
-- macOS is ad-hoc signed and not notarized. Linux and Windows builds are unsigned.
+- Windows and macOS GUI entry checks run in GitHub Actions (`windows-e2e`, `macos-e2e`). They use synthetic market data.
+- macOS CI runs on `macos-15`. The build is ad-hoc signed and not notarized. Linux and Windows builds are unsigned. Gatekeeper can still block a Finder launch of a browser-downloaded DMG.
+- The macOS artifact contains an embedded WebDriver server that listens only when `ALPHALOOP_WEBDRIVER=1`.

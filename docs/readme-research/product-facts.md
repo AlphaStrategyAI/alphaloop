@@ -59,7 +59,7 @@ GitHub 仓库描述写的是 “AI-automated quant research loop”。默认配�
 
 ## 7. 测试与 CI
 
-工作流：`python-tests.yml`（pytest，跳过 network，并安装 WebKit/GTK 与一个空的引擎占位）、`desktop-typecheck.yml`（Node 22）、`desktop-tauri-rust.yml`、`desktop-release-macos.yml` 与 `desktop-release-windows.yml`（Node 20，构建侧车与安装包 artifact）、`keyring-linux-optional.yml`。
+工作流：`python-tests.yml`（pytest，跳过 network，并安装 WebKit/GTK 与一个空的引擎占位）、`desktop-typecheck.yml`（Node 22）、`desktop-tauri-rust.yml`、`desktop-release-macos.yml`（`macos-15`，含 pull request 上的 `macos-e2e`）与 `desktop-release-windows.yml`（含 `windows-e2e`）（构建侧车与安装包 artifact）、`keyring-linux-optional.yml`。
 
 本次运行见 [verification.md](./verification.md)。
 

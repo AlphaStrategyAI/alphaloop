@@ -12,7 +12,7 @@ The file names use the version in `apps/desktop/src-tauri/tauri.conf.json`.
 | `desktop-release-macos.yml` | `macos-15` (arm64) | `alphaloop_<version>_macos_arm64.dmg` and `alphaloop_<version>_macos_arm64.app.tar.gz` |
 | `desktop-release-windows.yml` | `windows-2025` | `alphaloop_<version>_windows_x64-setup.exe` |
 
-Pull requests also run the Windows GUI end-to-end job. Screenshots are `windows-e2e-screenshots`. App and engine logs are `windows-e2e-logs`.
+Pull requests also run the Windows and macOS GUI end-to-end jobs. Windows screenshots are `windows-e2e-screenshots` and logs are `windows-e2e-logs`. macOS screenshots are `macos-e2e-screenshots` and logs are `macos-e2e-logs`. The macOS job id is `macos-e2e`. It unpacks the `.app` tar.gz on `macos-15` (not `macos-14`). Push to `main` or `cursor/**` does not run either GUI job.
 
 Download from the GitHub Actions run page: **Summary → Artifacts**, or `gh run download <run-id> -n <artifact-name>`.
 
