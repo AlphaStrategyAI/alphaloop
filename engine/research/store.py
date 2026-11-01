@@ -27,6 +27,7 @@ from engine.research.models import (
 )
 from engine.strategy import StrategySpec
 from engine.verifiers import PitVerifierResult, VerificationReport, VerifierResult
+from engine.research.round_store import RoundRecoveryMixin
 from engine.research.runtime import OwnerRecord
 
 
@@ -367,7 +368,7 @@ class _SerializedConnection:
             self._raw.rollback()
 
 
-class SQLiteStore:
+class SQLiteStore(RoundRecoveryMixin):
     def __init__(self, path: Path) -> None:
         self.path = path
         self.connection = _SerializedConnection(
@@ -377,6 +378,7 @@ class SQLiteStore:
         self._migrate_method_schema()
         self._migrate_review_attempts_schema()
         self._migrate_command_journal()
+        self._migrate_round_recovery()
         self._recover_pending_receipts()
 
     def _migrate_review_attempts_schema(self) -> None:
@@ -547,6 +549,11 @@ class SQLiteStore:
             data.setdefault("dismissed_symbol_tokens", [])
             data.setdefault("market_switch_market", "")
             data.setdefault("market_switch_benchmark", "")
+            data.setdefault("evidence_policy", None)
+            for version in data.get("versions") or []:
+                if isinstance(version, dict):
+                    version.setdefault("effective_spec_snapshot", None)
+                    version.setdefault("parent_digest", None)
             universe = (
                 data.get("brief", {}).get("universe", {}).get("value")
                 if isinstance(data.get("brief"), dict)
@@ -760,6 +767,7 @@ class SQLiteStore:
                     attempt_id,research_id,version_number,round_number,
                     passed,attempt_json,created_at
                 ) VALUES(?,?,?,?,?,?,?)
+                ON CONFLICT(research_id, attempt_id) DO NOTHING
                 """,
                 (
                     attempt.attempt_id,
@@ -857,8 +865,8 @@ class SQLiteStore:
         return Heartbeat(row[0], int(row[1]), datetime.fromisoformat(row[2]))
 
     def status_flags(self) -> tuple[bool, bool]:
-        rows = self.connection.execute("SELECT state_json FROM researches").fetchall()
-        states = [json.loads(row[0])["status"] for row in rows]
+        rows = self.connection.execute("SELECT status FROM researches").fetchall()
+        states = [str(row[0]) for row in rows]
         return "running" in states, "awaiting_confirm" in states
 
     def list_research(self) -> tuple[Research, ...]:
@@ -976,13 +984,14 @@ class SQLiteStore:
 
     def running_ids(self) -> tuple[str, ...]:
         rows = self.connection.execute(
-            "SELECT research_id,state_json FROM researches ORDER BY research_id"
+            """
+            SELECT research_id FROM researches
+             WHERE status=?
+             ORDER BY research_id
+            """,
+            ("running",),
         ).fetchall()
-        return tuple(
-            research_id
-            for research_id, payload in rows
-            if json.loads(payload)["status"] == "running"
-        )
+        return tuple(str(row[0]) for row in rows)
 
     def delete(self, research_id: str) -> None:
         from engine.research.removal import mark_research_removed
@@ -1011,6 +1020,30 @@ class SQLiteStore:
             )
             self.connection.execute(
                 "DELETE FROM researches WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM step_run WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM committed_round WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM committed_candidate WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM window_round_ledger WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM round_receipt WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM compute_lease WHERE research_id=?",
                 (research_id,),
             )
 

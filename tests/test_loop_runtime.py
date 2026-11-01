@@ -243,7 +243,7 @@ def test_three_technical_review_failures_stay_running_without_a_round(tmp_path: 
     assert store.review_failure_count("r-loop", 1, 1) == 3
 
 
-def test_reload_with_three_persisted_failures_resets_and_retries_while_budget_remains(
+def test_reload_with_three_persisted_failures_pauses_without_clearing_attempts(
     tmp_path: Path,
 ) -> None:
     store = SQLiteStore(tmp_path / "research.db")
@@ -276,11 +276,13 @@ def test_reload_with_three_persisted_failures_resets_and_retries_while_budget_re
         lambda: NOW,
     ).run_once("r-loop")
 
-    assert result.status is ResearchStatus.RUNNING
+    assert result.status is ResearchStatus.PAUSED
     assert result.pending_confirm is None
     assert result.versions[0].rounds == ()
     assert store.last_completed_round("r-loop") == 0
-    assert builder.calls >= 1
+    assert builder.calls == 0
+    assert result.last_run_error_code == "TECHNICAL_RETRY_EXHAUSTED"
+    assert store.review_failure_count("r-loop", 1, 1) == 3
     assert result.consecutive_review_failures == 3
 
 

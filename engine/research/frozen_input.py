@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import pickle
 from collections.abc import Callable
@@ -86,7 +87,7 @@ def ensure_frozen_version_input(
     live_port_factory: Callable[[], DataPort] | None = None,
 ) -> FrozenVersionInput:
     path = frozen_input_path(snapshot_root, research.research_id, version_number)
-    if path.is_file():
+    if path.is_file() or _hash_path(path).is_file():
         return _read_frozen(path)
     universe = research.brief.universe.value
     if universe is None:
@@ -112,14 +113,40 @@ def ensure_frozen_version_input(
     return frozen
 
 
+def _hash_path(path: Path) -> Path:
+    return path.parent / f"{path.name}.sha256"
+
+
+def frozen_file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _write_frozen(path: Path, frozen: FrozenVersionInput) -> None:
+    from engine.research.e2e_hooks import crash_barrier
+
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     pd.to_pickle(frozen, temporary)
+    digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
     os.replace(temporary, path)
+    hash_path = _hash_path(path)
+    hash_tmp = hash_path.with_suffix(".sha256.tmp")
+    hash_tmp.write_text(digest + "\n", encoding="utf-8")
+    os.replace(hash_tmp, hash_path)
+    crash_barrier("after_freeze")
 
 
 def _read_frozen(path: Path) -> FrozenVersionInput:
+    hash_path = _hash_path(path)
+    if hash_path.is_file() and not path.is_file():
+        raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE)
+    if not path.is_file():
+        raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE)
+    if hash_path.is_file():
+        expected = hash_path.read_text(encoding="utf-8").strip()
+        actual = frozen_file_hash(path)
+        if expected != actual:
+            raise UserFacingError("FROZEN_INPUT_UNREADABLE", FROZEN_INPUT_UNREADABLE)
     try:
         loaded = pd.read_pickle(path)
     except (OSError, EOFError, ValueError, TypeError, AttributeError, pickle.UnpicklingError):

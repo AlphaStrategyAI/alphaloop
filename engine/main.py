@@ -332,6 +332,12 @@ _ACTIVE_REQUEST: ContextVar[dict[str, Any] | None] = ContextVar(
 )
 
 
+def _evidence_grade_view(research: Research) -> dict[str, str]:
+    from engine.research.evidence_window import evidence_grade_view
+
+    return evidence_grade_view(research)
+
+
 class ResearchCommandService:
     def __init__(
         self,
@@ -1008,6 +1014,7 @@ class ResearchCommandService:
                 "deferredChangeSummary": presentation.deferred_change_summary,
                 **trial_tracking_for_view(research, self.store),
                 "highSuspicionRoundThreshold": high_suspicion_round_threshold(),
+                "evidenceGrade": _evidence_grade_view(research),
                 "latePassPresentation": late_pass_presentation(research),
                 "trialCounters": presentation.trial_counters,
                 "methodsVerificationPassed": presentation.methods_verification_passed,
@@ -1350,6 +1357,13 @@ class ResearchCommandService:
         if kind == "create_draft":
             if request.get("research_id") or request.get("command_id"):
                 research_id = str(request.get("research_id") or "")
+                command_id = str(request.get("command_id") or "")
+                if command_id and not research_id:
+                    found = self.store.research_id_for_create_command(command_id)
+                    if found:
+                        request = dict(request)
+                        request["research_id"] = found
+                        research_id = found
                 created = new_research(research_id, now)
                 return self.journal.create_research(request, created)
             research_id = str(uuid.uuid4())
@@ -1878,13 +1892,20 @@ def advance_running_research(
     loop: ResearchLoop,
     research_id: str,
 ) -> None:
-    """Run one tick for a running id. A deleted id is cancellation, not a crash."""
+    """Run one tick for a running id. A deleted id is cancellation, not a crash.
+
+    One compute worker holds the lease. A queued research is not started and
+    is not charged while another research owns the lease.
+    """
     from engine.research.removal import ResearchRemoved
 
-    try:
-        loop.run_once(research_id)
-    except ResearchRemoved:
+    if not store.try_acquire_worker(research_id):
         return
+    try:
+        try:
+            loop.run_once(research_id)
+        except ResearchRemoved:
+            return
     except Exception as error:  # noqa: BLE001
         try:
             before = store.load(research_id)
@@ -1921,6 +1942,8 @@ def advance_running_research(
             force=after.status.value == "paused"
             and after.consecutive_identical_run_errors >= max_consecutive_run_errors(),
         )
+    finally:
+        store.release_worker(research_id)
 
 
 def configure_engine_file_log(path: Path) -> logging.Handler:
@@ -1970,6 +1993,7 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
         return 0
 
     stop = threading.Event()
+    budget_stop = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     from engine.research.secret_memory import configure_process_owner
@@ -1980,6 +2004,9 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
     store = SQLiteStore(paths.data.database_file)
     seed_preset_methods(store)
     budget = TimeBudget(time.monotonic)
+    from engine.research.clock import start_budget_heartbeats
+
+    start_budget_heartbeats(budget, store, budget_stop)
     loop = build_loop(store, paths, budget)
     service = ResearchCommandService(SQLiteStore(paths.data.database_file), paths, budget)
     token = secrets.token_urlsafe(32)
@@ -1999,6 +2026,8 @@ def serve(owner_kind: OwnerKind, paths: EnginePaths) -> int:
                 advance_running_research(store, loop, research_id)
             store.heartbeat(owner, datetime.now(UTC))
     finally:
+        budget_stop.set()
+        stop.set()
         server.shutdown()
         server.server_close()
         lock.close()

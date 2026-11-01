@@ -60,6 +60,9 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
     else:
         changes = ()
     number = len(research.versions) + 1
+    from engine.research.effective_spec import inherit_effective_spec
+
+    snapshot, parent_digest = inherit_effective_spec(research, changes)
     version = Version(
         version_id=f"{research.research_id}-v{number}",
         number=number,
@@ -68,6 +71,8 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
         opened_at=now,
         opened_by=opened_by,
         confirmed_changes=changes,
+        effective_spec_snapshot=snapshot,
+        parent_digest=parent_digest,
     )
     return replace(
         research,

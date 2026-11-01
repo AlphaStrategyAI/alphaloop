@@ -24,8 +24,15 @@ def simulate_daily(
 ) -> SimulationReport:
     benchmark = benchmark_for(strategy.universe)
     symbols = strategy.universe.symbols
+    from engine.research.market_calendar import align_asset_calendar
+
     prices = data_port.load_daily(symbols, start, end)
     benchmark_prices = data_port.load_daily((benchmark.benchmark_id,), start, end)
+    prices, benchmark_series = align_asset_calendar(
+        prices,
+        benchmark_prices[benchmark.benchmark_id],
+    )
+    benchmark_prices = benchmark_series.to_frame(name=benchmark.benchmark_id)
     if snapshot_path is not None:
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)
         snapshot = prices.copy()
