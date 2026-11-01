@@ -9,7 +9,7 @@ The file names use the version in `apps/desktop/src-tauri/tauri.conf.json`.
 | Workflow | Runner | Artifact name |
 |----------|--------|----------------|
 | `desktop-release-linux.yml` | `ubuntu-22.04` | `alphaloop_<version>_linux_amd64.deb` |
-| `desktop-release-macos.yml` | `macos-14` (arm64) | `alphaloop_<version>_macos_arm64.dmg` and `alphaloop_<version>_macos_arm64.app.tar.gz` |
+| `desktop-release-macos.yml` | `macos-15` (arm64) | `alphaloop_<version>_macos_arm64.dmg` and `alphaloop_<version>_macos_arm64.app.tar.gz` |
 | `desktop-release-windows.yml` | `windows-2025` | `alphaloop_<version>_windows_x64-setup.exe` |
 
 Pull requests also run the Windows GUI end-to-end job. Screenshots are `windows-e2e-screenshots`. App and engine logs are `windows-e2e-logs`.
