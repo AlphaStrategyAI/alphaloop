@@ -256,19 +256,30 @@ def accept_unlicensed_source(driver) -> None:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
 
-    radios = driver.find_elements(By.CSS_SELECTOR, "[data-testid^=price-source-]")
-    if radios:
-        testid = radios[0].get_attribute("data-testid")
-        commit_choice(driver, f"[data-testid={testid}]")
-    else:
-        choice = driver.find_elements(By.CSS_SELECTOR, "[data-testid=unlicensed-source-choice]")
-        if choice and not choice[0].is_selected():
-            commit_choice(driver, "[data-testid=unlicensed-source-choice]")
+    # price-source-picker is a div and matches [data-testid^=price-source-].
+    # Pick the input in the page, with a quoted attribute selector.
+    picked = driver.execute_script(
+        """
+        const ids = ['price-source-yahoo_daily', 'price-source-akshare_sina_daily'];
+        for (const id of ids) {
+          const node = document.querySelector('[data-testid="' + id + '"]');
+          if (node && node.tagName === 'INPUT') return id;
+        }
+        const choice = document.querySelector('[data-testid="unlicensed-source-choice"]');
+        if (choice && choice.tagName === 'INPUT' && !choice.checked) return 'unlicensed-source-choice';
+        const seen = [...document.querySelectorAll('[data-testid*="price-source"], [data-testid*="unlicensed"]')]
+          .map((node) => node.tagName + ':' + node.getAttribute('data-testid'));
+        return 'NONE ' + seen.join('|');
+        """
+    )
+    if not isinstance(picked, str) or picked.startswith("NONE"):
+        raise AssertionError(f"price source input was not found: {picked}")
+    commit_choice(driver, f'[data-testid="{picked}"]')
     ack = WebDriverWait(driver, 15).until(
         lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=unlicensed-ack]")
     )
     if not ack.is_selected():
-        commit_choice(driver, "[data-testid=unlicensed-ack]")
+        commit_choice(driver, '[data-testid="unlicensed-ack"]')
     WebDriverWait(driver, 15).until(
         lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=confirm-run-start]").is_enabled()
     )
