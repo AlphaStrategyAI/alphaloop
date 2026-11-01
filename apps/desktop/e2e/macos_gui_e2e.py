@@ -217,6 +217,29 @@ def remove_product(app: Path | None) -> None:
         shutil.rmtree(parent, ignore_errors=True)
 
 
+def present_confirm_card(driver) -> str:
+    """Grow the window the way Windows does.
+
+    macos-15 guests have no VMware Tools, so the framebuffer stays about
+    1024x768 and the window server will not grow the card onto one screen.
+    Scrolling the symbol list into view keeps the screenshot honest.
+    """
+    try:
+        win.fit_confirm_card(driver)
+    except AssertionError as error:
+        if "confirm card is still cropped" not in str(error):
+            raise
+        driver.execute_script(
+            """
+            const symbol = document.querySelector('[data-testid=symbol-selection]');
+            const card = document.querySelector('[data-testid=confirm-run-card]');
+            (symbol || card)?.scrollIntoView({block: 'center'});
+            """
+        )
+        return "display cannot grow; scrolled the symbol list into view"
+    return "confirm card fits one viewport"
+
+
 def assert_no_controlling_terminal(pid: int) -> str:
     completed = subprocess.run(
         ["ps", "-o", "tty=", "-p", str(pid)],
@@ -672,7 +695,7 @@ def main() -> int:
             "AAPL",
         )
         try:
-            win.fit_confirm_card(session.driver)
+            us_fit = present_confirm_card(session.driver)
             shoot("confirms-us")
         finally:
             win.reset_page_zoom(session.driver)
@@ -696,7 +719,7 @@ def main() -> int:
             "600519",
         )
         try:
-            win.fit_confirm_card(session.driver)
+            cn_fit = present_confirm_card(session.driver)
             shoot("confirms-cn")
         finally:
             win.reset_page_zoom(session.driver)
@@ -704,7 +727,10 @@ def main() -> int:
         if "600519" not in cn_text:
             raise AssertionError(f"A-share confirm card did not mention 600519: {cn_text[:300]}")
         win.assert_no_cjk(session.driver, "[data-testid=confirm-run-card]", "A-share confirm card")
-        return f"US {research_ids['us']} and A-share {research_ids['cn']} each opened their own confirm card"
+        return (
+            f"US {research_ids['us']} and A-share {research_ids['cn']} each opened their own confirm card; "
+            f"{us_fit}; {cn_fit}"
+        )
 
     def step_blocked_run_before_confirm() -> str:
         assert session is not None and session.driver is not None

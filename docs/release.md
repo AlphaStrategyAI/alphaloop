@@ -106,5 +106,5 @@ The short “Manual checklist (Linux and macOS)” below remains a quick smoke a
 ## Known limitations
 
 - Windows and macOS GUI entry checks run in GitHub Actions (`windows-e2e`, `macos-e2e`). They use synthetic market data.
-- macOS CI runs on `macos-15`. The build is ad-hoc signed and not notarized. Linux and Windows builds are unsigned. Gatekeeper can still block a Finder launch of a browser-downloaded DMG.
+- macOS CI runs on `macos-15`. The build is ad-hoc signed and not notarized. Linux and Windows builds are unsigned. Gatekeeper can still block a Finder launch of a browser-downloaded DMG. The guest framebuffer stays about 1024×768 (no VMware Tools, so the display cannot be raised). When the confirm card will not fit that screen, the job scrolls the symbol list into view and screenshots that.
 - The macOS artifact contains an embedded WebDriver server that listens only when `ALPHALOOP_WEBDRIVER=1`.
