@@ -218,6 +218,27 @@ jobs:
           name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
           path: installer
 
+      # Hosted macOS comes up at 1024x768. The confirm-card check grows the
+      # window until the symbol list and Run share one viewport, and the
+      # window server will not grow past the display. 1600 is the image's
+      # maximum height. The mode switch needs a moment before the next launch.
+      - name: Raise the display so the confirm card can fit
+        run: |
+          echo "before:"
+          system_profiler SPDisplaysDataType | grep Resolution || true
+          tool="/Library/Application Support/VMware Tools/vmware-resolutionSet"
+          if [[ ! -e "$tool" ]]; then
+            echo "vmware-resolutionSet missing"
+            ls -la "/Library/Application Support/VMware Tools" || true
+            exit 1
+          fi
+          if ! "$tool" 2048 1600; then
+            sudo "$tool" 2048 1600
+          fi
+          sleep 2
+          echo "after:"
+          system_profiler SPDisplaysDataType | grep Resolution || true
+
       - name: Show the macOS time zone, then use Asia/Shanghai
         run: |
           echo "before: $(date) localtime=$(readlink /etc/localtime || true)"
