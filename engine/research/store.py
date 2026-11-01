@@ -4,6 +4,7 @@ import hashlib
 import json
 import sqlite3
 import threading
+import time
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime
 from enum import Enum
@@ -264,6 +265,27 @@ class ConcurrentWrite(RuntimeError):
     """The stored research changed after it was loaded."""
 
 
+_WRITE_LOCKS: dict[str, threading.RLock] = {}
+_WRITE_LOCKS_GUARD = threading.Lock()
+_IMMEDIATE_RETRY_SEC = 5.0
+
+
+def _database_write_lock(path: Path) -> threading.RLock:
+    """One lock per database file, shared by every store opened on that path."""
+    key = str(path.resolve())
+    with _WRITE_LOCKS_GUARD:
+        lock = _WRITE_LOCKS.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _WRITE_LOCKS[key] = lock
+        return lock
+
+
+def _is_sqlite_busy(error: BaseException) -> bool:
+    text = str(error).lower()
+    return "locked" in text or "busy" in text
+
+
 class _BufferedCursor:
     """Rows copied while the connection lock is held, so callers can read them after release."""
 
@@ -295,25 +317,64 @@ class _SerializedConnection:
     A route poll's SELECT must not leave a read transaction open. On Python builds
     that keep that transaction alive, the next dialogue write raises
     ``database is locked`` even though both calls share this connection.
+
+    ``serve`` also opens a second store on the same file for the research loop.
+    A deferred journal transaction reads first, then upgrades to a write. If the
+    loop store holds the write lock, SQLite returns ``database is locked``
+    immediately and does not wait for ``busy_timeout``. Writers on one path share
+    a lock, and the transaction starts with ``BEGIN IMMEDIATE`` so the reserved
+    lock is taken before those reads.
     """
 
-    def __init__(self, raw: sqlite3.Connection) -> None:
+    def __init__(self, raw: sqlite3.Connection, path: Path) -> None:
         self._raw = raw
         self._lock = threading.RLock()
+        self._writer = _database_write_lock(path)
         self._frames = 0
 
     def __enter__(self) -> Self:
         self._lock.acquire()
         self._frames += 1
+        writer_acquired = False
         try:
-            if self._frames == 1 and self._raw.in_transaction:
-                self._raw.rollback()
-            self._raw.__enter__()
+            if self._frames == 1:
+                self._writer.acquire()
+                writer_acquired = True
+                if self._raw.in_transaction:
+                    self._raw.rollback()
+                self._raw.__enter__()
+                if self._raw.in_transaction:
+                    self._raw.rollback()
+                self._begin_immediate()
+            else:
+                self._raw.__enter__()
         except BaseException:
             self._frames -= 1
+            if writer_acquired:
+                self._writer.release()
             self._lock.release()
             raise
         return self
+
+    def _begin_immediate(self) -> None:
+        """Reserve the write lock. Retry only when SQLite returns without waiting."""
+        deadline = time.monotonic() + _IMMEDIATE_RETRY_SEC
+        delay = 0.01
+        while True:
+            started = time.monotonic()
+            try:
+                self._raw.execute("BEGIN IMMEDIATE")
+                return
+            except sqlite3.OperationalError as exc:
+                if not _is_sqlite_busy(exc):
+                    raise
+                if self._raw.in_transaction:
+                    self._raw.rollback()
+                waited = time.monotonic() - started
+                if waited >= 0.2 or time.monotonic() >= deadline:
+                    raise
+                time.sleep(delay)
+                delay = min(delay * 2, 0.2)
 
     def __exit__(
         self,
@@ -325,6 +386,8 @@ class _SerializedConnection:
             return self._raw.__exit__(exc_type, exc, tb)
         finally:
             self._frames -= 1
+            if self._frames == 0:
+                self._writer.release()
             self._lock.release()
 
     def execute(self, sql: str, parameters: Any = ()) -> Any:
@@ -372,7 +435,8 @@ class SQLiteStore(RoundRecoveryMixin):
     def __init__(self, path: Path) -> None:
         self.path = path
         self.connection = _SerializedConnection(
-            sqlite3.connect(path, check_same_thread=False, timeout=30.0)
+            sqlite3.connect(path, check_same_thread=False, timeout=30.0),
+            path,
         )
         self.connection.executescript(SCHEMA)
         self._migrate_method_schema()

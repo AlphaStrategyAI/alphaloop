@@ -1,7 +1,7 @@
 name: desktop-release
 
 # Cuts a draft prerelease when a v* tag is pushed. workflow_dispatch builds the
-# installers, runs the Windows test, and does not create a release.
+# installers, runs the Windows and macOS GUI tests, and does not create a release.
 on:
   push:
     tags: ["v*"]
@@ -22,6 +22,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/desktop-release-macos.yml
+    with:
+      run_e2e: true
   windows:
     permissions:
       contents: read

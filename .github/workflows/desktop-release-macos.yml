@@ -7,6 +7,11 @@ on:
     branches: [main, "cursor/**"]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      run_e2e:
+        description: Unpack and drive the macOS app from this build
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -14,7 +19,9 @@ jobs:
   build-macos-bundle:
     permissions:
       contents: read
-    # macos-15 is an Apple Silicon runner. The bundle is ad-hoc signed and not notarized.
+    # macos-15 is an Apple Silicon runner. macos-14 is in a GitHub brownout
+    # (retires 2026-11-02) and cancels with runner_id 0. The bundle is ad-hoc
+    # signed and not notarized.
     runs-on: macos-15
     timeout-minutes: 90
     steps:
@@ -169,3 +176,123 @@ jobs:
           name: alphaloop_${{ steps.ver.outputs.version }}_macos.embedded-sha
           path: release-artifacts/alphaloop_${{ steps.ver.outputs.version }}_macos.embedded-sha
           if-no-files-found: error
+
+  macos-e2e:
+    needs: build-macos-bundle
+    # Push to main / cursor/** builds the bundle and skips this job, same as
+    # windows-e2e. Pull requests run it. desktop-release.yml passes run_e2e.
+    if: github.event_name == 'pull_request' || inputs.run_e2e
+    permissions:
+      contents: read
+    # macos-15 (arm64). Do not use macos-14: GitHub browns it out and the job
+    # cancels with runner_id 0. The .app is ad-hoc signed (APPLE_SIGNING_IDENTITY
+    # "-") and not notarized. Official tauri-driver cannot attach to WKWebView
+    # (https://v2.tauri.app/develop/tests/webdriver/). The GUI script execs
+    # Contents/MacOS after clearing quarantine and sets ALPHALOOP_WEBDRIVER=1
+    # so the in-app W3C server listens on 127.0.0.1. A normal launch does not
+    # set that variable. `open` is not used: LaunchServices is what shows the
+    # unidentified-developer dialog. Keychain prompts are not a reason to skip
+    # the job. The archive is the .app tar.gz, not the DMG: the DMG is a
+    # read-only wrap of the same bundle.
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: App version
+        id: ver
+        run: echo "version=$(python3 scripts/check_app_version.py --print)" >> "$GITHUB_OUTPUT"
+
+      - name: Require an arm64 host
+        run: uname -m | grep -qx arm64
+
+      - name: Download macOS app archive
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: alphaloop_${{ steps.ver.outputs.version }}_macos_arm64.app.tar.gz
+          path: installer
+
+      # macos-15 has no VMware Tools, so the guest framebuffer stays
+      # 1024x768 and vmware-resolutionSet cannot raise it. Record that.
+      # The GUI script still tries the shared window-growth check, then
+      # scrolls the symbol list into the card when the window will not grow.
+      - name: Record the display size
+        run: |
+          system_profiler SPDisplaysDataType | grep Resolution || true
+          screencapture -x "${RUNNER_TEMP}/display.png" || true
+          sips -g pixelWidth -g pixelHeight "${RUNNER_TEMP}/display.png" || true
+
+      - name: Show the macOS time zone, then use Asia/Shanghai
+        run: |
+          echo "before: $(date) localtime=$(readlink /etc/localtime || true)"
+          if ! sudo systemsetup -settimezone Asia/Shanghai; then
+            sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+          fi
+          echo "after: $(date)"
+
+      - name: Install Selenium 4.51.0
+        run: python3 -m pip install selenium==4.51.0
+
+      # Best effort only. An ad-hoc identity can still raise a keychain ACL
+      # dialog; the keyring step must get past it or the job fails.
+      - name: Unlock the login keychain
+        run: |
+          keychain="${HOME}/Library/Keychains/login.keychain-db"
+          security unlock-keychain -p "" "$keychain" || true
+          security set-keychain-settings -lut 7200 "$keychain" || true
+
+      - name: Unpacked app smoke
+        timeout-minutes: 15
+        env:
+          ALPHALOOP_OFFLINE_MARKET_DATA: "1"
+        run: |
+          version="${{ steps.ver.outputs.version }}"
+          archive="$PWD/installer/alphaloop_${version}_macos_arm64.app.tar.gz"
+          test -f "$archive"
+          unset ALPHALOOP_WEBDRIVER || true
+          bash apps/desktop/e2e/macos_installed_smoke.sh "$archive"
+
+      - name: macOS GUI end-to-end
+        timeout-minutes: 30
+        env:
+          ALPHALOOP_OFFLINE_MARKET_DATA: "1"
+          ALPHALOOP_MAX_TRIALS: "1"
+          ALPHALOOP_E2E_HOLD_RUNNING_SEC: "45"
+          ALPHALOOP_REVIEWER: deterministic
+          ALPHALOOP_WEBDRIVER: "1"
+          TAURI_WEBDRIVER_PORT: "4445"
+          PYTHONUNBUFFERED: "1"
+        run: |
+          version="${{ steps.ver.outputs.version }}"
+          archive="$PWD/installer/alphaloop_${version}_macos_arm64.app.tar.gz"
+          test -f "$archive"
+          python3 apps/desktop/e2e/macos_gui_e2e.py "$archive"
+
+      - name: Publish step summary
+        if: always()
+        run: |
+          if [[ -f e2e-artifacts/summary.md ]]; then
+            cat e2e-artifacts/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-e2e-screenshots
+          path: e2e-artifacts/screenshots
+          if-no-files-found: warn
+
+      - name: Upload app and engine logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-e2e-logs
+          path: e2e-artifacts/logs
+          if-no-files-found: warn

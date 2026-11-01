@@ -282,9 +282,20 @@ pub fn run() {
     let setup_vault = vault.clone();
     let window_supervisor = supervisor.clone();
     let exit_supervisor = supervisor.clone();
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+    // Official tauri-driver cannot drive WKWebView (Safari's safaridriver
+    // automates Safari, not this app). The embedded W3C server is the macOS
+    // WebDriver. Register it only when ALPHALOOP_WEBDRIVER=1 so a normal
+    // launch does not listen. The server binds 127.0.0.1.
+    #[cfg(target_os = "macos")]
+    let builder = if std::env::var("ALPHALOOP_WEBDRIVER").ok().as_deref() == Some("1") {
+        builder.plugin(tauri_plugin_wdio_webdriver::init())
+    } else {
+        builder
+    };
+    let app = builder
         .manage(supervisor.clone())
         .manage(connection)
         .manage(runtime.clone())
