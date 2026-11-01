@@ -257,6 +257,7 @@ def commit_choice(driver, css: str) -> None:
 
 
 def accept_unlicensed_source(driver) -> None:
+    from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
 
     # price-source-picker is a div and matches [data-testid^=price-source-].
