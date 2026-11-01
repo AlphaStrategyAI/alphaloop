@@ -18,6 +18,7 @@ import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {DetailFrame} from "./DetailFrame";
+import {sendHeldDialogue, type HeldCommand} from "../commandGesture";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 function ExportOutcomeMessages({
@@ -175,6 +176,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
     {status: "success"; path: string} | {status: "error"; message: string} | null
   >(null);
   const [openFolderError, setOpenFolderError] = useState<string | null>(null);
+  const dialogueHold = useRef<HeldCommand | null>(null);
 
   useEffect(() => {
     setReverifyRoundId(view.selectedRoundId);
@@ -565,7 +567,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                 disabled={!modification.trim()}
                 data-testid="confirm-modification-button"
                 onClick={() => void (async () => {
-                  await api.sendDialogue(view.researchId, modification.trim());
+                  await sendHeldDialogue(api, dialogueHold, view.researchId, modification.trim(), view.revision);
                   await api.confirmModification(view.researchId);
                 })()}
               >
@@ -778,7 +780,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
                 disabled={!modification.trim()}
                 data-testid="confirm-modification-button"
                 onClick={() => void (async () => {
-                  await api.sendDialogue(view.researchId, modification.trim());
+                  await sendHeldDialogue(api, dialogueHold, view.researchId, modification.trim(), view.revision);
                   await api.confirmModification(view.researchId);
                 })()}
               >

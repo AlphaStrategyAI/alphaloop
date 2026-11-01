@@ -362,6 +362,34 @@ function messages(lang: "zh" | "en") {
           "Only {{count}} {{countNoun}} in this study, below the coverage minimum of {{minimum}}. Lower the coverage floor or add symbols before running.",
           true,
         ),
+        COMMAND_ENVELOPE_REQUIRED: copy(
+          "这次写入需要命令编号和期望修订。",
+          "This write needs a command id and the expected revision.",
+        ),
+        COMMAND_PAYLOAD_CONFLICT: copy(
+          "同一命令编号不能改用另一份内容。请重新确认后再提交。",
+          "This command id was already used with different contents. Confirm again, then submit.",
+        ),
+        REVISION_CONFLICT: copy(
+          "研究已经更新，当前修订是 {{revision}}。请核对差异后再确认提交。",
+          "The research changed. The current revision is {{revision}}. Check the difference, then confirm again.",
+        ),
+        REMOTE_UNKNOWN_NEEDS_AUTH: copy(
+          "上一次外发是否已经执行无法确认，已计入预留。未经再次授权不会重新发起。",
+          "It is unknown whether the last outbound call ran. Its reserve still counts. It will not be sent again without authorization.",
+        ),
+        NEW_PROPOSAL_REQUIRES_CURRENT_CLIENT: copy(
+          "这条新式提议需要当前版本的桌面才能批准。",
+          "This new-style proposal can only be approved by the current desktop.",
+        ),
+        CREATE_SOURCE_CONFLICT: copy(
+          "该研究已存在，且与这条创建命令不是同一次操作。",
+          "That research already exists and was not created by this command.",
+        ),
+        PROPOSAL_NOT_CURRENT: copy(
+          "这条回复没有指向当前提议。",
+          "This reply does not point at the current proposal.",
+        ),
       },
     },
     glossary: glossaryMessages(lang),
@@ -435,6 +463,13 @@ export const FINAL_MESSAGE_KEYS = [
   "errors.codes.STRATEGY_FAMILY_NOT_RUNNABLE",
   "errors.codes.MEAN_REVERSION_ACK_REQUIRED",
   "errors.codes.UNIVERSE_TOO_FEW_SYMBOLS",
+  "errors.codes.COMMAND_ENVELOPE_REQUIRED",
+  "errors.codes.COMMAND_PAYLOAD_CONFLICT",
+  "errors.codes.REVISION_CONFLICT",
+  "errors.codes.REMOTE_UNKNOWN_NEEDS_AUTH",
+  "errors.codes.NEW_PROPOSAL_REQUIRES_CURRENT_CLIENT",
+  "errors.codes.CREATE_SOURCE_CONFLICT",
+  "errors.codes.PROPOSAL_NOT_CURRENT",
   "settings.llm.title",
   "settings.llm.intro",
   "settings.llm.optional",

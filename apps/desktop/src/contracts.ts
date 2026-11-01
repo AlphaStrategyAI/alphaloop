@@ -120,6 +120,8 @@ export interface ResearchSummary {
   universeLabel?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** Monotonic research revision. Absent on views from an older engine. */
+  revision?: number;
 }
 
 export interface GlossaryEntry {
@@ -315,12 +317,21 @@ type ViewBody =
   | {kind: "methods"; selected?: string; methods: readonly ValidationMethod[]}
   | {kind: "glossary"; intro: string; entries: readonly GlossaryEntry[]};
 
+export type CommandEnvelope = {
+  commandId: string;
+  expectedRevision: number;
+  replyTo?: string;
+  authorizeRebill?: boolean;
+};
+
 export type DesktopView = ViewBody & {
   hostStatus?: HostStatus;
   thesisChangeHint?: string;
   marketDataProgress?: {done: number; total: number; source?: string} | null;
   /** Set when ALPHALOOP_OFFLINE_MARKET_DATA=1. Absent for a normal launch. */
   testData?: boolean;
+  /** Current research revision for journaled writes. List views put it on each row. */
+  revision?: number;
 };
 
 export type MarketDataProgress = {done: number; total: number; source?: string};
@@ -332,10 +343,14 @@ export interface DesktopApi {
     marketDataProgress: MarketDataProgress | null;
     hostStatus?: HostStatus;
   }>;
-  createDraft(): Promise<string>;
+  createDraft(envelope?: {researchId: string; commandId: string}): Promise<string>;
   confirmRun(
     researchId: string,
-    options?: {dataSourceId?: string; unlicensedAcknowledged?: boolean},
+    options?: {
+      dataSourceId?: string;
+      unlicensedAcknowledged?: boolean;
+      command?: CommandEnvelope;
+    },
   ): Promise<void>;
   /** Persist the confirm-card price source before Run, so Edit keeps it. */
   setPriceSource(
@@ -356,7 +371,11 @@ export interface DesktopApi {
   /** Pick the market when the description named none. Nothing is remembered. */
   chooseDefaultMarket(researchId: string, market: "CN" | "US"): Promise<void>;
   unlockBrief(researchId: string, slot?: BriefSlotName): Promise<void>;
-  sendDialogue(researchId: string, message: string): Promise<void>;
+  sendDialogue(
+    researchId: string,
+    message: string,
+    envelope?: CommandEnvelope,
+  ): Promise<void>;
   pauseResearch(researchId: string): Promise<void>;
   resumeResearch(researchId: string): Promise<void>;
   confirmModification(researchId: string): Promise<void>;

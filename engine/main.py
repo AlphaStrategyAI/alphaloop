@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import uuid
+from contextvars import ContextVar
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -166,6 +167,12 @@ from engine.research.runtime import (
 )
 from engine.research.simulate import simulate_daily
 from engine.research.state_machine import InvalidTransition, all_slots_locked, transition
+from engine.research.command_journal import (
+    CommandJournal,
+    command_envelope,
+    payload_hash,
+    state_snapshot,
+)
 from engine.research.store import ConcurrentWrite, SQLiteStore
 from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
@@ -315,6 +322,16 @@ def build_loop(
     )
 
 
+def _command_now() -> datetime:
+    return datetime.now(UTC)
+
+
+_ACTIVE_REQUEST: ContextVar[dict[str, Any] | None] = ContextVar(
+    "alphaloop_active_request",
+    default=None,
+)
+
+
 class ResearchCommandService:
     def __init__(
         self,
@@ -323,6 +340,7 @@ class ResearchCommandService:
         budget: TimeBudget | None = None,
     ) -> None:
         self.store = store
+        self.journal = CommandJournal(store)
         self.paths = paths
         self.budget = budget
         self._observed_status: dict[str, ResearchStatus] = {}
@@ -345,15 +363,29 @@ class ResearchCommandService:
                 after = self.budget.finish(after)
             elif before.status is not ResearchStatus.RUNNING and after.status is ResearchStatus.RUNNING:
                 self.budget.begin(after.status)
-        self.store.save(after, before.updated_at)
-        self._observed_status[after.research_id] = after.status
-        payload: dict[str, Any] = {
+        request = _ACTIVE_REQUEST.get()
+        event_kind = str(request.get("type")) if request and request.get("type") else "write"
+        refs: dict[str, Any] = {}
+        if request and isinstance(request.get("reply_to"), str) and request.get("reply_to"):
+            refs["reply_to"] = str(request["reply_to"])
+        base = {
             "research_id": after.research_id,
             "status": after.status.value,
         }
         event = notification_event(before.status, after.status)
         if event is not None:
-            payload["notify"] = event
+            base["notify"] = event
+        if request is not None and command_envelope(request) is not None:
+            payload = self.journal.commit(
+                request, before, after, event_kind, base, refs=refs
+            )
+        else:
+            revision = self.store.save_with_event(after, before.updated_at, event_kind, refs)
+            payload = dict(base)
+            payload["revision"] = revision
+        status = payload.get("status")
+        if isinstance(status, str):
+            self._observed_status[after.research_id] = ResearchStatus(status)
         return payload
 
     def _attach_notify(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -437,14 +469,15 @@ class ResearchCommandService:
             payload["marketDataProgress"] = progress
         if research is not None and research.thesis_change_hint:
             payload["thesisChangeHint"] = research.thesis_change_hint
+        if research is not None:
+            payload["revision"] = self.store.revision_of(research.research_id)
         from engine.research.offline_market_data import offline_market_data_enabled
 
         if offline_market_data_enabled():
             payload["testData"] = True
         return self._attach_notify(payload)
 
-    @staticmethod
-    def _list_summary(item: ResearchListItem) -> dict[str, str]:
+    def _list_summary(self, item: ResearchListItem) -> dict[str, Any]:
         return {
             "id": item.research_id,
             "title": item.title,
@@ -452,6 +485,7 @@ class ResearchCommandService:
             "universeLabel": item.universe_label,
             "createdAt": item.created_at.isoformat(),
             "updatedAt": item.updated_at.isoformat(),
+            "revision": self.store.revision_of(item.research_id),
         }
 
     @staticmethod
@@ -1009,41 +1043,50 @@ class ResearchCommandService:
             research,
         )
 
-    def _confirm_run(
+    def _confirm_run_journaled(
         self,
         research_id: str,
         now: datetime,
+        command: dict[str, Any],
         *,
-        data_source_id: str | None = None,
-        unlicensed_acknowledged: bool = False,
+        data_source_id: str | None,
+        unlicensed_acknowledged: bool,
     ) -> dict[str, Any]:
-        """Start a draft, or return the current view when that research is already running.
+        from engine.research.run_gate import evaluate_run_gate
+        from engine.research.source_acknowledgement import (
+            acknowledged_at,
+            is_unlicensed_source,
+            record_acknowledgement,
+        )
+        from engine.research.universe_pool import pool_resolvable
 
-        The per-research lock covers the probe and the write. It is not process-wide:
-        a list fetch must stay responsive while this research waits on market data.
-        SQLite itself is serialized separately, and only around connection calls.
-        """
         with self._lock_for_research(research_id):
+            receipt = self.journal._receipt(research_id, str(command["command_id"]))
+            if receipt is not None:
+                if receipt.payload_hash != payload_hash(command):
+                    raise self.journal._payload_conflict()
+                if receipt.status == "committed":
+                    return self.journal._replay(receipt)
+                if receipt.status == "pending":
+                    return self.journal._pending(receipt)
+                if receipt.status == "unknown":
+                    raise self.journal._unknown_error(research_id)
+                if receipt.status == "revision_conflict":
+                    raise self.journal._revision_conflict(research_id, str(command["command_id"]))
             research = self.store.load(research_id)
+            revision = self.store.revision_of(research_id)
+            expected = int(command["expected_revision"])
+            if revision != expected:
+                self.journal.record_revision_conflict(command, now=now)
+                raise self.journal._revision_conflict(research_id, str(command["command_id"]))
             if research.status is ResearchStatus.RUNNING:
                 view = self.view_for(f"#/research/{research_id}")
                 view["research_id"] = research.research_id
                 view["status"] = research.status.value
+                view["command_id"] = command["command_id"]
                 return view
-            from engine.research.run_gate import evaluate_run_gate
-            from engine.research.source_acknowledgement import (
-                acknowledged_at,
-                is_unlicensed_source,
-                record_acknowledgement,
-            )
-            from engine.research.universe_pool import pool_resolvable
-
             requested = data_source_id.strip() if isinstance(data_source_id, str) else ""
             source = requested or research.data_source_id
-            # A draft that still has no symbols keeps the existing pool question.
-            # The source gate applies once there is something to price.
-            # Preselection is the same rule as the confirm card: one licensed
-            # configured source, never Yahoo or AkShare, never the last pick.
             if pool_resolvable(research) and not source:
                 from engine.research.price_source_choice import (
                     available_price_sources,
@@ -1073,50 +1116,245 @@ class ResearchCommandService:
                     record_acknowledgement(source, now, settings)
             if source != research.data_source_id:
                 research = replace(research, data_source_id=source)
-            expected_at = research.updated_at
+            head = self.store.research_head(research_id)
+            if head is None:
+                raise KeyError(research_id)
+            snapshot = state_snapshot(head[3])
+            version_raw = json.loads(head[3]).get("current_version_number")
+            bound_version = None if version_raw is None else int(version_raw)
+            claim = self.journal.claim_remote(
+                command,
+                operation_key=f"confirm_run:{research_id}:{command['command_id']}",
+                budget_reserved=1,
+                bound_revision=expected,
+                bound_version=bound_version,
+                bound_snapshot=snapshot,
+                now=now,
+            )
+            if not claim.fresh:
+                if claim.receipt.status == "pending":
+                    return self.journal._pending(claim.receipt)
+                if claim.receipt.status == "committed":
+                    return self.journal._replay(claim.receipt)
+                if claim.receipt.status == "unknown":
+                    raise self.journal._unknown_error(research_id)
+                raise self.journal._revision_conflict(research_id, str(command["command_id"]))
             try:
-                research = ensure_runnable_universe(research)
+                probed = ensure_runnable_universe(research)
             except UserFacingError as error:
-                if error.code in MARKET_DATA_FAILURE_CODES:
-                    updated = record_transient_confirm_notice(research, error, now)
-                    self._save(research, updated)
-                    raise
-                if error.code in {
-                    "UNIVERSE_SYMBOLS_EMPTY",
-                    "UNIVERSE_MISSING",
-                    "UNIVERSE_DEFAULT_TOO_SMALL",
-                    "POOL_DATA_SHRINK_TOO_FEW",
-                }:
-                    reopened = reopen_after_pool_failure(research, error, now)
-                    self._save(research, reopened)
+                self._journal_confirm_failure(
+                    command,
+                    research,
+                    error,
+                    now,
+                    bound_snapshot=snapshot,
+                    bound_version=bound_version,
+                )
                 raise
-            self.store.save(research, expected_at)
-            research = self.store.load(research.research_id)
-            research = replace(research, construction_schedule=SCHEDULE_COST_MODEL)
-            updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
+            updated = replace(probed, construction_schedule=SCHEDULE_COST_MODEL)
+            updated = transition(updated, ResearchEvent.CONFIRM_RUN, now)
+            refs = {}
+            if isinstance(command.get("reply_to"), str) and command.get("reply_to"):
+                refs["reply_to"] = str(command["reply_to"])
+            result = self.journal.commit(
+                command,
+                research,
+                updated,
+                "confirm_run",
+                {"research_id": research_id, "status": updated.status.value},
+                refs=refs,
+                bound_snapshot=snapshot,
+                bound_version=bound_version,
+                keep_budget_on_conflict=True,
+            )
             self._record_version_methods(updated)
-            return self._save(research, updated)
+            self._observed_status[updated.research_id] = updated.status
+            return result
+
+    def _journal_confirm_failure(
+        self,
+        command: dict[str, Any],
+        research: Research,
+        error: UserFacingError,
+        now: datetime,
+        *,
+        bound_snapshot: str,
+        bound_version: int | None,
+    ) -> None:
+        keep_budget = error.code in MARKET_DATA_FAILURE_CODES
+        if keep_budget:
+            updated = record_transient_confirm_notice(research, error, now)
+        elif error.code in {
+            "UNIVERSE_SYMBOLS_EMPTY",
+            "UNIVERSE_MISSING",
+            "UNIVERSE_DEFAULT_TOO_SMALL",
+            "POOL_DATA_SHRINK_TOO_FEW",
+        }:
+            updated = reopen_after_pool_failure(research, error, now)
+            keep_budget = False
+        else:
+            self.journal.record_remote_failure(command, error, keep_budget=False, now=now)
+            return
+        self.journal.commit(
+            command,
+            research,
+            updated,
+            "confirm_run_failed",
+            {},
+            bound_snapshot=bound_snapshot,
+            bound_version=bound_version,
+            keep_budget_on_conflict=keep_budget,
+            failure=error,
+        )
+
+    def _confirm_run(
+        self,
+        research_id: str,
+        now: datetime,
+        *,
+        data_source_id: str | None = None,
+        unlicensed_acknowledged: bool = False,
+        request: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Start a draft, or return the current view when that research is already running.
+
+        Journaled clients pass ``command_id`` and ``expected_revision``. The market
+        probe stays outside the receipt transaction; the version write, event, and
+        receipt commit together after the bound revision is checked again.
+        """
+        command = dict(request or {"type": "confirm_run", "research_id": research_id})
+        if command_envelope(command) is not None:
+            return self._confirm_run_journaled(
+                research_id,
+                now,
+                command,
+                data_source_id=data_source_id,
+                unlicensed_acknowledged=unlicensed_acknowledged,
+            )
+        with self._lock_for_research(research_id):
+            return self._confirm_run_legacy_locked(
+                research_id,
+                now,
+                data_source_id=data_source_id,
+                unlicensed_acknowledged=unlicensed_acknowledged,
+            )
+
+    def _confirm_run_legacy_locked(
+        self,
+        research_id: str,
+        now: datetime,
+        *,
+        data_source_id: str | None = None,
+        unlicensed_acknowledged: bool = False,
+    ) -> dict[str, Any]:
+        """Caller holds the per-research lock. Legacy clients omit the command envelope.
+
+        The per-research lock covers the probe and the write. It is not process-wide:
+        a list fetch must stay responsive while this research waits on market data.
+        SQLite itself is serialized separately, and only around connection calls.
+        """
+        research = self.store.load(research_id)
+        if research.status is ResearchStatus.RUNNING:
+            view = self.view_for(f"#/research/{research_id}")
+            view["research_id"] = research.research_id
+            view["status"] = research.status.value
+            return view
+        from engine.research.run_gate import evaluate_run_gate
+        from engine.research.source_acknowledgement import (
+            acknowledged_at,
+            is_unlicensed_source,
+            record_acknowledgement,
+        )
+        from engine.research.universe_pool import pool_resolvable
+
+        requested = data_source_id.strip() if isinstance(data_source_id, str) else ""
+        source = requested or research.data_source_id
+        # A draft that still has no symbols keeps the existing pool question.
+        # The source gate applies once there is something to price.
+        # Preselection is the same rule as the confirm card: one licensed
+        # configured source, never Yahoo or AkShare, never the last pick.
+        if pool_resolvable(research) and not source:
+            from engine.research.price_source_choice import (
+                available_price_sources,
+                preselect_price_source,
+            )
+
+            universe = research.brief.universe.value
+            if universe is not None:
+                source = preselect_price_source(
+                    available_price_sources(universe.market, self.paths.data.settings_file)
+                ) or ""
+        gate = evaluate_run_gate(
+            research,
+            data_source_id=source,
+            unlicensed_acknowledged=unlicensed_acknowledged,
+            settings_path=self.paths.data.settings_file,
+        )
+        if not gate.runnable:
+            raise UserFacingError(
+                gate.code or "DATA_SOURCE_UNBOUND",
+                gate.message or "",
+                params=gate.params or None,
+            )
+        if source and is_unlicensed_source(source):
+            settings = self.paths.data.settings_file
+            if acknowledged_at(source, settings) is None:
+                record_acknowledgement(source, now, settings)
+        if source != research.data_source_id:
+            research = replace(research, data_source_id=source)
+        expected_at = research.updated_at
+        try:
+            research = ensure_runnable_universe(research)
+        except UserFacingError as error:
+            if error.code in MARKET_DATA_FAILURE_CODES:
+                updated = record_transient_confirm_notice(research, error, now)
+                self._save(research, updated)
+                raise
+            if error.code in {
+                "UNIVERSE_SYMBOLS_EMPTY",
+                "UNIVERSE_MISSING",
+                "UNIVERSE_DEFAULT_TOO_SMALL",
+                "POOL_DATA_SHRINK_TOO_FEW",
+            }:
+                reopened = reopen_after_pool_failure(research, error, now)
+                self._save(research, reopened)
+            raise
+        self.store.save(research, expected_at)
+        research = self.store.load(research.research_id)
+        research = replace(research, construction_schedule=SCHEDULE_COST_MODEL)
+        updated = transition(research, ResearchEvent.CONFIRM_RUN, now)
+        self._record_version_methods(updated)
+        return self._save(research, updated)
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         locale = normalize_request_locale(request.get("locale"))
         self.last_request_locale = locale
         token = push_request_locale(locale)
+        request_token = _ACTIVE_REQUEST.set(request)
         try:
+            prepared = self.journal.prepare(request)
+            if prepared is not None:
+                return prepared
             return self._dispatch(request)
         finally:
+            _ACTIVE_REQUEST.reset(request_token)
             reset_request_locale(token)
 
     def _dispatch(self, request: dict[str, Any]) -> dict[str, Any]:
         kind = request["type"]
-        now = datetime.now(UTC)
+        now = _command_now()
         if kind == "fetch_view":
             return self.view_for(request["route"])
         if kind == "market_data_progress":
             return self._market_data_status()
         if kind == "create_draft":
+            if request.get("research_id") or request.get("command_id"):
+                research_id = str(request.get("research_id") or "")
+                created = new_research(research_id, now)
+                return self.journal.create_research(request, created)
             research_id = str(uuid.uuid4())
             self.store.create(new_research(research_id, now))
-            return {"research_id": research_id}
+            return {"research_id": research_id, "revision": 0}
         if kind == "install_secrets":
             from engine.research.secret_memory import install_secrets
 
@@ -1198,6 +1436,7 @@ class ResearchCommandService:
                 now,
                 data_source_id=raw_source if isinstance(raw_source, str) else None,
                 unlicensed_acknowledged=bool(request.get("unlicensed_acknowledged")),
+                request=request,
             )
         if kind == "set_research_symbol":
             research = self.store.load(str(request["research_id"]))

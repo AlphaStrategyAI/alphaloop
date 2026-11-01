@@ -11,7 +11,13 @@ export function createTauriDesktopApi(invoke: DesktopInvoke = tauriInvoke): Desk
   return {
     async fetchView(route) { return invoke<DesktopView>("fetch_view", {route}); },
     async pollMarketDataProgress() { return invoke("market_data_progress"); },
-    async createDraft() { return invoke<string>("create_draft"); },
+    async createDraft(envelope) {
+      if (!envelope) return invoke<string>("create_draft");
+      return invoke<string>("create_draft", {
+        researchId: envelope.researchId,
+        commandId: envelope.commandId,
+      });
+    },
     async confirmRun(researchId, options) {
       await invoke("confirm_run", confirmRunInvokeArgs(researchId, options));
     },
@@ -43,7 +49,15 @@ export function createTauriDesktopApi(invoke: DesktopInvoke = tauriInvoke): Desk
       await invoke("choose_default_market", {researchId, market});
     },
     async unlockBrief(researchId, slot) { await invoke("unlock_brief", {researchId, slot}); },
-    async sendDialogue(researchId, message) { await invoke("send_dialogue", {researchId, message}); },
+    async sendDialogue(researchId, message, envelope) {
+      const args: Record<string, unknown> = {researchId, message};
+      if (envelope) {
+        args.commandId = envelope.commandId;
+        args.expectedRevision = envelope.expectedRevision;
+        if (envelope.replyTo) args.replyTo = envelope.replyTo;
+      }
+      await invoke("send_dialogue", args);
+    },
     async pauseResearch(researchId) { await invoke("pause_research", {researchId}); },
     async resumeResearch(researchId) { await invoke("resume_research", {researchId}); },
     async confirmModification(researchId) { await invoke("confirm_modification", {researchId}); },

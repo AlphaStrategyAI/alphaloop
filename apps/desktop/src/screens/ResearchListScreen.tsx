@@ -18,6 +18,7 @@ import {
 } from "../listStatusDisplay";
 import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
+import {beginCreateGesture, type CreateGesture} from "../commandGesture";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
@@ -84,6 +85,7 @@ export function StatusPill({status}: {status: ResearchListDisplayStatus}) {
 }
 
 export function ResearchList({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "research_list"}>}) {
+  const createGesture = useRef<CreateGesture | null>(null);
   const {t} = useI18n();
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const researchTitle = (title: string) => researchListTitle(title, t);
@@ -129,8 +131,13 @@ export function ResearchList({api, view}: {api: DesktopApi; view: Extract<Deskto
             className="cyan-button list-new-research"
             data-testid="new-research-button"
             onClick={() => {
-              void api.createDraft().then((id) => {
+              createGesture.current = beginCreateGesture(createGesture.current);
+              const gesture = createGesture.current;
+              void api.createDraft(gesture).then((id) => {
+                createGesture.current = null;
                 window.location.hash = `#/research/${id}`;
+              }).catch(() => {
+                /* keep the same ids so a retry does not open a second research */
               });
             }}
           >
