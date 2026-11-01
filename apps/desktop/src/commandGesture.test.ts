@@ -1,6 +1,12 @@
 import {describe, expect, it} from "vitest";
 
-import {beginCreateGesture, holdCommand, sendHeldDialogue} from "./commandGesture";
+import {
+  beginCreateGesture,
+  holdCommand,
+  revisionAfterSourceWrite,
+  revisionFromSourceWrite,
+  sendHeldDialogue,
+} from "./commandGesture";
 import {confirmRunEnginePayload} from "./confirmRunCommand";
 import {sendDialogueEnginePayload} from "./dialogueCommand";
 
@@ -74,5 +80,15 @@ describe("command gesture", () => {
     expect(sent[0]).toEqual({type: "send_dialogue", research_id: "r-1", message: "继续"});
     expect(sent[1]?.command_id).toBe(retried);
     expect(sent[1]?.expected_revision).toBe(2);
+  });
+
+  it("adopts the source-ack revision when the confirm card is still older", () => {
+    expect(revisionFromSourceWrite(6)).toBe(6);
+    expect(revisionFromSourceWrite(6.5)).toBeUndefined();
+    expect(revisionFromSourceWrite(null)).toBeUndefined();
+    expect(revisionAfterSourceWrite(4, 6)).toBe(6);
+    expect(revisionAfterSourceWrite(7, 6)).toBe(7);
+    expect(revisionAfterSourceWrite(4, undefined)).toBe(4);
+    expect(revisionAfterSourceWrite(undefined, 6)).toBe(6);
   });
 });

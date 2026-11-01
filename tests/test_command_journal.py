@@ -418,6 +418,41 @@ def test_two_clients_with_different_ids_one_write_wins(tmp_path: Path) -> None:
     assert sum(1 for turn in service.store.load("r-race").dialogue if turn.role.value == "user") == 1
 
 
+def test_confirm_after_source_ack_follows_the_bumped_revision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Picking Yahoo and ticking the box each bump revision. Confirm must expect the later one."""
+    service = _service(tmp_path)
+    _runnable(service.store, "r-src")
+    monkeypatch.setattr("engine.main.ensure_runnable_universe", lambda item: item)
+    before = service.view_for("#/research/r-src")["revision"]
+    selected = service.handle(
+        {
+            "type": "set_price_source",
+            "research_id": "r-src",
+            "data_source_id": "yahoo_daily",
+        }
+    )
+    acked = service.handle(
+        {
+            "type": "set_price_source",
+            "research_id": "r-src",
+            "data_source_id": "yahoo_daily",
+            "unlicensed_acknowledged": True,
+        }
+    )
+    assert selected["revision"] == before + 1
+    assert acked["revision"] == selected["revision"] + 1
+    with pytest.raises(UserFacingError) as stale:
+        _confirm(service, "r-src", "c-stale", before)
+    assert stale.value.code == REVISION_CONFLICT
+    assert stale.value.params["revision"] == acked["revision"]
+    assert service.store.load("r-src").status is ResearchStatus.DRAFT
+    opened = _confirm(service, "r-src", "c-fresh", acked["revision"])
+    assert opened["status"] == "running"
+    assert opened["revision"] == acked["revision"] + 1
+
+
 def test_legacy_client_cannot_approve_a_new_style_proposal(tmp_path: Path) -> None:
     service = _service(tmp_path)
     _runnable(service.store, "r-prop")

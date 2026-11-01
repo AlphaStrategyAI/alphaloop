@@ -1,5 +1,6 @@
-import {describe, expect, it} from "vitest";
+import {describe, expect, it, vi} from "vitest";
 
+import {createTauriDesktopApi, type DesktopInvoke} from "./desktopApi";
 import {setPriceSourceEnginePayload, setPriceSourceInvokeArgs} from "./setPriceSourceCommand";
 
 describe("set_price_source bindings", () => {
@@ -34,5 +35,18 @@ describe("set_price_source bindings", () => {
       research_id: "r-1",
       data_source_id: "",
     });
+  });
+
+  it("returns the revision from set_price_source so confirm can follow the ack", async () => {
+    const invoke = vi.fn(async (_command: string, _args?: Record<string, unknown>) => 6 as number | null);
+    const api = createTauriDesktopApi(invoke as unknown as DesktopInvoke);
+    await expect(api.setPriceSource("r-1", "yahoo_daily", true)).resolves.toBe(6);
+    expect(invoke).toHaveBeenCalledWith("set_price_source", {
+      researchId: "r-1",
+      dataSourceId: "yahoo_daily",
+      unlicensedAcknowledged: true,
+    });
+    invoke.mockResolvedValueOnce(null);
+    await expect(api.setPriceSource("r-1", "yahoo_daily")).resolves.toBeUndefined();
   });
 });

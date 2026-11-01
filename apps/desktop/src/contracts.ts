@@ -352,12 +352,15 @@ export interface DesktopApi {
       command?: CommandEnvelope;
     },
   ): Promise<void>;
-  /** Persist the confirm-card price source before Run, so Edit keeps it. */
+  /**
+   * Persist the confirm-card price source before Run, so Edit keeps it.
+   * Resolves to the research revision after that write when the engine reports one.
+   */
   setPriceSource(
     researchId: string,
     dataSourceId: string,
     unlicensedAcknowledged?: boolean,
-  ): Promise<void>;
+  ): Promise<number | undefined>;
   /** Confirm-card symbol edit. Both arguments are required; the engine rejects a bare id. */
   setResearchSymbol(researchId: string, symbol: string): Promise<void>;
   /** Answer one ambiguous all-caps ticker. `accept` false keeps it as prose. */

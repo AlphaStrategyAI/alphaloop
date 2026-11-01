@@ -18,7 +18,14 @@ import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 import {deriveRunGate, runBlockedToken} from "../runGate";
-import {holdCommand, isRevisionConflict, sendHeldDialogue, type HeldCommand} from "../commandGesture";
+import {
+  holdCommand,
+  isRevisionConflict,
+  revisionAfterSourceWrite,
+  revisionFromSourceWrite,
+  sendHeldDialogue,
+  type HeldCommand,
+} from "../commandGesture";
 import {prefersReducedMotion} from "../runStartRitual";
 
 /** A stored pick counts only when this market's catalog still offers it. */
@@ -484,8 +491,23 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const confirmHold = useRef<HeldCommand | null>(null);
   const sourceWrite = useRef(Promise.resolve());
   const sourceWriteIdle = useRef(true);
+  const sourceRevision = useRef<number | undefined>(undefined);
+  const sourceRevisionFor = useRef(view.researchId);
+  if (sourceRevisionFor.current !== view.researchId) {
+    sourceRevisionFor.current = view.researchId;
+    sourceRevision.current = undefined;
+  }
   const queueSourceWrite = (work: () => Promise<unknown>) => {
-    const run = () => Promise.resolve(work()).then(() => undefined, () => undefined);
+    const researchId = view.researchId;
+    const run = () =>
+      Promise.resolve(work()).then(
+        (result) => {
+          if (sourceRevisionFor.current !== researchId) return;
+          const revision = revisionFromSourceWrite(result);
+          if (revision !== undefined) sourceRevision.current = revision;
+        },
+        () => undefined,
+      );
     const idle = sourceWriteIdle.current;
     sourceWriteIdle.current = false;
     const job = idle ? run() : sourceWrite.current.then(run, run);
@@ -599,10 +621,14 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         const needsFreshAck = catalogMode
           ? Boolean(selectedChoice?.unlicensed && !selectedChoice.acknowledgedAt)
           : unlicensedIds.has(selectedId) && !alreadyAcked;
-        const command = typeof view.revision === "number"
+        const revision = revisionAfterSourceWrite(
+          typeof view.revision === "number" ? view.revision : undefined,
+          sourceRevision.current,
+        );
+        const command = typeof revision === "number"
           ? (confirmHold.current = holdCommand(
               confirmHold.current,
-              view.revision,
+              revision,
               `${selectedId}|${needsFreshAck ? "ack" : ""}`,
             ))
           : null;

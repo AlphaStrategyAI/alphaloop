@@ -1461,6 +1461,7 @@ class ResearchCommandService:
                     return {
                         "research_id": research.research_id,
                         "status": research.status.value,
+                        "revision": self.store.revision_of(research.research_id),
                     }
                 return self._save(research, updated)
         if kind == "answer_symbol_ask":

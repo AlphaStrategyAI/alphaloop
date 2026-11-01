@@ -269,6 +269,10 @@ pub async fn create_draft(
         .ok_or("create_draft response omitted research_id".into())
 }
 
+pub(crate) fn mutation_revision(payload: &Value) -> Option<i64> {
+    payload.get("revision").and_then(Value::as_i64)
+}
+
 pub(crate) fn set_price_source_request(
     research_id: &str,
     data_source_id: &str,
@@ -292,14 +296,14 @@ pub async fn set_price_source(
     unlicensed_acknowledged: Option<bool>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
-) -> Result<(), String> {
-    mutate(
+) -> Result<Option<i64>, String> {
+    let payload = mutate(
         &app,
         &connection,
         set_price_source_request(&research_id, &data_source_id, unlicensed_acknowledged),
     )
-    .await
-    .map(|_| ())
+    .await?;
+    Ok(mutation_revision(&payload))
 }
 
 pub(crate) fn set_research_symbol_request(research_id: &str, symbol: &str) -> Value {
@@ -977,7 +981,8 @@ mod tests {
         create_draft_request, dismiss_mismatched_symbol_request,
         parse_engine_error_body,
         remove_market_side_request,
-        revert_symbol_ask_request, send_dialogue_request, set_price_source_request,
+        mutation_revision, revert_symbol_ask_request, send_dialogue_request,
+        set_price_source_request,
         set_research_symbol_request,
         use_hinted_symbol_request,
     };
@@ -1057,6 +1062,16 @@ mod tests {
         assert_eq!(journaled["command_id"], "c-1");
         assert_eq!(journaled["expected_revision"], 2);
         assert_eq!(journaled["reply_to"], "p-9");
+    }
+
+    #[test]
+    fn mutation_revision_reads_the_engine_revision() {
+        assert_eq!(
+            mutation_revision(&json!({"revision": 6, "status": "draft"})),
+            Some(6)
+        );
+        assert_eq!(mutation_revision(&json!({"status": "draft"})), None);
+        assert_eq!(mutation_revision(&json!({"revision": "6"})), None);
     }
 
     fn set_price_source_request_keeps_the_source_and_optional_ack() {

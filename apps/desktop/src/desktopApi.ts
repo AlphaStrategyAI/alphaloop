@@ -22,10 +22,11 @@ export function createTauriDesktopApi(invoke: DesktopInvoke = tauriInvoke): Desk
       await invoke("confirm_run", confirmRunInvokeArgs(researchId, options));
     },
     async setPriceSource(researchId, dataSourceId, unlicensedAcknowledged) {
-      await invoke(
+      const revision = await invoke<number | null>(
         "set_price_source",
         setPriceSourceInvokeArgs(researchId, dataSourceId, unlicensedAcknowledged),
       );
+      return typeof revision === "number" ? revision : undefined;
     },
     async setResearchSymbol(researchId, symbol) {
       await invoke("set_research_symbol", {researchId, symbol});

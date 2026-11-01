@@ -2,7 +2,9 @@ import "@testing-library/jest-dom/vitest";
 import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
+import {bindDesktopApi} from "./api-bind";
 import type {DesktopApi, DesktopView} from "./contracts";
+import {createTauriDesktopApi, type DesktopInvoke} from "./desktopApi";
 import {formatResearchTimestamp} from "./format";
 import {ConfirmRunCard} from "./screens/ConfirmRunScreen";
 import {I18nProvider} from "./i18n/I18nProvider";
@@ -124,6 +126,41 @@ describe("confirm edit keeps the price source and the acknowledgement together",
     const order = api.setPriceSource.mock.invocationCallOrder.at(-1) ?? 0;
     const unlockOrder = api.unlockBrief.mock.invocationCallOrder[0] ?? 0;
     expect(order).toBeLessThan(unlockOrder);
+  });
+
+  it("confirms at the revision the source acknowledgement returned, not the stale card", async () => {
+    let sourceWrites = 0;
+    const invoke = vi.fn(async (command: string, _args?: Record<string, unknown>) => {
+      if (command !== "set_price_source") return undefined;
+      sourceWrites += 1;
+      return sourceWrites === 1 ? 5 : 6;
+    });
+    const api = bindDesktopApi(createTauriDesktopApi(invoke as unknown as DesktopInvoke), {
+      refresh: async () => undefined,
+      onError: () => undefined,
+    });
+    render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={api} view={{...card(), revision: 4}} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByTestId("price-source-yahoo_daily"));
+    fireEvent.click(screen.getByTestId("unlicensed-ack"));
+    fireEvent.click(screen.getByTestId("confirm-run-start"));
+    await waitFor(() => {
+      const confirm = invoke.mock.calls.find((call) => call[0] === "confirm_run");
+      expect(confirm?.[1]).toMatchObject({
+        researchId: "r-edit",
+        dataSourceId: "yahoo_daily",
+        unlicensedAcknowledged: true,
+        expectedRevision: 6,
+      });
+    });
+    const confirm = invoke.mock.calls.find((call) => call[0] === "confirm_run");
+    expect(confirm?.[1]).toEqual(expect.objectContaining({
+      commandId: expect.any(String),
+    }));
+    expect(sourceWrites).toBe(2);
   });
 
   it("comes back selected and acknowledged, not Not selected with a leftover time", () => {

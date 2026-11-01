@@ -49,6 +49,28 @@ export function isRevisionConflict(error: unknown): boolean {
   return text.includes("REVISION_CONFLICT");
 }
 
+/** Integer revision from a `set_price_source` result. Anything else is ignored. */
+export function revisionFromSourceWrite(result: unknown): number | undefined {
+  if (typeof result !== "number" || !Number.isInteger(result) || result < 0) return undefined;
+  return result;
+}
+
+/**
+ * The source acknowledgement is its own write and bumps the research revision.
+ * Confirm has to expect that revision when the card is still showing the older one.
+ * A newer card revision is the research currently on screen, so it wins.
+ */
+export function revisionAfterSourceWrite(
+  viewRevision: number | undefined,
+  sourceRevision: number | undefined,
+): number | undefined {
+  if (typeof viewRevision === "number" && typeof sourceRevision === "number") {
+    return Math.max(viewRevision, sourceRevision);
+  }
+  if (typeof sourceRevision === "number") return sourceRevision;
+  return viewRevision;
+}
+
 export async function sendHeldDialogue(
   api: Pick<DesktopApi, "sendDialogue">,
   held: {current: HeldCommand | null},
