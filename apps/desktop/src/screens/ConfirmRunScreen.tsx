@@ -18,6 +18,14 @@ import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 import {deriveRunGate, runBlockedToken} from "../runGate";
+import {
+  holdCommand,
+  isRevisionConflict,
+  revisionAfterSourceWrite,
+  revisionFromSourceWrite,
+  sendHeldDialogue,
+  type HeldCommand,
+} from "../commandGesture";
 import {prefersReducedMotion} from "../runStartRitual";
 
 /** A stored pick counts only when this market's catalog still offers it. */
@@ -111,6 +119,7 @@ function DialoguePanel({
   title,
   trailing,
   dockComposer = false,
+  expectedRevision,
 }: {
   researchId: string;
   api: DesktopApi;
@@ -119,6 +128,7 @@ function DialoguePanel({
   title?: string;
   trailing?: ReactNode;
   dockComposer?: boolean;
+  expectedRevision?: number;
 }) {
   const {t} = useI18n();
   const heading = title ?? t("ui.dialogue.title");
@@ -126,6 +136,7 @@ function DialoguePanel({
   const [sendPulse, setSendPulse] = useState(false);
   const [bubbleRise, setBubbleRise] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const dialogueHold = useRef<HeldCommand | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const seenUsers = useRef<number | null>(null);
   const userCount = dialogue.filter((turn) => turn.role === "user").length;
@@ -136,7 +147,7 @@ function DialoguePanel({
     if (!text || !chatEnabled) return;
     if (!prefersReducedMotion()) setSendPulse(true);
     try {
-      await api.sendDialogue(researchId, text);
+      await sendHeldDialogue(api, dialogueHold, researchId, text, expectedRevision);
       setMessage("");
     } catch {
       /* mutation error banner */
@@ -233,17 +244,20 @@ function FamilyChoiceControls({
   api,
   meanReversionChoice,
   familyChipIds,
+  expectedRevision,
 }: {
   researchId: string;
   api: DesktopApi;
   meanReversionChoice?: boolean;
   familyChipIds?: readonly string[];
+  expectedRevision?: number;
 }) {
   const {t} = useI18n();
   const chips = familyChipIds ?? [];
+  const familyHold = useRef<HeldCommand | null>(null);
   if (!meanReversionChoice && chips.length === 0) return null;
   const send = (text: string) => {
-    void api.sendDialogue(researchId, text);
+    void sendHeldDialogue(api, familyHold, researchId, text, expectedRevision);
   };
   return (
     <div className="family-choice" data-testid="family-choice">
@@ -404,12 +418,14 @@ export function DraftScreen({api, view}: {api: DesktopApi; view: Extract<Desktop
           dialogue={view.dialogue}
           chatEnabled
           dockComposer
+          expectedRevision={view.revision}
           trailing={
             <FamilyChoiceControls
               api={api}
               researchId={view.researchId}
               meanReversionChoice={view.meanReversionChoice}
               familyChipIds={view.familyChipIds}
+              expectedRevision={view.revision}
             />
           }
         />
@@ -429,6 +445,7 @@ export function ConfirmRunScreen({api, view}: {api: DesktopApi; view: Extract<De
         dialogue={view.dialogue}
         chatEnabled={view.chatEnabled ?? false}
         title={t("ui.status.confirmRun")}
+        expectedRevision={view.revision}
       />
       <ConfirmRunCard api={api} view={view} />
     </div>
@@ -471,10 +488,26 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
   const [acked, setAcked] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const startingRef = useRef(false);
+  const confirmHold = useRef<HeldCommand | null>(null);
   const sourceWrite = useRef(Promise.resolve());
   const sourceWriteIdle = useRef(true);
+  const sourceRevision = useRef<number | undefined>(undefined);
+  const sourceRevisionFor = useRef(view.researchId);
+  if (sourceRevisionFor.current !== view.researchId) {
+    sourceRevisionFor.current = view.researchId;
+    sourceRevision.current = undefined;
+  }
   const queueSourceWrite = (work: () => Promise<unknown>) => {
-    const run = () => Promise.resolve(work()).then(() => undefined, () => undefined);
+    const researchId = view.researchId;
+    const run = () =>
+      Promise.resolve(work()).then(
+        (result) => {
+          if (sourceRevisionFor.current !== researchId) return;
+          const revision = revisionFromSourceWrite(result);
+          if (revision !== undefined) sourceRevision.current = revision;
+        },
+        () => undefined,
+      );
     const idle = sourceWriteIdle.current;
     sourceWriteIdle.current = false;
     const job = idle ? run() : sourceWrite.current.then(run, run);
@@ -588,11 +621,27 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
         const needsFreshAck = catalogMode
           ? Boolean(selectedChoice?.unlicensed && !selectedChoice.acknowledgedAt)
           : unlicensedIds.has(selectedId) && !alreadyAcked;
+        const revision = revisionAfterSourceWrite(
+          typeof view.revision === "number" ? view.revision : undefined,
+          sourceRevision.current,
+        );
+        const command = typeof revision === "number"
+          ? (confirmHold.current = holdCommand(
+              confirmHold.current,
+              revision,
+              `${selectedId}|${needsFreshAck ? "ack" : ""}`,
+            ))
+          : null;
         await api.confirmRun(view.researchId, {
           dataSourceId: selectedId || undefined,
           unlicensedAcknowledged: needsFreshAck ? true : undefined,
+          ...(command
+            ? {command: {commandId: command.commandId, expectedRevision: command.expectedRevision}}
+            : {}),
         });
+        confirmHold.current = null;
       } catch (error: unknown) {
+        if (isRevisionConflict(error)) confirmHold.current = null;
         setRunError(error instanceof Error ? error.message : String(error));
       } finally {
         startingRef.current = false;

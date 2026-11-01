@@ -6,50 +6,121 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "route"],
+      "required": [
+        "type",
+        "route"
+      ],
       "properties": {
-        "type": {"const": "fetch_view"},
-        "route": {"type": "string", "pattern": "^#/(research|methods|glossary)"},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
-      }
-    },
-    {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type"],
-      "properties": {"type": {"const": "create_draft"}, "locale": {"type": "string", "enum": ["zh", "en"]}}
-    },
-    {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type"],
-      "properties": {"type": {"const": "market_data_progress"}}
-    },
-    {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "secrets"],
-      "properties": {
-        "type": {"const": "install_secrets"},
-        "secrets": {
-          "type": "object",
-          "additionalProperties": {"type": "string", "minLength": 1}
+        "type": {
+          "const": "fetch_view"
+        },
+        "route": {
+          "type": "string",
+          "pattern": "^#/(research|methods|glossary)"
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
         }
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "secret_id"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": {"const": "secret_failure_preview"},
-        "secret_id": {"type": "string", "minLength": 1, "maxLength": 128}
+        "type": {
+          "const": "create_draft"
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "research_id"
+        ],
+        "research_id": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id"],
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "market_data_progress"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "secrets"
+      ],
+      "properties": {
+        "type": {
+          "const": "install_secrets"
+        },
+        "secrets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "secret_id"
+      ],
+      "properties": {
+        "type": {
+          "const": "secret_failure_preview"
+        },
+        "secret_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "research_id"
+      ],
       "properties": {
         "type": {
           "enum": [
@@ -60,19 +131,69 @@
             "delete_research"
           ]
         },
-        "research_id": {"type": "string", "minLength": 1},
-        "data_source_id": {"type": "string"},
-        "unlicensed_acknowledged": {"type": "boolean"},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_source_id": {
+          "type": "string"
+        },
+        "unlicensed_acknowledged": {
+          "type": "boolean"
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reply_to": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "authorize_rebill": {
+          "type": "boolean"
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ],
+        "reply_to": [
+          "command_id",
+          "expected_revision"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id"],
+      "required": [
+        "type",
+        "research_id"
+      ],
       "properties": {
-        "type": {"const": "unlock_brief"},
-        "research_id": {"type": "string", "minLength": 1},
+        "type": {
+          "const": "unlock_brief"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "slot": {
           "type": "string",
           "enum": [
@@ -83,28 +204,96 @@
             "coverage_floor"
           ]
         },
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "user_confirmed"],
+      "required": [
+        "type",
+        "research_id",
+        "user_confirmed"
+      ],
       "properties": {
-        "type": {"const": "continue_iterate"},
-        "research_id": {"type": "string", "minLength": 1},
-        "user_confirmed": {"const": true},
-        "high_suspicion_acknowledged": {"type": "boolean"},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "continue_iterate"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "user_confirmed": {
+          "const": true
+        },
+        "high_suspicion_acknowledged": {
+          "type": "boolean"
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "decision"],
+      "required": [
+        "type",
+        "research_id",
+        "decision"
+      ],
       "properties": {
-        "type": {"const": "resolve_confirm"},
-        "research_id": {"type": "string", "minLength": 1},
+        "type": {
+          "const": "resolve_confirm"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "decision": {
           "enum": [
             "approve_new_version",
@@ -115,16 +304,28 @@
             "redefine_scope"
           ]
         },
-        "who_pays": {"type": "string"},
+        "who_pays": {
+          "type": "string"
+        },
         "why_change": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["record_id", "recorded_at", "kind"],
+            "required": [
+              "record_id",
+              "recorded_at",
+              "kind"
+            ],
             "properties": {
-              "record_id": {"type": "string", "minLength": 1},
-              "recorded_at": {"type": "string", "minLength": 1},
+              "record_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "recorded_at": {
+                "type": "string",
+                "minLength": 1
+              },
               "kind": {
                 "enum": [
                   "attempt",
@@ -133,178 +334,721 @@
                   "simulation_report"
                 ]
               },
-              "summary": {"type": "string"}
+              "summary": {
+                "type": "string"
+              }
             }
           }
         },
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reply_to": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ],
+        "reply_to": [
+          "command_id",
+          "expected_revision"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "hours"],
+      "required": [
+        "type",
+        "research_id",
+        "hours"
+      ],
       "properties": {
-        "type": {"const": "extend_research"},
-        "research_id": {"type": "string", "minLength": 1},
-        "hours": {"type": "number", "exclusiveMinimum": 0, "maximum": 720},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "extend_research"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hours": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 720
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "round_id", "method_id"],
+      "required": [
+        "type",
+        "research_id",
+        "round_id",
+        "method_id"
+      ],
       "properties": {
-        "type": {"const": "reverify"},
-        "research_id": {"type": "string", "minLength": 1},
-        "round_id": {"type": "string", "minLength": 1},
-        "method_id": {"type": "string", "minLength": 1},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "reverify"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "round_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "message"],
+      "required": [
+        "type",
+        "research_id",
+        "message"
+      ],
       "properties": {
-        "type": {"const": "send_dialogue"},
-        "research_id": {"type": "string", "minLength": 1},
-        "message": {"type": "string", "minLength": 1},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "send_dialogue"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reply_to": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ],
+        "reply_to": [
+          "command_id",
+          "expected_revision"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "symbol"],
+      "required": [
+        "type",
+        "research_id",
+        "symbol"
+      ],
       "properties": {
-        "type": {"const": "set_research_symbol"},
-        "research_id": {"type": "string", "minLength": 1},
-        "symbol": {"type": "string", "minLength": 0},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "set_research_symbol"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 0
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "data_source_id"],
+      "required": [
+        "type",
+        "research_id",
+        "data_source_id"
+      ],
       "properties": {
-        "type": {"const": "set_price_source"},
-        "research_id": {"type": "string", "minLength": 1},
-        "data_source_id": {"type": "string", "minLength": 0},
-        "unlicensed_acknowledged": {"type": "boolean"},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "set_price_source"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_source_id": {
+          "type": "string",
+          "minLength": 0
+        },
+        "unlicensed_acknowledged": {
+          "type": "boolean"
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "token", "accept"],
+      "required": [
+        "type",
+        "research_id",
+        "token",
+        "accept"
+      ],
       "properties": {
-        "type": {"const": "answer_symbol_ask"},
-        "research_id": {"type": "string", "minLength": 1},
-        "token": {"type": "string", "minLength": 1},
-        "accept": {"type": "boolean"},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "answer_symbol_ask"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accept": {
+          "type": "boolean"
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "token"],
+      "required": [
+        "type",
+        "research_id",
+        "token"
+      ],
       "properties": {
-        "type": {"const": "revert_symbol_ask"},
-        "research_id": {"type": "string", "minLength": 1},
-        "token": {"type": "string", "minLength": 1},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "revert_symbol_ask"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "side"],
+      "required": [
+        "type",
+        "research_id",
+        "side"
+      ],
       "properties": {
-        "type": {"const": "remove_market_side"},
-        "research_id": {"type": "string", "minLength": 1},
-        "side": {"type": "string", "enum": ["cn", "us"]},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "remove_market_side"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "cn",
+            "us"
+          ]
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "market"],
+      "required": [
+        "type",
+        "research_id",
+        "market"
+      ],
       "properties": {
-        "type": {"const": "choose_default_market"},
-        "research_id": {"type": "string", "minLength": 1},
-        "market": {"type": "string", "enum": ["CN", "US"]},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "choose_default_market"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "market": {
+          "type": "string",
+          "enum": [
+            "CN",
+            "US"
+          ]
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "symbol"],
+      "required": [
+        "type",
+        "research_id",
+        "symbol"
+      ],
       "properties": {
-        "type": {"const": "dismiss_mismatched_symbol"},
-        "research_id": {"type": "string", "minLength": 1},
-        "symbol": {"type": "string", "minLength": 1},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "dismiss_mismatched_symbol"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "symbol"],
+      "required": [
+        "type",
+        "research_id",
+        "symbol"
+      ],
       "properties": {
-        "type": {"const": "use_hinted_symbol"},
-        "research_id": {"type": "string", "minLength": 1},
-        "symbol": {"type": "string", "minLength": 1},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "use_hinted_symbol"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "research_id", "kind"],
+      "required": [
+        "type",
+        "research_id",
+        "kind"
+      ],
       "properties": {
-        "type": {"const": "export_artifact"},
-        "research_id": {"type": "string", "minLength": 1},
-        "kind": {"enum": ["strategy_pack", "research_record"]},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "export_artifact"
+        },
+        "research_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "strategy_pack",
+            "research_record"
+          ]
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "command_id": [
+          "expected_revision"
+        ],
+        "expected_revision": [
+          "command_id"
+        ]
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "method_id", "definition"],
+      "required": [
+        "type",
+        "method_id",
+        "definition"
+      ],
       "properties": {
-        "type": {"const": "revise_method"},
-        "method_id": {"type": "string", "minLength": 1},
-        "definition": {"type": "string", "minLength": 1},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "revise_method"
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "method_id", "name", "description", "body"],
+      "required": [
+        "type",
+        "method_id",
+        "name",
+        "description",
+        "body"
+      ],
       "properties": {
-        "type": {"const": "create_method"},
-        "method_id": {"type": "string", "minLength": 1},
-        "name": {"type": "string", "minLength": 1},
-        "description": {"type": "string"},
-        "body": {"type": "string", "minLength": 1},
-        "source": {"type": "string", "enum": ["preset", "deposited"]},
-        "locale": {"type": "string", "enum": ["zh", "en"]}
+        "type": {
+          "const": "create_method"
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "preset",
+            "deposited"
+          ]
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
-      "properties": {"type": {"const": "list_methods"}, "locale": {"type": "string", "enum": ["zh", "en"]}}
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "list_methods"
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
+      }
     }
   ]
 }

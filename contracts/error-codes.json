@@ -98,5 +98,33 @@
   "UNIVERSE_TOO_FEW_SYMBOLS": {
     "params": ["count", "minimum"],
     "legacyZh": "当前仅 {{count}} 个标的，低于最低覆盖要求的 {{minimum}} 个。请调低覆盖底线或增加标的后再开跑。"
+  },
+  "COMMAND_ENVELOPE_REQUIRED": {
+    "params": [],
+    "legacyZh": "这次写入需要命令编号和期望修订。"
+  },
+  "COMMAND_PAYLOAD_CONFLICT": {
+    "params": [],
+    "legacyZh": "同一命令编号不能改用另一份内容。请重新确认后再提交。"
+  },
+  "REVISION_CONFLICT": {
+    "params": ["revision"],
+    "legacyZh": "研究已经更新，当前修订是 {{revision}}。请核对差异后再确认提交。"
+  },
+  "REMOTE_UNKNOWN_NEEDS_AUTH": {
+    "params": ["budget_reserved"],
+    "legacyZh": "上一次外发是否已经执行无法确认，已计入预留。未经再次授权不会重新发起。"
+  },
+  "NEW_PROPOSAL_REQUIRES_CURRENT_CLIENT": {
+    "params": [],
+    "legacyZh": "这条新式提议需要当前版本的桌面才能批准。"
+  },
+  "CREATE_SOURCE_CONFLICT": {
+    "params": [],
+    "legacyZh": "该研究已存在，且与这条创建命令不是同一次操作。"
+  },
+  "PROPOSAL_NOT_CURRENT": {
+    "params": [],
+    "legacyZh": "这条回复没有指向当前提议。"
   }
 }

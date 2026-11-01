@@ -166,12 +166,45 @@ CONVERTER.register_structure_hook(Attempt, _structure_attempt)
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
+PRAGMA busy_timeout=30000;
 CREATE TABLE IF NOT EXISTS researches (
     research_id TEXT PRIMARY KEY,
     state_json TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    last_completed_round INTEGER NOT NULL DEFAULT 0
+    last_completed_round INTEGER NOT NULL DEFAULT 0,
+    revision INTEGER NOT NULL DEFAULT 0,
+    last_seq INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT '',
+    create_command_id TEXT
 );
+CREATE TABLE IF NOT EXISTS research_event (
+    research_id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    version INTEGER,
+    kind TEXT NOT NULL,
+    refs_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (research_id, seq)
+);
+CREATE TABLE IF NOT EXISTS command_receipt (
+    research_id TEXT NOT NULL,
+    command_id TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    result_ref TEXT NOT NULL,
+    status TEXT NOT NULL,
+    bound_revision INTEGER,
+    bound_version INTEGER,
+    bound_snapshot TEXT,
+    budget_reserved INTEGER NOT NULL DEFAULT 0,
+    operation_key TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (research_id, command_id)
+);
+CREATE INDEX IF NOT EXISTS idx_research_event_research_seq
+    ON research_event(research_id, seq);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_command_receipt_operation
+    ON command_receipt(operation_key) WHERE operation_key IS NOT NULL;
 CREATE TABLE IF NOT EXISTS engine_heartbeat (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
     owner TEXT NOT NULL,
@@ -257,6 +290,10 @@ class _SerializedConnection:
 
     A bare ``execute`` copies its rows before releasing the lock. ``with connection``
     holds the lock only for that transaction, so a market-data probe must stay outside it.
+
+    A route poll's SELECT must not leave a read transaction open. On Python builds
+    that keep that transaction alive, the next dialogue write raises
+    ``database is locked`` even though both calls share this connection.
     """
 
     def __init__(self, raw: sqlite3.Connection) -> None:
@@ -268,6 +305,8 @@ class _SerializedConnection:
         self._lock.acquire()
         self._frames += 1
         try:
+            if self._frames == 1 and self._raw.in_transaction:
+                self._raw.rollback()
             self._raw.__enter__()
         except BaseException:
             self._frames -= 1
@@ -291,7 +330,21 @@ class _SerializedConnection:
         if self._frames:
             return self._raw.execute(sql, parameters)
         with self._lock:
-            return _BufferedCursor(self._raw.execute(sql, parameters))
+            try:
+                return _BufferedCursor(self._raw.execute(sql, parameters))
+            finally:
+                self._release_idle_read(sql)
+
+    @staticmethod
+    def _is_idle_read(sql: str) -> bool:
+        head = sql.lstrip().split(None, 1)[0].upper() if sql.strip() else ""
+        return head in {"SELECT", "PRAGMA", "EXPLAIN"}
+
+    def _release_idle_read(self, sql: str) -> None:
+        if self._frames or not self._is_idle_read(sql):
+            return
+        if self._raw.in_transaction:
+            self._raw.rollback()
 
     def executemany(self, sql: str, seq_of_parameters: Any) -> Any:
         if self._frames:
@@ -317,10 +370,14 @@ class _SerializedConnection:
 class SQLiteStore:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.connection = _SerializedConnection(sqlite3.connect(path, check_same_thread=False))
+        self.connection = _SerializedConnection(
+            sqlite3.connect(path, check_same_thread=False, timeout=30.0)
+        )
         self.connection.executescript(SCHEMA)
         self._migrate_method_schema()
         self._migrate_review_attempts_schema()
+        self._migrate_command_journal()
+        self._recover_pending_receipts()
 
     def _migrate_review_attempts_schema(self) -> None:
         row = self.connection.execute(
@@ -354,6 +411,90 @@ class SQLiteStore:
                 DROP TABLE review_attempts;
                 ALTER TABLE review_attempts_v2 RENAME TO review_attempts;
                 """
+            )
+
+    def _migrate_command_journal(self) -> None:
+        """Add revision, events, and receipts without rewriting research JSON."""
+        self._ensure_column("researches", "revision", "revision INTEGER NOT NULL DEFAULT 0")
+        self._ensure_column("researches", "last_seq", "last_seq INTEGER NOT NULL DEFAULT 0")
+        self._ensure_column("researches", "status", "status TEXT NOT NULL DEFAULT ''")
+        self._ensure_column("researches", "create_command_id", "create_command_id TEXT")
+        self.connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS research_event (
+                research_id TEXT NOT NULL,
+                seq INTEGER NOT NULL,
+                version INTEGER,
+                kind TEXT NOT NULL,
+                refs_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (research_id, seq)
+            );
+            CREATE TABLE IF NOT EXISTS command_receipt (
+                research_id TEXT NOT NULL,
+                command_id TEXT NOT NULL,
+                payload_hash TEXT NOT NULL,
+                revision INTEGER NOT NULL,
+                result_ref TEXT NOT NULL,
+                status TEXT NOT NULL,
+                bound_revision INTEGER,
+                bound_version INTEGER,
+                bound_snapshot TEXT,
+                budget_reserved INTEGER NOT NULL DEFAULT 0,
+                operation_key TEXT,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (research_id, command_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_researches_status ON researches(status);
+            CREATE INDEX IF NOT EXISTS idx_researches_revision
+                ON researches(research_id, revision, last_seq);
+            CREATE INDEX IF NOT EXISTS idx_researches_create_command
+                ON researches(create_command_id) WHERE create_command_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_research_event_research_seq
+                ON research_event(research_id, seq);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_command_receipt_operation
+                ON command_receipt(operation_key) WHERE operation_key IS NOT NULL;
+            """
+        )
+        self._backfill_status_column()
+
+    def _ensure_column(self, table: str, name: str, declaration: str) -> None:
+        columns = {
+            row[1]
+            for row in self.connection.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if name in columns:
+            return
+        self.connection.execute(f"ALTER TABLE {table} ADD COLUMN {declaration}")
+
+    def _backfill_status_column(self) -> None:
+        rows = self.connection.execute(
+            "SELECT research_id, state_json, status FROM researches"
+        ).fetchall()
+        pending = []
+        for research_id, state_json, status in rows:
+            if status:
+                continue
+            try:
+                parsed = json.loads(state_json)
+            except json.JSONDecodeError:
+                continue
+            value = parsed.get("status") if isinstance(parsed, dict) else None
+            if isinstance(value, str) and value:
+                pending.append((value, research_id))
+        if not pending:
+            return
+        with self.connection:
+            self.connection.executemany(
+                "UPDATE researches SET status=? WHERE research_id=? AND status=''",
+                pending,
+            )
+
+    def _recover_pending_receipts(self) -> None:
+        """A pending remote claim did not finish. Startup cannot prove the provider ran."""
+        with self.connection:
+            self.connection.execute(
+                "UPDATE command_receipt SET status='unknown' WHERE status='pending'"
             )
 
     def _migrate_method_schema(self) -> None:
@@ -437,8 +578,17 @@ class SQLiteStore:
         forget_research_removed(research.research_id)
         with self.connection:
             self.connection.execute(
-                "INSERT INTO researches(research_id,state_json,updated_at) VALUES(?,?,?)",
-                (research.research_id, self._encode(research), research.updated_at.isoformat()),
+                """
+                INSERT INTO researches(
+                    research_id,state_json,updated_at,status,revision,last_seq
+                ) VALUES(?,?,?,?,0,0)
+                """,
+                (
+                    research.research_id,
+                    self._encode(research),
+                    research.updated_at.isoformat(),
+                    research.status.value,
+                ),
             )
 
     def load(self, research_id: str) -> Research:
@@ -456,19 +606,135 @@ class SQLiteStore:
             cursor = self.connection.execute(
                 """
                 UPDATE researches
-                   SET state_json=?, updated_at=?, last_completed_round=?
+                   SET state_json=?, updated_at=?, last_completed_round=?, status=?
                  WHERE research_id=? AND updated_at=?
                 """,
                 (
                     self._encode(research),
                     research.updated_at.isoformat(),
                     completed,
+                    research.status.value,
                     research.research_id,
                     expected_updated_at.isoformat(),
                 ),
             )
             if cursor.rowcount != 1:
                 raise ConcurrentWrite(research.research_id)
+
+    def save_with_event(
+        self,
+        research: Research,
+        expected_updated_at: datetime,
+        kind: str,
+        refs: dict[str, Any] | None = None,
+    ) -> int:
+        """Legacy domain write: CAS, bump revision, append one event. No command receipt."""
+        with self.connection:
+            row = self.connection.execute(
+                """
+                SELECT revision FROM researches
+                 WHERE research_id=? AND updated_at=?
+                """,
+                (research.research_id, expected_updated_at.isoformat()),
+            ).fetchone()
+            if row is None:
+                raise ConcurrentWrite(research.research_id)
+            return self.cas_research_and_event(
+                research,
+                expected_updated_at=expected_updated_at.isoformat(),
+                expected_revision=int(row[0]),
+                kind=kind,
+                refs=refs or {},
+            )
+
+    def cas_research_and_event(
+        self,
+        research: Research,
+        *,
+        expected_updated_at: str,
+        expected_revision: int,
+        kind: str,
+        refs: dict[str, Any],
+    ) -> int:
+        """Caller holds the connection transaction. Returns the new revision."""
+        row = self.connection.execute(
+            """
+            SELECT revision, last_seq FROM researches
+             WHERE research_id=? AND updated_at=? AND revision=?
+            """,
+            (research.research_id, expected_updated_at, expected_revision),
+        ).fetchone()
+        if row is None:
+            raise ConcurrentWrite(research.research_id)
+        revision = int(row[0]) + 1
+        seq = int(row[1]) + 1
+        completed = sum(len(version.rounds) for version in research.versions)
+        cursor = self.connection.execute(
+            """
+            UPDATE researches
+               SET state_json=?, updated_at=?, last_completed_round=?, status=?,
+                   revision=?, last_seq=?
+             WHERE research_id=? AND updated_at=? AND revision=?
+            """,
+            (
+                self._encode(research),
+                research.updated_at.isoformat(),
+                completed,
+                research.status.value,
+                revision,
+                seq,
+                research.research_id,
+                expected_updated_at,
+                expected_revision,
+            ),
+        )
+        if cursor.rowcount != 1:
+            raise ConcurrentWrite(research.research_id)
+        version = research.current_version_number
+        self.connection.execute(
+            """
+            INSERT INTO research_event(
+                research_id, seq, version, kind, refs_json, created_at
+            ) VALUES(?,?,?,?,?,?)
+            """,
+            (
+                research.research_id,
+                seq,
+                version,
+                kind,
+                json.dumps(refs, sort_keys=True, separators=(",", ":")),
+                research.updated_at.isoformat(),
+            ),
+        )
+        return revision
+
+    def revision_of(self, research_id: str) -> int:
+        row = self.connection.execute(
+            "SELECT revision FROM researches WHERE research_id=?",
+            (research_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(research_id)
+        return int(row[0])
+
+    def revision_map(self) -> dict[str, int]:
+        rows = self.connection.execute(
+            "SELECT research_id, revision FROM researches"
+        ).fetchall()
+        return {str(research_id): int(revision) for research_id, revision in rows}
+
+    def research_head(self, research_id: str) -> tuple[int, int, str, str, str | None] | None:
+        """revision, last_seq, updated_at, state_json, create_command_id."""
+        row = self.connection.execute(
+            """
+            SELECT revision, last_seq, updated_at, state_json, create_command_id
+              FROM researches WHERE research_id=?
+            """,
+            (research_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return int(row[0]), int(row[1]), str(row[2]), str(row[3]), row[4]
 
     def last_completed_round(self, research_id: str) -> int:
         row = self.connection.execute(
@@ -733,6 +999,14 @@ class SQLiteStore:
             )
             self.connection.execute(
                 "DELETE FROM engine_errors WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM research_event WHERE research_id=?",
+                (research_id,),
+            )
+            self.connection.execute(
+                "DELETE FROM command_receipt WHERE research_id=?",
                 (research_id,),
             )
             self.connection.execute(

@@ -19,6 +19,7 @@ import {AnomalyChecklist, renderSettingsProse} from "./shared";
 import {missingSymbolsError} from "../missingSymbols";
 import {DetailFrame} from "./DetailFrame";
 import {StatusPill} from "./ResearchListScreen";
+import {sendHeldDialogue, type HeldCommand} from "../commandGesture";
 
 export function RunningScreen({
   api,
@@ -36,6 +37,7 @@ export function RunningScreen({
   const {t} = useI18n();
   const [tickerOpen, setTickerOpen] = useState(false);
   const modificationRef = useRef<HTMLInputElement>(null);
+  const dialogueHold = useRef<HeldCommand | null>(null);
   const [symbol, setSymbol] = useState("");
   const paused = view.status === "paused";
   const statusKey = paused ? "ui.status.paused" : "ui.status.running";
@@ -140,7 +142,7 @@ export function RunningScreen({
         data-testid="confirm-modification-button"
         disabled={!modification.trim()}
         onClick={() => void (async () => {
-          await api.sendDialogue(view.researchId, modification.trim());
+          await sendHeldDialogue(api, dialogueHold, view.researchId, modification.trim(), view.revision);
           await api.confirmModification(view.researchId);
         })()}
       >

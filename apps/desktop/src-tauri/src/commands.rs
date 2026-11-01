@@ -242,13 +242,35 @@ pub async fn market_data_progress(
         .await
 }
 
+pub(crate) fn create_draft_request(research_id: Option<&str>, command_id: Option<&str>) -> Value {
+    let mut body = json!({"type": "create_draft"});
+    if let (Some(research_id), Some(command_id)) = (research_id, command_id) {
+        body["research_id"] = json!(research_id);
+        body["command_id"] = json!(command_id);
+    }
+    body
+}
+
 #[tauri::command]
-pub async fn create_draft(connection: State<'_, EngineConnection>) -> Result<String, String> {
-    let result = connection.post(json!({"type": "create_draft"})).await?;
+pub async fn create_draft(
+    research_id: Option<String>,
+    command_id: Option<String>,
+    connection: State<'_, EngineConnection>,
+) -> Result<String, String> {
+    if research_id.is_some() != command_id.is_some() {
+        return Err("create_draft needs both research_id and command_id".into());
+    }
+    let result = connection
+        .post(create_draft_request(research_id.as_deref(), command_id.as_deref()))
+        .await?;
     result["research_id"]
         .as_str()
         .map(str::to_owned)
         .ok_or("create_draft response omitted research_id".into())
+}
+
+pub(crate) fn mutation_revision(payload: &Value) -> Option<i64> {
+    payload.get("revision").and_then(Value::as_i64)
 }
 
 pub(crate) fn set_price_source_request(
@@ -274,14 +296,14 @@ pub async fn set_price_source(
     unlicensed_acknowledged: Option<bool>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
-) -> Result<(), String> {
-    mutate(
+) -> Result<Option<i64>, String> {
+    let payload = mutate(
         &app,
         &connection,
         set_price_source_request(&research_id, &data_source_id, unlicensed_acknowledged),
     )
-    .await
-    .map(|_| ())
+    .await?;
+    Ok(mutation_revision(&payload))
 }
 
 pub(crate) fn set_research_symbol_request(research_id: &str, symbol: &str) -> Value {
@@ -454,14 +476,15 @@ pub async fn use_hinted_symbol(
     .map(|_| ())
 }
 
-#[tauri::command]
-pub async fn confirm_run(
-    research_id: String,
-    data_source_id: Option<String>,
+pub(crate) fn confirm_run_request(
+    research_id: &str,
+    data_source_id: Option<&str>,
     unlicensed_acknowledged: Option<bool>,
-    app: AppHandle,
-    connection: State<'_, EngineConnection>,
-) -> Result<(), String> {
+    command_id: Option<&str>,
+    expected_revision: Option<i64>,
+    reply_to: Option<&str>,
+    authorize_rebill: Option<bool>,
+) -> Value {
     let mut request = json!({"type": "confirm_run", "research_id": research_id});
     if let Some(source) = data_source_id {
         request["data_source_id"] = json!(source);
@@ -469,7 +492,46 @@ pub async fn confirm_run(
     if let Some(acknowledged) = unlicensed_acknowledged {
         request["unlicensed_acknowledged"] = json!(acknowledged);
     }
-    mutate(&app, &connection, request).await.map(|_| ())
+    if let (Some(command_id), Some(expected_revision)) = (command_id, expected_revision) {
+        request["command_id"] = json!(command_id);
+        request["expected_revision"] = json!(expected_revision);
+    }
+    if let Some(reply_to) = reply_to {
+        request["reply_to"] = json!(reply_to);
+    }
+    if let Some(authorize_rebill) = authorize_rebill {
+        request["authorize_rebill"] = json!(authorize_rebill);
+    }
+    request
+}
+
+#[tauri::command]
+pub async fn confirm_run(
+    research_id: String,
+    data_source_id: Option<String>,
+    unlicensed_acknowledged: Option<bool>,
+    command_id: Option<String>,
+    expected_revision: Option<i64>,
+    reply_to: Option<String>,
+    authorize_rebill: Option<bool>,
+    app: AppHandle,
+    connection: State<'_, EngineConnection>,
+) -> Result<(), String> {
+    mutate(
+        &app,
+        &connection,
+        confirm_run_request(
+            &research_id,
+            data_source_id.as_deref(),
+            unlicensed_acknowledged,
+            command_id.as_deref(),
+            expected_revision,
+            reply_to.as_deref(),
+            authorize_rebill,
+        ),
+    )
+    .await
+    .map(|_| ())
 }
 
 
@@ -493,17 +555,48 @@ pub async fn unlock_brief(
     .map(|_| ())
 }
 
+pub(crate) fn send_dialogue_request(
+    research_id: &str,
+    message: &str,
+    command_id: Option<&str>,
+    expected_revision: Option<i64>,
+    reply_to: Option<&str>,
+) -> Value {
+    let mut body = json!({
+        "type": "send_dialogue",
+        "research_id": research_id,
+        "message": message,
+    });
+    if let (Some(command_id), Some(expected_revision)) = (command_id, expected_revision) {
+        body["command_id"] = json!(command_id);
+        body["expected_revision"] = json!(expected_revision);
+    }
+    if let Some(reply_to) = reply_to {
+        body["reply_to"] = json!(reply_to);
+    }
+    body
+}
+
 #[tauri::command]
 pub async fn send_dialogue(
     research_id: String,
     message: String,
+    command_id: Option<String>,
+    expected_revision: Option<i64>,
+    reply_to: Option<String>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
     mutate(
         &app,
         &connection,
-        json!({"type": "send_dialogue", "research_id": research_id, "message": message}),
+        send_dialogue_request(
+            &research_id,
+            &message,
+            command_id.as_deref(),
+            expected_revision,
+            reply_to.as_deref(),
+        ),
     )
     .await
     .map(|_| ())
@@ -884,10 +977,13 @@ pub async fn secret_failure_preview(
 mod tests {
     use super::{
         EngineConnection, command_timeout_secs, notification_title, notify_kinds,
-        answer_symbol_ask_request, choose_default_market_request, dismiss_mismatched_symbol_request,
+        answer_symbol_ask_request, choose_default_market_request, confirm_run_request,
+        create_draft_request, dismiss_mismatched_symbol_request,
         parse_engine_error_body,
         remove_market_side_request,
-        revert_symbol_ask_request, set_price_source_request, set_research_symbol_request,
+        mutation_revision, revert_symbol_ask_request, send_dialogue_request,
+        set_price_source_request,
+        set_research_symbol_request,
         use_hinted_symbol_request,
     };
     use serde_json::json;
@@ -925,6 +1021,59 @@ mod tests {
     }
 
     #[test]
+    fn create_draft_request_stays_legacy_without_ids_and_keeps_a_preallocated_pair() {
+        let legacy = create_draft_request(None, None);
+        assert_eq!(legacy, json!({"type": "create_draft"}));
+        let replay = create_draft_request(Some("r-1"), Some("c-1"));
+        assert_eq!(replay["research_id"], "r-1");
+        assert_eq!(replay["command_id"], "c-1");
+        let half = create_draft_request(Some("r-1"), None);
+        assert!(half.get("research_id").is_none());
+        assert!(half.get("command_id").is_none());
+    }
+
+    fn confirm_run_request_threads_the_command_envelope() {
+        let legacy = confirm_run_request("r-1", None, None, None, None, None, None);
+        assert_eq!(legacy, json!({"type": "confirm_run", "research_id": "r-1"}));
+        let journaled = confirm_run_request(
+            "r-1",
+            Some("yahoo_daily"),
+            Some(true),
+            Some("c-1"),
+            Some(4),
+            Some("p-1"),
+            Some(true),
+        );
+        assert_eq!(journaled["command_id"], "c-1");
+        assert_eq!(journaled["expected_revision"], 4);
+        assert_eq!(journaled["reply_to"], "p-1");
+        assert_eq!(journaled["authorize_rebill"], true);
+        assert_eq!(journaled["data_source_id"], "yahoo_daily");
+        assert_eq!(journaled["unlicensed_acknowledged"], true);
+    }
+
+    fn send_dialogue_request_requires_the_pair_and_keeps_reply_to() {
+        let legacy = send_dialogue_request("r-1", "继续", None, None, None);
+        assert_eq!(
+            legacy,
+            json!({"type": "send_dialogue", "research_id": "r-1", "message": "继续"})
+        );
+        let journaled = send_dialogue_request("r-1", "继续", Some("c-1"), Some(2), Some("p-9"));
+        assert_eq!(journaled["command_id"], "c-1");
+        assert_eq!(journaled["expected_revision"], 2);
+        assert_eq!(journaled["reply_to"], "p-9");
+    }
+
+    #[test]
+    fn mutation_revision_reads_the_engine_revision() {
+        assert_eq!(
+            mutation_revision(&json!({"revision": 6, "status": "draft"})),
+            Some(6)
+        );
+        assert_eq!(mutation_revision(&json!({"status": "draft"})), None);
+        assert_eq!(mutation_revision(&json!({"revision": "6"})), None);
+    }
+
     fn set_price_source_request_keeps_the_source_and_optional_ack() {
         let chosen = set_price_source_request("r-1", "yahoo_daily", Some(true));
         assert_eq!(chosen["type"], "set_price_source");

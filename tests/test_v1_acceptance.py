@@ -116,22 +116,24 @@ def test_running_view_round_fields_from_store(tmp_path: Path) -> None:
             ),
         ),
     )
-    service.store.load = lambda _rid: running  # type: ignore[method-assign]
+    service.store.create(running)
     view = service.view_for(f"#/research/{running.research_id}")
     round_payload = view["rounds"][0]
     assert "低波动均值回归" in round_payload["logicStatement"]["statement"]
     assert round_payload["trialCounters"]["candidatesEvaluated"] == 3
     assert round_payload["verificationPassed"] is True
     assert round_payload["pitPassed"] is False
+    assert view["revision"] == service.store.revision_of(running.research_id) == 0
 
 
 def test_completed_view_no_placeholder_copy(tmp_path: Path) -> None:
     service = _service(tmp_path)
     completed = replace(completed_research(), status=ResearchStatus.COMPLETED)
-    service.store.load = lambda _rid: completed  # type: ignore[method-assign]
+    service.store.create(completed)
     view = service.view_for(f"#/research/{completed.research_id}")
     assert view["subtitle"] != "美股 · 股票 · 经过市场基准和全部额外验证"
     assert view["title"]
+    assert view["revision"] == service.store.revision_of(completed.research_id) == 0
 
 
 def test_anomaly_baseline_not_hardcoded(tmp_path: Path) -> None:
