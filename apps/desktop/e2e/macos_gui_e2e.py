@@ -244,7 +244,7 @@ def commit_choice(driver, css: str) -> None:
         input.dispatchEvent(new view.MouseEvent('click', {bubbles: true}));
         input.dispatchEvent(new view.Event('input', {bubbles: true}));
         input.dispatchEvent(new view.Event('change', {bubbles: true}));
-        if (input.parentElement && input.parentElement.tagName === 'LABEL') {
+        if (input.type === 'radio' && input.parentElement && input.parentElement.tagName === 'LABEL') {
           input.parentElement.click();
         }
         """,
