@@ -35,6 +35,14 @@ PARAM_NAMES: dict[str, str] = {
     "model_family": "模型族",
 }
 
+STOP_CONDITION_LABELS: dict[str, str] = {
+    "exhausted": "候选耗尽",
+    "repeat": "重复",
+    "all_pass": "全绿通过",
+    "time_budget": "时间预算",
+    "round_cap": "轮次上限",
+}
+
 DATA_SOURCE: dict[str, str] = {
     "yahoo_daily": "雅虎日线",
     "akshare_sina_daily": "AkShare 日线（新浪优先）",
@@ -86,6 +94,10 @@ def export_blocker_messages(
 
 def param_label(name: str) -> str:
     return PARAM_NAMES.get(name, name)
+
+
+def stop_condition_label(reason: str) -> str:
+    return STOP_CONDITION_LABELS.get(reason, reason)
 
 
 def format_param_change(param: str, before: str, after: str) -> str:

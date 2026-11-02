@@ -16,6 +16,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
+from engine.research.display_names import param_label, stop_condition_label
 from engine.research.families import (
     LEGACY_FAMILY_METHOD,
     LEGACY_STRATEGY_FAMILY,
@@ -251,11 +252,12 @@ def preview_candidate_policy(research: Research) -> CandidatePolicy:
 def policy_summary(policy: CandidatePolicy) -> str:
     if policy.rule != "discrete":
         return "这一版沿用原先的回看期 +5 规则。"
-    lookbacks = ",".join(str(item) for item in policy.lookback_days)
-    entries = ",".join(f"{item:g}" for item in policy.entry_z)
-    stops = "、".join(policy.stop_conditions)
+    lookbacks = "、".join(str(item) for item in policy.lookback_days)
+    entries = "、".join(f"{item:g}" for item in policy.entry_z)
+    stops = "、".join(stop_condition_label(item) for item in policy.stop_conditions)
     return (
-        f"实现层只调整 lookback_days∈{{{lookbacks}}}、entry_z∈{{{entries}}}，"
+        f"实现层只调整{param_label('lookback_days')}（{lookbacks}）"
+        f"和{param_label('entry_z')}（{entries}），"
         f"从 {policy.start_lookback_days} 日、z={policy.start_entry_z:g} 起步，"
         f"最多 {policy.max_rounds} 轮。去重按参数、实现修订、交易成本、方法和输入哈希，"
         f"不含尝试编号和解释。停止条件：{stops}。"

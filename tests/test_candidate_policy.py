@@ -31,6 +31,7 @@ from engine.research.candidates import (
 )
 from engine.research.clock import TimeBudget
 from engine.research.data_window import disclosure_rounds_on_window
+from engine.research.display_names import contains_internal_leak
 from engine.research.evidence_window import authorize_evidence_split, evidence_grade
 from engine.research.gather import Material
 from engine.research.honest_stop import trial_budget_view
@@ -302,10 +303,17 @@ def test_freeze_fits_sample_and_intent_and_sticks_after_approval() -> None:
     assert freeze_policy_for_confirm(research).candidate_policy == fitted
     ignored = fit_candidate_policy(later_defaults, sample_days=25, thesis="回看 15 日", max_rounds=9)
     assert ignored.lookback_days != fitted.lookback_days
-    assert "lookback_days∈{10,15,20}" in policy_summary(fitted)
+    summary = policy_summary(fitted)
+    assert "回看天数（10、15、20）" in summary
+    assert "入场 Z 值（1、1.5、2）" in summary
+    assert "从 15 日、z=1 起步" in summary
+    assert "最多 5 轮" in summary
+    assert "停止条件：候选耗尽、重复、全绿通过、时间预算、轮次上限" in summary
+    assert not contains_internal_leak(summary)
     view = policy_view(fitted)
     assert view["maxRounds"] == 5
-    assert view["summary"]
+    assert view["summary"] == summary
+    assert view["stopConditions"] == ["exhausted", "repeat", "all_pass", "time_budget", "round_cap"]
 
 
 def test_confirm_freezes_policy_visible_on_the_card_and_old_rows_load(tmp_path: Path) -> None:
