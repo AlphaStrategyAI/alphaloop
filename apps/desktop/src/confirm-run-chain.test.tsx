@@ -357,6 +357,49 @@ describe("confirm run call chain", () => {
     expect(userText).toContain("美股动量策略");
     expect(chromeText(momentum)).not.toMatch(/[\u3400-\u9fff]/);
   });
+
+  it("shows product labels in Chinese and no CJK in the English confirm-run policy", () => {
+    const summary =
+      "实现层只调整回看天数（10、15、20）和入场 Z 值（1、1.5、2），从 15 日、z=1 起步，最多 5 轮。去重按参数、实现修订、交易成本、方法和输入哈希，不含尝试编号和解释。停止条件：候选耗尽、重复、全绿通过、时间预算、轮次上限。";
+    const policy = {
+      policyVersion: "candidate-policy-v1",
+      lookbackDays: [10, 15, 20],
+      entryZ: [1, 1.5, 2],
+      maxRounds: 5,
+      startLookbackDays: 15,
+      startEntryZ: 1,
+      dedupRule: "params+implementation+costs+methods+input_hash",
+      stopConditions: ["exhausted", "repeat", "all_pass", "time_budget", "round_cap"],
+      rule: "discrete" as const,
+      summary,
+    };
+    const {unmount} = render(
+      <I18nProvider initial={EN}>
+        <ConfirmRunCard api={shell(vi.fn())} view={{...view, candidatePolicy: policy}} />
+      </I18nProvider>,
+    );
+    const english = screen.getByTestId("candidate-policy");
+    expect(english).toHaveTextContent("lookback days (10, 15, 20)");
+    expect(english).toHaveTextContent("entry Z (1, 1.5, 2)");
+    expect(english).toHaveTextContent("Stop conditions: candidates exhausted, duplicate, all checks passed, time budget, round cap.");
+    expect(english.textContent).not.toMatch(/[\u3400-\u9fff]/);
+    expect(english.textContent).not.toMatch(/lookback_days|entry_z|time_budget|round_cap/);
+    expect(chromeText(screen.getByTestId("confirm-run-card"))).not.toMatch(/[\u3400-\u9fff]/);
+    unmount();
+
+    render(
+      <I18nProvider initial={ZH}>
+        <ConfirmRunCard api={shell(vi.fn())} view={{...view, candidatePolicy: policy}} />
+      </I18nProvider>,
+    );
+    const chinese = screen.getByTestId("candidate-policy");
+    expect(chinese).toHaveTextContent(summary);
+    expect(chinese.textContent).toContain("回看天数");
+    expect(chinese.textContent).toContain("入场 Z 值");
+    expect(chinese.textContent).toContain("时间预算");
+    expect(chinese.textContent).toContain("轮次上限");
+    expect(chinese.textContent).not.toMatch(/lookback_days|entry_z|time_budget|round_cap/);
+  });
 });
 
 function chromeText(root: HTMLElement): string {

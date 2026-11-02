@@ -614,6 +614,9 @@ class SQLiteStore(RoundRecoveryMixin):
             data.setdefault("market_switch_market", "")
             data.setdefault("market_switch_benchmark", "")
             data.setdefault("evidence_policy", None)
+            data.setdefault("candidate_policy", None)
+            data.setdefault("candidate_stop_reason", "")
+            data.setdefault("candidate_stop_explanation", "")
             for version in data.get("versions") or []:
                 if isinstance(version, dict):
                     version.setdefault("effective_spec_snapshot", None)

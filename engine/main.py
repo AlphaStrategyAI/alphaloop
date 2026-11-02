@@ -312,6 +312,10 @@ def build_loop(
         end=None,
         snapshot_root=paths.data.snapshots_dir,
     )
+    from engine.research.candidates import SettingsCandidateSuggester, SettingsReviewOpinion
+
+    builder.suggester = SettingsCandidateSuggester(paths.data.settings_file)
+    builder.review_opinion = SettingsReviewOpinion(paths.data.settings_file)
     clock = budget or TimeBudget(time.monotonic)
     return ResearchLoop(
         store,
@@ -828,6 +832,9 @@ class ResearchCommandService:
 
                 body["proposal"] = proposal_view(research, research.data_source_id)
             if view_kind == "confirm_run":
+                from engine.research.candidates import policy_view, preview_candidate_policy
+
+                body["candidatePolicy"] = policy_view(preview_candidate_policy(research))
                 body["symbolSelection"] = symbol_selection_payload(research)
                 resolution = symbol_resolution_payload(research)
                 if resolution is not None:
@@ -996,6 +1003,8 @@ class ResearchCommandService:
                 "version": version_number,
                 **self._time_fields(research),
                 "stopReason": run_stop_reason(research),
+                "candidateStopReason": research.candidate_stop_reason or None,
+                "candidateStopExplanation": research.candidate_stop_explanation or None,
                 "sources": self._sources(research),
                 "status": research.status.value,
                 "title": str(research.brief.thesis.value or "研究结果"),

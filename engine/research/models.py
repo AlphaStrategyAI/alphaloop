@@ -310,6 +310,30 @@ class EvidencePolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class CandidatePolicy:
+    """Approved implementation-layer search. Later software defaults do not rewrite it."""
+
+    policy_version: str
+    lookback_days: tuple[int, ...]
+    entry_z: tuple[float, ...]
+    max_rounds: int
+    start_lookback_days: int
+    start_entry_z: float
+    dedup_rule: str
+    stop_conditions: tuple[str, ...]
+    rule: str = "discrete"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "lookback_days", tuple(int(item) for item in self.lookback_days))
+        object.__setattr__(self, "entry_z", tuple(float(item) for item in self.entry_z))
+        object.__setattr__(
+            self,
+            "stop_conditions",
+            tuple(str(item) for item in self.stop_conditions),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class EvidenceRef:
     """Reference to pre-confirm persisted evidence (B4 iron rule)."""
     record_id: str
@@ -543,6 +567,9 @@ class Research:
     market_switch_benchmark: str = ""
     evidence_policy: EvidencePolicy | None = None
     active_proposal: Proposal | None = None
+    candidate_policy: CandidatePolicy | None = None
+    candidate_stop_reason: str = ""
+    candidate_stop_explanation: str = ""
 
 
 def new_research(research_id: str, now: datetime) -> Research:

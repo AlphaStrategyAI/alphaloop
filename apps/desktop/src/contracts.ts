@@ -218,6 +218,19 @@ type ViewBody =
       marketChoice?: {pending: boolean; cnCount: number; usCount: number} | null;
       benchmarkName?: string | null;
       proposal?: ResearchProposal | null;
+      /** Frozen implementation-layer search shown before confirm. */
+      candidatePolicy?: {
+        policyVersion: string;
+        lookbackDays: readonly number[];
+        entryZ: readonly number[];
+        maxRounds: number;
+        startLookbackDays: number;
+        startEntryZ: number;
+        dedupRule: string;
+        stopConditions: readonly string[];
+        rule?: string;
+        summary: string;
+      };
     }
   | {
       kind: "running";
@@ -278,6 +291,8 @@ type ViewBody =
       remaining?: string;
       remainingSeconds?: number;
       stopReason?: "round_cap" | "time_budget" | "early_stop" | null;
+      candidateStopReason?: string | null;
+      candidateStopExplanation?: string | null;
       sources?: string;
       status: "completed" | "ended";
       title: string;
