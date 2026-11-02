@@ -10,6 +10,7 @@ use crate::secrets::SecretVault;
 use crate::sidecar::EngineSupervisor;
 use crate::sidecar_runtime::SidecarRuntime;
 use crate::start_desktop_sidecar;
+use crate::dialogue_settings::{self, DialogueRolloutSnapshot};
 use crate::llm_settings::{self, LlmSettingsSnapshot};
 use crate::ui_language::{self, UiLanguageSnapshot};
 use tauri_plugin_notification::NotificationExt;
@@ -843,6 +844,16 @@ pub fn set_ui_language(
     let snapshot = ui_language::current_snapshot();
     connection.set_locale(&snapshot.resolved)?;
     Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn get_dialogue_rollout() -> DialogueRolloutSnapshot {
+    dialogue_settings::current_snapshot()
+}
+
+#[tauri::command]
+pub fn set_dialogue_rollout(enabled: bool) -> Result<DialogueRolloutSnapshot, String> {
+    dialogue_settings::write_dialogue_enabled(&ui_language::settings_file(), enabled)
 }
 
 #[tauri::command]

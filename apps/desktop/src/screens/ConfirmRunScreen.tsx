@@ -16,6 +16,7 @@ import {listRowStatusKey} from "../listStatusDisplay";
 import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
+import {EvidenceGradeNote} from "./EvidenceGradeNote";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 import {deriveRunGate, runBlockedToken} from "../runGate";
 import {
@@ -800,6 +801,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
     <article className="confirm-card tech-pulse-card confirm-card-layout" data-testid="confirm-run-card">
       <div className="confirm-card-body" data-testid="confirm-card-body">
       <p className="tech-pulse-eyebrow">{t("ui.confirm.eyebrow")}</p>
+      <EvidenceGradeNote grade={view.evidenceGrade} />
       <h1>{t("ui.status.confirmRun")}</h1>
       <p className="confirm-lead">
         {t("ui.confirm.lead")}

@@ -6,7 +6,9 @@ import {languageFromSystemLocale, languageName} from "../i18n/locale";
 import {useI18n} from "../i18n/I18nProvider";
 import type {UiLanguagePreference} from "../i18n/types";
 import {DataSourcesCard} from "./DataSourcesCard";
+import {DialogueRolloutCard} from "./DialogueRolloutCard";
 import {LlmSettingsCard} from "./LlmSettingsCard";
+import type {DialogueRolloutPort} from "./dialogueRolloutPort";
 import type {LlmSettingsPort} from "./llmSettingsPort";
 import "./settings.css";
 
@@ -16,7 +18,15 @@ export function settingsTab(route: string): "data" | "llm" | "general" {
   return "general";
 }
 
-export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSettingsPort}) {
+export function SettingsPage({
+  route,
+  llmPort,
+  dialoguePort,
+}: {
+  route: string;
+  llmPort?: LlmSettingsPort;
+  dialoguePort?: DialogueRolloutPort;
+}) {
   const {t, preference, setPreference, systemLocale} = useI18n();
   const tab = settingsTab(route);
   const followName = languageName(languageFromSystemLocale(systemLocale));
@@ -88,6 +98,7 @@ export function SettingsPage({route, llmPort}: {route: string; llmPort?: LlmSett
               <p><I18nText k="settings.general.ruleManual" /></p>
               <p><I18nText k="settings.general.stored" /></p>
             </section>
+            <DialogueRolloutCard port={dialoguePort} />
             <section className="settings-card" aria-labelledby="about-title" data-testid="about-card">
               <h2 id="about-title"><I18nText k="settings.about.title" /></h2>
               <p data-testid="about-version">{t("settings.about.version", {version: appVersion})}</p>

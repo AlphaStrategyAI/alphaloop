@@ -323,21 +323,31 @@ def process_send_dialogue(
     base_revision: int = 0,
     store: object | None = None,
     perform: object | None = None,
+    dialogue_v2: bool | None = None,
+    settings_path: object | None = None,
 ) -> Research:
     text = message.strip()
     if not text:
         raise ValueError("message must not be empty")
+    if dialogue_v2 is None:
+        from pathlib import Path
+
+        from engine.research.dialogue_rollout import new_dialogue_writes_open
+
+        path = settings_path if isinstance(settings_path, Path) else None
+        dialogue_v2 = new_dialogue_writes_open(store if hasattr(store, "path") else None, path)  # type: ignore[arg-type]
     from engine.dialogue.actions import apply_runtime_dialogue
 
-    routed = apply_runtime_dialogue(
-        research,
-        text,
-        now,
-        store=store,
-        perform=perform,  # type: ignore[arg-type]
-    )
-    if routed is not None:
-        return routed
+    if dialogue_v2:
+        routed = apply_runtime_dialogue(
+            research,
+            text,
+            now,
+            store=store,
+            perform=perform,  # type: ignore[arg-type]
+        )
+        if routed is not None:
+            return routed
     if research.status is not ResearchStatus.DRAFT:
         from engine.dialogue.modification import process_modification_dialogue
 
@@ -347,6 +357,8 @@ def process_send_dialogue(
         updated = append_dialogue(with_user, DialogueRole.ASSISTANT, RUN_NOW_NOTE, now)
     else:
         updated = _draft_send_dialogue(research, text, now)
+    if not dialogue_v2:
+        return updated
     return _attach_proposal(updated, text, research, now, base_revision, proposer)
 
 

@@ -79,6 +79,29 @@ function messages(lang: "zh" | "en") {
           "Stored in local preferences · not written into the research record · does not change decisions, gates, or versions",
         ),
       },
+      dialogue: {
+        title: copy("对话驱动研究", "Dialogue-driven research"),
+        off: copy("关", "Off"),
+        on: copy("开", "On"),
+        lead: copy(
+          "默认关闭。打开后，草稿解释、运行问答和对话里的动作才会启用。",
+          "Off by default. Turn it on to enable draft interpretation, runtime questions, and dialogue actions.",
+        ),
+        whenOff: copy(
+          "关闭时仍走原来的分项规则，确认、暂停、重验和导出按钮保持可用。",
+          "When this is off, the original slot rules stay in use. Confirm, pause, reverify, and export buttons keep working.",
+        ),
+        rollback: copy(
+          "写入口一旦关闭，新的对话写入停止，命令 journal 仍保留。关掉这个开关不能把已关闭的写入口重新打开。",
+          "After a write-gate trip, new dialogue writes stop and the command journal stays. Turning this switch off does not reopen a closed gate.",
+        ),
+        packaging: copy(
+          "安装包默认关闭。内部安装包跑完矩阵后，才给自愿启用的用户打开。",
+          "Packages ship this off. Enable it for a voluntary install only after the internal package matrix passes.",
+        ),
+        gateOpen: copy("写入口开着", "Write gate open"),
+        gateClosed: copy("写入口已关闭：{{reason}}", "Write gate closed: {{reason}}"),
+      },
       data: {
         builtin: copy("内置源", "Built-in sources"),
         mine: copy("我的源", "My sources"),
@@ -440,6 +463,10 @@ function messages(lang: "zh" | "en") {
           "“便宜”还没说清是价格偏离还是估值。说清之前不能开跑。",
           "“Cheap” is not yet price deviation or valuation. The run cannot start until that is clear.",
         ),
+        DIALOGUE_WRITES_CLOSED: copy(
+          "写入口已关闭（{{reason}}）。新的对话不会写入。已有记录仍可查看。",
+          "New dialogue writes are closed ({{reason}}). Existing records stay readable.",
+        ),
       },
     },
     glossary: glossaryMessages(lang),
@@ -532,6 +559,7 @@ export const FINAL_MESSAGE_KEYS = [
   "errors.codes.QUOTES_UNAVAILABLE",
   "errors.codes.CAPABILITY_UNRESOLVED",
   "errors.codes.MEANING_UNRESOLVED",
+  "errors.codes.DIALOGUE_WRITES_CLOSED",
   "settings.llm.purposeVersion",
   "settings.llm.purposeDraft",
   "settings.llm.purposeCandidate",
@@ -731,6 +759,18 @@ export const FINAL_MESSAGE_KEYS = [
   "settings.data.noKeyNoTest",
   "settings.data.vendorNoTest",
   "settings.data.consentHint",
+  "settings.dialogue.title",
+  "settings.dialogue.off",
+  "settings.dialogue.on",
+  "settings.dialogue.lead",
+  "settings.dialogue.whenOff",
+  "settings.dialogue.rollback",
+  "settings.dialogue.packaging",
+  "settings.dialogue.gateOpen",
+  "settings.dialogue.gateClosed",
+  "ui.evidence.legacy",
+  "ui.evidence.exploratory",
+  "ui.evidence.final",
 ] as const;
 
 export function isFinalMessageKey(key: string): boolean {

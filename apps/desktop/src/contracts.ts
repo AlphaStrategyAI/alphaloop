@@ -168,6 +168,14 @@ export type ResearchProposal = {
   llmCalls?: number;
 };
 
+export type EvidenceGradeView = {
+  grade: string;
+  reason: string;
+  sealed?: string;
+  exploreEnd?: string;
+  holdoutEnd?: string;
+};
+
 export type DialogueTurnView = {
   role: "user" | "assistant";
   text: string;
@@ -187,6 +195,7 @@ type ViewBody =
       meanReversionChoice?: boolean;
       familyChipIds?: readonly string[];
       proposal?: ResearchProposal | null;
+      evidenceGrade?: EvidenceGradeView;
     }
   | {
       kind: "confirm_run";
@@ -206,6 +215,7 @@ type ViewBody =
       meanReversionOnlyNotice?: string | null;
       /** Family id the user named after an unsupported thesis. The card fills {{family}}. */
       repickedFamily?: string | null;
+      evidenceGrade?: EvidenceGradeView;
       constructionNotice?: string | null;
       /** Engine gate. Run stays disabled when this code is not a source choice. */
       runGate?: {
@@ -281,6 +291,7 @@ type ViewBody =
       whoPaysOptional?: string | null;
       createdAt?: string;
       requestId?: string;
+      evidenceGrade?: EvidenceGradeView;
     }
   | {
       kind: "completed";
@@ -315,6 +326,7 @@ type ViewBody =
       windowCumulativeLabel?: string;
       workbenchHeaderSummary?: string;
       highSuspicionRoundThreshold?: number;
+      evidenceGrade?: EvidenceGradeView;
       symbolSelection?: SymbolSelectionSummary;
       confirmDataNotice?: string | null;
       exportBlockerMessages?: readonly string[];

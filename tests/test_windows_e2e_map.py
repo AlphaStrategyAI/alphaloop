@@ -23,7 +23,13 @@ SPEC.loader.exec_module(e2e)
 
 def test_new_steps_are_registered_for_ci() -> None:
     text = E2E_PATH.read_text(encoding="utf-8")
-    for slug in ("en-time-examples", "en-methods-coverage", "no-source-n3", "llm-settings"):
+    for slug in (
+        "en-time-examples",
+        "en-methods-coverage",
+        "no-source-n3",
+        "llm-settings",
+        "dialogue-rollout",
+    ):
         assert f'"{slug}"' in text
         assert f"step_{slug.replace('-', '_')}" in text
 

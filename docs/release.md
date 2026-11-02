@@ -103,6 +103,14 @@ The short “Manual checklist (Linux and macOS)” below remains a quick smoke a
 
 `ALPHALOOP_OFFLINE_MARKET_DATA=1` shows a Test data badge and keeps the run off Yahoo and Sina. Leave it unset for a real data check.
 
+## Dialogue-driven research
+
+Packages ship the dialogue-driven research switch **off**. The control is Settings → General → Dialogue-driven research (`dialogueDrivenResearchEnabled` in `settings.json`). While it is off, the original slot rules and the existing confirm, pause, reverify, and export buttons stay in use.
+
+`ALPHALOOP_DIALOGUE_V2=1` enables the new dialogue path only when that settings key is absent. An explicit `false` in `settings.json` wins. A closed write gate (`dialogue-write-gate.json` next to `research.db`) stops new dialogue writes and keeps the command journal. Do not default the switch on until an internal package has passed the product matrix and a voluntary cohort has used it.
+
+Before an upgrade, take the SQLite consistency backup and its linked snapshots (`create_upgrade_backup` in `engine/research/dialogue_rollout.py`) and restore them into a temporary data directory before trusting the copy. The holdout harness and its seal live in `docs/requirements/dialogue-holdout-v1.md`. That harness is not a scored 114/120 model result.
+
 ## Known limitations
 
 - Windows and macOS GUI entry checks run in GitHub Actions (`windows-e2e`, `macos-e2e`). They use synthetic market data.

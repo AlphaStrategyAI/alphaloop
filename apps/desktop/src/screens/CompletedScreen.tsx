@@ -21,6 +21,7 @@ import {DetailFrame} from "./DetailFrame";
 import {sendHeldDialogue, type HeldCommand} from "../commandGesture";
 import {commandForUtterance, dispatchRuntimeCommand} from "../dialogueCommands";
 import {RuntimeDialogueLog} from "./RuntimeDialogueLog";
+import {EvidenceGradeNote} from "./EvidenceGradeNote";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 function ExportOutcomeMessages({
@@ -319,6 +320,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
           {eligible ? t("ui.completed.readyEyebrow") : t("ui.completed.failedEyebrow")}
         </h1>
         <p className="completed-focus-headline">{headline}</p>
+        <EvidenceGradeNote grade={view.evidenceGrade} />
         <div className="eligibility eligibility-pills gate-cards" data-testid="completed-gate-pills" data-gate-stagger="90">
           {gates.map((gate) => (
             <details

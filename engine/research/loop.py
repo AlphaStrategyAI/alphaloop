@@ -900,6 +900,12 @@ class ResearchLoop:
         research = self._reconcile_time(research)
         self._backfill_receipts(research)
         if research.status is ResearchStatus.RUNNING:
+            from engine.research.dialogue_rollout import pause_if_unknown_revision
+
+            paused = pause_if_unknown_revision(self.store, research, self.now())
+            if paused is not None:
+                return paused
+        if research.status is ResearchStatus.RUNNING:
             from engine.research.e2e_hooks import hold_running_for_e2e
 
             hold_running_for_e2e()

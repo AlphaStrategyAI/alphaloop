@@ -16,6 +16,11 @@ export function buildUiMessages(copy: Copy) {
       retry: copy("重试", "Try again"),
       testData: copy("测试数据", "Test data"),
     },
+    evidence: {
+      legacy: copy("沿用原来的检验范围", "Original inspection scope"),
+      exploratory: copy("探索级，只交研究记录", "Exploratory — research record only"),
+      final: copy("一次性最终评价", "One-time final evaluation"),
+    },
     status: {
       draft: copy("草稿", "Draft"),
       running: copy("运行中", "Running"),

@@ -12,6 +12,18 @@ from tests.fixtures.pool_loader import AllSymbolsAvailableLoader
 
 
 @pytest.fixture(autouse=True)
+def _dialogue_v2_opt_in(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Packaged installs leave dialogue v2 off. The suite opts in unless marked.
+
+    A settings.json boolean still wins over this environment variable.
+    """
+    if request.node.get_closest_marker("dialogue_product_default"):
+        monkeypatch.delenv("ALPHALOOP_DIALOGUE_V2", raising=False)
+        return
+    monkeypatch.setenv("ALPHALOOP_DIALOGUE_V2", "1")
+
+
+@pytest.fixture(autouse=True)
 def _isolated_price_cache(tmp_path: Path) -> None:
     """Keep Yahoo/AkShare caches inside the test tmp dir."""
     from engine.research.market_data_progress import clear_market_data_progress
