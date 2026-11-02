@@ -472,6 +472,7 @@ export function buildUiMessages(copy: Copy) {
       recentRevision: copy("验证方法近期有修订", "A verification method was revised recently"),
     },
     awaiting: {
+      settingsTitle: copy("确认这项修改", "Confirm this change"),
       eyebrow: copy("等待确认", "Awaiting confirmation"),
       version: copy("第 {{version}} 版 · 这段时间不计入额度", "Version {{version}} · this time does not count toward the quota"),
       coverageTitle: copy("数据覆盖要跌破底线", "Data coverage is about to fall through the floor"),

@@ -35,8 +35,25 @@ def test_modification_dialogue_updates_hours_on_paused_research(tmp_path: Path) 
         }
     )
     loaded = store.load("r-mod")
-    assert loaded.brief.max_effective_hours.value == 6.0
-    assert loaded.dialogue[-1].role.value == "assistant"
+    assert loaded.status is ResearchStatus.AWAITING_CONFIRM
+    assert loaded.brief.max_effective_hours.value == 12.0
+    assert loaded.brief.max_effective_hours.locked is True
+    card = loaded.pending_confirm
+    assert card is not None
+    assert card.request_id
+    assert "改前" in card.proposed_change and "改后" in card.proposed_change
+    service.handle(
+        {
+            "type": "resolve_confirm",
+            "research_id": "r-mod",
+            "decision": "reject_keep_logic",
+            "request_id": card.request_id,
+        }
+    )
+    rejected = store.load("r-mod")
+    assert rejected.status is ResearchStatus.PAUSED
+    assert rejected.brief.max_effective_hours.value == 12.0
+    assert rejected.pending_confirm is None
 
 
 def test_confirm_modification_rejects_unchanged_brief(tmp_path: Path) -> None:

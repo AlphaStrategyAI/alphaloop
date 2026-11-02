@@ -21,6 +21,7 @@ import {DetailFrame} from "./DetailFrame";
 import {StatusPill} from "./ResearchListScreen";
 import {sendHeldDialogue, type HeldCommand} from "../commandGesture";
 import {commandForUtterance, dispatchRuntimeCommand} from "../dialogueCommands";
+import {RuntimeDialogueLog} from "./RuntimeDialogueLog";
 
 export function RunningScreen({
   api,
@@ -212,6 +213,7 @@ export function RunningScreen({
           <span />
         )}
       </div>
+      <RuntimeDialogueLog turns={view.recentDialogue} />
       <form
         className="runtime-dialogue"
         data-testid="runtime-dialogue-form"

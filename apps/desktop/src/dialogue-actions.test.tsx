@@ -9,6 +9,7 @@ import {I18nProvider} from "./i18n/I18nProvider";
 import {runtimeUtteranceExamples} from "./i18n/runtimeCommandUtterances";
 import {CompletedScreen} from "./screens/CompletedScreen";
 import {RunningScreen} from "./screens/RunningScreen";
+import {AwaitingConfirmCard} from "./screens/AwaitingConfirmScreen";
 import {minimalDesktopApi} from "./test-fixtures";
 
 afterEach(() => cleanup());
@@ -57,6 +58,55 @@ describe("dialogue and buttons share commands", () => {
     expect(dialogueCommandSource).not.toMatch(/[\u4e00-\u9fff]/);
     expect(commandForUtterance("现在在做什么")).toEqual({type: "send_dialogue", message: "现在在做什么"});
     expect(commandForUtterance("what are we doing")).toEqual({type: "send_dialogue", message: "what are we doing"});
+  });
+
+  it("paints the assistant reply on the completed screen", () => {
+    render(
+      <I18nProvider initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
+        <CompletedScreen
+          api={minimalDesktopApi()}
+          view={{
+            ...completed,
+            recentDialogue: [
+              {role: "user", text: "已经试过多少个"},
+              {role: "assistant", text: "已提交 5 轮。"},
+            ],
+          }}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("runtime-dialogue-log")).toHaveTextContent("已提交 5 轮");
+  });
+
+  it("opens a settings confirm card with reject and does not use the economic title", () => {
+    const resolveConfirm = vi.fn(async () => undefined);
+    render(
+      <I18nProvider initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
+        <AwaitingConfirmCard
+          api={minimalDesktopApi({resolveConfirm})}
+          view={{
+            kind: "awaiting_confirm",
+            researchId: "r-hours",
+            version: 1,
+            confirmKind: "settings",
+            proposed: "改前：max_effective_hours=0.5 改后：max_effective_hours=6",
+            reason: "这项修改要确认后才会写入。",
+            effect: "可拒绝并保持原设定。",
+            whyChange: [],
+            requestId: "settings-r-hours-v1",
+          }}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByRole("heading", {level: 1})).toHaveTextContent("确认这项修改");
+    expect(screen.getByText(/改前：/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "不同意，维持原逻辑继续"}));
+    expect(resolveConfirm).toHaveBeenCalledWith(
+      "r-hours",
+      "reject_keep_logic",
+      undefined,
+      "settings-r-hours-v1",
+    );
   });
 
   it("runs pause from the button and from both languages", () => {

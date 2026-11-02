@@ -631,6 +631,10 @@ class SQLiteStore(RoundRecoveryMixin):
             data.setdefault("candidate_stop_explanation", "")
             data.setdefault("reverification_audit", [])
             data.setdefault("logic_proposal", None)
+            for key in ("pending_confirm", "logic_proposal"):
+                pending = data.get(key)
+                if isinstance(pending, dict):
+                    pending.setdefault("return_status", None)
             for bucket in (data.get("reverifications"), data.get("reverification_audit")):
                 for item in bucket or []:
                     if isinstance(item, dict):

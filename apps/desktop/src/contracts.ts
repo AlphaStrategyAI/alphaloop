@@ -273,7 +273,7 @@ type ViewBody =
       kind: "awaiting_confirm";
       researchId: string;
       version: number;
-      confirmKind?: "economic" | "coverage" | "data_lineage";
+      confirmKind?: "economic" | "coverage" | "data_lineage" | "settings";
       proposed: string;
       reason: string;
       effect: string;

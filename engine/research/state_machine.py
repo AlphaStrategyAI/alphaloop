@@ -131,7 +131,16 @@ def transition(
         return _open_version(research, now, "confirm_run")
     if status is ResearchStatus.RUNNING and event is ResearchEvent.AUTO_CONTINUE:
         return replace(research, updated_at=now)
-    if status is ResearchStatus.RUNNING and event is ResearchEvent.REQUEST_CONFIRM:
+    if (
+        status
+        in {
+            ResearchStatus.RUNNING,
+            ResearchStatus.PAUSED,
+            ResearchStatus.COMPLETED,
+            ResearchStatus.ENDED,
+        }
+        and event is ResearchEvent.REQUEST_CONFIRM
+    ):
         if request is None:
             raise InvalidTransition("request_confirm requires ConfirmRequest")
         return replace(
@@ -173,9 +182,13 @@ def transition(
         )
         return _open_version(research, now, opened_by)
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_REJECT:
+        restore = ResearchStatus.RUNNING
+        pending = research.pending_confirm
+        if pending is not None and pending.return_status is not None:
+            restore = pending.return_status
         return replace(
             research,
-            status=ResearchStatus.RUNNING,
+            status=restore,
             pending_confirm=None,
             consecutive_review_failures=0,
             updated_at=now,

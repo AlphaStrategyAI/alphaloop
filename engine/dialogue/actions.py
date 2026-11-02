@@ -92,15 +92,19 @@ def _answer_gate(research: Research) -> str:
     return f"未过：{'、'.join(failed)}。{_cite_round(research)}{_commands(research)}"
 
 
+def _committed_rounds(research: Research) -> list:
+    return [round_ for version in research.versions for round_ in version.rounds]
+
+
 def _answer_tried(research: Research) -> str:
-    _version, round_ = _latest_round(research)
-    if round_ is None:
+    rounds = _committed_rounds(research)
+    if not rounds:
         return f"{MISSING} {_commands(research)}"
-    counters = round_.trial_counters
+    cited = "、".join(round_.round_id for round_ in rounds)
     return (
-        f"已试 {counters.candidates_evaluated} 个候选，"
-        f"通过 {counters.candidates_passed} 个。"
-        f"{_cite_round(research)}{_commands(research)}"
+        f"已提交 {len(rounds)} 轮。"
+        f"轮次 {cited}。"
+        f"{_commands(research)}"
     )
 
 
@@ -208,6 +212,81 @@ def _logic_request(research: Research, after: str, now: datetime) -> ConfirmRequ
     )
 
 
+def _is_status_question(normalized: str) -> bool:
+    if normalized in {"现在在做什么", "我们在做什么", "what are we doing", "what's going on", "what is going on"}:
+        return True
+    return "在做什么" in normalized or "what are we doing" in normalized or "what we are doing" in normalized
+
+
+def _is_gate_question(normalized: str) -> bool:
+    if normalized in {"哪一关没过", "哪一关没有过", "which gate failed", "which check failed", "what gate failed"}:
+        return True
+    return "哪一关" in normalized or "哪关" in normalized or "gate failed" in normalized or "check failed" in normalized
+
+
+def _is_tried_question(normalized: str) -> bool:
+    if normalized in {"已经试过多少", "已经试过多少个", "how many tried", "how many have we tried", "试过哪些候选"}:
+        return True
+    if "试过" in normalized or "哪些候选" in normalized:
+        return True
+    return "how many" in normalized and any(word in normalized for word in ("tried", "round", "candidate"))
+
+
+def _is_previous_question(normalized: str) -> bool:
+    if normalized in {
+        "和上一版有何差别",
+        "和上一版有什么差别",
+        "和上一版",
+        "和上一版差在哪",
+        "vs previous",
+        "compared with the previous version",
+        "difference from the previous version",
+    }:
+        return True
+    return "上一版" in normalized or "previous version" in normalized or "vs previous" in normalized
+
+
+def _shown(value: object) -> str:
+    if isinstance(value, float):
+        return f"{value:g}"
+    return str(value)
+
+
+def _settings_confirm(research: Research, text: str, updates: tuple, now: datetime) -> Research:
+    if research.pending_confirm is not None:
+        return _reply(
+            research,
+            text,
+            f"已有待确认卡 {research.pending_confirm.request_id}。活动 brief 未修改。",
+            now,
+        )
+    before_bits: list[str] = []
+    after_bits: list[str] = []
+    for name, value in updates:
+        current = getattr(research.brief, name).value if hasattr(research.brief, name) else None
+        before_bits.append(f"{name}={_shown(current)}")
+        after_bits.append(f"{name}={_shown(value)}")
+    version_number = research.current_version_number or 0
+    request = ConfirmRequest(
+        request_id=f"settings-{research.research_id}-v{version_number}",
+        kind=ConfirmKind.SETTINGS,
+        proposed_change=f"改前：{'；'.join(before_bits)} 改后：{'；'.join(after_bits)}",
+        reason="这项修改要确认后才会写入。活动 brief 在确认前保持不变。",
+        effect="同意后开新版。可拒绝并保持原设定。",
+        change_class=ChangeClass.PARAM,
+        patch=tuple(updates),
+        created_at=now,
+        return_status=research.status,
+    )
+    opened = transition(research, ResearchEvent.REQUEST_CONFIRM, now, request)
+    return _reply(
+        opened,
+        text,
+        f"待确认 {request.request_id}。{request.proposed_change} {request.effect}",
+        now,
+    )
+
+
 def _reply(research: Research, user: str, answer: str, now: datetime) -> Research:
     with_user = append_dialogue(research, DialogueRole.USER, user, now)
     return append_dialogue(with_user, DialogueRole.ASSISTANT, answer, now)
@@ -252,31 +331,16 @@ def apply_runtime_dialogue(
     normalized = _norm(text)
     allowed = set(executable_commands(research.status))
 
-    if normalized in {"先看看", "just look", "just looking"}:
+    if normalized in {"先看看", "just look", "just looking"} or _is_status_question(normalized):
         return _reply(research, text, _answer_status(research), now)
 
-    if normalized in {"现在在做什么", "what are we doing", "what's going on", "what is going on"}:
-        return _reply(research, text, _answer_status(research), now)
-
-    if normalized in {"哪一关没过", "哪一关没有过", "which gate failed", "which check failed"}:
+    if _is_gate_question(normalized):
         return _reply(research, text, _answer_gate(research), now)
 
-    if normalized in {
-        "已经试过多少",
-        "已经试过多少个",
-        "how many tried",
-        "how many have we tried",
-    }:
+    if _is_tried_question(normalized):
         return _reply(research, text, _answer_tried(research), now)
 
-    if normalized in {
-        "和上一版有何差别",
-        "和上一版有什么差别",
-        "和上一版",
-        "vs previous",
-        "compared with the previous version",
-        "difference from the previous version",
-    }:
+    if _is_previous_question(normalized):
         return _reply(research, text, _answer_previous(research), now)
 
     change = _CHANGE.match(normalized)
@@ -290,17 +354,9 @@ def apply_runtime_dialogue(
                 f"已有待确认卡 {pending_id}。活动 brief 未修改。{_commands(research)}",
                 now,
             )
-        request = _logic_request(research, after, now)
-        if research.status is ResearchStatus.RUNNING:
-            opened = transition(research, ResearchEvent.REQUEST_CONFIRM, now, request)
-            return _reply(opened, text, f"待确认 {request.request_id}。{request.proposed_change} {request.effect}", now)
-        held = replace(research, logic_proposal=request, updated_at=now)
-        return _reply(
-            held,
-            text,
-            f"待确认 {request.request_id}。{request.proposed_change} {request.effect} 确认后才会开新版。",
-            now,
-        )
+        request = replace(_logic_request(research, after, now), return_status=research.status)
+        opened = transition(research, ResearchEvent.REQUEST_CONFIRM, now, request)
+        return _reply(opened, text, f"待确认 {request.request_id}。{request.proposed_change} {request.effect}", now)
 
     if normalized in {"重验上一轮的稳定性", "reverify last round", "reverify the last round"}:
         choices = _reverify_choices(research)
@@ -362,6 +418,14 @@ def apply_runtime_dialogue(
             "已提交与按钮相同的命令：continue_iterate",
             perform,
         )
+
+    if research.status is not ResearchStatus.DRAFT:
+        from engine.dialogue.intent import IntentKind
+        from engine.dialogue.modification import interpret_modification
+
+        intent = interpret_modification(text, research)
+        if intent.kind is IntentKind.PROVIDE and intent.updates:
+            return _settings_confirm(research, text, intent.updates, now)
 
     if normalized in {
         "建议方法",

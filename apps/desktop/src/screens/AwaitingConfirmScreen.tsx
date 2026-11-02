@@ -18,8 +18,9 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
   const {t} = useI18n();
   const [whoPays, setWhoPays] = useState("");
   const isCoverage = view.confirmKind === "coverage";
+  const isSettings = view.confirmKind === "settings";
   const hasEvidence = view.whyChange && view.whyChange.length > 0;
-  const canApproveEconomic = isCoverage || hasEvidence;
+  const canApproveEconomic = isCoverage || isSettings || hasEvidence;
   const resolve = (decision: Parameters<DesktopApi["resolveConfirm"]>[1], answer?: string) => {
     if (view.requestId) {
       void api.resolveConfirm(view.researchId, decision, answer, view.requestId);
@@ -38,7 +39,13 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
     <article className="awaiting-card tech-pulse-card" data-testid="awaiting-confirm-card">
       <p className="tech-pulse-eyebrow">{t("ui.awaiting.eyebrow")}</p>
       <p className="eyebrow">{t("ui.awaiting.version", {version: view.version})}</p>
-      <h1>{isCoverage ? t("ui.awaiting.coverageTitle") : t("ui.awaiting.economicTitle")}</h1>
+      <h1>
+        {isCoverage
+          ? t("ui.awaiting.coverageTitle")
+          : isSettings
+            ? t("ui.awaiting.settingsTitle")
+            : t("ui.awaiting.economicTitle")}
+      </h1>
       <section><small>{t("ui.awaiting.proposed")}</small><p>{view.proposed}</p></section>
       <section><small>{t("ui.awaiting.reason")}</small><p>{view.reason}</p></section>
       <section><small>{t("ui.awaiting.effect")}</small><p>{view.effect}</p></section>
@@ -57,7 +64,7 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
           </ul>
         </section>
       )}
-      {!isCoverage && (
+      {!isCoverage && !isSettings && (
         <section className="who-pays-section">
           <small>{t("ui.awaiting.whoPays")}</small>
           <textarea

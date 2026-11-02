@@ -817,6 +817,59 @@ def test_continue_iterate_same_params_consumes_this_version_quota(
     assert loaded.implementation_trial_budget == budget + trial_budget_increment()
 
 
+def test_natural_progress_questions_stay_read_only_and_count_committed_rounds() -> None:
+    research = completed_research()
+    base = research.versions[0].rounds[0]
+    rounds = tuple(replace(base, round_id=f"r-{index}", number=index) for index in range(1, 6))
+    research = replace(research, versions=(replace(research.versions[0], rounds=rounds),))
+    before = research.brief
+    for message in ("我们在做什么", "试过哪些候选", "和上一版差在哪", "what gate failed", "已经试过多少个"):
+        answered = apply_runtime_dialogue(research, message, NOW)
+        assert answered is not None
+        assert "没能识别要改哪项设定" not in answered.dialogue[-1].text
+        assert answered.brief == before
+        assert len(answered.versions[-1].rounds) == 5
+        assert answered.implementation_trial_budget == research.implementation_trial_budget
+    counted = apply_runtime_dialogue(research, "已经试过多少个", NOW)
+    assert counted is not None
+    assert "已提交 5 轮" in counted.dialogue[-1].text
+
+
+def test_duration_ask_opens_a_confirm_card_without_changing_the_brief(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    research = completed_research()
+    brief = replace(
+        research.brief,
+        max_effective_hours=Slot(0.5, True),
+    )
+    research = replace(research, research_id="r-hours", brief=brief, status=ResearchStatus.COMPLETED)
+    service.store.create(research)
+    service.handle(
+        {"type": "send_dialogue", "research_id": "r-hours", "message": "把最长时间改成 6 小时"}
+    )
+    asked = service.store.load("r-hours")
+    assert asked.brief.max_effective_hours.value == 0.5
+    assert asked.brief.max_effective_hours.locked is True
+    assert asked.status is ResearchStatus.AWAITING_CONFIRM
+    card = asked.pending_confirm
+    assert card is not None
+    assert card.request_id
+    assert "改前" in card.proposed_change and "0.5" in card.proposed_change
+    assert "改后" in card.proposed_change and "6" in card.proposed_change
+    service.handle(
+        {
+            "type": "resolve_confirm",
+            "research_id": "r-hours",
+            "decision": "reject_keep_logic",
+            "request_id": card.request_id,
+        }
+    )
+    rejected = service.store.load("r-hours")
+    assert rejected.status is ResearchStatus.COMPLETED
+    assert rejected.brief.max_effective_hours.value == 0.5
+    assert rejected.pending_confirm is None
+
+
 def test_dialogue_export_lists_checks_without_writing_a_pack(tmp_path: Path) -> None:
     service = _service(tmp_path)
     research = replace(completed_research(), research_id="r-ask-export")

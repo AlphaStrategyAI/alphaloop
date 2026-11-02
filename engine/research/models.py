@@ -77,6 +77,7 @@ class ConfirmKind(StrEnum):
     ECONOMIC = "economic"
     COVERAGE = "coverage"
     DATA_LINEAGE = "data_lineage"
+    SETTINGS = "settings"
 
 
 class EvidenceKind(StrEnum):
@@ -358,6 +359,7 @@ class ConfirmRequest:
     patch: tuple[tuple[str, object], ...] = ()
     who_pays_optional: str | None = None
     created_at: datetime | None = None
+    return_status: ResearchStatus | None = None
 
 
 def assert_preconfirm_evidence(

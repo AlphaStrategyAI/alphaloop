@@ -949,6 +949,9 @@ class ResearchCommandService:
                     )
             running_payload.update(trial_tracking_for_view(research, self.store))
             running_payload["highSuspicionRoundThreshold"] = high_suspicion_round_threshold()
+            running_payload["recentDialogue"] = [
+                dialogue_turn_view(turn) for turn in research.dialogue[-8:]
+            ]
             late = late_pass_presentation(research)
             if late is not None:
                 running_payload["latePassPresentation"] = late

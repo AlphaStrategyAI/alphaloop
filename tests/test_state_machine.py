@@ -105,6 +105,7 @@ def test_confirm_kind_has_economic_coverage_and_data_lineage() -> None:
         ConfirmKind.ECONOMIC,
         ConfirmKind.COVERAGE,
         ConfirmKind.DATA_LINEAGE,
+        ConfirmKind.SETTINGS,
     }
 
 

@@ -20,6 +20,7 @@ import type {Translate} from "./shared";
 import {DetailFrame} from "./DetailFrame";
 import {sendHeldDialogue, type HeldCommand} from "../commandGesture";
 import {commandForUtterance, dispatchRuntimeCommand} from "../dialogueCommands";
+import {RuntimeDialogueLog} from "./RuntimeDialogueLog";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 function ExportOutcomeMessages({
@@ -454,6 +455,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             <h2 data-user-content="true">{view.title}</h2>
           </section>
         )}
+        <RuntimeDialogueLog turns={view.recentDialogue} />
         <form
           className="runtime-dialogue"
           data-testid="runtime-dialogue-form"
