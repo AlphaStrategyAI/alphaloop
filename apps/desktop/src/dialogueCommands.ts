@@ -1,4 +1,5 @@
 import type {DesktopApi, ExportKind} from "./contracts";
+import {matchRuntimeUtterance} from "./i18n/runtimeCommandUtterances";
 
 export type RuntimeCommand =
   | {type: "pause"}
@@ -10,20 +11,7 @@ export type RuntimeCommand =
 
 /** Free text and the original buttons name the same command. */
 export function commandForUtterance(text: string): RuntimeCommand {
-  const normalized = text.trim().toLowerCase();
-  if (normalized === "暂停" || normalized === "pause") return {type: "pause"};
-  if (normalized === "恢复" || normalized === "resume") return {type: "resume"};
-  if (normalized === "重验" || normalized === "reverify") return {type: "reverify"};
-  if (normalized === "导出策略包" || normalized === "export strategy pack") {
-    return {type: "export_artifact", kind: "strategy_pack"};
-  }
-  if (normalized === "导出研究记录" || normalized === "export research record") {
-    return {type: "export_artifact", kind: "research_record"};
-  }
-  if (normalized === "继续迭代" || normalized === "continue iterating") {
-    return {type: "continue_iterate"};
-  }
-  return {type: "send_dialogue", message: text.trim()};
+  return matchRuntimeUtterance(text) ?? {type: "send_dialogue", message: text.trim()};
 }
 
 export async function dispatchRuntimeCommand(

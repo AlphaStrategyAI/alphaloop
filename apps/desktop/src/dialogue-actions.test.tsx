@@ -2,9 +2,11 @@ import "@testing-library/jest-dom/vitest";
 import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
+import dialogueCommandSource from "./dialogueCommands.ts?raw";
 import type {DesktopView} from "./contracts";
 import {commandForUtterance} from "./dialogueCommands";
 import {I18nProvider} from "./i18n/I18nProvider";
+import {runtimeUtteranceExamples} from "./i18n/runtimeCommandUtterances";
 import {CompletedScreen} from "./screens/CompletedScreen";
 import {RunningScreen} from "./screens/RunningScreen";
 import {minimalDesktopApi} from "./test-fixtures";
@@ -46,16 +48,13 @@ const completed: DesktopView = {
 
 describe("dialogue and buttons share commands", () => {
   it("maps Chinese and English phrases onto the button commands", () => {
-    expect(commandForUtterance("暂停")).toEqual({type: "pause"});
-    expect(commandForUtterance("pause")).toEqual({type: "pause"});
-    expect(commandForUtterance("恢复")).toEqual({type: "resume"});
-    expect(commandForUtterance("resume")).toEqual({type: "resume"});
-    expect(commandForUtterance("重验")).toEqual({type: "reverify"});
-    expect(commandForUtterance("reverify")).toEqual({type: "reverify"});
-    expect(commandForUtterance("导出策略包")).toEqual({type: "export_artifact", kind: "strategy_pack"});
-    expect(commandForUtterance("export strategy pack")).toEqual({type: "export_artifact", kind: "strategy_pack"});
-    expect(commandForUtterance("导出研究记录")).toEqual({type: "export_artifact", kind: "research_record"});
-    expect(commandForUtterance("export research record")).toEqual({type: "export_artifact", kind: "research_record"});
+    const examples = runtimeUtteranceExamples();
+    expect(examples.length).toBeGreaterThan(0);
+    for (const example of examples) {
+      expect(commandForUtterance(example.text)).toEqual(example.command);
+      expect(commandForUtterance(example.text.toUpperCase())).toEqual(example.command);
+    }
+    expect(dialogueCommandSource).not.toMatch(/[\u4e00-\u9fff]/);
     expect(commandForUtterance("现在在做什么")).toEqual({type: "send_dialogue", message: "现在在做什么"});
     expect(commandForUtterance("what are we doing")).toEqual({type: "send_dialogue", message: "what are we doing"});
   });
