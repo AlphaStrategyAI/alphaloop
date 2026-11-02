@@ -182,6 +182,26 @@ CREATE TABLE IF NOT EXISTS holdout_evaluation (
 );
 CREATE INDEX IF NOT EXISTS idx_step_run_research
     ON step_run(research_id, version, round);
+CREATE TABLE IF NOT EXISTS candidate_plan (
+    research_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    round INTEGER NOT NULL,
+    fingerprint TEXT NOT NULL,
+    status TEXT NOT NULL,
+    explanation TEXT NOT NULL,
+    params_json TEXT NOT NULL,
+    evidence_ids TEXT NOT NULL,
+    stop_reason TEXT NOT NULL DEFAULT '',
+    technical_retries INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (research_id, version, fingerprint)
+);
+CREATE TABLE IF NOT EXISTS review_opinion (
+    research_id TEXT NOT NULL,
+    attempt_id TEXT NOT NULL,
+    opinion_json TEXT NOT NULL,
+    PRIMARY KEY (research_id, attempt_id)
+);
 """
 
 
@@ -732,6 +752,140 @@ class RoundRecoveryMixin:
             if str(row[0]) == candidate_fingerprint:
                 return "replay"
             return "rejected"
+
+    def record_candidate_plan(
+        self,
+        research_id: str,
+        version: int,
+        round_number: int,
+        fingerprint: str,
+        status: str,
+        explanation: str,
+        params: dict[str, Any],
+        evidence_ids: tuple[str, ...],
+        stop_reason: str = "",
+        *,
+        technical_retry: bool = False,
+    ) -> None:
+        import json
+        from datetime import UTC, datetime
+
+        with self.connection:
+            row = self.connection.execute(
+                """
+                SELECT status, technical_retries FROM candidate_plan
+                 WHERE research_id=? AND version=? AND fingerprint=?
+                """,
+                (research_id, version, fingerprint),
+            ).fetchone()
+            if row is not None and technical_retry:
+                self.connection.execute(
+                    """
+                    UPDATE candidate_plan
+                       SET technical_retries = technical_retries + 1
+                     WHERE research_id=? AND version=? AND fingerprint=?
+                    """,
+                    (research_id, version, fingerprint),
+                )
+                return
+            if row is not None and str(row[0]) == "executed" and status == "planned":
+                return
+            self.connection.execute(
+                """
+                INSERT INTO candidate_plan(
+                    research_id, version, round, fingerprint, status, explanation,
+                    params_json, evidence_ids, stop_reason, technical_retries, created_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(research_id, version, fingerprint) DO UPDATE SET
+                    status=excluded.status,
+                    explanation=excluded.explanation,
+                    round=excluded.round,
+                    stop_reason=excluded.stop_reason,
+                    params_json=excluded.params_json,
+                    evidence_ids=excluded.evidence_ids
+                """,
+                (
+                    research_id,
+                    version,
+                    round_number,
+                    fingerprint,
+                    status,
+                    explanation,
+                    json.dumps(params, sort_keys=True),
+                    json.dumps(list(evidence_ids)),
+                    stop_reason,
+                    0,
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
+
+    def candidate_plan_row(
+        self,
+        research_id: str,
+        version: int,
+        fingerprint: str,
+    ) -> dict[str, Any] | None:
+        import json
+
+        row = self.connection.execute(
+            """
+            SELECT status, explanation, params_json, evidence_ids, stop_reason,
+                   technical_retries, round
+              FROM candidate_plan
+             WHERE research_id=? AND version=? AND fingerprint=?
+            """,
+            (research_id, version, fingerprint),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "status": str(row[0]),
+            "explanation": str(row[1]),
+            "params": json.loads(row[2]),
+            "evidence_ids": tuple(json.loads(row[3])),
+            "stop_reason": str(row[4]),
+            "technical_retries": int(row[5]),
+            "round": int(row[6]),
+        }
+
+    def executed_candidate_fingerprints(self, research_id: str, version: int) -> tuple[str, ...]:
+        rows = self.connection.execute(
+            """
+            SELECT fingerprint FROM candidate_plan
+             WHERE research_id=? AND version=? AND status='executed'
+            """,
+            (research_id, version),
+        ).fetchall()
+        return tuple(str(row[0]) for row in rows)
+
+    def save_review_opinion(self, research_id: str, attempt_id: str, opinion: dict[str, Any]) -> None:
+        import json
+
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO review_opinion(research_id, attempt_id, opinion_json)
+                VALUES(?,?,?)
+                ON CONFLICT(research_id, attempt_id) DO UPDATE SET
+                    opinion_json=excluded.opinion_json
+                """,
+                (research_id, attempt_id, json.dumps(opinion, sort_keys=True, default=str)),
+            )
+
+    def review_opinion(self, research_id: str, attempt_id: str) -> dict[str, Any] | None:
+        import json
+
+        row = self.connection.execute(
+            """
+            SELECT opinion_json FROM review_opinion
+             WHERE research_id=? AND attempt_id=?
+            """,
+            (research_id, attempt_id),
+        ).fetchone()
+        if row is None:
+            return None
+        payload = json.loads(row[0])
+        return payload if isinstance(payload, dict) else None
 
     def list_heads(self) -> tuple[tuple[str, str, int, int], ...]:
         rows = self.connection.execute(

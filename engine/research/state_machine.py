@@ -45,6 +45,10 @@ def all_slots_locked(brief: ResearchBrief) -> bool:
 
 
 def _open_version(research: Research, now: datetime, opened_by: str) -> Research:
+    if not research.versions and opened_by == "confirm_run":
+        from engine.research.candidates import freeze_policy_for_confirm
+
+        research = freeze_policy_for_confirm(research)
     brief = research.brief
     research_fields: dict[str, object] = {}
     if opened_by != "modified_settings_confirm":

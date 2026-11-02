@@ -30,10 +30,26 @@ from engine.research.gather import (
     pit_evidence_annotations,
     pit_evidence_from_payloads,
 )
+from engine.research.candidates import (
+    CandidateStop,
+    ExploreDataPort,
+    discrete_policy,
+    evidence_notes_for,
+    explore_end_for,
+    failed_methods_of,
+    fingerprint_spec,
+    legacy_next_lookback,
+    plan_candidate,
+    context_from_attempt,
+    freeze_explore_winner,
+    model_deadline_seconds,
+    _remaining_seconds,
+)
 from engine.research.honest_stop import (
     can_auto_continue_impl_iteration,
     change_requires_user_confirm,
     default_implementation_next_change,
+    implementation_trials_used,
 )
 from engine.research.models import (
     Attempt,
@@ -222,6 +238,11 @@ class DefaultRoundBuilder:
     recovery_store: object | None = None
     _frozen: FrozenVersionInput | None = None
     _research_id: str = ""
+    suggester: object | None = None
+    review_opinion: object | None = None
+    pending_stop: object | None = None
+    _research: Research | None = None
+    _input_hash: str = ""
 
     def _emit(self, action: ResearchAction) -> None:
         if self.on_action is not None:
@@ -278,23 +299,10 @@ class DefaultRoundBuilder:
             )
         return tuple(paths)
 
-    def build(self, research: Research, attempt_number: int) -> RoundDraft:
-        thesis = research.brief.thesis.value
-        if thesis is None or research.current_version_number is None:
-            raise ValueError("running research requires a locked thesis and version")
-        version = research.versions[research.current_version_number - 1]
-        prior = version.rounds[-1].accepted_attempt.spec if version.rounds else None
-        lookback = prior.lookback_days + 5 if prior else 20 + 5 * (attempt_number - 1)
-        proposal = ModelProposal(
-            model_family=prior.model_family if prior else "mean_reversion",
-            lookback_days=lookback,
-            entry_z=prior.entry_z if prior else 1.0,
-            side=prior.side if prior else "long_only",
-        )
-        spec = specify(research, prior, proposal)
-        spec_patch = {
+    def _spec_patch(self, version: object, *, lock_params: bool) -> dict[str, object]:
+        patch = {
             name: value
-            for name, value in version.confirmed_changes
+            for name, value in version.confirmed_changes  # type: ignore[attr-defined]
             if name in {
                 "model_family",
                 "lookback_days",
@@ -307,31 +315,236 @@ class DefaultRoundBuilder:
                 "primary_factor",
             }
         }
-        if spec_patch:
-            spec = replace(spec, **spec_patch)  # type: ignore[arg-type]
-        spec = _execution_spec(spec, research)
-        if not is_legacy_mean_reversion(spec.strategy_family, spec.family_method):
-            raise UserFacingError("STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
-        universe = research.brief.universe.value
-        if universe is None:
-            raise ValueError("running research requires a universe")
-        self._emit(ResearchAction.GATHER)
+        if lock_params:
+            patch.pop("lookback_days", None)
+            patch.pop("entry_z", None)
+        return patch
+
+    def _materialize_spec(
+        self,
+        research: Research,
+        version: object,
+        prior: StrategySpec | None,
+        lookback: int,
+        entry_z: float,
+        *,
+        lock_params: bool,
+    ) -> StrategySpec:
+        proposal = ModelProposal(
+            model_family=prior.model_family if prior else "mean_reversion",
+            lookback_days=lookback,
+            entry_z=entry_z,
+            side=prior.side if prior else "long_only",
+        )
+        spec = specify(research, prior, proposal)
+        patch = self._spec_patch(version, lock_params=lock_params)
+        if patch:
+            spec = replace(spec, **patch)  # type: ignore[arg-type]
+        return _execution_spec(spec, research)
+
+    def _persist_plan(
+        self,
+        research: Research,
+        version: int,
+        round_number: int,
+        plan: object,
+        status: str,
+    ) -> None:
+        store = self.recovery_store
+        record = None if store is None else getattr(store, "record_candidate_plan", None)
+        if record is None:
+            return
+        fingerprint = plan.fingerprint or f"stop:{plan.stop_reason}:{round_number}"  # type: ignore[attr-defined]
+        record(
+            research.research_id,
+            version,
+            round_number,
+            fingerprint,
+            status,
+            plan.explanation,  # type: ignore[attr-defined]
+            {
+                "lookback_days": plan.lookback_days,  # type: ignore[attr-defined]
+                "entry_z": plan.entry_z,  # type: ignore[attr-defined]
+            },
+            plan.evidence_ids,  # type: ignore[attr-defined]
+            plan.stop_reason,  # type: ignore[attr-defined]
+            technical_retry=bool(plan.technical_retry),  # type: ignore[attr-defined]
+        )
+
+    def _load_frozen(self, research: Research, version: object, thesis: str, universe: object):
+        explore_end = explore_end_for(research)
         start, end = simulation_window(research, self.start, self.end)
-        frozen = ensure_frozen_version_input(
+        if explore_end is not None and end > explore_end:
+            end = explore_end
+        live = self.data_port
+        if explore_end is not None and live is not None:
+            live = ExploreDataPort(live, explore_end)
+
+        def factory():
+            inner = data_port_for_research(research)
+            if explore_end is None:
+                return inner
+            return ExploreDataPort(inner, explore_end)
+
+        return ensure_frozen_version_input(
             snapshot_root=self.snapshot_root,
             research=research,
-            version_number=version.number,
-            symbols=universe.symbols,
+            version_number=version.number,  # type: ignore[attr-defined]
+            symbols=universe.symbols,  # type: ignore[attr-defined]
             start=start,
             end=end,
             thesis=thesis,
             material_ports=self.material_ports,
-            live_port=self.data_port,
-            live_port_factory=lambda: data_port_for_research(research),
+            live_port=live,
+            live_port_factory=factory,
         )
-        self._frozen = frozen
+
+    def _plan_after_freeze(
+        self,
+        research: Research,
+        version: object,
+        prior: StrategySpec | None,
+        frozen_hash: str,
+        *,
+        required_changes: str | None,
+        evidence_attempt: object | None,
+        extra_spec: StrategySpec | None = None,
+        use_suggester: bool = True,
+    ):
+        policy = discrete_policy(research)
+        assert policy is not None
+        prototype = self._materialize_spec(
+            research,
+            version,
+            prior,
+            policy.start_lookback_days,
+            policy.start_entry_z,
+            lock_params=True,
+        )
+        identity = prototype
+        materials = ()
+        if self._frozen is not None:
+            materials = self._frozen.batch.materials
+        extra: set[str] = set()
+        if extra_spec is not None:
+            extra.add(fingerprint_spec(extra_spec, frozen_hash))
+        context = context_from_attempt(
+            research,
+            identity,
+            input_hash=frozen_hash,
+            failed_methods=failed_methods_of(evidence_attempt),
+            evidence=evidence_notes_for(evidence_attempt, materials),
+            store=self.recovery_store,
+            have_prior=prior is not None,
+            extra_tried=frozenset(extra),
+        )
+        if prior is not None:
+            context = replace(
+                context,
+                last_lookback=prior.lookback_days,
+                last_entry_z=prior.entry_z,
+                max_drawdown_floor=prior.max_drawdown_floor,
+            )
+        suggester = self.suggester if use_suggester and required_changes is None else None
+        return plan_candidate(
+            research,
+            context,
+            suggester=suggester,  # type: ignore[arg-type]
+            required_changes=required_changes,
+        )
+
+    def _verify(
+        self,
+        simulation: object,
+        spec: StrategySpec,
+        payloads: tuple[object, ...],
+        *,
+        pit_revision: str,
+    ):
+        evidence_as_of, missing_as_of, undated = pit_evidence_from_payloads(
+            payloads,
+            revision=pit_revision,
+        )
+        return run_verifiers(
+            simulation,
+            spec,
+            evidence_as_of=evidence_as_of,
+            missing_as_of_material_ids=missing_as_of,
+            undated_excluded=undated,
+            evidence_annotations=pit_evidence_annotations(payloads),
+            pit_revision=pit_revision,
+        )
+
+    def build(self, research: Research, attempt_number: int) -> RoundDraft:
+        thesis = research.brief.thesis.value
+        if thesis is None or research.current_version_number is None:
+            raise ValueError("running research requires a locked thesis and version")
+        version = research.versions[research.current_version_number - 1]
+        prior = version.rounds[-1].accepted_attempt.spec if version.rounds else None
+        prior_attempt = version.rounds[-1].accepted_attempt if version.rounds else None
+        self._research = research
         self._research_id = research.research_id
+        universe = research.brief.universe.value
+        if universe is None:
+            raise ValueError("running research requires a universe")
+        self._emit(ResearchAction.GATHER)
+        frozen = self._load_frozen(research, version, thesis, universe)
+        self._frozen = frozen
         evidence_paths = self._write_evidence(frozen.batch)
+        frozen_hash = _frozen_hash(self.snapshot_root, research.research_id, version.number)
+        self._input_hash = frozen_hash
+        plan = None
+        if discrete_policy(research) is None:
+            lookback = legacy_next_lookback(
+                None if prior is None else prior.lookback_days,
+                attempt_number,
+            )
+            spec = self._materialize_spec(
+                research,
+                version,
+                prior,
+                lookback,
+                prior.entry_z if prior else 1.0,
+                lock_params=False,
+            )
+        else:
+            plan = self._plan_after_freeze(
+                research,
+                version,
+                prior,
+                frozen_hash,
+                required_changes=None,
+                evidence_attempt=prior_attempt,
+            )
+            round_number = len(version.rounds) + 1
+            if plan.stop_reason:
+                self._persist_plan(research, version.number, round_number, plan, "stopped")
+                raise CandidateStop(plan)
+            assert plan.lookback_days is not None and plan.entry_z is not None
+            spec = self._materialize_spec(
+                research,
+                version,
+                prior,
+                plan.lookback_days,
+                plan.entry_z,
+                lock_params=True,
+            )
+            plan = replace(plan, fingerprint=fingerprint_spec(spec, frozen_hash))
+            executed = set()
+            reader = getattr(self.recovery_store, "executed_candidate_fingerprints", None)
+            if reader is not None:
+                executed.update(reader(research.research_id, version.number))
+            if plan.fingerprint in executed and not plan.technical_retry:
+                stopped = replace(
+                    plan,
+                    stop_reason="repeat",
+                    explanation="该候选已经执行过。换措辞或尝试编号不会再模拟一次。",
+                )
+                self._persist_plan(research, version.number, round_number, stopped, "stopped")
+                raise CandidateStop(stopped)
+            self._persist_plan(research, version.number, round_number, plan, "planned")
+        if not is_legacy_mean_reversion(spec.strategy_family, spec.family_method):
+            raise UserFacingError("STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
         self._emit(ResearchAction.SPECIFY)
         strategy = MeanReversionStrategy(spec)
         round_number = len(version.rounds) + 1
@@ -358,6 +571,8 @@ class DefaultRoundBuilder:
             simulate_key,
             _file_sha256(snapshot),
         )
+        if plan is not None:
+            self._persist_plan(research, version.number, round_number, plan, "executed")
         self._emit(ResearchAction.VERIFY)
         evidence_payloads = tuple(
             json.loads(path.read_text(encoding="utf-8")) for path in evidence_paths
@@ -395,6 +610,117 @@ class DefaultRoundBuilder:
         )
 
     def retry(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
+        research = self._research
+        if research is not None and discrete_policy(research) is not None:
+            return self._retry_discrete(prior, review)
+        return self._retry_legacy(prior, review)
+
+    def _retry_discrete(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
+        research = self._research
+        frozen = self._frozen
+        if research is None or frozen is None or research.current_version_number is None:
+            raise UserFacingError("FROZEN_INPUT_MISSING", FROZEN_INPUT_MISSING)
+        version = research.versions[research.current_version_number - 1]
+        frozen_hash = _frozen_hash(self.snapshot_root, research.research_id, prior.version_number)
+        self._input_hash = frozen_hash
+        plan = self._plan_after_freeze(
+            research,
+            version,
+            prior.attempt.spec,
+            frozen_hash,
+            required_changes=review.required_changes,
+            evidence_attempt=prior.attempt,
+            extra_spec=prior.attempt.spec,
+        )
+        if plan.stop_reason:
+            self._persist_plan(research, prior.version_number, prior.round_number, plan, "stopped")
+            raise CandidateStop(plan)
+        assert plan.lookback_days is not None and plan.entry_z is not None
+        spec = self._materialize_spec(
+            research,
+            version,
+            prior.attempt.spec,
+            plan.lookback_days,
+            plan.entry_z,
+            lock_params=True,
+        )
+        plan = replace(plan, fingerprint=fingerprint_spec(spec, frozen_hash))
+        already = fingerprint_spec(prior.attempt.spec, frozen_hash)
+        if plan.technical_retry or plan.fingerprint == already:
+            self._persist_plan(research, prior.version_number, prior.round_number, plan, "executed")
+            return replace(
+                prior,
+                attempt=Attempt(
+                    attempt_id=f"v{prior.version_number}-r{prior.round_number}-a{prior.attempt.number + 1}",
+                    number=prior.attempt.number + 1,
+                    change_class=ChangeClass.PARAM,
+                    spec=prior.attempt.spec,
+                    simulation=prior.attempt.simulation,
+                    verification=prior.attempt.verification,
+                    data_snapshot_path=prior.attempt.data_snapshot_path,
+                    evidence_paths=prior.attempt.evidence_paths,
+                ),
+            )
+        self._persist_plan(research, prior.version_number, prior.round_number, plan, "planned")
+        if not is_legacy_mean_reversion(spec.strategy_family, spec.family_method):
+            raise UserFacingError("STRATEGY_FAMILY_NOT_RUNNABLE", STRATEGY_FAMILY_NOT_RUNNABLE)
+        self._emit(ResearchAction.SPECIFY)
+        strategy = MeanReversionStrategy(spec)
+        snapshot = self.snapshot_root / (
+            f"retry-v{prior.version_number}-r{prior.round_number}-a{prior.attempt.number + 1}.csv"
+        )
+        self._emit(ResearchAction.SIMULATE)
+        simulate_key = _candidate_hash(spec, frozen_hash)
+        self._claim_step(
+            research.research_id,
+            prior.version_number,
+            prior.round_number,
+            prior.attempt.number + 1,
+            simulate_key,
+        )
+        simulation = simulate_daily(
+            strategy,
+            frozen,
+            frozen.start,
+            frozen.end,
+            snapshot_path=snapshot,
+        )
+        self._complete_step(
+            research.research_id,
+            prior.version_number,
+            prior.round_number,
+            prior.attempt.number + 1,
+            simulate_key,
+            _file_sha256(snapshot),
+        )
+        self._persist_plan(research, prior.version_number, prior.round_number, plan, "executed")
+        self._emit(ResearchAction.VERIFY)
+        payloads = tuple(
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in prior.attempt.evidence_paths
+        )
+        pit_revision = recorded_pit_revision(prior.attempt.verification)
+        return replace(
+            prior,
+            attempt=Attempt(
+                attempt_id=f"v{prior.version_number}-r{prior.round_number}-a{prior.attempt.number + 1}",
+                number=prior.attempt.number + 1,
+                change_class=ChangeClass.PARAM,
+                spec=spec,
+                simulation=simulation,
+                verification=self._verify(
+                    simulation,
+                    spec,
+                    payloads,
+                    pit_revision=pit_revision,
+                ),
+                data_snapshot_path=snapshot,
+                evidence_paths=prior.attempt.evidence_paths,
+            ),
+        )
+
+    def _retry_legacy(self, prior: RoundDraft, review: ReviewReport) -> RoundDraft:
+        del review
         frozen = self._frozen
         if frozen is None:
             raise UserFacingError("FROZEN_INPUT_MISSING", FROZEN_INPUT_MISSING)
@@ -469,7 +795,32 @@ class DefaultRoundBuilder:
         )
 
     def next_change(self, accepted: Attempt) -> ProposedChange:
-        return default_implementation_next_change(accepted)
+        research = self._research
+        policy = discrete_policy(research) if research is not None else None
+        if research is None or policy is None or research.current_version_number is None:
+            return default_implementation_next_change(accepted)
+        version = research.versions[research.current_version_number - 1]
+        plan = self._plan_after_freeze(
+            research,
+            version,
+            accepted.spec,
+            self._input_hash,
+            required_changes=None,
+            evidence_attempt=accepted,
+            use_suggester=False,
+        )
+        if plan.confirm_change is not None:
+            self.pending_stop = None
+            return plan.confirm_change
+        if plan.stop_reason:
+            self.pending_stop = plan
+            return default_implementation_next_change(accepted)
+        self.pending_stop = None
+        if plan.lookback_days is not None and plan.lookback_days != accepted.spec.lookback_days:
+            return ProposedChange("lookback_days", accepted.spec.lookback_days, plan.lookback_days)
+        if plan.entry_z is not None and abs(plan.entry_z - accepted.spec.entry_z) > 1e-9:
+            return ProposedChange("entry_z", accepted.spec.entry_z, plan.entry_z)
+        return ProposedChange("lookback_days", accepted.spec.lookback_days, plan.lookback_days)
 
 
 @dataclass(slots=True)
@@ -738,28 +1089,114 @@ class ResearchLoop:
                     return finish(paused, RoundDecision(kind="technical_retry_exhausted"))
                 persist_action(ResearchAction.GATHER)
                 self.budget.checkpoint(research_id, self.store)
-                draft = self.builder.build(research, prior_failures + 1)
-                abort_if_removed()
-                version = research.versions[version_number - 1]
-                prior_spec = (
-                    version.rounds[-1].accepted_attempt.spec if version.rounds else None
-                )
-                self.budget.checkpoint(research_id, self.store)
-                outcome = run_review_gate(
-                    draft,
-                    self.reviewer,
-                    self.builder.retry,
-                    self.now(),
-                    prior_failures=prior_failures,
-                    on_attempt=lambda attempt: self.store.record_review_attempt(
-                        research.research_id,
-                        version_number,
-                        round_number,
-                        attempt,
+
+                def stop_with(plan: object) -> Research:
+                    from engine.research.round_store import RoundDecision
+
+                    updated = replace(
+                        research,
+                        candidate_stop_reason=str(getattr(plan, "stop_reason", "")),
+                        candidate_stop_explanation=str(getattr(plan, "explanation", "")),
+                    )
+                    decision = RoundDecision(kind="candidate_stop")
+                    reason = updated.candidate_stop_reason
+                    if reason == "model_failure":
+                        paused = transition(
+                            replace(
+                                updated,
+                                last_run_error=updated.candidate_stop_explanation,
+                                last_run_error_code="CANDIDATE_MODEL_FAILED",
+                            ),
+                            ResearchEvent.PAUSE,
+                            self.now(),
+                        )
+                        return finish(paused, decision)
+                    if reason == "needs_confirm" and getattr(plan, "confirm_change", None) is not None:
+                        change = plan.confirm_change  # type: ignore[attr-defined]
+                        rounds_now = research.versions[version_number - 1].rounds
+                        if not rounds_now:
+                            paused = transition(
+                                replace(
+                                    updated,
+                                    last_run_error=updated.candidate_stop_explanation,
+                                    last_run_error_code="CANDIDATE_NEEDS_CONFIRM",
+                                ),
+                                ResearchEvent.PAUSE,
+                                self.now(),
+                            )
+                            return finish(paused, decision)
+                        change_class = classify_change(change)
+                        recorded_at = rounds_now[-1].completed_at
+                        why_change = evidence_refs_from_failed_attempt(
+                            rounds_now[-1].accepted_attempt,
+                            recorded_at=recorded_at,
+                        )
+                        created_at = confirm_created_at_after_evidence(why_change, self.now())
+                        if change_class is ChangeClass.COVERAGE:
+                            confirm_kind = ConfirmKind.COVERAGE
+                        elif change_class is ChangeClass.DATA_LINEAGE:
+                            confirm_kind = ConfirmKind.DATA_LINEAGE
+                        else:
+                            confirm_kind = ConfirmKind.ECONOMIC
+                        request = ConfirmRequest(
+                            request_id=f"change-v{version_number}-r{len(rounds_now)}",
+                            kind=confirm_kind,
+                            proposed_change=f"{change.field}: {change.before!r} → {change.after!r}",
+                            reason=updated.candidate_stop_explanation or "当前冻结验证未全部通过",
+                            effect="确认后应用改动并开新版本",
+                            change_class=change_class,
+                            patch=((change.field, change.after),),
+                            why_change=why_change,
+                            created_at=created_at,
+                        )
+                        return finish(
+                            transition(updated, ResearchEvent.REQUEST_CONFIRM, self.now(), request),
+                            decision,
+                        )
+                    if reason == "time_budget":
+                        return finish(
+                            transition(updated, ResearchEvent.BUDGET_EXHAUSTED, self.now()),
+                            decision,
+                        )
+                    return finish(transition(updated, ResearchEvent.COMPLETE, self.now()), decision)
+
+                reviewer = self.reviewer
+                if discrete_policy(research) is not None and isinstance(self.builder, DefaultRoundBuilder):
+                    from engine.research.candidates import AdjudicatingReviewer
+                    from engine.review.deterministic import DeterministicReviewer
+
+                    reviewer = AdjudicatingReviewer(
+                        DeterministicReviewer(),
+                        self.builder.review_opinion,  # type: ignore[arg-type]
+                        store=self.store,
+                        research_id=research.research_id,
+                        timeout=model_deadline_seconds(_remaining_seconds(research)),
+                    )
+                try:
+                    draft = self.builder.build(research, prior_failures + 1)
+                    abort_if_removed()
+                    version = research.versions[version_number - 1]
+                    prior_spec = (
+                        version.rounds[-1].accepted_attempt.spec if version.rounds else None
+                    )
+                    self.budget.checkpoint(research_id, self.store)
+                    outcome = run_review_gate(
+                        draft,
+                        reviewer,
+                        self.builder.retry,
                         self.now(),
-                    ),
-                    prior_spec=prior_spec,
-                )
+                        prior_failures=prior_failures,
+                        on_attempt=lambda attempt: self.store.record_review_attempt(
+                            research.research_id,
+                            version_number,
+                            round_number,
+                            attempt,
+                            self.now(),
+                        ),
+                        prior_spec=prior_spec,
+                    )
+                except CandidateStop as stop:
+                    return stop_with(stop.plan)
             if outcome.successful_round is None:
                 if outcome.confirm_request is None:
                     blocked = transition(
@@ -875,16 +1312,49 @@ class ResearchLoop:
                 charged.brief.round1_methods.value or accepted.spec.method_set
             )
             if accepted.verification.passed_for(method_set):
+                if discrete_policy(charged) is not None:
+                    charged = replace(
+                        charged,
+                        candidate_stop_reason="all_pass",
+                        candidate_stop_explanation="冻结验证已全部通过，停止继续搜索。",
+                    )
+                    charged = freeze_explore_winner(
+                        charged,
+                        accepted.spec,
+                        getattr(self.builder, "_input_hash", "") or "",
+                    )
                 result = transition(charged, ResearchEvent.COMPLETE, self.now())
             elif (
                 charged.brief.max_effective_hours.value is not None
                 and charged.effective_seconds
                 >= charged.brief.max_effective_hours.value * 3600
             ):
+                if discrete_policy(charged) is not None:
+                    charged = replace(
+                        charged,
+                        candidate_stop_reason="time_budget",
+                        candidate_stop_explanation="有效时间已用完。",
+                    )
                 result = transition(charged, ResearchEvent.BUDGET_EXHAUSTED, self.now())
             else:
                 persist_action(ResearchAction.ITERATE)
+                if isinstance(self.builder, DefaultRoundBuilder):
+                    self.builder._research = charged
                 change = self.builder.next_change(accepted)
+                pending = getattr(self.builder, "pending_stop", None)
+                if pending is not None and getattr(pending, "stop_reason", ""):
+                    if isinstance(self.builder, DefaultRoundBuilder):
+                        self.builder.pending_stop = None
+                    charged = replace(
+                        charged,
+                        candidate_stop_reason=str(pending.stop_reason),
+                        candidate_stop_explanation=str(pending.explanation),
+                    )
+                    if pending.stop_reason == "time_budget":
+                        result = transition(charged, ResearchEvent.BUDGET_EXHAUSTED, self.now())
+                    else:
+                        result = transition(charged, ResearchEvent.COMPLETE, self.now())
+                    return finish(result, round_decision)
                 change_class = classify_change(change)
                 if change_requires_user_confirm(change):
                     why_change: tuple[EvidenceRef, ...] = ()
@@ -925,6 +1395,15 @@ class ResearchLoop:
                 elif can_auto_continue_impl_iteration(charged, change):
                     result = transition(charged, ResearchEvent.AUTO_CONTINUE, self.now())
                 else:
+                    if discrete_policy(charged) is not None and not charged.candidate_stop_reason:
+                        charged = replace(
+                            charged,
+                            candidate_stop_reason="round_cap",
+                            candidate_stop_explanation=(
+                                f"已达冻结轮次上限 {implementation_trials_used(charged)}/"
+                                f"{charged.implementation_trial_budget}。"
+                            ),
+                        )
                     result = transition(charged, ResearchEvent.COMPLETE, self.now())
             return finish(result, round_decision)
         finally:
