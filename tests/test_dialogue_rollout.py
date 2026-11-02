@@ -34,6 +34,8 @@ from engine.research.models import MethodRef, ResearchStatus, Slot, new_research
 from engine.research.runtime import EnginePaths
 from engine.research.store import SQLiteStore
 from engine.research.user_errors import UserFacingError
+from engine.verifiers import VerificationReport, VerifierResult
+from tests.test_export_pack import completed_research
 
 NOW = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
 
@@ -99,6 +101,33 @@ def test_settings_boolean_wins_over_the_environment(
     assert dialogue_v2_enabled(path) is True
 
 
+def _five_round_study():
+    base = completed_research()
+    sample = base.versions[0].rounds[0]
+    failed = VerifierResult("cost.turnover", "cost-v1", False, {}, "turnover")
+    other = VerifierResult("stability.oos", "stability-v1", False, {}, "oos")
+    report = VerificationReport((failed, other))
+    rounds = tuple(
+        replace(
+            sample,
+            round_id=f"v1-r{number}",
+            number=number,
+            accepted_attempt=replace(
+                sample.accepted_attempt,
+                attempt_id=f"a-{number}",
+                verification=report,
+            ),
+        )
+        for number in range(1, 6)
+    )
+    version = replace(base.versions[0], rounds=rounds)
+    return replace(
+        base,
+        brief=replace(base.brief, max_effective_hours=Slot(0.5, True)),
+        versions=(version,),
+    )
+
+
 def test_enabled_flag_restores_runtime_answers(tmp_path: Path) -> None:
     service = _service(tmp_path)
     write_dialogue_enabled(service.paths.data.settings_file, True)
@@ -121,22 +150,38 @@ def test_write_gate_closes_new_dialogue_and_keeps_the_journal(tmp_path: Path) ->
     assert trip_write_gate(service.store, "duplicate_m", "ignored") is False
     assert write_gate(service.store)["reason"] == "unauthorized_execution"
     assert new_dialogue_writes_open(service.store, service.paths.data.settings_file) is False
-    before = service.store.connection.execute(
+    before_receipts = service.store.connection.execute(
         "SELECT COUNT(*) FROM command_receipt"
     ).fetchone()
-    service.handle({"type": "send_dialogue", "research_id": "r-journal", "message": "现在在做什么"})
-    loaded = service.store.load("r-journal")
-    assert loaded.active_proposal is None
-    assert "允许的命令" not in loaded.dialogue[-1].text
-    after = service.store.connection.execute("SELECT COUNT(*) FROM command_receipt").fetchone()
-    events = service.store.connection.execute(
+    before_events = service.store.connection.execute(
         "SELECT COUNT(*) FROM research_event WHERE research_id=?",
         ("r-journal",),
     ).fetchone()
-    assert before is not None and after is not None and int(after[0]) >= int(before[0])
-    assert events is not None and int(events[0]) >= 1
+    before = service.store.load("r-journal")
+    revision = service.store.revision_of("r-journal")
+    with pytest.raises(UserFacingError) as caught:
+        service.handle({"type": "send_dialogue", "research_id": "r-journal", "message": "我们在做什么"})
+    assert caught.value.code == "DIALOGUE_WRITES_CLOSED"
+    assert caught.value.params["reason"] == "unauthorized_execution"
+    assert "新的对话不会写入" in caught.value.message
+    loaded = service.store.load("r-journal")
+    assert loaded.dialogue == before.dialogue
+    assert loaded.brief == before.brief
+    assert service.store.revision_of("r-journal") == revision
+    after_receipts = service.store.connection.execute("SELECT COUNT(*) FROM command_receipt").fetchone()
+    after_events = service.store.connection.execute(
+        "SELECT COUNT(*) FROM research_event WHERE research_id=?",
+        ("r-journal",),
+    ).fetchone()
+    assert before_receipts == after_receipts
+    assert before_events == after_events
+    write_dialogue_enabled(service.paths.data.settings_file, True)
     gate_file = tmp_path / "dialogue-write-gate.json"
     assert json.loads(gate_file.read_text(encoding="utf-8"))["closed"] is True
+    assert write_gate(service.store)["reason"] == "unauthorized_execution"
+    service.store.create(replace(new_research("r-run", NOW), status=ResearchStatus.RUNNING))
+    service.handle({"type": "pause", "research_id": "r-run"})
+    assert service.store.load("r-run").status is ResearchStatus.PAUSED
 
 
 def test_each_kill_reason_can_close_the_gate(tmp_path: Path) -> None:
@@ -228,6 +273,52 @@ def test_unknown_planner_revision_pauses_before_the_builder(tmp_path: Path) -> N
         brief=replace(research.brief, round1_methods=Slot((MethodRef("overfit.walk", "walk-v1"),), True)),
     )
     assert pause_if_unknown_revision(store, known, NOW) is None
+
+
+def test_open_switch_answers_rounds_and_freezes_hours_until_confirm(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    write_dialogue_enabled(service.paths.data.settings_file, True)
+    research = _five_round_study()
+    service.store.create(research)
+    research_id = research.research_id
+    for message, needle in (
+        ("试过哪些候选", "已提交 5 轮"),
+        ("已经试过多少个", "v1-r5"),
+        ("what gate failed", "cost.turnover@cost-v1"),
+    ):
+        service.handle({"type": "send_dialogue", "research_id": research_id, "message": message})
+        loaded = service.store.load(research_id)
+        assert loaded.status is ResearchStatus.COMPLETED
+        assert loaded.pending_confirm is None
+        assert loaded.brief.max_effective_hours.value == pytest.approx(0.5)
+        assert loaded.brief.max_effective_hours.locked is True
+        assert needle in loaded.dialogue[-1].text
+        assert "没能识别要改哪项设定" not in loaded.dialogue[-1].text
+
+    service.handle(
+        {"type": "send_dialogue", "research_id": research_id, "message": "把最长时间改成 6 小时"}
+    )
+    proposed = service.store.load(research_id)
+    assert proposed.status is ResearchStatus.AWAITING_CONFIRM
+    assert proposed.pending_confirm is not None
+    assert "改前" in proposed.pending_confirm.proposed_change
+    assert "改后" in proposed.pending_confirm.proposed_change
+    assert proposed.brief.max_effective_hours.value == pytest.approx(0.5)
+    assert proposed.brief.max_effective_hours.locked is True
+    assert "已记下修改" not in proposed.dialogue[-1].text
+    service.handle(
+        {
+            "type": "resolve_confirm",
+            "research_id": research_id,
+            "decision": "reject_keep_logic",
+            "request_id": proposed.pending_confirm.request_id,
+        }
+    )
+    rejected = service.store.load(research_id)
+    assert rejected.status is ResearchStatus.COMPLETED
+    assert rejected.pending_confirm is None
+    assert rejected.brief.max_effective_hours.value == pytest.approx(0.5)
+    assert rejected.brief.max_effective_hours.locked is True
 
 
 def test_upgrade_backup_restores_into_a_temp_dir(tmp_path: Path) -> None:

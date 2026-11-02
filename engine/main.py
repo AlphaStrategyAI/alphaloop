@@ -1550,10 +1550,19 @@ class ResearchCommandService:
                 audit_and_trip,
                 new_dialogue_writes_open,
                 note_unauthorized_execution,
+                write_gate,
             )
             from engine.research.state_machine import executable_commands
 
             audit_and_trip(self.store)
+            closed = write_gate(self.store)
+            if closed is not None:
+                reason = str(closed.get("reason") or "closed")
+                raise UserFacingError(
+                    "DIALOGUE_WRITES_CLOSED",
+                    f"写入口已关闭（{reason}）。新的对话不会写入。已有记录仍可查看。",
+                    params={"reason": reason},
+                )
             dialogue_v2 = new_dialogue_writes_open(self.store, self.paths.data.settings_file)
 
             def _perform_dialogue(current: Research, command: dict[str, Any]) -> Research:

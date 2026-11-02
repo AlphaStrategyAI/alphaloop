@@ -463,6 +463,10 @@ function messages(lang: "zh" | "en") {
           "“便宜”还没说清是价格偏离还是估值。说清之前不能开跑。",
           "“Cheap” is not yet price deviation or valuation. The run cannot start until that is clear.",
         ),
+        DIALOGUE_WRITES_CLOSED: copy(
+          "写入口已关闭（{{reason}}）。新的对话不会写入。已有记录仍可查看。",
+          "New dialogue writes are closed ({{reason}}). Existing records stay readable.",
+        ),
       },
     },
     glossary: glossaryMessages(lang),
@@ -555,6 +559,7 @@ export const FINAL_MESSAGE_KEYS = [
   "errors.codes.QUOTES_UNAVAILABLE",
   "errors.codes.CAPABILITY_UNRESOLVED",
   "errors.codes.MEANING_UNRESOLVED",
+  "errors.codes.DIALOGUE_WRITES_CLOSED",
   "settings.llm.purposeVersion",
   "settings.llm.purposeDraft",
   "settings.llm.purposeCandidate",

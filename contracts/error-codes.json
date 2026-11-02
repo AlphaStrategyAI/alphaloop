@@ -146,5 +146,9 @@
   "MEANING_UNRESOLVED": {
     "params": [],
     "legacyZh": "“便宜”还没说清是价格偏离还是估值。说清之前不能开跑。"
+  },
+  "DIALOGUE_WRITES_CLOSED": {
+    "params": ["reason"],
+    "legacyZh": "写入口已关闭（{{reason}}）。新的对话不会写入。已有记录仍可查看。"
   }
 }
