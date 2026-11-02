@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -31,14 +33,36 @@ def _read(path: Path) -> dict[str, object]:
     return loaded
 
 
+def _replace_settings(temporary: Path, path: Path) -> None:
+    """Publish settings.json. Windows can deny the rename while a reader holds the file."""
+    encoded = temporary.read_text(encoding="utf-8")
+    for attempt in range(8):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if attempt == 7:
+                break
+            time.sleep(0.02 * (attempt + 1))
+    path.write_text(encoded, encoding="utf-8")
+
+
 def _write(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    encoded = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    descriptor, name = tempfile.mkstemp(
+        prefix=f"{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
     )
-    os.replace(temporary, path)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+            handle.flush()
+        _replace_settings(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def acknowledged_at(source_id: str, path: Path) -> str | None:
