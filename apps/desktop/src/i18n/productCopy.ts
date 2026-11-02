@@ -102,7 +102,40 @@ const EXACT: Record<string, MessageKey> = {
   "第三天卖出": "ui.proposal.holdingConstraint",
   "引擎没有固定第 N 天卖出。这条限制会保留，不会悄悄删掉。": "ui.proposal.holdingNote",
   "趋势、动量和突破不能在这里执行。原话会保留，不会改写成均值回归。": "ui.proposal.momentumNote",
+  "这一版沿用原先的回看期 +5 规则。": "ui.copy.candidatePolicyLegacy",
 };
+
+/** Chinese stop-condition labels emitted by policy_summary. Not global prefix labels. */
+const STOP_LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
+  ["候选耗尽", "ui.copy.policyStopExhausted"],
+  ["全绿通过", "ui.copy.policyStopAllPass"],
+  ["时间预算", "ui.copy.policyStopTimeBudget"],
+  ["轮次上限", "ui.copy.policyStopRoundCap"],
+  ["重复", "ui.copy.policyStopRepeat"],
+];
+
+const POLICY_SUMMARY =
+  /^实现层只调整回看天数（([^）]+)）和入场 Z 值（([^）]+)），从 (\d+) 日、z=([0-9.]+) 起步，最多 (\d+) 轮。去重按参数、实现修订、交易成本、方法和输入哈希，不含尝试编号和解释。停止条件：(.+)。$/;
+
+function joinedList(raw: string, t: CopyFn): string {
+  return raw.split("、").map((part) => part.trim()).filter(Boolean).join(t("ui.copy.gateJoiner"));
+}
+
+function stopLabel(token: string, t: CopyFn): string {
+  const trimmed = token.trim();
+  for (const [zh, key] of STOP_LABELS) {
+    if (trimmed === zh) return t(key);
+  }
+  return trimmed;
+}
+
+function stopList(raw: string, t: CopyFn): string {
+  return raw
+    .split("、")
+    .map((part) => stopLabel(part, t))
+    .filter(Boolean)
+    .join(t("ui.copy.gateJoiner"));
+}
 
 /** Engine proposal chrome has a catalog sentence. A user's own wording does not. */
 export function isCatalogSentence(text: string): boolean {
@@ -201,6 +234,20 @@ function paramPiece(piece: string, t: CopyFn): string {
 }
 
 const RULES: Rule[] = [
+  {
+    re: POLICY_SUMMARY,
+    render: (m, t) =>
+      t("ui.copy.candidatePolicy", {
+        lookback: t("ui.copy.lookback"),
+        entry: t("ui.copy.entryZ"),
+        lookbacks: joinedList(m[1], t),
+        entries: joinedList(m[2], t),
+        startDays: m[3],
+        startZ: m[4],
+        rounds: m[5],
+        stops: stopList(m[6], t),
+      }),
+  },
   {
     re: /^已改用(.+)。你原来的论点没有采纳，这一族的方向和你的原话不同。$/,
     render: (m, t) => t("ui.copy.familyRepick", {family: familyMidSentenceName(m[1], t)}),

@@ -112,6 +112,11 @@ def test_view_paths_avoid_python_repr(
         )
         view = service.view_for("#/research/r-confirm")
         assert view["kind"] == "confirm_run"
+        summary = view["candidatePolicy"]["summary"]
+        assert "回看天数" in summary
+        assert "入场 Z 值" in summary
+        for leaked in ("lookback_days", "entry_z", "time_budget", "round_cap", "all_pass"):
+            assert leaked not in summary
         assert_no_repr_like(view)
         assert_no_internal_id_leaks(view)
         return

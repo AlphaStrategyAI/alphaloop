@@ -23,6 +23,47 @@ const US_LIST = "美股大市值池 · 503 只 · 名单日 2026-10-16";
 const CN_LIST = "A 股大市值池 · 300 只 · 名单日 2026-10-19";
 const V1_LINE = "40 只 · 美股大市值 · 版本 1 · 2026-10-17 · 默认标的池";
 
+const POLICY_SUMMARY =
+  "实现层只调整回看天数（10、15、20）和入场 Z 值（1、1.5、2），从 15 日、z=1 起步，最多 5 轮。去重按参数、实现修订、交易成本、方法和输入哈希，不含尝试编号和解释。停止条件：候选耗尽、重复、全绿通过、时间预算、轮次上限。";
+const POLICY_LEGACY = "这一版沿用原先的回看期 +5 规则。";
+const POLICY_ENGLISH =
+  "The implementation layer only adjusts lookback days (10, 15, 20) and entry Z (1, 1.5, 2), starting from 15 days at z=1, for at most 5 rounds. Dedup uses the parameters, the implementation revision, trading costs, methods, and the input hash. It leaves out the attempt number and the explanation. Stop conditions: candidates exhausted, duplicate, all checks passed, time budget, round cap.";
+
+describe("confirm-run policy copy", () => {
+  it("keeps Chinese product labels and translates the same sentence to English", () => {
+    expect(zh(POLICY_SUMMARY)).toBe(POLICY_SUMMARY);
+    expect(zh(POLICY_SUMMARY)).not.toMatch(/lookback_days|entry_z|time_budget|round_cap|all_pass|\bexhausted\b/);
+    expect(en(POLICY_SUMMARY)).toBe(POLICY_ENGLISH);
+    expect(en(POLICY_SUMMARY)).not.toMatch(/[\u3400-\u9fff]/);
+    expect(en(POLICY_SUMMARY)).not.toMatch(/[。，、；：！？「」『』（）‘’]/);
+    expect(en(POLICY_SUMMARY)).not.toMatch(/lookback_days|entry_z|time_budget|round_cap/);
+    expect(zh(POLICY_LEGACY)).toBe(POLICY_LEGACY);
+    expect(en(POLICY_LEGACY)).toBe("This version keeps the previous lookback +5 rule.");
+    expect(en(POLICY_LEGACY)).not.toMatch(/[\u3400-\u9fff]/);
+    for (const key of [
+      "ui.copy.candidatePolicy",
+      "ui.copy.candidatePolicyLegacy",
+      "ui.copy.policyStopExhausted",
+      "ui.copy.policyStopRepeat",
+      "ui.copy.policyStopAllPass",
+      "ui.copy.policyStopTimeBudget",
+      "ui.copy.policyStopRoundCap",
+    ] as const) {
+      expect(isFinalMessageKey(key), key).toBe(true);
+      expect(translate("en", key, {
+        lookback: "lookback days",
+        entry: "entry Z",
+        lookbacks: "10, 15, 20",
+        entries: "1, 1.5, 2",
+        startDays: 15,
+        startZ: "1",
+        rounds: 5,
+        stops: "candidates exhausted",
+      }), key).not.toMatch(/[\u3400-\u9fff]/);
+    }
+  });
+});
+
 describe("repeated misunderstanding", () => {
   it("shows the apology once when the engine stacked it", () => {
     const stacked = "没能理解你的意思。没能理解你的意思。最多允许多少有效研究时间？例如：12 小时，或 30 分钟。暂停和等待确认不计时。";

@@ -806,7 +806,7 @@ export function ConfirmRunCard({api, view}: {api: DesktopApi; view: Extract<Desk
       </p>
       {view.proposal ? <ProposalPanel proposal={view.proposal} /> : null}
       {view.candidatePolicy ? (
-        <p data-testid="candidate-policy">{view.candidatePolicy.summary}</p>
+        <p data-testid="candidate-policy">{copyText(view.candidatePolicy.summary)}</p>
       ) : null}
       <details className="confirm-policy-details" data-testid="confirm-policy-details">
         <summary>{t("ui.confirm.policy")}</summary>

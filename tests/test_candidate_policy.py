@@ -304,12 +304,17 @@ def test_freeze_fits_sample_and_intent_and_sticks_after_approval() -> None:
     ignored = fit_candidate_policy(later_defaults, sample_days=25, thesis="回看 15 日", max_rounds=9)
     assert ignored.lookback_days != fitted.lookback_days
     summary = policy_summary(fitted)
-    assert "回看天数（10、15、20）" in summary
-    assert "入场 Z 值（1、1.5、2）" in summary
-    assert "从 15 日、z=1 起步" in summary
-    assert "最多 5 轮" in summary
-    assert "停止条件：候选耗尽、重复、全绿通过、时间预算、轮次上限" in summary
+    assert summary == (
+        "实现层只调整回看天数（10、15、20）和入场 Z 值（1、1.5、2），"
+        "从 15 日、z=1 起步，最多 5 轮。去重按参数、实现修订、交易成本、方法和输入哈希，"
+        "不含尝试编号和解释。停止条件：候选耗尽、重复、全绿通过、时间预算、轮次上限。"
+    )
+    for leaked in ("lookback_days", "entry_z", "time_budget", "round_cap", "all_pass", "exhausted"):
+        assert leaked not in summary
     assert not contains_internal_leak(summary)
+    legacy = policy_summary(replace(fitted, rule="plus5"))
+    assert legacy == "这一版沿用原先的回看期 +5 规则。"
+    assert not contains_internal_leak(legacy)
     view = policy_view(fitted)
     assert view["maxRounds"] == 5
     assert view["summary"] == summary
