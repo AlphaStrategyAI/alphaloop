@@ -71,12 +71,13 @@ export function bindDesktopApi(api: DesktopApi, deps: BindDeps): DesktopApi {
     continueIterate: bindMethod(api.continueIterate, deps),
     extendResearch: bindMethod(api.extendResearch, deps),
     deleteResearch: bindMethod(api.deleteResearch, deps),
-    resolveConfirm: (researchId, decision, whoPays) =>
+    resolveConfirm: (researchId, decision, whoPays, requestId) =>
       runMutation(
-        () =>
-          whoPays === undefined
-            ? api.resolveConfirm(researchId, decision)
-            : api.resolveConfirm(researchId, decision, whoPays),
+        () => {
+          if (requestId) return api.resolveConfirm(researchId, decision, whoPays, requestId);
+          if (whoPays === undefined) return api.resolveConfirm(researchId, decision);
+          return api.resolveConfirm(researchId, decision, whoPays);
+        },
         deps,
       ),
     exportArtifact: bindMethod(api.exportArtifact, deps),

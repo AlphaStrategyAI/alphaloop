@@ -430,7 +430,12 @@ export interface DesktopApi {
   ): Promise<void>;
   extendResearch(researchId: string, hours: number): Promise<void>;
   deleteResearch(researchId: string): Promise<void>;
-  resolveConfirm(researchId: string, decision: ConfirmationDecision, whoPays?: string): Promise<void>;
+  resolveConfirm(
+    researchId: string,
+    decision: ConfirmationDecision,
+    whoPays?: string,
+    requestId?: string,
+  ): Promise<void>;
   exportArtifact(researchId: string, kind: ExportKind): Promise<string>;
   revealExportInFolder(path: string): Promise<void>;
   reverify(researchId: string, roundId: string, methodId: string): Promise<void>;
@@ -576,4 +581,5 @@ export interface ExportEligibilityV2 {
   noPendingConfirm: boolean;
   reverifiesPassed: boolean;
   pitExecutedAndPassed: boolean;
+  coverageSatisfied?: boolean;
 }

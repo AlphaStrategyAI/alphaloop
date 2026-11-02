@@ -19,6 +19,7 @@ import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
 import {DetailFrame} from "./DetailFrame";
 import {sendHeldDialogue, type HeldCommand} from "../commandGesture";
+import {commandForUtterance, dispatchRuntimeCommand} from "../dialogueCommands";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 function ExportOutcomeMessages({
@@ -167,6 +168,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
   const copyText = (text: string | null | undefined) => (text ? localizeKnownCopy(text, t) : "");
   const [extensionHours, setExtensionHours] = useState("4");
   const [modification, setModification] = useState("");
+  const [ask, setAsk] = useState("");
   const [iterateConfirm, setIterateConfirm] = useState<InAppConfirmRequest | null>(null);
   const [reverifyRoundId, setReverifyRoundId] = useState(view.selectedRoundId);
   const [reverifyMethodId, setReverifyMethodId] = useState(view.selectedMethodId);
@@ -232,7 +234,20 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
     },
   ] as const;
   const pitFailure = pitFailureCopy(view.pitDetail, t);
-  const eligible = checks.every((gate) => gate.passed);
+  const coverageKnown = typeof view.eligibility.coverageSatisfied === "boolean";
+  const gates = coverageKnown
+    ? [
+        ...checks,
+        {
+          name: t("ui.completed.gateNameCoverage"),
+          long: view.eligibility.coverageSatisfied
+            ? t("ui.completed.gateStatePass")
+            : t("ui.completed.gateStateFail"),
+          passed: view.eligibility.coverageSatisfied === true,
+        },
+      ]
+    : checks;
+  const eligible = gates.every((gate) => gate.passed) && (view.failedExportChecks ?? []).length === 0;
   const researchRecordExportPrimary = completedShowsFailedTone(view);
   const headline = view.resultHeadline
     ? copyText(view.resultHeadline)
@@ -304,7 +319,7 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
         </h1>
         <p className="completed-focus-headline">{headline}</p>
         <div className="eligibility eligibility-pills gate-cards" data-testid="completed-gate-pills" data-gate-stagger="90">
-          {checks.map((gate) => (
+          {gates.map((gate) => (
             <details
               className={`gate-pill gate-card ${gate.passed ? "gate-pill--ok" : "gate-pill--fail"}`}
               data-gate-flash={gate.passed ? undefined : "150"}
@@ -439,6 +454,33 @@ export function CompletedScreen({api, view}: {api: DesktopApi; view: Extract<Des
             <h2 data-user-content="true">{view.title}</h2>
           </section>
         )}
+        <form
+          className="runtime-dialogue"
+          data-testid="runtime-dialogue-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const command = commandForUtterance(ask);
+            if (command.type === "export_artifact") {
+              void runExport(command.kind);
+            } else if (command.type === "reverify") {
+              void runReverify();
+            } else if (command.type !== "send_dialogue" || command.message) {
+              void dispatchRuntimeCommand(api, view.researchId, command, {
+                roundId: reverifyRoundId,
+                methodId: reverifyMethodId,
+                highSuspicion: (view.cumulativeRoundsOnWindow ?? 0) >= (view.highSuspicionRoundThreshold ?? 20),
+              });
+            }
+            setAsk("");
+          }}
+        >
+          <input
+            value={ask}
+            onChange={(event) => setAsk(event.target.value)}
+            placeholder={t("ui.completed.askPlaceholder")}
+            data-testid="runtime-dialogue-input"
+          />
+        </form>
         <div className="completed-export-actions" data-testid="completed-export-actions">
           {eligible ? (
             <button

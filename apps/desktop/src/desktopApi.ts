@@ -71,8 +71,11 @@ export function createTauriDesktopApi(invoke: DesktopInvoke = tauriInvoke): Desk
     },
     async extendResearch(researchId, hours) { await invoke("extend_research", {researchId, hours}); },
     async deleteResearch(researchId) { await invoke("delete_research", {researchId}); },
-    async resolveConfirm(researchId, decision, whoPays) {
-      await invoke("resolve_confirm", {researchId, decision, whoPays});
+    async resolveConfirm(researchId, decision, whoPays, requestId) {
+      const args: Record<string, unknown> = {researchId, decision};
+      if (whoPays) args.whoPays = whoPays;
+      if (requestId) args.requestId = requestId;
+      await invoke("resolve_confirm", args);
     },
     async exportArtifact(researchId, kind) {
       return invoke<string>("export_artifact", {researchId, kind});

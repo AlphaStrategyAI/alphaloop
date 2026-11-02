@@ -457,6 +457,7 @@ export function buildUiMessages(copy: Copy) {
       symbolsLabel: copy("标的", "Symbols"),
       symbolsUnset: copy("未指定", "Not set"),
       modifyPlaceholder: copy("把最长研究时间改成 6 小时", "Change the maximum research time to 6 hours"),
+      askPlaceholder: copy("问进度、重验或导出", "Ask about progress, re-verify, or export"),
       confirmModification: copy("确认修改并开新版", "Confirm the change and open a new version"),
     },
     anomaly: {
@@ -533,6 +534,7 @@ export function buildUiMessages(copy: Copy) {
       gateNamePending: copy("待确认", "Pending"),
       gateNameRepro: copy("重现", "Repro"),
       gateNamePit: copy("PIT", "PIT"),
+      gateNameCoverage: copy("覆盖", "Coverage"),
       gateStateFail: copy("未过", "Failed"),
       gateStatePass: copy("通过", "Passed"),
       excessAnn: copy("年化超额", "Annualized excess return"),
@@ -558,6 +560,7 @@ export function buildUiMessages(copy: Copy) {
       pickRound: copy("请选择轮次与验证方法", "Choose a round and a verification method"),
       modify: copy("改策略再跑", "Change the strategy and run again"),
       modifyPlaceholder: copy("例如：把最长研究时间改成 6 小时", "For example: change the maximum research time to 6 hours"),
+      askPlaceholder: copy("问进度、重验或导出", "Ask about progress, re-verify, or export"),
       modifyHint: copy(
         "请先在上面的输入框说明要改什么，再点「确认修改并开新版」。",
         "Describe the change in the box above, then confirm it to open a new version.",
