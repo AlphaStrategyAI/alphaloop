@@ -67,6 +67,7 @@ def test_reverify_fail_marks_prior_exports_overturned_without_rewriting_files(tm
                 NOW,
                 (),
                 False,
+                round_id="r-export-v1-r1",
             ),
         ),
     )

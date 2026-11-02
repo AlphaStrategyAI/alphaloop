@@ -706,6 +706,7 @@ pub async fn resolve_confirm(
     research_id: String,
     decision: String,
     who_pays: Option<String>,
+    request_id: Option<String>,
     app: AppHandle,
     connection: State<'_, EngineConnection>,
 ) -> Result<(), String> {
@@ -716,6 +717,9 @@ pub async fn resolve_confirm(
     });
     if let Some(value) = who_pays.filter(|item| !item.is_empty()) {
         body["who_pays"] = json!(value);
+    }
+    if let Some(value) = request_id.filter(|item| !item.is_empty()) {
+        body["request_id"] = json!(value);
     }
     mutate(&app, &connection, body).await.map(|_| ())
 }

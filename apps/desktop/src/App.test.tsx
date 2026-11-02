@@ -662,6 +662,6 @@ describe("Night desktop contract", () => {
     expect(screen.getByPlaceholderText("不填则记录为「未作答」")).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("不填则记录为「未作答」"), {target: {value: "用户自担"}});
     fireEvent.click(screen.getByRole("button", {name: "同意，开新的一版"}));
-    expect(resolveConfirm).toHaveBeenCalledWith("r-1", "approve_new_version", "用户自担");
+    expect(resolveConfirm).toHaveBeenCalledWith("r-1", "approve_new_version", "用户自担", "req-001");
   });
 });

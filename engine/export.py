@@ -15,6 +15,7 @@ from engine.research.models import (
     Attempt,
     Research,
     ResearchStatus,
+    Reverification,
     RoundV2,
 )
 from engine.research.thesis_scope import export_thesis_markers
@@ -31,6 +32,7 @@ from engine.verifiers import (
 class ExportEligibility:
     eligible: bool
     failed_checks: tuple[str, ...]
+    reasons: tuple[str, ...] = ()
 
 
 def _pit_verification_payload(pit_result: VerifierResult | None) -> dict[str, object]:
@@ -165,8 +167,42 @@ def _evidence_grade_view(research: Research) -> dict[str, str]:
     return evidence_grade_view(research)
 
 
+def frozen_coverage_floor(research: Research):
+    """Floor frozen on the current version, otherwise the live brief."""
+    if research.versions:
+        frozen = research.versions[-1].brief_snapshot.coverage_floor.value
+        if frozen is not None:
+            return frozen
+    return research.brief.coverage_floor.value
+
+
+def coverage_satisfied(research: Research) -> tuple[bool, str]:
+    """Independent of the five handoff booleans.
+
+    A frozen floor without a measurement, or a measurement under that floor,
+    refuses a strategy pack and keeps the reason. Researches that never froze
+    a floor stay on the five booleans.
+    """
+    floor = frozen_coverage_floor(research)
+    observed = research.last_coverage
+    if floor is None:
+        return True, ""
+    if observed is None:
+        return False, "缺少覆盖实测值"
+    assets_ok = len(observed.assets) >= floor.min_assets
+    years_ok = observed.years + 1e-9 >= float(floor.min_years)
+    missing_ok = observed.missing_pct <= floor.max_missing_pct + 1e-9
+    if assets_ok and years_ok and missing_ok:
+        return True, ""
+    return False, "覆盖低于冻结底线"
+
+
 def strategy_pack_eligibility(research: Research) -> ExportEligibility:
-    """Four-condition eligibility check (B1 adds fourth gate)."""
+    """Five handoff booleans, coverage, and the adaptive evidence grade.
+
+    Reverification of the current conclusion includes PIT. An older round's
+    reverify does not fail this conclusion.
+    """
     current_attempt = (
         research.versions[-1].rounds[-1].accepted_attempt
         if research.versions and research.versions[-1].rounds
@@ -186,27 +222,34 @@ def strategy_pack_eligibility(research: Research) -> ExportEligibility:
         and current_attempt.verification is not None
         and current_attempt.verification.passed_for(method_set)
     )
+    current_reverifies = [
+        item
+        for item in research.reverifications
+        if current_round_id is not None and item.round_id == current_round_id
+    ]
     checks = {
         "completed": research.status is ResearchStatus.COMPLETED,
         "all_current_methods_passed": methods_passed,
         "no_pending_confirm": research.pending_confirm is None,
-        "all_reverifies_passed": all(
-            reverification.passed
-            for reverification in research.reverifications
-            if current_round_id is not None
-            and reverification.round_id == current_round_id
-            and reverification.method_id != "pit.consistency"
-        ),
+        "all_reverifies_passed": all(item.passed for item in current_reverifies),
         "pit_executed_and_passed": pit_result is not None and pit_result.passed,
     }
+    coverage_ok, coverage_reason = coverage_satisfied(research)
+    checks["coverage_satisfied"] = coverage_ok
     from engine.research.evidence_window import strategy_pack_block_reason
 
     block = strategy_pack_block_reason(research)
     if block is not None:
         checks["evidence_grade"] = False
+    reasons: list[str] = []
+    if not coverage_ok and coverage_reason:
+        reasons.append(coverage_reason)
+    if block is not None:
+        reasons.append(block)
     return ExportEligibility(
         eligible=all(checks.values()),
         failed_checks=tuple(name for name, passed in checks.items() if not passed),
+        reasons=tuple(reasons),
     )
 
 
@@ -230,11 +273,70 @@ def importer_accepts(manifest: dict[str, object]) -> bool:
     )
 
 
-def mark_exports_overturned(research: Research) -> Research:
+def _current_round_id(research: Research) -> str | None:
+    if research.versions and research.versions[-1].rounds:
+        return research.versions[-1].rounds[-1].round_id
+    return None
+
+
+def _export_dependency(export, failed: Reverification) -> str:
+    """overturn, pending, or none. Research records stay. Missing refs are not guessed."""
+    from engine.research.models import ExportKind
+
+    if export.kind is not ExportKind.STRATEGY_PACK:
+        return "none"
+    round_id = export.round_id or ""
+    input_hash = export.input_hash or ""
+    failed_hash = failed.input_hash or ""
+    if round_id and round_id == failed.round_id:
+        if input_hash and failed_hash and input_hash != failed_hash:
+            return "none"
+        return "overturn"
+    if input_hash and failed_hash and input_hash == failed_hash:
+        return "overturn"
+    if not round_id and not input_hash:
+        return "pending"
+    return "none"
+
+
+def mark_exports_overturned(
+    research: Research,
+    failed: Reverification | None = None,
+) -> Research:
+    """Mark strategy packs that depend on a failed reverify.
+
+    Packs with no round or input hash are association-pending, not treated as
+    the latest round. A failure that does not touch the current conclusion
+    leaves export_eligible unchanged.
+    """
+    if failed is None:
+        rows = tuple(item for item in research.reverifications if not item.passed)
+    elif failed.passed:
+        rows = ()
+    else:
+        rows = (failed,)
+    exports = []
+    for item in research.exports:
+        action = "none"
+        for row in rows:
+            effect = _export_dependency(item, row)
+            if effect == "overturn":
+                action = "overturn"
+                break
+            if effect == "pending" and action == "none":
+                action = "pending"
+        if action == "overturn":
+            exports.append(replace(item, overturned=True))
+        elif action == "pending":
+            exports.append(replace(item, association="pending"))
+        else:
+            exports.append(item)
+    current = _current_round_id(research)
+    blocks_current = any(row.round_id == current for row in rows)
     return replace(
         research,
-        export_eligible=False,
-        exports=tuple(replace(item, overturned=True) for item in research.exports),
+        export_eligible=False if blocks_current else research.export_eligible,
+        exports=tuple(exports),
     )
 
 

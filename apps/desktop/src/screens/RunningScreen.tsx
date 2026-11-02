@@ -20,6 +20,8 @@ import {missingSymbolsError} from "../missingSymbols";
 import {DetailFrame} from "./DetailFrame";
 import {StatusPill} from "./ResearchListScreen";
 import {sendHeldDialogue, type HeldCommand} from "../commandGesture";
+import {commandForUtterance, dispatchRuntimeCommand} from "../dialogueCommands";
+import {RuntimeDialogueLog} from "./RuntimeDialogueLog";
 
 export function RunningScreen({
   api,
@@ -36,6 +38,7 @@ export function RunningScreen({
 }) {
   const {t} = useI18n();
   const [tickerOpen, setTickerOpen] = useState(false);
+  const [ask, setAsk] = useState("");
   const modificationRef = useRef<HTMLInputElement>(null);
   const dialogueHold = useRef<HeldCommand | null>(null);
   const [symbol, setSymbol] = useState("");
@@ -109,7 +112,7 @@ export function RunningScreen({
           className="cyan-button"
           type="button"
           data-testid="paused-resume"
-          onClick={() => void api.resumeResearch(view.researchId)}
+          onClick={() => void dispatchRuntimeCommand(api, view.researchId, {type: "resume"})}
         >
           {t("ui.running.resume")}
         </button>
@@ -199,13 +202,38 @@ export function RunningScreen({
           {stageLabel ? <span className="orbit-stage">{stageLabel}</span> : null}
         </div>
         {view.status === "running" ? (
-          <button className="quiet-button" type="button" onClick={() => void api.pauseResearch(view.researchId)}>
+          <button
+            className="quiet-button"
+            type="button"
+            onClick={() => void dispatchRuntimeCommand(api, view.researchId, {type: "pause"})}
+          >
             {t("ui.running.pause")}
           </button>
         ) : (
           <span />
         )}
       </div>
+      <RuntimeDialogueLog turns={view.recentDialogue} />
+      <form
+        className="runtime-dialogue"
+        data-testid="runtime-dialogue-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const command = commandForUtterance(ask);
+          if (command.type === "send_dialogue" && !command.message) return;
+          void dispatchRuntimeCommand(api, view.researchId, command, {
+            highSuspicion: (view.cumulativeRoundsOnWindow ?? 0) >= (view.highSuspicionRoundThreshold ?? 20),
+          });
+          setAsk("");
+        }}
+      >
+        <input
+          value={ask}
+          onChange={(event) => setAsk(event.target.value)}
+          placeholder={t("ui.running.askPlaceholder")}
+          data-testid="runtime-dialogue-input"
+        />
+      </form>
       {quota && (
         <div className="effective-quota" data-testid="effective-quota-progress">
           <div className="effective-quota-labels">

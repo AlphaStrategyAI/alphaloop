@@ -51,6 +51,19 @@ def crash_barrier(name: str) -> None:
         time.sleep(0.2)
 
 
+def export_recheck_failures() -> tuple[str, ...] | None:
+    """Fail the post-staging eligibility recheck. Unset means use the real result."""
+    raw = os.environ.get("ALPHALOOP_EXPORT_RECHECK_FAIL", "").strip()
+    if not raw:
+        return None
+    return tuple(item for item in raw.split(",") if item)
+
+
+def export_crash_after_authorize() -> bool:
+    """Raise after the authorization row commits and before the visible rename."""
+    return os.environ.get("ALPHALOOP_EXPORT_CRASH_AFTER_AUTHORIZE", "").strip() == "1"
+
+
 def maybe_raise_busy() -> None:
     """One-shot or sticky ``database is locked`` for the round commit retry."""
     mode = os.environ.get("ALPHALOOP_INJECT_DB_BUSY", "").strip()

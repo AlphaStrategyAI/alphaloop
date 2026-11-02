@@ -18,16 +18,34 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
   const {t} = useI18n();
   const [whoPays, setWhoPays] = useState("");
   const isCoverage = view.confirmKind === "coverage";
+  const isSettings = view.confirmKind === "settings";
   const hasEvidence = view.whyChange && view.whyChange.length > 0;
-  const canApproveEconomic = isCoverage || hasEvidence;
+  const canApproveEconomic = isCoverage || isSettings || hasEvidence;
+  const resolve = (decision: Parameters<DesktopApi["resolveConfirm"]>[1], answer?: string) => {
+    if (view.requestId) {
+      void api.resolveConfirm(view.researchId, decision, answer, view.requestId);
+      return;
+    }
+    if (answer !== undefined) {
+      void api.resolveConfirm(view.researchId, decision, answer);
+      return;
+    }
+    void api.resolveConfirm(view.researchId, decision);
+  };
   const handleApprove = () => {
-    void api.resolveConfirm(view.researchId, "approve_new_version", whoPays.trim() || undefined);
+    resolve("approve_new_version", whoPays.trim() || undefined);
   };
   return (
     <article className="awaiting-card tech-pulse-card" data-testid="awaiting-confirm-card">
       <p className="tech-pulse-eyebrow">{t("ui.awaiting.eyebrow")}</p>
       <p className="eyebrow">{t("ui.awaiting.version", {version: view.version})}</p>
-      <h1>{isCoverage ? t("ui.awaiting.coverageTitle") : t("ui.awaiting.economicTitle")}</h1>
+      <h1>
+        {isCoverage
+          ? t("ui.awaiting.coverageTitle")
+          : isSettings
+            ? t("ui.awaiting.settingsTitle")
+            : t("ui.awaiting.economicTitle")}
+      </h1>
       <section><small>{t("ui.awaiting.proposed")}</small><p>{view.proposed}</p></section>
       <section><small>{t("ui.awaiting.reason")}</small><p>{view.reason}</p></section>
       <section><small>{t("ui.awaiting.effect")}</small><p>{view.effect}</p></section>
@@ -46,7 +64,7 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
           </ul>
         </section>
       )}
-      {!isCoverage && (
+      {!isCoverage && !isSettings && (
         <section className="who-pays-section">
           <small>{t("ui.awaiting.whoPays")}</small>
           <textarea
@@ -59,16 +77,16 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
       )}
       {isCoverage ? (
         <div className="decision-stack coverage-decisions" data-testid="coverage-decisions">
-          <button className="cyan-button" onClick={() => void api.resolveConfirm(view.researchId, "accept_lower_floor")}>
+          <button className="cyan-button" onClick={() => resolve("accept_lower_floor")}>
             {t("ui.awaiting.acceptFloor")}
           </button>
-          <button onClick={() => void api.resolveConfirm(view.researchId, "supply_local_materials")}>
+          <button onClick={() => resolve("supply_local_materials")}>
             {t("ui.awaiting.supplyMaterials")}
           </button>
-          <button onClick={() => void api.resolveConfirm(view.researchId, "redefine_scope")}>
+          <button onClick={() => resolve("redefine_scope")}>
             {t("ui.awaiting.redefine")}
           </button>
-          <button onClick={() => void api.resolveConfirm(view.researchId, "pause_and_edit")}>{t("ui.awaiting.pauseEdit")}</button>
+          <button onClick={() => resolve("pause_and_edit")}>{t("ui.awaiting.pauseEdit")}</button>
         </div>
       ) : (
         <div className="decision-stack" data-testid="economic-decisions">
@@ -78,8 +96,8 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
           <button className="cyan-button" onClick={handleApprove} disabled={!canApproveEconomic}>
             {t("ui.awaiting.approve")}
           </button>
-          <button onClick={() => void api.resolveConfirm(view.researchId, "reject_keep_logic")}>{t("ui.awaiting.reject")}</button>
-          <button onClick={() => void api.resolveConfirm(view.researchId, "pause_and_edit")}>{t("ui.awaiting.pauseEdit")}</button>
+          <button onClick={() => resolve("reject_keep_logic")}>{t("ui.awaiting.reject")}</button>
+          <button onClick={() => resolve("pause_and_edit")}>{t("ui.awaiting.pauseEdit")}</button>
         </div>
       )}
     </article>

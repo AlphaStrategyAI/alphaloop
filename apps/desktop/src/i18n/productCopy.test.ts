@@ -146,6 +146,11 @@ describe("catalog keys for secrets and previously hardcoded product copy", () =>
     expect(zh("0.00 小时")).toBe("0 秒");
     expect(en("0.0833333 小时")).toBe("5 min");
     expect(zh("0.0833333 小时")).toBe("5 分钟");
+    expect(en("走样检验、样本外稳定")).toBe("Subperiod robustness check, Out-of-sample stability");
+    expect(en("美股股票 AAPL 的均值回归")).toBe("美股股票 AAPL 的均值回归");
+    expect(en("至少 1 个标的、10 年、缺失不超过 5%")).toBe(
+      "At least 1 name, 10 years of data, missing no more than 5%",
+    );
     expect(en("4 小时")).toBe("4 h");
     expect(zh("4 小时")).toBe("4 小时");
     expect(en("1.5 小时")).toBe("1 h 30 min");

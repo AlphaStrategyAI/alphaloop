@@ -151,6 +151,7 @@ const LABELS: ReadonlyArray<readonly [string, MessageKey]> = [
   ["A 股大市值（版本 1）", "ui.copy.cnLargeV1"],
   ["A股大市值（版本 1）", "ui.copy.cnLargeV1"],
   ["分段稳健性检验", "ui.copy.walk"],
+  ["走样检验", "ui.copy.walk"],
   ["研究状态未完成", "ui.copy.gateCompleted"],
   ["冻结验证方法集", "ui.copy.frozenSet"],
   ["已覆盖默认的池", "ui.copy.overrideDefault"],
@@ -441,6 +442,10 @@ export function localizeKnownCopy(text: string, t: CopyFn): string {
   const parts = text.split(" · ");
   if (parts.length > 1 && parts.every((part) => LABELS.some(([zh]) => zh === part))) {
     return parts.map((part) => exactLabel(part, t)).join(" · ");
+  }
+  const listed = text.split("、");
+  if (listed.length > 1 && listed.every((part) => LABELS.some(([zh]) => zh === part.trim()))) {
+    return listed.map((part) => exactLabel(part.trim(), t)).join(", ");
   }
   return gateToken(text, t);
 }

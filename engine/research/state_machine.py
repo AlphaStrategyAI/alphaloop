@@ -67,6 +67,15 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
     from engine.research.effective_spec import inherit_effective_spec
 
     snapshot, parent_digest = inherit_effective_spec(research, changes)
+    seen = {
+        (item.round_id, item.method_id, item.created_at)
+        for item in research.reverification_audit
+    }
+    audit = research.reverification_audit + tuple(
+        item
+        for item in research.reverifications
+        if (item.round_id, item.method_id, item.created_at) not in seen
+    )
     version = Version(
         version_id=f"{research.research_id}-v{number}",
         number=number,
@@ -87,6 +96,7 @@ def _open_version(research: Research, now: datetime, opened_by: str) -> Research
         pending_confirm=None,
         export_eligible=False,
         reverifications=(),
+        reverification_audit=audit,
         updated_at=now,
         **research_fields,  # type: ignore[arg-type]
     )
@@ -121,7 +131,16 @@ def transition(
         return _open_version(research, now, "confirm_run")
     if status is ResearchStatus.RUNNING and event is ResearchEvent.AUTO_CONTINUE:
         return replace(research, updated_at=now)
-    if status is ResearchStatus.RUNNING and event is ResearchEvent.REQUEST_CONFIRM:
+    if (
+        status
+        in {
+            ResearchStatus.RUNNING,
+            ResearchStatus.PAUSED,
+            ResearchStatus.COMPLETED,
+            ResearchStatus.ENDED,
+        }
+        and event is ResearchEvent.REQUEST_CONFIRM
+    ):
         if request is None:
             raise InvalidTransition("request_confirm requires ConfirmRequest")
         return replace(
@@ -163,9 +182,13 @@ def transition(
         )
         return _open_version(research, now, opened_by)
     if status is ResearchStatus.AWAITING_CONFIRM and event is ResearchEvent.CONFIRM_REJECT:
+        restore = ResearchStatus.RUNNING
+        pending = research.pending_confirm
+        if pending is not None and pending.return_status is not None:
+            restore = pending.return_status
         return replace(
             research,
-            status=ResearchStatus.RUNNING,
+            status=restore,
             pending_confirm=None,
             consecutive_review_failures=0,
             updated_at=now,
@@ -210,3 +233,22 @@ def transition(
     }:
         return research
     raise InvalidTransition(f"{status.value} cannot handle {event.value}")
+
+
+def executable_commands(status: ResearchStatus) -> tuple[str, ...]:
+    """User-facing commands the state machine allows. Read-only questions are separate."""
+    table = {
+        ResearchStatus.DRAFT: ("send_dialogue", "confirm_run", "unlock_brief"),
+        ResearchStatus.RUNNING: ("send_dialogue", "pause"),
+        ResearchStatus.AWAITING_CONFIRM: ("send_dialogue", "resolve_confirm"),
+        ResearchStatus.PAUSED: ("send_dialogue", "resume", "confirm_modification"),
+        ResearchStatus.COMPLETED: (
+            "send_dialogue",
+            "continue_iterate",
+            "reverify",
+            "export_artifact",
+            "confirm_modification",
+        ),
+        ResearchStatus.ENDED: ("send_dialogue", "extend_research", "confirm_modification"),
+    }
+    return table[status]
