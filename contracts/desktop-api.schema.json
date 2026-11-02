@@ -307,6 +307,14 @@
         "who_pays": {
           "type": "string"
         },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "card_research_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "why_change": {
           "type": "array",
           "items": {

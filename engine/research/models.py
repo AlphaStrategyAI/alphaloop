@@ -501,6 +501,9 @@ class Reverification:
     report: Any
     passed: bool
     created_at: datetime
+    version_number: int | None = None
+    revision: str = ""
+    input_hash: str = ""
 
 
 class ExportKind(StrEnum):
@@ -517,6 +520,12 @@ class ExportRecord:
     created_at: datetime
     failed_checks: tuple[str, ...]
     overturned: bool = False
+    round_id: str | None = None
+    input_hash: str | None = None
+    method_revision: str | None = None
+    association: str = ""
+    fingerprint: str = ""
+    command_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -570,6 +579,8 @@ class Research:
     candidate_policy: CandidatePolicy | None = None
     candidate_stop_reason: str = ""
     candidate_stop_explanation: str = ""
+    reverification_audit: tuple[Reverification, ...] = ()
+    logic_proposal: ConfirmRequest | None = None
 
 
 def new_research(research_id: str, now: datetime) -> Research:

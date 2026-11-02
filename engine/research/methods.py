@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from engine.research.display_names import method_label
 from engine.research.models import (
@@ -110,6 +110,8 @@ def create_method(
     deposited_from_research_id: str | None = None,
     supersedes: str | None = None,
 ) -> MethodDefinition:
+    if method_is_executable_body(body):
+        assert_golden_samples(body)
     definition = MethodDefinition(
         method_id=method_id,
         revision_hash=_revision_hash(body),
@@ -295,6 +297,97 @@ def as_method_refs(value: object) -> tuple[MethodRef, ...]:
                 MethodRef(str(item["method_id"]), str(item.get("revision_hash") or ""))
             )
     return tuple(refs)
+
+
+def method_body_payload(body: str) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def method_is_executable_body(body: str) -> bool:
+    payload = method_body_payload(body)
+    return bool(payload and payload.get("executable") is True)
+
+
+def method_is_executable(definition: MethodDefinition) -> bool:
+    if definition.source is MethodSource.PRESET:
+        return True
+    return method_is_executable_body(definition.body)
+
+
+def _threshold_passes(payload: dict[str, Any], observed: float) -> bool:
+    threshold = float(payload["threshold"])
+    comparison = str(payload.get("comparison", ">="))
+    if comparison == ">=":
+        return observed >= threshold
+    if comparison == "<=":
+        return observed <= threshold
+    raise ValueError(f"unsupported comparison {comparison}")
+
+
+def assert_golden_samples(body: str) -> None:
+    """Freeze an executable operator only after a pass sample and a fail sample."""
+    payload = method_body_payload(body)
+    if payload is None:
+        raise ValueError("executable method requires golden pass and fail samples")
+    samples = payload.get("samples")
+    if not isinstance(samples, list) or len(samples) < 2:
+        raise ValueError("executable method requires golden pass and fail samples")
+    saw_pass = False
+    saw_fail = False
+    for sample in samples:
+        if not isinstance(sample, dict):
+            raise TypeError("golden sample mismatch")
+        expect = bool(sample.get("expect_pass"))
+        raw_input = sample.get("input")
+        if not isinstance(raw_input, dict) or "value" not in raw_input:
+            raise ValueError("golden sample mismatch")
+        actual = _threshold_passes(payload, float(raw_input["value"]))
+        if actual != expect:
+            raise ValueError("golden sample mismatch")
+        saw_pass = saw_pass or expect
+        saw_fail = saw_fail or not expect
+    if not (saw_pass and saw_fail):
+        raise ValueError("executable method requires both a passing and a failing golden sample")
+
+
+def execute_method_revision(
+    store: SQLiteStore,
+    method_id: str,
+    revision: str,
+    observed: float,
+) -> bool:
+    definition = store.get_method_definition(method_id, revision)
+    if definition is None:
+        raise ValueError("unregistered method revision")
+    if not method_is_executable(definition):
+        raise ValueError("unimplemented method cannot be executed or counted as passed")
+    payload = method_body_payload(definition.body)
+    if payload is None or "threshold" not in payload:
+        raise ValueError("unregistered method revision")
+    return _threshold_passes(payload, float(observed))
+
+
+def suggest_method_refs(
+    store: SQLiteStore,
+    query: str = "",
+) -> tuple[tuple[MethodRef, ...], tuple[str, ...]]:
+    """Executable MethodRefs, then unimplemented suggestions that cannot pass."""
+    needle = query.strip().lower()
+    executable: list[MethodRef] = []
+    suggestions: list[str] = []
+    for item in store.list_method_definitions():
+        haystack = f"{item.method_id} {item.name}".lower()
+        if needle and needle not in haystack:
+            continue
+        if method_is_executable(item):
+            executable.append(MethodRef(item.method_id, item.revision_hash))
+        else:
+            suggestions.append(item.method_id)
+    return tuple(executable), tuple(suggestions)
 
 
 def deposit_confirmed_methods(store: SQLiteStore, research: Research, now: datetime) -> None:

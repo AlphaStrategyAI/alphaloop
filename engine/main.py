@@ -12,7 +12,7 @@ import time
 import uuid
 from contextvars import ContextVar
 from dataclasses import replace
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -20,7 +20,6 @@ from urllib.parse import unquote
 
 import httpx
 import jsonschema
-import pandas as pd
 
 from engine.dialogue.slots import first_open_slot, unlock_all_slots, unlock_slot
 from engine.dialogue.pool_errors import (
@@ -67,20 +66,12 @@ from engine.research.method_body_display import (
 )
 from engine.research.method_labels import format_methods_display
 from engine.dialogue.turns import dialogue_turn_view, process_send_dialogue
-from engine.export_paths import export_zip_filename
-from engine.export import (
-    build_research_record_pack,
-    build_strategy_pack,
-    mark_exports_overturned,
-    strategy_pack_eligibility,
-)
+from engine.export import strategy_pack_eligibility
 from engine.research.clock import TimeBudget
 from engine.research.gather import (
     LocalMaterialAdapter,
     PapersAdapter,
     SecEdgarAdapter,
-    pit_evidence_annotations,
-    pit_evidence_from_payloads,
 )
 from engine.research.desktop_view import (
     format_coverage_floor_display,
@@ -135,15 +126,12 @@ from engine.research.models import (
     AnomalyPresentation,
     EvidenceKind,
     EvidenceRef,
-    ExportKind,
-    ExportRecord,
     MethodSource,
     Research,
     ResearchAction,
     ConfirmKind,
     ResearchEvent,
     ResearchStatus,
-    Reverification,
     Slot,
     detect_anomalies,
     new_research,
@@ -165,7 +153,6 @@ from engine.research.runtime import (
     publish_ready,
     read_live_owner,
 )
-from engine.research.simulate import simulate_daily
 from engine.research.state_machine import InvalidTransition, all_slots_locked, transition
 from engine.research.command_journal import (
     CommandJournal,
@@ -176,9 +163,6 @@ from engine.research.command_journal import (
 from engine.research.store import ConcurrentWrite, SQLiteStore
 from engine.review.deterministic import DeterministicReviewer
 from engine.review.subagent import LLMPort, OpenAICompatibleLLM, SubagentReviewer
-from engine.strategy import MarketPanel, MeanReversionStrategy
-from engine.verifiers import method_set_excluding_pit, recorded_pit_revision, run_verifiers
-
 PROTOCOL_VERSION = 1
 
 _ACTION_LABELS = {
@@ -367,7 +351,12 @@ class ResearchCommandService:
                 self._research_locks[research_id] = lock
             return lock
 
-    def _save(self, before: Research, after: Research) -> dict[str, Any]:
+    def _save(
+        self,
+        before: Research,
+        after: Research,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if self.budget is not None:
             if before.status is ResearchStatus.RUNNING and after.status is not ResearchStatus.RUNNING:
                 after = self.budget.finish(after)
@@ -389,6 +378,8 @@ class ResearchCommandService:
         event = notification_event(before.status, after.status)
         if event is not None:
             base["notify"] = event
+        if extra:
+            base.update(extra)
         if request is not None and command_envelope(request) is not None:
             payload = self.journal.commit(
                 request, before, after, event_kind, base, refs=refs
@@ -1056,6 +1047,7 @@ class ResearchCommandService:
                     "noPendingConfirm": "no_pending_confirm" not in eligibility.failed_checks,
                     "reverifiesPassed": "all_reverifies_passed" not in eligibility.failed_checks,
                     "pitExecutedAndPassed": "pit_executed_and_passed" not in eligibility.failed_checks,
+                    "coverageSatisfied": "coverage_satisfied" not in eligibility.failed_checks,
                 },
                 "overturnedExports": any(item.overturned for item in research.exports),
                 "currentAction": _ACTION_LABELS[research.current_action],
@@ -1535,12 +1527,43 @@ class ResearchCommandService:
         if kind == "send_dialogue":
             from engine.dialogue.proposal import LlmDraftProposer
 
+            def _perform_dialogue(current: Research, command: dict[str, Any]) -> Research:
+                command_kind = str(command["type"])
+                if command_kind == "pause":
+                    return transition(current, ResearchEvent.PAUSE, now)
+                if command_kind == "resume":
+                    return transition(current, ResearchEvent.RESUME, now)
+                if command_kind == "reverify":
+                    from engine.research.reverify_run import reverify_round
+
+                    return reverify_round(current, command, now, self.store)
+                if command_kind == "continue_iterate":
+                    validate_continue_iterate_confirm(
+                        current,
+                        user_confirmed=bool(command.get("user_confirmed")),
+                        high_suspicion_acknowledged=bool(
+                            command.get("high_suspicion_acknowledged")
+                        ),
+                        store=self.store,
+                    )
+                    assert_can_manual_continue(current)
+                    boosted = replace(
+                        current,
+                        implementation_trial_budget=(
+                            current.implementation_trial_budget + trial_budget_increment()
+                        ),
+                    )
+                    return transition(boosted, ResearchEvent.CONTINUE_ITERATE, now)
+                raise ValueError(f"unknown dialogue command: {command_kind}")
+
             updated = process_send_dialogue(
                 research,
                 request["message"],
                 now,
                 proposer=LlmDraftProposer(self.paths.data.settings_file),
                 base_revision=self.store.revision_of(research.research_id),
+                store=self.store,
+                perform=_perform_dialogue,
             )
         elif kind == "unlock_brief":
             from engine.dialogue.prompts import QUESTIONS, SlotName
@@ -1576,8 +1599,10 @@ class ResearchCommandService:
                     "RUNNING_CANNOT_MODIFY",
                     "研究仍在运行中，请先暂停再确认修改。",
                 )
+            from engine.dialogue.actions import apply_logic_proposal
             from engine.dialogue.modification import brief_differs_from_latest_version
 
+            research = apply_logic_proposal(research)
             if not brief_differs_from_latest_version(research):
                 raise UserFacingError(
                     "MODIFICATION_UNCHANGED",
@@ -1631,6 +1656,19 @@ class ResearchCommandService:
             updated = transition(extended, ResearchEvent.EXTEND_CONFIRM, now)
             self._record_version_methods(updated)
         elif kind == "resolve_confirm":
+            pending = research.pending_confirm
+            if pending is None:
+                raise ValueError("resolve_confirm requires a pending confirm card")
+            request_id = request.get("request_id")
+            if isinstance(request_id, str) and request_id and request_id != pending.request_id:
+                raise ValueError("stale or cross-research confirm card")
+            card_research = request.get("card_research_id")
+            if (
+                isinstance(card_research, str)
+                and card_research
+                and card_research != research.research_id
+            ):
+                raise ValueError("stale or cross-research confirm card")
             event = {
                 "approve_new_version": ResearchEvent.CONFIRM_APPROVE,
                 "reject_keep_logic": ResearchEvent.CONFIRM_REJECT,
@@ -1680,149 +1718,34 @@ class ResearchCommandService:
                     patch.get("round1_methods") or patch.get("method_set"),
                 )
         elif kind == "reverify":
-            matching = [
-                round_
-                for version in research.versions
-                for round_ in version.rounds
-                if round_.round_id == request["round_id"]
-            ]
-            if len(matching) != 1:
-                raise ValueError("reverify requires one frozen round_id")
-            accepted = matching[0].accepted_attempt
-            if accepted.data_snapshot_path is None:
-                raise ValueError("reverify requires the selected round's frozen data")
-            frozen = pd.read_csv(
-                accepted.data_snapshot_path,
-                index_col="date",
-                parse_dates=True,
-            )
+            from engine.research.reverify_run import reverify_round
 
-            class FrozenDataPort:
-                def load_daily(
-                    self,
-                    symbols: tuple[str, ...],
-                    start: date,
-                    end: date,
-                ) -> pd.DataFrame:
-                    if symbols == (accepted.simulation.benchmark_id,):
-                        return frozen[["__benchmark__"]].rename(
-                            columns={"__benchmark__": accepted.simulation.benchmark_id}
-                        )
-                    return frozen[list(symbols)]
+            updated = reverify_round(research, request, now, self.store)
+        elif kind == "export_artifact":
+            from engine.research.publish import publish_export
 
-            rerun_simulation = simulate_daily(
-                MeanReversionStrategy(accepted.spec),
-                FrozenDataPort(),
-                frozen.index.min().date(),
-                frozen.index.max().date(),
-            )
-            pit_revision = recorded_pit_revision(accepted.verification)
-            evidence_payloads = tuple(
-                json.loads(path.read_text(encoding="utf-8"))
-                for path in accepted.evidence_paths
-            )
-            evidence_as_of, missing_as_of, undated_excluded = pit_evidence_from_payloads(
-                evidence_payloads,
-                revision=pit_revision,
-            )
-            rerun = run_verifiers(
-                rerun_simulation,
-                accepted.spec,
-                evidence_as_of=evidence_as_of,
-                missing_as_of_material_ids=missing_as_of,
-                undated_excluded=undated_excluded,
-                evidence_annotations=pit_evidence_annotations(evidence_payloads),
-                pit_revision=pit_revision,
-            )
-            matching_method = [
-                result
-                for result in rerun.results
-                if result.verifier_id == request["method_id"]
-            ]
-            if len(matching_method) != 1:
-                raise ValueError("method_id is not frozen on the selected round")
-            record = Reverification(
-                round_id=request["round_id"],
-                method_id=request["method_id"],
-                report=rerun,
-                passed=matching_method[0].passed,
-                created_at=now,
-            )
-            with_rerun = replace(
+            updated, destination, fingerprint, command_id = publish_export(
+                self.store,
+                self.paths,
                 research,
-                reverifications=research.reverifications + (record,),
-                updated_at=now,
-            )
-            if not record.passed:
-                with_rerun = mark_exports_overturned(with_rerun)
-            updated = transition(
-                with_rerun,
-                ResearchEvent.REVERIFY_PASS
-                if record.passed
-                else ResearchEvent.REVERIFY_FAIL,
+                request,
                 now,
             )
-        elif kind == "export_artifact":
-            export_root = self.paths.data.exports_dir
-            export_root.mkdir(parents=True, exist_ok=True)
-            eligibility = strategy_pack_eligibility(research)
-            if request["kind"] == "research_record":
-                destination = export_root / export_zip_filename(
-                    research, "research_record", now=now
-                )
-                build_research_record_pack(research, destination)
-                export_kind = ExportKind.RESEARCH_RECORD
-                failed_checks = eligibility.failed_checks
-            else:
-                if not eligibility.eligible:
-                    raise ValueError(
-                        f"research is not strategy-pack eligible: {eligibility.failed_checks}"
-                    )
-                if not research.versions or not research.versions[-1].rounds:
-                    raise ValueError("strategy pack requires a completed round")
-                attempt = research.versions[-1].rounds[-1].accepted_attempt
-                if attempt.data_snapshot_path is None:
-                    raise ValueError("strategy pack requires a frozen data snapshot")
-                snapshot = pd.read_csv(
-                    attempt.data_snapshot_path,
-                    index_col="date",
-                    parse_dates=True,
-                )
-                prices = snapshot.drop(columns=["__benchmark__"], errors="ignore")
-                benchmark = (
-                    snapshot["__benchmark__"]
-                    if "__benchmark__" in snapshot.columns
-                    else None
-                )
-                destination = export_root / export_zip_filename(
-                    research, "strategy_pack", now=now
-                )
-                build_strategy_pack(
-                    research,
-                    MeanReversionStrategy(attempt.spec),
-                    MarketPanel(prices, now, benchmark),
-                    destination,
-                )
-                export_kind = ExportKind.STRATEGY_PACK
-                failed_checks = ()
-            updated = replace(
-                research,
-                exports=research.exports
-                + (
-                    ExportRecord(
-                        str(uuid.uuid4()),
-                        export_kind,
-                        str(destination),
-                        research.current_version_number,
-                        now,
-                        failed_checks,
-                        False,
-                    ),
-                ),
-                updated_at=now,
-            )
-            payload = self._save(research, updated)
-            payload["path"] = str(destination)
+            extra = {
+                "path": str(destination),
+                "fingerprint": fingerprint,
+                "command_id": command_id,
+            }
+            if updated.exports == research.exports and updated.updated_at == research.updated_at:
+                payload = {
+                    "research_id": research.research_id,
+                    "status": research.status.value,
+                    "revision": self.store.revision_of(research.research_id),
+                    **extra,
+                }
+                return payload
+            payload = self._save(research, updated, extra=extra)
+            payload["path"] = extra["path"]
             return payload
         else:
             raise ValueError(f"unknown desktop request type: {kind}")

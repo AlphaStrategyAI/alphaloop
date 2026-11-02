@@ -21,6 +21,8 @@ GATE_IDS: dict[str, str] = {
     "no_pending_confirm": "仍有待确认项",
     "all_reverifies_passed": "重新验证未全部通过",
     "pit_executed_and_passed": "时点一致性未通过或未执行",
+    "coverage_satisfied": "数据覆盖未达到冻结底线",
+    "evidence_grade": "证据等级不能交策略包",
 }
 
 MODEL_FAMILY: dict[str, str] = {

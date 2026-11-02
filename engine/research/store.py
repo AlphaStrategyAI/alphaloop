@@ -520,6 +520,18 @@ class SQLiteStore(RoundRecoveryMixin):
                 ON research_event(research_id, seq);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_command_receipt_operation
                 ON command_receipt(operation_key) WHERE operation_key IS NOT NULL;
+            CREATE TABLE IF NOT EXISTS publish_authorization (
+                research_id TEXT NOT NULL,
+                command_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                snapshot_hash TEXT NOT NULL,
+                private_path TEXT NOT NULL,
+                final_path TEXT NOT NULL,
+                receipt_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (research_id, command_id)
+            );
             """
         )
         self._backfill_status_column()
@@ -617,6 +629,22 @@ class SQLiteStore(RoundRecoveryMixin):
             data.setdefault("candidate_policy", None)
             data.setdefault("candidate_stop_reason", "")
             data.setdefault("candidate_stop_explanation", "")
+            data.setdefault("reverification_audit", [])
+            data.setdefault("logic_proposal", None)
+            for bucket in (data.get("reverifications"), data.get("reverification_audit")):
+                for item in bucket or []:
+                    if isinstance(item, dict):
+                        item.setdefault("version_number", None)
+                        item.setdefault("revision", "")
+                        item.setdefault("input_hash", "")
+            for item in data.get("exports") or []:
+                if isinstance(item, dict):
+                    item.setdefault("round_id", None)
+                    item.setdefault("input_hash", None)
+                    item.setdefault("method_revision", None)
+                    item.setdefault("association", "")
+                    item.setdefault("fingerprint", "")
+                    item.setdefault("command_id", "")
             for version in data.get("versions") or []:
                 if isinstance(version, dict):
                     version.setdefault("effective_spec_snapshot", None)
@@ -1189,4 +1217,62 @@ class SQLiteStore(RoundRecoveryMixin):
             self.connection.execute(
                 "INSERT INTO engine_errors(research_id,message,created_at) VALUES(?,?,?)",
                 (research_id, message, now.isoformat()),
+            )
+
+    def get_publish_authorization(self, research_id: str, command_id: str) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            """
+            SELECT kind, fingerprint, snapshot_hash, private_path, final_path,
+                   receipt_json, created_at
+              FROM publish_authorization
+             WHERE research_id=? AND command_id=?
+            """,
+            (research_id, command_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "research_id": research_id,
+            "command_id": command_id,
+            "kind": row[0],
+            "fingerprint": row[1],
+            "snapshot_hash": row[2],
+            "private_path": row[3],
+            "final_path": row[4],
+            "receipt_json": row[5],
+            "created_at": row[6],
+        }
+
+    def insert_publish_authorization(
+        self,
+        *,
+        research_id: str,
+        command_id: str,
+        kind: str,
+        fingerprint: str,
+        snapshot_hash: str,
+        private_path: str,
+        final_path: str,
+        receipt_json: str,
+        created_at: str,
+    ) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO publish_authorization(
+                    research_id, command_id, kind, fingerprint, snapshot_hash,
+                    private_path, final_path, receipt_json, created_at
+                ) VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    research_id,
+                    command_id,
+                    kind,
+                    fingerprint,
+                    snapshot_hash,
+                    private_path,
+                    final_path,
+                    receipt_json,
+                    created_at,
+                ),
             )

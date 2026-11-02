@@ -321,10 +321,23 @@ def process_send_dialogue(
     *,
     proposer: object | None = None,
     base_revision: int = 0,
+    store: object | None = None,
+    perform: object | None = None,
 ) -> Research:
     text = message.strip()
     if not text:
         raise ValueError("message must not be empty")
+    from engine.dialogue.actions import apply_runtime_dialogue
+
+    routed = apply_runtime_dialogue(
+        research,
+        text,
+        now,
+        store=store,
+        perform=perform,  # type: ignore[arg-type]
+    )
+    if routed is not None:
+        return routed
     if research.status is not ResearchStatus.DRAFT:
         from engine.dialogue.modification import process_modification_dialogue
 
