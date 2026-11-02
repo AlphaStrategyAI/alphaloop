@@ -22,6 +22,7 @@
    - Missing Linux or missing macOS full matrix = `BLOCKED` (never silent PASS). Without Linux full PASS, macOS full PASS, and Windows thickened bar PASS, do **not** claim 全量 PASS.
 7. Case scope: every case in tables A–O applies on both Linux and macOS unless marked Windows-only (C3). Windows is not a third full GUI matrix; it uses the thickened bar below.
 8. Evidence: `docs/reports/YYYY-MM-DD-release-vX.Y.Z-product.md` (draft runs may live under `/workspace/v0XY-smoke/` until the template is in-repo).
+9. Dialogue-driven research opens only after the product matrix below, including section P. The holdout file is a harness and a seal, not a scored 114/120. Cite `docs/requirements/dialogue-holdout-v1.md` and the seal SHA. Do not mark the dialogue gate PASS from the representative subset alone.
 
 ### Windows e2e ↔ matrix map
 
@@ -37,6 +38,7 @@ Windows is **not** a third full GUI matrix. **全量 PASS** = Linux full PASS + 
    - F1-equivalent: Run stays disabled before confirm/source ready
    - G path: run → conclusion → export (offline market data allowed **only** inside windows-e2e; does **not** replace Linux/macOS real-source G1/G2)
    - H1 delete-while-running; H2 persist across relaunch; H3 uninstall
+   - Settings → General dialogue-driven research card: default off, English copy has no CJK, write-gate cue visible (`dialogue-rollout` in `windows_gui_e2e.py` and `macos_gui_e2e.py`)
 3. **Coverage gaps to close in e2e** (list as Windows e2e targets 开发小牛 must add; until automated, 产品小马 spot-checks them when a Windows host is available): **B2/B3** English slot examples parse; **F1** explicit no-source + N3 copy; **I2** real LLM settings page.
 4. 产品小马 **spot-check**: always cite the candidate’s windows-e2e run URL + step summary/screenshots in the evidence report; plus live Windows GUI for any still-unmapped target in (3) when a Windows host is available. If those targets are not yet in e2e and no Windows host is available, record them Windows `BLOCKED` and **do not** claim Windows thickened PASS.
 
@@ -184,6 +186,23 @@ Cases only. An older M1 inventory is not already PASS.
 | O5 | Old DB open | Launch with older research.db if available | History opens; old PIT semantics; missing fields neutral defaults | P1 | No crash on old data |
 | O6 | Completed counters | Completed page | 本研究累计 N 轮 + 全局累计; window/cutoff labels; PIT pass vs not-executed distinct | P1 | Counters honest |
 
+## P. Dialogue open, holdout, and rollback
+
+Product-open conditions for dialogue-driven research. The switch stays off until this section is PASS on a candidate package. Offline or synthetic runs do not replace the real-source rows.
+
+| ID | Case | Steps (summary) | Expect | Pri | PASS when |
+| --- | --- | --- | --- | --- | --- |
+| P1 | Holdout harness cited | Read the seal and the score report for this build | Seal SHA matches `tests/data/dialogue_holdout_seal.json`. Claim is not "114/120" unless a 120-case set was actually scored. Danger interception on the scored set is 100%. Report lists build SHA, model, prompt revision, capability-table revision, run mode, denominators, and failing sample ids | P0 | Citation matches the seal; no invented score |
+| P2 | Install matrix | Same candidate on Linux and macOS, full matrix A–O plus this section. Windows thickened bar includes `dialogue-rollout` | Linux full PASS, macOS full PASS, Windows `windows-e2e` green with the dialogue card step | P0 | Three bars cited for one build SHA |
+| P3 | Real-source US | Linux and macOS, Yahoo, dialogue switch explicitly on for this session | Confirm card, then a real US quote path. Record the evidence fields below | P0 | Not the offline badge |
+| P4 | Real-source A-share | Linux and macOS, AkShare/Sina, switch explicitly on | Same for one A-share name | P0 | Not the offline badge |
+| P5 | Export panels | Controllable panel, switch on | One success export and one eligibility failure. Research record still available when the strategy pack is refused. Fingerprints match the dialogue | P0 | Both panels saved |
+| P6 | Relaunch, offline, sidecar | Quit and reopen; block the network; stop and restart the sidecar | Old research, paused work, pending cards, and replayed command ids match the SQLite file and package fingerprints | P0 | No split brain |
+| P7 | Switch off | Fresh data dir, or the packaged default | Slot rules and the existing buttons still complete a draft and a pause. New runtime questions do not run | P0 | Default off is visible in Settings |
+| P8 | Rollback drill | Before upgrade: SQLite consistency backup plus linked snapshots. Restore into an empty temp data directory | Integrity check passes, snapshot hashes match, `command_receipt` is present. A write-gate trip keeps the journal and blocks new dialogue writes | P1 | Temp restore checked before any binary rollback |
+
+Evidence fields every P row must carry when a session is saved: build SHA, model id, prompt revision, capability-table revision, run mode (`unconfigured`, `simulated endpoint`, or `approved endpoint`), sample denominator, and failing sample ids (or `none`).
+
 ## Verdict template (copy into the evidence report)
 
 ```text
@@ -198,6 +217,8 @@ Verdict: 全量 PASS | 有阻塞
 Signer: 产品小马
 Time (Asia/Shanghai): …
 Package-level gate: 开发小牛 REPORT (out of scope for this matrix)
+Dialogue holdout: seal <sha> label <label> scored_against_model=false|report <path>
+Dialogue evidence: build SHA, model, prompt revision, capability-table revision, run mode, denominator, failing sample ids
 ```
 
 ## Revision history
@@ -210,3 +231,4 @@ Package-level gate: 开发小牛 REPORT (out of scope for this matrix)
 | 2026-10-28 | Require macOS full matrix on Mac Mini/Mac Pro/equivalent; 全量 PASS = Linux + macOS; Windows light bar unchanged. Ship surfaces include Mac installers; Linux-only GUI PASS left Mac packages unexercised for product acceptance. |
 | 2026-10-28 | Windows option 2: thicken windows-e2e + product spot-check. Windows is not a third full GUI matrix. 全量 PASS = Linux full PASS + macOS full PASS + Windows thickened bar PASS. `windows-e2e` green is required; the install+About+US **or** cite-e2e swap is removed. Gaps B2/B3, F1 explicit N3 copy, and I2 stay spot-check until 开发小牛 adds them. Automate Windows installer GUI coverage in CI instead of a third full hand matrix; keep Linux+macOS as the dual full-matrix truth. |
 | 2026-11-01 | `macos-e2e` is a GitHub CI entry next to `windows-e2e`. It runs on `macos-15`, unpacks the ad-hoc `.app`, and drives the GUI trunk with offline market data. It does not replace the macOS full product matrix or real-source G1/G2. |
+| 2026-11-02 | Section P: dialogue open requires the holdout seal citation (not an invented 114/120), Linux+macOS real-source US and A-share paths, success and failure export panels, relaunch/offline/sidecar consistency, and the evidence fields. `dialogue-rollout` is part of the Windows and macOS GUI trunks. The packaged switch stays off. |

@@ -1,4 +1,5 @@
 mod commands;
+mod dialogue_settings;
 mod engine_paths;
 mod secrets;
 mod llm_settings;
@@ -333,6 +334,8 @@ pub fn run() {
             commands::set_ui_language,
             commands::get_llm_settings,
             commands::set_llm_settings,
+            commands::get_dialogue_rollout,
+            commands::set_dialogue_rollout,
             commands::read_system_locale,
             commands::set_engine_locale,
             commands::secret_store_status,

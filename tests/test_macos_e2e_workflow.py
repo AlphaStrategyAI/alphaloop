@@ -82,6 +82,7 @@ def test_gui_script_registers_the_windows_trunk_steps() -> None:
         "en-methods-coverage",
         "no-source-n3",
         "llm-settings",
+        "dialogue-rollout",
         "conclusion",
         "delete-running",
         "persist",
@@ -93,6 +94,7 @@ def test_gui_script_registers_the_windows_trunk_steps() -> None:
         "step_en_methods_coverage",
         "step_no_source_n3",
         "step_llm_settings",
+        "step_dialogue_rollout",
     ):
         assert f"def {name}" in text
     assert "taskkill" not in text

@@ -12,6 +12,7 @@ import {listRowStatusKey} from "../listStatusDisplay";
 import {railStatusKey} from "../railStatus";
 import {BrandMark} from "../BrandMark";
 import type {Translate} from "./shared";
+import {EvidenceGradeNote} from "./EvidenceGradeNote";
 import {AnomalyChecklist, renderSettingsProse} from "./shared";
 
 export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract<DesktopView, {kind: "awaiting_confirm"}>}) {
@@ -38,6 +39,7 @@ export function AwaitingConfirmCard({api, view}: {api: DesktopApi; view: Extract
   return (
     <article className="awaiting-card tech-pulse-card" data-testid="awaiting-confirm-card">
       <p className="tech-pulse-eyebrow">{t("ui.awaiting.eyebrow")}</p>
+      <EvidenceGradeNote grade={view.evidenceGrade} />
       <p className="eyebrow">{t("ui.awaiting.version", {version: view.version})}</p>
       <h1>
         {isCoverage

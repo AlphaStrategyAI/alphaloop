@@ -137,6 +137,7 @@ class CommandJournal:
                 and not request.get("authorize_rebill")
                 and self.has_unknown(research_id)
             ):
+                self._trip_resend(research_id)
                 raise self._unknown_error(research_id)
             return None
         if receipt.payload_hash != payload_hash(request):
@@ -146,6 +147,7 @@ class CommandJournal:
         if receipt.status == "pending":
             return self._pending(receipt)
         if receipt.status == "unknown":
+            self._trip_resend(str(envelope["command_id"]))
             raise self._unknown_error(research_id)
         if receipt.status == "revision_conflict":
             raise self._revision_conflict(research_id, envelope["command_id"])
@@ -723,6 +725,11 @@ class CommandJournal:
             f"研究已经更新，当前修订是 {revision}。请核对差异后再确认提交。",
             params={"revision": revision, "command_id": command_id, "research_id": research_id},
         )
+
+    def _trip_resend(self, detail: str) -> None:
+        from engine.research.dialogue_rollout import note_unauthorized_resend
+
+        note_unauthorized_resend(self.store, detail)
 
     def _unknown_error(self, research_id: str) -> UserFacingError:
         return UserFacingError(

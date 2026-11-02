@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import uuid
+from contextlib import nullcontext
 from contextvars import ContextVar
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -885,6 +886,7 @@ class ResearchCommandService:
                 if gate.params:
                     gate_payload["params"] = gate.params
                 body["runGate"] = gate_payload
+            body["evidenceGrade"] = _evidence_grade_view(research)
             return self._host_payload(body, research)
         if research.status.value in {"running", "paused"}:
             version = research.current_version_number or 1
@@ -981,6 +983,7 @@ class ResearchCommandService:
                     "whoPaysOptional": request.who_pays_optional,
                     "createdAt": request.created_at.isoformat() if request.created_at else None,
                     "requestId": request.request_id,
+                    "evidenceGrade": _evidence_grade_view(research),
                 },
                 research,
             )
@@ -1089,6 +1092,9 @@ class ResearchCommandService:
                 if receipt.status == "pending":
                     return self.journal._pending(receipt)
                 if receipt.status == "unknown":
+                    from engine.research.dialogue_rollout import note_unauthorized_resend
+
+                    note_unauthorized_resend(self.store, str(command["command_id"]))
                     raise self.journal._unknown_error(research_id)
                 if receipt.status == "revision_conflict":
                     raise self.journal._revision_conflict(research_id, str(command["command_id"]))
@@ -1159,6 +1165,9 @@ class ResearchCommandService:
                 if claim.receipt.status == "committed":
                     return self.journal._replay(claim.receipt)
                 if claim.receipt.status == "unknown":
+                    from engine.research.dialogue_rollout import note_unauthorized_resend
+
+                    note_unauthorized_resend(self.store, str(command["command_id"]))
                     raise self.journal._unknown_error(research_id)
                 raise self.journal._revision_conflict(research_id, str(command["command_id"]))
             try:
@@ -1174,24 +1183,32 @@ class ResearchCommandService:
                 )
                 raise
             updated = replace(probed, construction_schedule=SCHEDULE_COST_MODEL)
-            updated = transition(updated, ResearchEvent.CONFIRM_RUN, now)
-            refs = {}
-            if isinstance(command.get("reply_to"), str) and command.get("reply_to"):
-                refs["reply_to"] = str(command["reply_to"])
-            result = self.journal.commit(
-                command,
-                research,
-                updated,
-                "confirm_run",
-                {"research_id": research_id, "status": updated.status.value},
-                refs=refs,
-                bound_snapshot=snapshot,
-                bound_version=bound_version,
-                keep_budget_on_conflict=True,
-            )
-            self._record_version_methods(updated)
-            self._observed_status[updated.research_id] = updated.status
-            return result
+            from engine.research.dialogue_rollout import version_open_guard
+
+            with version_open_guard(
+                self.store,
+                research.research_id,
+                str(command.get("command_id") or ""),
+                now,
+            ):
+                updated = transition(updated, ResearchEvent.CONFIRM_RUN, now)
+                refs = {}
+                if isinstance(command.get("reply_to"), str) and command.get("reply_to"):
+                    refs["reply_to"] = str(command["reply_to"])
+                result = self.journal.commit(
+                    command,
+                    research,
+                    updated,
+                    "confirm_run",
+                    {"research_id": research_id, "status": updated.status.value},
+                    refs=refs,
+                    bound_snapshot=snapshot,
+                    bound_version=bound_version,
+                    keep_budget_on_conflict=True,
+                )
+                self._record_version_methods(updated)
+                self._observed_status[updated.research_id] = updated.status
+                return result
 
     def _journal_confirm_failure(
         self,
@@ -1529,9 +1546,21 @@ class ResearchCommandService:
             return {"research_id": research.research_id, "deleted": True}
         if kind == "send_dialogue":
             from engine.dialogue.proposal import LlmDraftProposer
+            from engine.research.dialogue_rollout import (
+                audit_and_trip,
+                new_dialogue_writes_open,
+                note_unauthorized_execution,
+            )
+            from engine.research.state_machine import executable_commands
+
+            audit_and_trip(self.store)
+            dialogue_v2 = new_dialogue_writes_open(self.store, self.paths.data.settings_file)
 
             def _perform_dialogue(current: Research, command: dict[str, Any]) -> Research:
                 command_kind = str(command["type"])
+                if command_kind not in executable_commands(current.status):
+                    note_unauthorized_execution(self.store, command_kind)
+                    raise ValueError(f"unauthorized dialogue command: {command_kind}")
                 if command_kind == "pause":
                     return transition(current, ResearchEvent.PAUSE, now)
                 if command_kind == "resume":
@@ -1563,10 +1592,12 @@ class ResearchCommandService:
                 research,
                 request["message"],
                 now,
-                proposer=LlmDraftProposer(self.paths.data.settings_file),
+                proposer=LlmDraftProposer(self.paths.data.settings_file) if dialogue_v2 else None,
                 base_revision=self.store.revision_of(research.research_id),
                 store=self.store,
                 perform=_perform_dialogue,
+                dialogue_v2=dialogue_v2,
+                settings_path=self.paths.data.settings_file,
             )
         elif kind == "unlock_brief":
             from engine.dialogue.prompts import QUESTIONS, SlotName
@@ -1615,7 +1646,15 @@ class ResearchCommandService:
             if research.versions:
                 previous = research.versions[-1].brief_snapshot.thesis.value or ""
             proposed = research.brief.thesis.value or ""
-            updated = transition(research, ResearchEvent.MODIFY_CONFIRM, now)
+            from engine.research.dialogue_rollout import version_open_guard
+
+            with version_open_guard(
+                self.store,
+                research.research_id,
+                str(request.get("command_id") or ""),
+                now,
+            ):
+                updated = transition(research, ResearchEvent.MODIFY_CONFIRM, now)
             from engine.dialogue.modification import finalize_modification_confirm_dialogue
 
             updated = finalize_modification_confirm_dialogue(updated, now)
@@ -1656,7 +1695,15 @@ class ResearchCommandService:
                 ),
                 updated_at=now,
             )
-            updated = transition(extended, ResearchEvent.EXTEND_CONFIRM, now)
+            from engine.research.dialogue_rollout import version_open_guard
+
+            with version_open_guard(
+                self.store,
+                extended.research_id,
+                str(request.get("command_id") or ""),
+                now,
+            ):
+                updated = transition(extended, ResearchEvent.EXTEND_CONFIRM, now)
             self._record_version_methods(updated)
         elif kind == "resolve_confirm":
             pending = research.pending_confirm
@@ -1713,7 +1760,20 @@ class ResearchCommandService:
                 research = replace(research, pending_confirm=pending)
             if event is ResearchEvent.CONFIRM_APPROVE:
                 deposit_confirmed_methods(self.store, research, now)
-            updated = transition(research, event, now, store=self.store)
+            from engine.research.dialogue_rollout import version_open_guard
+
+            guard = (
+                version_open_guard(
+                    self.store,
+                    research.research_id,
+                    str(request.get("command_id") or ""),
+                    now,
+                )
+                if event is ResearchEvent.CONFIRM_APPROVE
+                else nullcontext()
+            )
+            with guard:
+                updated = transition(research, event, now, store=self.store)
             if event is ResearchEvent.CONFIRM_APPROVE:
                 patch = dict(research.pending_confirm.patch) if research.pending_confirm else {}
                 self._record_version_methods(
@@ -1855,6 +1915,9 @@ def advance_running_research(
 
     if not store.try_acquire_worker(research_id):
         return
+    from engine.research.dialogue_rollout import audit_and_trip
+
+    audit_and_trip(store)
     try:
         try:
             loop.run_once(research_id)

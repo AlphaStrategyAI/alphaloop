@@ -1,0 +1,14 @@
+{
+  "algorithm": "sha256",
+  "corpus_sha256": "c87ee97d3276b7bbd450cc1e6b35c647b33dd37fcf918574818c1b3372ff7f0b",
+  "label": "holdout-2026-11-02-representative",
+  "schema": "dialogue-holdout-v1",
+  "status": "representative-subset",
+  "target_sessions": 120,
+  "threshold_total": 114,
+  "threshold_per_group": 18,
+  "sessions_sealed": 32,
+  "scored_against_model": false,
+  "claim": "not scored",
+  "note": "SHA covers dialogue_holdout_corpus.json bytes exactly. This seal locks the representative subset. It is not a 114/120 model score. Re-seal only when the annotation owner locks a new label, then fill the groups to 20 ZH/EN-balanced sessions without copying the development corpora."
+}

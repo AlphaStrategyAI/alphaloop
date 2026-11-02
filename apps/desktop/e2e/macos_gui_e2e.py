@@ -1096,6 +1096,44 @@ def main() -> int:
             win.set_language(driver, "en", "Research")
         return "LLM form saved a remote endpoint; the API key is in the vault, not settings.json"
 
+    def step_dialogue_rollout() -> str:
+        assert session is not None and session.driver is not None
+        driver = session.driver
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        win.go(driver, "#/settings/general")
+        win.wait_css(driver, "[data-testid=dialogue-rollout-card]")
+        WebDriverWait(driver, 20).until(
+            lambda d: d.find_element(By.CSS_SELECTOR, "[data-testid=dialogue-rollout-card]").get_attribute(
+                "data-loaded"
+            )
+            == "true"
+        )
+        card = driver.find_element(By.CSS_SELECTOR, "[data-testid=dialogue-rollout-card]")
+        if card.get_attribute("data-dialogue-default") != "off":
+            raise AssertionError("dialogue-driven research is not off by default")
+        if card.get_attribute("data-write-gate") != "open":
+            raise AssertionError("write gate should stay open until a fault is recorded")
+        toggle = driver.find_element(By.CSS_SELECTOR, "[data-testid=dialogue-rollout-enabled]")
+        if toggle.is_selected():
+            raise AssertionError("dialogue rollout checkbox is selected")
+        text = card.text
+        if win.CJK.search(text):
+            raise AssertionError(f"English dialogue rollout card contains CJK: {text[:300]}")
+        for sentence in (
+            "Dialogue-driven research",
+            "Off by default",
+            "original slot rules",
+            "command journal stays",
+            "Packages ship this off",
+            "Write gate open",
+        ):
+            if sentence not in text:
+                raise AssertionError(f"dialogue rollout card missing {sentence!r}: {text[:400]}")
+        shoot("dialogue-rollout")
+        return "dialogue-driven research stays off; the write-gate cue is visible and the journal note is shown"
+
     def step_disclosed_family_buttons() -> str:
         assert session is not None and session.driver is not None
         from selenium.webdriver.common.by import By
@@ -1323,6 +1361,11 @@ def main() -> int:
             "LLM settings form stores the endpoint and vaults the API key",
             "llm-settings",
             step_llm_settings,
+        )
+        run_step(
+            "dialogue research stays off and shows the write-gate rollback cue",
+            "dialogue-rollout",
+            step_dialogue_rollout,
         )
         run_step("run to conclusion and export a file", "conclusion", step_run_and_export)
         run_step("delete a running research; engine stays up", "delete-running", step_delete_running)

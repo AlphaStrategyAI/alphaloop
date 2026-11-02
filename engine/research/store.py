@@ -444,6 +444,10 @@ class SQLiteStore(RoundRecoveryMixin):
         self._migrate_command_journal()
         self._migrate_round_recovery()
         self._recover_pending_receipts()
+        from engine.research.dialogue_rollout import ensure_rollout_tables, publish_gate_file
+
+        ensure_rollout_tables(self)
+        publish_gate_file(self)
 
     def _migrate_review_attempts_schema(self) -> None:
         row = self.connection.execute(
