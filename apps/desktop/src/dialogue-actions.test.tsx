@@ -60,6 +60,34 @@ describe("dialogue and buttons share commands", () => {
     expect(commandForUtterance("what are we doing")).toEqual({type: "send_dialogue", message: "what are we doing"});
   });
 
+  it("shows the English brief on the conclusion page", () => {
+    const cjk = /[\u3400-\u9fff]/;
+    render(
+      <I18nProvider initial={{preference: "en", systemLocale: "en-US", resolved: "en"}}>
+        <CompletedScreen
+          api={minimalDesktopApi()}
+          view={{
+            ...completed,
+            recentDialogue: [
+              {role: "user", text: "美股股票 AAPL 的均值回归"},
+              {role: "user", text: "4 小时"},
+              {role: "user", text: "走样检验、样本外稳定"},
+              {role: "user", text: "至少 1 个标的、10 年、缺失不超过 5%"},
+              {role: "assistant", text: "五项研究设定已齐全，请检查确认开跑卡。"},
+            ],
+          }}
+        />
+      </I18nProvider>,
+    );
+    const log = screen.getByTestId("runtime-dialogue-log");
+    expect(log).not.toHaveTextContent("美股股票 AAPL 的均值回归");
+    expect(log).toHaveTextContent("4 h");
+    expect(log).toHaveTextContent("Subperiod robustness check, Out-of-sample stability");
+    expect(log).toHaveTextContent("At least 1 name, 10 years of data, missing no more than 5%");
+    expect(log).toHaveTextContent("All five study settings are filled in. Review the confirmation card.");
+    expect(log.textContent).not.toMatch(cjk);
+  });
+
   it("paints the assistant reply on the completed screen", () => {
     render(
       <I18nProvider initial={{preference: "zh", systemLocale: "zh-CN", resolved: "zh"}}>
