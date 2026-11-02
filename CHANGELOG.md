@@ -5,6 +5,23 @@ All notable changes to alphaloop are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] - 2026-11-02
+
+### Added
+
+- DDR PR1 (#170): command receipts, revisions, and create replay.
+- Round commit, budgets, and restart recovery, plus a zlib header retry so a bad frozen panel or gzip quote body fails as a rebuild or market-data fetch instead of a run-loop failure (#173).
+- Checkable research proposals in the dialogue (DDR PR3, #172).
+- A macOS GUI end-to-end job on macos-15, gated in GitHub Actions at Windows GUI parity (#171).
+
+### Fixed
+
+- SQLite writers reserve the database lock with `BEGIN IMMEDIATE` and share one write lock per file, so a dialogue commit no longer fails with `database is locked` when the loop store takes the lock between a deferred read and its update (#171).
+
+### Changed
+
+- The desktop app and the Python package are version 0.9.6. The v0.9.0, v0.9.1, v0.9.2, v0.9.3, v0.9.4, and v0.9.5 tags are unchanged.
+
 ## [0.9.5] - 2026-10-31
 
 ### Fixed
