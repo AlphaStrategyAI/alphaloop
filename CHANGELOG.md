@@ -5,6 +5,18 @@ All notable changes to alphaloop are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7] - 2026-11-03
+
+### Added
+
+- DDR PR4 (#175): failed evidence chooses the next attempt. A new research freezes the approved lookback and entry-z range and plans one in-range candidate from the last failed methods before simulating. Older researches keep the +5 lookback rule. The confirm card states that policy in product language, in Chinese and English.
+- DDR PR5 (#176): runtime dialogue for questions, re-verification, and export. A read-only question does not change the brief. A logic change becomes a confirm card, and the active brief stays as it is until that card is approved.
+- DDR PR6 (#177): a sealed dialogue holdout harness, and the dialogue-driven research switch. The product default is off (`dialogueDrivenResearchEnabled`).
+
+### Changed
+
+- The desktop app and the Python package are version 0.9.7. The v0.9.0, v0.9.1, v0.9.2, v0.9.3, v0.9.4, v0.9.5, and v0.9.6 tags are unchanged.
+
 ## [0.9.6] - 2026-11-02
 
 ### Added
